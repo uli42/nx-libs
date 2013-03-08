@@ -182,7 +182,7 @@ XOpenDisplay (
 /*
  * Attempt to allocate a display structure. Return NULL if allocation fails.
  */
-	if ((dpy = (Display *)Xcalloc(1, sizeof(Display))) == NULL) {
+	if ((dpy = Xcalloc(1, sizeof(Display))) == NULL) {
 		return(NULL);
 	}
 
@@ -356,8 +356,7 @@ fallback_success:
 	dpy->qlen = 0;
 
 	/* Set up free-function record */
-	if ((dpy->free_funcs = (_XFreeFuncRec *)Xcalloc(1,
-							sizeof(_XFreeFuncRec)))
+	if ((dpy->free_funcs = Xcalloc(1, sizeof(_XFreeFuncRec)))
 	    == NULL) {
 	    OutOfMemory (dpy, setup);
 	    return(NULL);
