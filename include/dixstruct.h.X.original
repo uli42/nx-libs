@@ -170,9 +170,6 @@ extern Bool SmartScheduleDisable;
 extern Bool SmartScheduleIdle;
 extern Bool SmartScheduleTimerStopped;
 extern Bool SmartScheduleStartTimer(void);
-#ifdef NXAGENT_SERVER
-extern Bool SmartScheduleStopTimer(void);
-#endif
 #define SMART_MAX_PRIORITY  (20)
 #define SMART_MIN_PRIORITY  (-20)
 
