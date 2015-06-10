@@ -1,5 +1,5 @@
 /*
- * $Id$
+ * $Id: cursor.c,v 1.6 2005/07/03 07:37:35 daniels Exp $
  *
  * Copyright © 2002 Keith Packard
  *
@@ -96,8 +96,7 @@ CursorDisplayCursor (ScreenPtr pScreen,
 	CursorCurrent = pCursor;
 	for (e = cursorEvents; e; e = e->next)
 	{
-	    if ((e->eventMask & XFixesDisplayCursorNotifyMask) &&
-		!e->pClient->clientGone)
+	    if (e->eventMask & XFixesDisplayCursorNotifyMask)
 	    {
 		xXFixesCursorNotifyEvent	ev;
 		ev.type = XFixesEventBase + XFixesCursorNotify;
