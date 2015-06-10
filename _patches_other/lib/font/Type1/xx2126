@@ -1,0 +1,12 @@
+diff -uNr xserver690/xc/lib/font/Type1/util.c nx-libs/nx-X11/lib/font/Type1/util.c
+--- xserver690/xc/lib/font/Type1/util.c	2005-07-10 01:30:07.000000000 +0200
++++ nx-libs/nx-X11/lib/font/Type1/util.c	2015-06-10 21:19:38.619212131 +0200
+@@ -104,7 +104,7 @@
+   bytes = (bytes + 7) & ~7;
+  
+   /* Allocate the space, if it is available */
+-  if (bytes <= vm_free) {
++  if (bytes > 0 && bytes <= vm_free) {
+     answer = vm_next;
+     vm_free -= bytes;
+     vm_next += bytes;

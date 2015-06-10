@@ -1,0 +1,14 @@
+diff -uNr xserver690/xc/lib/X11/MaskEvent.c nx-libs/nx-X11/lib/X11/MaskEvent.c
+--- xserver690/xc/lib/X11/MaskEvent.c	2005-05-14 00:53:44.000000000 +0200
++++ nx-libs/nx-X11/lib/X11/MaskEvent.c	2015-05-21 22:25:41.306996082 +0200
+@@ -75,5 +75,10 @@
+ 	    if (prev && prev->qserial_num != qe_serial)
+ 		/* another thread has snatched this event */
+ 		prev = NULL;
++#ifdef NX_TRANS_SOCKET
++            if (_XGetIOError(dpy)) {
++                return 0;
++            }
++#endif
+ 	}
+ }

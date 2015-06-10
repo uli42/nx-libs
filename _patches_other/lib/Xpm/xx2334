@@ -1,0 +1,15 @@
+diff -uNr xserver690/xc/lib/Xpm/Imakefile nx-libs/nx-X11/lib/Xpm/Imakefile
+--- xserver690/xc/lib/Xpm/Imakefile	2004-12-11 17:04:34.000000000 +0100
++++ nx-libs/nx-X11/lib/Xpm/Imakefile	2015-06-10 21:19:38.575211913 +0200
+@@ -2,7 +2,11 @@
+ 
+ /* This is a simplified version of the standard Xpm Imakefile */
+ 
++#ifdef SunArchitecture
++#define DoNormalLib YES
++#else
+ #define DoNormalLib NormalLibXpm
++#endif
+ #define DoSharedLib SharedLibXpm
+ #define DoExtraLib SharedLibXpm
+ #define DoDebugLib DebugLibXpm

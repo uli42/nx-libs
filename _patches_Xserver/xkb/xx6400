@@ -1,0 +1,22 @@
+diff -uNr xserver690/xc/programs/Xserver/xkb/ddxKillSrv.c xkb/ddxKillSrv.c
+--- xserver690/xc/programs/Xserver/xkb/ddxKillSrv.c	2005-07-16 05:49:59.000000000 +0200
++++ xkb/ddxKillSrv.c	2015-05-21 22:25:41.734998207 +0200
+@@ -52,10 +52,18 @@
+ int
+ XkbDDXTerminateServer(DeviceIntPtr dev,KeyCode key,XkbAction *act)
+ {
++#ifdef NXAGENT_SERVER
++
++    return 0;
++
++#else
++
+ #ifdef XF86DDXACTIONS
+     xf86ProcessActionEvent(ACTION_TERMINATE, NULL);
+ #else
+     GiveUp(1);
+ #endif
+     return 0;
++
++#endif /* NXAGENT_SERVER */
+ }

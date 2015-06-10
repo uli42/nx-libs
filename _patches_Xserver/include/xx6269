@@ -1,0 +1,13 @@
+diff -uNr xserver690/xc/programs/Xserver/include/dixstruct.h include/dixstruct.h
+--- xserver690/xc/programs/Xserver/include/dixstruct.h	2005-08-24 13:18:30.000000000 +0200
++++ include/dixstruct.h	2015-05-21 22:25:41.694998008 +0200
+@@ -170,6 +170,9 @@
+ extern Bool SmartScheduleIdle;
+ extern Bool SmartScheduleTimerStopped;
+ extern Bool SmartScheduleStartTimer(void);
++#ifdef NXAGENT_SERVER
++extern Bool SmartScheduleStopTimer(void);
++#endif
+ #define SMART_MAX_PRIORITY  (20)
+ #define SMART_MIN_PRIORITY  (-20)
+ 

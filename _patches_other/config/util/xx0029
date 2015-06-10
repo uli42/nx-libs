@@ -1,0 +1,29 @@
+diff -uNr xserver690/xc/config/util/chownxterm.c nx-libs/nx-X11/config/util/chownxterm.c
+--- xserver690/xc/config/util/chownxterm.c	2003-11-14 17:48:20.000000000 +0100
++++ nx-libs/nx-X11/config/util/chownxterm.c	2015-06-10 21:19:38.143209770 +0200
+@@ -41,8 +41,10 @@
+ 
+ void help()
+ {
+-    setgid(getgid());
+-    setuid(getuid());
++    if (setgid(getgid()) == -1) 
++	exit(1);
++    if (setuid(getuid()) == -1)
++	exit(1);
+     printf("chown-xterm makes %s suid root\n", XTERM_PATH);
+     printf("This is necessary on Ultrix for /dev/tty operation.\n");
+     exit(0);
+@@ -51,8 +53,10 @@
+ void print_error(err_string)
+     char *err_string;
+ {
+-    setgid(getgid());
+-    setuid(getuid());
++    if (setgid(getgid()) == -1)
++	exit(1);
++    if (setuid(getuid()) == -1)
++	exit(1);
+     fprintf(stderr, "%s: \"%s\"", prog_name, err_string);
+     perror(" failed");
+     exit(1);

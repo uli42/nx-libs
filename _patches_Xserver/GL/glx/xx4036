@@ -1,0 +1,12 @@
+diff -uNr xserver690/xc/programs/Xserver/GL/glx/render2swap.c GL/glx/render2swap.c
+--- xserver690/xc/programs/Xserver/GL/glx/render2swap.c	2005-09-28 05:37:22.000000000 +0200
++++ GL/glx/render2swap.c	2015-05-21 22:25:41.486996976 +0200
+@@ -43,7 +43,7 @@
+ #include "unpack.h"
+ #include "g_disptab.h"
+ #include "g_disptab_EXT.h"
+-
++#include "indirect_size.h"
+ 
+ void __glXDispSwap_Map1f(GLbyte *pc)
+ {

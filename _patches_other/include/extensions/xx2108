@@ -1,0 +1,15 @@
+diff -uNr xserver690/xc/include/extensions/XKBsrv.h nx-libs/nx-X11/include/extensions/XKBsrv.h
+--- xserver690/xc/include/extensions/XKBsrv.h	2005-09-01 21:56:14.000000000 +0200
++++ nx-libs/nx-X11/include/extensions/XKBsrv.h	2015-05-21 22:25:41.266995890 +0200
+@@ -73,6 +73,11 @@
+ #include <X11/extensions/XKBproto.h>
+ #include "inputstr.h"
+ 
++#ifdef NXAGENT_SERVER
++extern char *_NXGetXkbBasePath(const char *path);
++extern char *_NXGetXkbCompPath(const char *path);
++#endif
++
+ typedef struct _XkbInterest {
+ 	DeviceIntPtr		dev;
+ 	ClientPtr		client;

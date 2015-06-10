@@ -1,0 +1,403 @@
+diff -uNr xserver690/xc/programs/Xserver/Imakefile Imakefile
+--- xserver690/xc/programs/Xserver/Imakefile	2005-11-18 19:15:23.000000000 +0100
++++ Imakefile	2015-06-10 21:19:38.667212369 +0200
+@@ -1,5 +1,22 @@
+ XCOMM $XdotOrg: xc/programs/Xserver/Imakefile,v 1.37 2005/11/18 18:15:23 ajax Exp $
+ XCOMM $Xorg: Imakefile,v 1.4 2001/03/14 18:42:02 pookie Exp $
++/**************************************************************************/
++/*                                                                        */
++/* Copyright (c) 2001, 2011 NoMachine, http://www.nomachine.com/.         */
++/*                                                                        */
++/* NX-X11, NX protocol compression and NX extensions to this software     */
++/* are copyright of NoMachine. Redistribution and use of the present      */
++/* software is allowed according to terms specified in the file LICENSE   */
++/* which comes in the source distribution.                                */
++/*                                                                        */
++/* Check http://www.nomachine.com/licensing.html for applicability.       */
++/*                                                                        */
++/* NX and NoMachine are trademarks of Medialogic S.p.A.                   */
++/*                                                                        */
++/* All rights reserved.                                                   */
++/*                                                                        */
++/**************************************************************************/
++
+ /*
+  * Server Master Makefile
+  */
+@@ -230,7 +247,7 @@
+ #if BuildLBX || GzipFontCompression
+            ZLIB = GzipLibrary
+ #endif
+-             OS = os/LibraryTargetName(os)
++             OS = os/LibraryTargetName(os) $(DEPXAUTHLIB) $(DEPXDMCPLIB)
+         BSDEMUL = $(DEPXBSDLIB)
+ #if DoLoadableServer
+             MFB = mfb/ModuleLibraryTargetName(mfb)
+@@ -318,7 +335,7 @@
+        DBMLIBS = DBMLibrary
+ #endif
+         SYSLIBS = $(ZLIB) MathLibrary Krb5Libraries $(DBMLIBS) $(USB) \
+-		  $(PAMLIBS)  $(XAUTHLIB) $(XDMCPLIB) $(EXTRASYSLIBS)
++		  $(PAMLIBS)  $(EXTRASYSLIBS)
+ #if !HasCbrt
+            CBRT = mi/LibraryTargetName(cbrt)
+ #endif
+@@ -537,13 +554,21 @@
+ #if defined(XWinServer) && XWinServer && !MakeDllModules
+ XWIN = XWin
+ #endif
++#if defined(NXAgentServer) && NXAgentServer
++NXAGENT = nxagent
++#endif
++#if defined(NXWinServer) && NXWinServer && !MakeDllModules
++NXWIN = NXWin
++#endif
+ #if (defined(XF86Server) && XF86Server) || \
+     (defined(XorgServer) && XorgServer) || \
+     (defined(XnestServer) && XnestServer) || \
++    (defined(NXAgentServer) && NXAgentServer) || \
+     (defined(XVirtualFramebufferServer) && XVirtualFramebufferServer) || \
+     (defined(XdmxServer) && XdmxServer) || \
+-    (!MakeDllModules && defined(XWinServer) && XWinServer)
+-MakeMutex($(XF86SERVER) $(XNEST) $(XVFB) $(XWIN))
++    (!MakeDllModules && defined(XWinServer) && XWinServer) || \
++    (!MakeDllModules && defined(NXWinServer) && NXWinServer) 
++MakeMutex($(XF86SERVER) $(XNEST) $(XVFB) $(XWIN) $(NXAGENT) $(NXWIN))
+ #endif
+ MakeMutex($(STDDIRS) mfb fb cfb cfb16 cfb24 cfb32)
+ #endif
+@@ -892,6 +917,164 @@
+ 	$(LIBCWRAPPER) $(XNESTLIBS) $(LOADABLEEXTS),$(XNESTSYSLIBS))
+ #endif /* XnestServer */
+ 
++#if defined(NXAgentServer) && NXAgentServer
++XCOMM
++XCOMM Nested server with NXlib-based ddx and compressed transport.
++XCOMM
++FBSUBDIR = fb
++MIDAMAGEDIR = miext/damage
++FBDIR  = fb
++#ifndef Win32Architecture
++NXAGENTDDXDIR = hw/nxagent
++#else
++NXAGENTDDXDIR = hw
++#endif
++
++NXAGENTDIRS = $(STDDIRS) $(MFBDIR) $(FBDIR) $(MIDAMAGEDIR) $(NXAGENTDDXDIR) $(DEPDIRS)
++
++#if defined(SunArchitecture) || \
++    defined(SparcArchitecture)
++NXAGENTOBJS = hw/nxagent/miinitext.o     \
++              hw/nxagent/NXwindow.o      \
++              hw/nxagent/NXevents.o      \
++              hw/nxagent/NXproperty.o    \
++              hw/nxagent/NXdixfonts.o    \
++              hw/nxagent/NXglyphcurs.o   \
++              hw/nxagent/NXdispatch.o    \
++              hw/nxagent/NXrender.o      \
++              hw/nxagent/NXglyph.o       \
++              hw/nxagent/NXpicture.o     \
++              hw/nxagent/NXextension.o   \
++              hw/nxagent/NXglxext.o      \
++              hw/nxagent/NXmiglyph.o     \
++              hw/nxagent/NXmiexpose.o    \
++              hw/nxagent/NXresource.o    \
++              hw/nxagent/NXmiwindow.o    \
++              hw/nxagent/NXdamage.o
++#elif !defined(LynxOSArchitecture) && \
++      !defined(Win32Architecture) && \
++      !defined(QNX4Architecture)
++NXAGENTOBJS = hw/nxagent/miinitext.o     \
++              hw/nxagent/NXwindow.o      \
++              hw/nxagent/NXevents.o      \
++              hw/nxagent/NXproperty.o    \
++              hw/nxagent/NXdixfonts.o    \
++              hw/nxagent/NXglyphcurs.o   \
++              hw/nxagent/NXdispatch.o    \
++              hw/nxagent/NXrender.o      \
++              hw/nxagent/NXglyph.o       \
++              hw/nxagent/NXpicture.o     \
++              hw/nxagent/NXextension.o   \
++              hw/nxagent/NXglxext.o      \
++              hw/nxagent/NXxvdisp.o      \
++              hw/nxagent/NXmiglyph.o     \
++              hw/nxagent/NXmiexpose.o    \
++              hw/nxagent/NXresource.o    \
++              hw/nxagent/NXmiwindow.o    \
++              hw/nxagent/NXdamage.o
++#else
++NXAGENTOBJS = hw/nxagent/miinitext.o     \
++              hw/nxagent/NXwindow.o      \
++              hw/nxagent/NXevents.o      \
++              hw/nxagent/NXproperty.o    \
++              hw/nxagent/NXdixfonts.o    \
++              hw/nxagent/NXglyphcurs.o   \
++              hw/nxagent/NXdispatch.o    \
++              hw/nxagent/NXrender.o      \
++              hw/nxagent/NXglyph.o       \
++              hw/nxagent/NXpicture.o     \
++              hw/nxagent/NXextension.o   \
++              hw/nxagent/NXglxext.o      \
++              hw/nxagent/NXxvdisp.o      \
++              hw/nxagent/NXmiglyph.o     \
++              hw/nxagent/NXmiexpose.o    \
++              hw/nxagent/NXresource.o    \
++              hw/nxagent/NXmiwindow.o    \
++              hw/nxagent/NXdamage.o      \
++              dix/main.o
++#endif
++
++XPMLIB =  -lXpm
++NXAGENT = hw/nxagent/LibraryTargetName(nxagent)
++NXAGENTLIBS = PreFbLibs $(NXAGENT) FbPostFbLibs $(NXAGENT) $(MI)
++NXAGENTSYSLIBS = $(FONTLIBS) $(LDPRELIBS) $(XLIB) $(SYSLIBS) $(XPMLIB)
++#if HasParallelMake
++MakeMutex($(NXAGENTDIRS) $(NXAGENTOBJS) $(NXAGENTLIBS) $(NXAGENTSYSLIBS))
++#endif
++#if ForceServerRemake
++$(NXAGENTOBJS) $(NXAGENTLIBS) $(NXAGENTSYSLIBS):: $(NXAGENTDIRS)
++	@if [ -f $@ ]; then touch $@ >/dev/null 2>&1 || exit 0; fi
++#endif
++#if NXLibraries
++/*
++ * We need this as the linker will try to locate dependencies of X11 and Xext.
++ */
++
++#if defined(SunArchitecture)
++NXAGENTNXLIBS = -L ../../../nxcomp -L ../../../nxcompext -L ../../../nxcompshad \
++                -lXcomp -lXcompext -lXcompshad -lrt -L/usr/sfw/lib -lXrender -lXfixes \
++                -L../../../nx-X11/exports/lib -lXtst -lXdamage -lXrandr -lXcomposite
++#elif defined(cygwinArchitecture)
++NXAGENTNXLIBS = -L ../../../nxcomp -L ../../../nxcompext \
++                -lXcomp -lXcompext -lXrender -lX11 -lXext -lXcomposite -lXfixes \
++                -L ../../../nxcompshad -lXcompshad -L../../../nx-X11/exports/lib -lXtst
++#else
++NXAGENTNXLIBS = -L ../../../nxcomp -L ../../../nxcompext -L ../../../nxcompshad \
++                -lXcomp -lXcompext -lXcompshad -lXrender -lX11 -lXext -lXfixes \
++                -L../../../nx-X11/exports/lib -lXtst -lXdamage -lXrandr -lXcomposite
++#endif
++
++#endif
++
++#ifdef cygwinArchitecture
++NX_XSHADOWLIBNAME   = cygXcompshad.dll
++#else
++NX_XSHADOWLIBNAME   = libXcompshad.so
++#endif
++
++NX_XSHADOWLIBDIR    = $(XTOP)/../nxcompshad
++NX_XSHADOWLIBTARGET = $(NX_XSHADOWLIBDIR)/$(NX_XSHADOWLIBNAME)
++NX_XSHADOWCONFIGTARGET = $(NX_XSHADOWLIBDIR)/config.status
++
++$(NX_XSHADOWCONFIGTARGET):
++	cd $(NX_XSHADOWLIBDIR) && \
++	./configure
++
++#ifdef SunArchitecture
++$(NX_XSHADOWLIBTARGET): $(NX_XSHADOWCONFIGTARGET)
++	cd $(NX_XSHADOWLIBDIR) && \
++	gmake
++#else
++$(NX_XSHADOWLIBTARGET): $(NX_XSHADOWCONFIGTARGET)
++	cd $(NX_XSHADOWLIBDIR) && \
++	make
++#endif
++
++ServerTarget(nxagent,$(NX_XSHADOWLIBTARGET) $(NXAGENTDIRS),$(NXAGENTOBJS), \
++        $(LIBCWRAPPER) $(NXAGENTLIBS) $(LOADABLEEXTS),$(NXAGENTSYSLIBS) $(NXAGENTNXLIBS))
++
++/*
++ *  Hard coded target to build a static nxagent server.
++ */
++nxagent_static: nxagent
++	if [ -f nxagent_static ]; then set -x; \
++	$(MV) nxagent_static nxagent_static.bak; \
++	else exit 0; fi
++	$(CCLINK) -o nxagent_static -static $(LDOPTIONS) $(NXAGENTOBJS) \
++	$(LIBCWRAPPER) $(NXAGENTLIBS) $(LOADABLEEXTS) $(LDLIBS) \
++	$(NXAGENTSYSLIBS) $(EXTRA_LOAD_FLAGS)
++
++/*
++ *  Hard coded target to build a static nxagent server except for libX11 and libXext.
++ */
++nxagent_static_nolibs:  nxagent
++	if [ -f nxagent_static_nolibs ]; then set -x; \
++	$(MV) nxagent__static_nolibs nxagent_static_nolibs.bak; \
++	else exit 0; fi
++	$(CCLINK) -o nxagent_static_nolibs -Wl,-Bstatic $(LDOPTIONS) $(NXAGENTOBJS) \
++	$(NXAGENTLIBS) $(LOADABLEEXTS) $(LIBCWRAPPER) $(LDLIBS) $(FONTLIBS) \
++	$(LDPRELIBS) $(SYSLIBS) -Wl,-Bdynamic -lXext -lX11 $(EXTRA_LOAD_FLAGS)
++#endif /* NXAgentServer */
+ 
+ #if defined(XnonServer) && XnonServer
+ XCOMM
+@@ -1081,6 +1264,160 @@
+ #endif /* XWinServer */
+ 
+ 
++#if defined(NXWinServer) && NXWinServer
++XCOMM
++XCOMM X Server for MS Windows
++XCOMM
++FBSUBDIR = fb
++MIDAMAGEDIR = miext/damage
++SHADOWDIR = miext/shadow
++#if BuildXWinLayer
++LAYERDIR = miext/layer
++XWINLAYERLIB = $(LAYER)
++#else
++LAYERDIR = 
++XWINLAYERLIB = 
++#endif
++#if BuildXWinMultiWindowExtWM
++ROOTLESSDIR = miext/rootless
++ROOTLESSLIB = $(ROOTLESSDIR)/LibraryTargetName(rootless) \
++	      $(ROOTLESSDIR)/safeAlpha/LibraryTargetName(safeAlpha) \
++	      $(ROOTLESSDIR)/accel/LibraryTargetName(rlAccel)
++#else
++ROOTLESSDIR = 
++ROOTLESSLIB = 
++#endif
++NXWINDDXDIR = hw/nxwin
++#if BuildXWinXF86Config
++XWINPARSERDIR = hw/xfree86/parser
++XWINPARSERLIB = $(XWINPARSERDIR)/LibraryTargetName(xf86config)
++#else
++XWINPARSERDIR = 
++XWINPARSERLIB = 
++#endif
++#if defined(GlxUseWindows) && GlxUseWindows
++XWINOPENGLLIB = -lopengl32
++#else
++XWINOPENGLLIB = 
++#endif
++
++NXWINLIB = $(NXWINDDXDIR)/LibraryTargetName(NXWin)
++NXWINDIRS = $(STDDIRS) $(FBDIR) $(SHADOWDIR) $(LAYERDIR) $(NXWINDDXDIR) \
++	   $(DEPDIRS) $(XWINPARSERDIR) $(ROOTLESSDIR) $(MIDAMAGEDIR)
++NXWINOBJS = $(NXWINDDXDIR)/stubs.o $(NXWINDDXDIR)/NXWin.res
++NXWINLIBS = PreFbLibs $(NXWINLIB) FbPostFbLibs $(NXWINLIB) $(XWINLAYERLIB) \
++           $(SHADOW) $(XWINPARSERLIB) $(ROOTLESSLIB) $(OS)
++#if BuildXWinMultiWindow || BuildXWinClipboard
++XWINX11  = $(XONLYLIB)	   
++# if defined(Win32Architecture)
++PTHREADLIB = -lpthreadGC  
++# endif
++#endif
++#if defined(Win32Architecture)
++# if defined(GlxUseWindows) && GlxUseWindows
++XWINGL32 = -lopengl32
++# endif
++XWINW32  = -lgdi32 -lwsock32 $(XWINGL32) $(PTHREADLIB) 
++#else
++XWINW32  = -lgdi32
++#endif
++NXWINSYSLIBS = $(FONTLIBS) $(LDPRELIBS) $(XWINX11) $(SYSLIBS) $(XWINW32)
++
++NXWINNXLIBS = -L../../../nxcomp -lXcomp
++
++/*
++ * These flags cause NXWin.exe to be a Windows executable, which
++ * prevents NXWin.exe from opening a Command Prompt window when it is
++ * started.  However, the flags also prevent NXWin.exe from outputting
++ * its status and error message to a Command Prompt; thus, one most
++ * implement a method to redirect status and error messages to a file
++ * before enabling these flags.
++ */
++EXTRA_LDOPTIONS = -e _mainCRTStartup
++
++#if HasParallelMake
++MakeMutex($(NXWINDIRS) $(NXWINOBJS) $(NXWINLIB) $(NXWINLIBS) $(NXWINSYSLIBS) $(NXWINNXLIBS))
++#endif
++
++#if ForceServerRemake
++$(NXWINOBJS) $(NXWINLIB) $(NXWINLIBS) $(NXWINSYSLIBS) $(NXWINNXLIBS):: $(NXWINDIRS)
++	@if [ -f $@ ]; then touch $@ >/dev/null 2>&1 || exit 0; fi
++#endif
++
++#ifdef mingwArchitecture
++NXWINSERVERNAME=NXming    
++NXWINGLSERVERNAME=NXmingGL    
++#else
++NXWINSERVERNAME=NXWin    
++NXWINGLSERVERNAME=NXWin_GL 
++#endif
++ServerTarget($(NXWINSERVERNAME),$(NXWINDIRS),$(NXWINOBJS), \
++	     $(LIBCWRAPPER) $(NXWINLIBS) $(LOADABLEEXTS),$(NXWINSYSLIBS) $(NXWINNXLIBS))
++#if defined(cygwinArchitecture) && defined(GlxUseWindows) && GlxUseWindows 
++ServerTarget($(NXWINGLSERVERNAME),$(NXWINDIRS),$(NXWINOBJS), \
++	     $(LIBCWRAPPER) $(NXWINLIBS) $(LOADABLEEXTS),$(NXWINSYSLIBS) $(NXWINNXLIBS)\
++	     $(XWINOPENGLLIB)) 
++#endif
++
++#ifndef ServerToInstall
++# define ServerToInstall $(NXWINSERVERNAME)
++#endif
++
++#endif /* NXWinServer */
++
++#if 0
++#if defined(NXWinServer) && NXWinServer
++XCOMM
++XCOMM X Server for MS Windows
++XCOMM
++FBDIR = fb
++SHADOWDIR = miext/shadow
++LAYERDIR = miext/layer
++NXWINDDXDIR = hw/nxwin
++XWINPARSERDIR = hw/xfree86/parser
++XWINPARSERLIB = $(XWINPARSERDIR)/LibraryTargetName(xf86config)
++NXWINLIB = $(NXWINDDXDIR)/LibraryTargetName(nxwin)
++NXWINDIRS = $(STDDIRS) $(FBDIR) $(SHADOWDIR) $(LAYERDIR) $(NXWINDDXDIR) \
++	   $(DEPDIRS) $(XWINPARSERDIR)
++#NXWINOBJS = $(NXWINDDXDIR)/stubs.o $(NXWINDDXDIR)/NX.res \
++	    $(NXWINDDXDIR)/NXwindow.o \
++	    $(NXWINDDXDIR)/NXdispatch.o $(NXWINDDXDIR)/NXproperty.o \
++	    $(NXWINDDXDIR)/NXevents.o
++NXWINOBJS = $(NXWINDDXDIR)/stubs.o $(NXWINDDXDIR)/NX.res
++NXWINLIBS = PreFbLibs $(NXWINLIB) FbPostFbLibs $(LAYER) $(SHADOW) \
++           $(XWINPARSERLIB)
++NXWINSYSLIBS = $(FONTLIBS) $(LDPRELIBS) $(XLIB) $(SYSLIBS) -lgdi32 -lddraw
++NXWINNXLIBS = -L../../../nxcomp -lXcomp
++
++/*
++ * These flags cause NXWin.exe to be a Windows executable, which
++ * prevents NXWin.exe from opening a Command Prompt window when it is
++ * started.  However, the flags also prevent NXWin.exe from outputting
++ * its status and error message to a Command Prompt; thus, one most
++ * implement a method to redirect status and error messages to a file
++ * before enabling these flags.
++ */
++EXTRA_LDOPTIONS = -mwindows -e _mainCRTStartup
++
++#if HasParallelMake
++MakeMutex($(NXWINDIRS) $(NXWINOBJS) $(NXWINLIB) $(NXWINLIBS) $(NXWINSYSLIBS) $(NXWINNXLIBS))
++#endif
++
++#if ForceServerRemake
++$(NXWINOBJS) $(NXWINLIB) $(NXWINLIBS) $(NXWINSYSLIBS) $(NXWINNXLIBS):: $(NXWINDIRS)
++	@if [ -f $@ ]; then touch $@ >/dev/null 2>&1 || exit 0; fi
++#endif
++
++ServerTarget(NXWin,$(NXWINDIRS),$(NXWINOBJS), \
++	     $(NXWINLIBS) $(LOADABLEEXTS) $(LIBCWRAPPER),$(NXWINSYSLIBS) $(NXWINNXLIBS)) 
++
++#ifndef ServerToInstall
++#define ServerToInstall NXWin
++#endif
++
++#endif /* NXWinServer */
++#endif
++
+ #ifdef DarwinArchitecture
+ /*
+  * To allow building even when building the client-side libraries is turned
+@@ -1201,7 +1538,7 @@
+ IPLANDIRS = $(IPLAN2P2DIR) $(IPLAN2P4DIR) $(IPLAN2P8DIR)
+ DDXDIRS = $(DECWSDDXDIR) $(SUNDDXDIR) $(LYNXDDXDIR) \
+ 	  $(HPDDXDIR) $(XFREE86DDXDIR) $(XWINDDXDIR) $(DARWINDDXDIR) \
+-	  $(XVFBDDXDIR) $(XNESTDDXDIR) $(XDMXDDXDIR)
++	  $(XVFBDDXDIR) $(XNESTDDXDIR) $(XDMXDDXDIR) $(NXAGENTDDXDIR) $(NXWINDDXDIR)
+ SUBDIRS = $(STDDIRS) $(MFBSUBDIR) $(CFBSUBDIRS) \
+ 	  $(IPLANDIRS) $(ILBMDIR) $(AFBSUBDIR) \
+           $(DDXDIRS) $(FBSUBDIR) $(KDRIVEDIRS) $(MIEXTDIRS)

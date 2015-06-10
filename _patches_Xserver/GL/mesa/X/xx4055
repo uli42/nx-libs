@@ -1,0 +1,12 @@
+diff -uNr xserver690/xc/programs/Xserver/GL/mesa/X/Imakefile GL/mesa/X/Imakefile
+--- xserver690/xc/programs/Xserver/GL/mesa/X/Imakefile	2005-08-23 06:03:52.000000000 +0200
++++ GL/mesa/X/Imakefile	2015-05-21 22:25:41.490996994 +0200
+@@ -57,7 +57,7 @@
+ 		-I$(XF86OSSRC) \
+ 		-I$(DRMSRCDIR)/shared-core
+ 
+-      DEFINES = $(GLX_DEFINES) $(GLXSRV_DEFINES) /*-DUSE_X86_ASM*/ /*-DUSE_SPARC_ASM*/
++      DEFINES = $(GLX_DEFINES) $(GLXSRV_DEFINES) -DNXAGENT_SERVER /*-DUSE_X86_ASM*/ /*-DUSE_SPARC_ASM*/
+ 
+ #ifdef IHaveModules
+ ModuleObjectRule()

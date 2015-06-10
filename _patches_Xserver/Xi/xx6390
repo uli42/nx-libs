@@ -1,0 +1,25 @@
+diff -uNr xserver690/xc/programs/Xserver/Xi/chgfctl.c Xi/chgfctl.c
+--- xserver690/xc/programs/Xserver/Xi/chgfctl.c	2005-07-03 09:01:07.000000000 +0200
++++ Xi/chgfctl.c	2015-06-10 21:19:38.675212408 +0200
+@@ -506,7 +506,6 @@
+     xStringFeedbackCtl 	*f;
+     {
+     register char n;
+-    register long *p;
+     int		i, j;
+     KeySym	*syms, *sup_syms;
+ 
+@@ -514,12 +513,7 @@
+     if (client->swapped)
+ 	{
+ 	swaps(&f->length,n);	/* swapped num_keysyms in calling proc */
+-	p = (long *) (syms);
+-	for (i=0; i<f->num_keysyms; i++)
+-	    {
+-	    swapl(p, n);
+-	    p++;
+-	    }
++	SwapLongs((CARD32 *) syms, f->num_keysyms);
+ 	}
+ 
+     if (f->num_keysyms > s->ctrl.max_symbols)

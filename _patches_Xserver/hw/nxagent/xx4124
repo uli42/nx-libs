@@ -1,0 +1,9 @@
+diff -uNr xserver690/xc/programs/Xserver/hw/nxagent/NXdamage.c hw/nxagent/NXdamage.c
+--- xserver690/xc/programs/Xserver/hw/nxagent/NXdamage.c	1970-01-01 01:00:00.000000000 +0100
++++ hw/nxagent/NXdamage.c	2015-06-10 21:19:38.771212884 +0200
+@@ -0,0 +1,5 @@
++#ifdef NXAGENT_UPGRADE
++
++#include "X/NXdamage.c"
++
++#endif

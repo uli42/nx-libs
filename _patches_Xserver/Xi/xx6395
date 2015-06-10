@@ -1,0 +1,27 @@
+diff -uNr xserver690/xc/programs/Xserver/Xi/grabdevk.c Xi/grabdevk.c
+--- xserver690/xc/programs/Xserver/Xi/grabdevk.c	2005-07-03 09:01:07.000000000 +0200
++++ Xi/grabdevk.c	2015-05-21 22:25:41.506997073 +0200
+@@ -84,8 +84,6 @@
+     register ClientPtr client;
+     {
+     register char n;
+-    register long *p;
+-    register int i;
+ 
+     REQUEST(xGrabDeviceKeyReq);
+     swaps(&stuff->length, n);
+@@ -93,12 +91,8 @@
+     swapl(&stuff->grabWindow, n);
+     swaps(&stuff->modifiers, n);
+     swaps(&stuff->event_count, n);
+-    p = (long *) &stuff[1];
+-    for (i=0; i<stuff->event_count; i++)
+-        {
+-        swapl(p, n);
+-	p++;
+-        }
++    REQUEST_FIXED_SIZE(xGrabDeviceKeyReq, stuff->event_count * sizeof(CARD32));
++    SwapLongs((CARD32 *) (&stuff[1]), stuff->event_count);
+     return(ProcXGrabDeviceKey(client));
+     }
+ 

@@ -1,0 +1,40 @@
+diff -uNr xserver690/xc/lib/Xrender/Xrender.h nx-libs/nx-X11/lib/Xrender/Xrender.h
+--- xserver690/xc/lib/Xrender/Xrender.h	2005-07-01 12:04:51.000000000 +0200
++++ nx-libs/nx-X11/lib/Xrender/Xrender.h	2015-05-21 22:25:41.406996583 +0200
+@@ -25,6 +25,8 @@
+ #ifndef _XRENDER_H_
+ #define _XRENDER_H_
+ 
++#define NX_CLEANUP
++
+ #include <X11/extensions/render.h>
+ 
+ #include <X11/Xlib.h>
+@@ -32,6 +34,10 @@
+ #include <X11/Xosdefs.h>
+ #include <X11/Xutil.h>
+ 
++#ifdef NX_CLEANUP
++#include "renderproto.h"
++#endif
++
+ typedef struct {
+     short   red;
+     short   redMask;
+@@ -296,6 +302,16 @@
+ void
+ XRenderFreeGlyphSet (Display *dpy, GlyphSet glyphset);
+ 
++#ifdef NX_CLEANUP
++
++void XRenderCleanGlyphs (xGlyphInfo  *gi,
++                         int         nglyphs,
++                         CARD8       *images,
++                         int         depth,
++                         Display     *dpy);
++
++#endif /* #ifdef NX_CLEANUP */
++
+ void
+ XRenderAddGlyphs (Display		*dpy,
+ 		  GlyphSet		glyphset,

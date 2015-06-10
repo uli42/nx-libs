@@ -1,0 +1,25 @@
+diff -uNr xserver690/xc/programs/Xserver/xkb/xkbDflts.h xkb/xkbDflts.h
+--- xserver690/xc/programs/Xserver/xkb/xkbDflts.h	2005-07-03 09:02:09.000000000 +0200
++++ xkb/xkbDflts.h	2015-05-21 22:25:41.738998232 +0200
+@@ -417,10 +417,21 @@
+          XkbSI_AnyOfOrNone, 0xff,
+          255,
+        {   XkbSA_LockControls, { 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00 } } },
++
++#ifndef NX_TRANS_SOCKET
++
++    /*
++     * Make sure that the server can't be killed
++     * by pressing this key-sequence.
++     */
++
+     {    XK_Terminate_Server, 0x0000,
+          XkbSI_AnyOfOrNone, 0xff,
+          255,
+        {      XkbSA_Terminate, { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 } } },
++
++#endif
++
+     {    XK_ISO_Group_Latch, 0x0000,
+          XkbSI_LevelOneOnly|XkbSI_AnyOfOrNone, 0xff,
+          3,

@@ -1,0 +1,31 @@
+diff -uNr xserver690/xc/lib/X11/Xlib.h nx-libs/nx-X11/lib/X11/Xlib.h
+--- xserver690/xc/lib/X11/Xlib.h	2005-11-08 07:33:25.000000000 +0100
++++ nx-libs/nx-X11/lib/X11/Xlib.h	2015-06-10 21:19:38.523211655 +0200
+@@ -2102,6 +2102,27 @@
+     XPointer		/* arg */
+ );
+ 
++#ifdef NX_TRANS_SOCKET
++
++/*
++ * This is just like XCheckIfEvent() but doesn't
++ * flush the output buffer if it can't read new
++ * events.
++ */
++
++extern Bool XCheckIfEventNoFlush(
++    Display*		/* display */,
++    XEvent*		/* event_return */,
++    Bool (*) (
++	       Display*			/* display */,
++               XEvent*			/* event */,
++               XPointer			/* arg */
++             )		/* predicate */,
++    XPointer		/* arg */
++);
++
++#endif
++
+ extern Bool XCheckMaskEvent(
+     Display*		/* display */,
+     long		/* event_mask */,

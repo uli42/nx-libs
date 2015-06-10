@@ -1,0 +1,52 @@
+diff -uNr xserver690/xc/programs/Xserver/hw/nxagent/nxmissing.xpm hw/nxagent/nxmissing.xpm
+--- xserver690/xc/programs/Xserver/hw/nxagent/nxmissing.xpm	1970-01-01 01:00:00.000000000 +0100
++++ hw/nxagent/nxmissing.xpm	2015-05-21 22:25:41.638997729 +0200
+@@ -0,0 +1,48 @@
++/**************************************************************************/
++/*                                                                        */
++/* Copyright (c) 2001, 2011 NoMachine, http://www.nomachine.com/.         */
++/*                                                                        */
++/* NXAGENT, NX protocol compression and NX extensions to this software    */
++/* are copyright of NoMachine. Redistribution and use of the present      */
++/* software is allowed according to terms specified in the file LICENSE   */
++/* which comes in the source distribution.                                */
++/*                                                                        */
++/* Check http://www.nomachine.com/licensing.html for applicability.       */
++/*                                                                        */
++/* NX and NoMachine are trademarks of Medialogic S.p.A.                   */
++/*                                                                        */
++/* All rights reserved.                                                   */
++/*                                                                        */
++/**************************************************************************/
++
++static char *placeholderXpm[] = {
++/* columns rows colors chars-per-pixel */
++"14 16 10 1",
++"  c #000000",
++". c #0000FF",
++"X c #008400",
++"o c #00FF00",
++"O c #00FFFF",
++"+ c #FF0000",
++"@ c #FF00FF",
++"# c #848484",
++"$ c #BDBDBD",
++"% c #FFFFFF",
++/* pixels */
++"          #%%%",
++" %%%%%%%%%##%%",
++" %$$$$$$$$#%#%",
++" %$$$XX$$$#%%#",
++" %$$XoX $$    ",
++" %$$XXX $$$$% ",
++" %$$$  $$$$$% ",
++" %$$$$$$... % ",
++" %$+$$$$.O. % ",
++" %$@+$$$... % ",
++" %$@@+$$   $% ",
++" %$@@@+$$$$$% ",
++" %$    +$$$$% ",
++" %$$$$$$$$$$% ",
++" %%%%%%%%%%%% ",
++"              "
++};

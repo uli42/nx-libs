@@ -1,0 +1,23 @@
+diff -uNr xserver690/xc/lib/font/fontfile/encparse.c nx-libs/nx-X11/lib/font/fontfile/encparse.c
+--- xserver690/xc/lib/font/fontfile/encparse.c	2005-11-08 07:33:26.000000000 +0100
++++ nx-libs/nx-X11/lib/font/fontfile/encparse.c	2015-06-10 21:19:38.639212230 +0200
+@@ -867,8 +867,10 @@
+         if(!strcasecmp(encoding_name, charset)) {
+             /* Found it */
+             if(file_name[0] != '/') {
+-                if(strlen(dir) + strlen(file_name) >= MAXFONTFILENAMELEN)
++                if(strlen(dir) + strlen(file_name) >= MAXFONTFILENAMELEN) {
++		    fclose(file);
+                     return NULL;
++		}
+                 strcpy(buf, dir);
+                 strcat(buf, file_name);
+             } else {
+@@ -877,6 +879,7 @@
+ 
+             f = FontFileOpen(buf);
+             if(f == NULL) {
++		fclose(file);		
+                 return NULL;
+             }
+             encoding = parseEncodingFile(f, 0);

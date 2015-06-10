@@ -1,0 +1,51 @@
+diff -uNr xserver690/xc/programs/Xserver/Xext/Imakefile Xext/Imakefile
+--- xserver690/xc/programs/Xserver/Xext/Imakefile	2005-04-24 03:10:12.000000000 +0200
++++ Xext/Imakefile	2015-06-10 21:19:38.667212369 +0200
+@@ -6,6 +6,23 @@
+ 
+ XCOMM $XFree86: xc/programs/Xserver/Xext/Imakefile,v 3.43 2003/04/21 18:56:48 sven Exp $
+ 
++/**************************************************************************/
++/*                                                                        */
++/* Copyright (c) 2001, 2011 NoMachine, http://www.nomachine.com/.         */
++/*                                                                        */
++/* NX-X11, NX protocol compression and NX extensions to this software     */
++/* are copyright of NoMachine. Redistribution and use of the present      */
++/* software is allowed according to terms specified in the file LICENSE   */
++/* which comes in the source distribution.                                */
++/*                                                                        */
++/* Check http://www.nomachine.com/licensing.html for applicability.       */
++/*                                                                        */
++/* NX and NoMachine are trademarks of Medialogic S.p.A.                   */
++/*                                                                        */
++/* All rights reserved.                                                   */
++/*                                                                        */
++/**************************************************************************/
++
+ #include <Server.tmpl>
+ 
+ #if DoLoadableServer
+@@ -145,6 +162,11 @@
+ 	      $(XEVIEOBJS) \
+ 	      $(XF86BIGFOBJS)
+ 
++#if defined(NXAgentServer) && NXAgentServer
++NX_DEFINES = -DNXAGENT_SERVER 
++#endif
++
++
+ #if (defined(XFree86Version) || defined(XorgVersion))
+ /* XXX Check if this can be eliminated */
+ XF86INCLUDES = -I$(XF86COMSRC)
+@@ -154,7 +176,11 @@
+ 		$(FONTCACHEINCLUDES) $(DMXINCLUDES)
+     LINTLIBS = ../dix/llib-ldix.ln ../os/llib-los.ln
+ 
++#if defined(NXAgentServer) && NXAgentServer
++     DEFINES = $(EXT_DEFINES) $(XVMCSHM_DEFINES) $(NX_DEFINES)
++#else
+      DEFINES = $(EXT_DEFINES) $(XVMCSHM_DEFINES)
++#endif
+ 
+ NormalLibraryObjectRule()
+ 

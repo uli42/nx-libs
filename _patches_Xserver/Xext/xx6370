@@ -1,0 +1,13 @@
+diff -uNr xserver690/xc/programs/Xserver/Xext/cup.c Xext/cup.c
+--- xserver690/xc/programs/Xserver/Xext/cup.c	2005-07-03 10:53:36.000000000 +0200
++++ Xext/cup.c	2015-05-21 22:25:41.494997020 +0200
+@@ -202,6 +202,9 @@
+ 
+     REQUEST_SIZE_MATCH (xXcupGetReservedColormapEntriesReq);
+ 
++    if (stuff->screen >= screenInfo.numScreens)
++	return BadValue;
++
+ #ifndef HAVE_SPECIAL_DESKTOP_COLORS
+     citems[CUP_BLACK_PIXEL].pixel = 
+ 	screenInfo.screens[stuff->screen]->blackPixel;

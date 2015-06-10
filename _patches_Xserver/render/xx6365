@@ -1,0 +1,116 @@
+diff -uNr xserver690/xc/programs/Xserver/render/render.c render/render.c
+--- xserver690/xc/programs/Xserver/render/render.c	2005-08-28 21:47:39.000000000 +0200
++++ render/render.c	2015-06-10 21:19:39.039214213 +0200
+@@ -52,6 +52,10 @@
+ #include "xf86_ansic.h"
+ #endif
+ 
++#if !defined(UINT32_MAX)
++#define UINT32_MAX 0xffffffffU
++#endif
++
+ static int ProcRenderQueryVersion (ClientPtr pClient);
+ static int ProcRenderQueryPictFormats (ClientPtr pClient);
+ static int ProcRenderQueryPictIndexValues (ClientPtr pClient);
+@@ -1108,11 +1112,14 @@
+     }
+ 
+     nglyphs = stuff->nglyphs;
++    if (nglyphs > UINT32_MAX / sizeof(GlyphNewRec))
++	    return BadAlloc;
++
+     if (nglyphs <= NLOCALGLYPH)
+ 	glyphsBase = glyphsLocal;
+     else
+     {
+-	glyphsBase = (GlyphNewPtr) ALLOCATE_LOCAL (nglyphs * sizeof (GlyphNewRec));
++	glyphsBase = (GlyphNewPtr) Xalloc (nglyphs * sizeof (GlyphNewRec));
+ 	if (!glyphsBase)
+ 	    return BadAlloc;
+     }
+@@ -1169,7 +1176,7 @@
+     }
+ 
+     if (glyphsBase != glyphsLocal)
+-	DEALLOCATE_LOCAL (glyphsBase);
++	Xfree (glyphsBase);
+     return client->noClientException;
+ bail:
+     while (glyphs != glyphsBase)
+@@ -1178,7 +1185,7 @@
+ 	xfree (glyphs->glyph);
+     }
+     if (glyphsBase != glyphsLocal)
+-	DEALLOCATE_LOCAL (glyphsBase);
++	Xfree (glyphsBase);
+     return err;
+ }
+ 
+@@ -1498,6 +1505,8 @@
+     pScreen = pSrc->pDrawable->pScreen;
+     width = pSrc->pDrawable->width;
+     height = pSrc->pDrawable->height;
++    if (height && width > UINT32_MAX/(height*sizeof(CARD32)))
++	return BadAlloc;
+     if ( stuff->x > width 
+       || stuff->y > height )
+ 	return (BadMatch);
+@@ -1911,6 +1920,8 @@
+     LEGAL_NEW_RESOURCE(stuff->pid, client);
+ 
+     len = (client->req_len << 2) - sizeof(xRenderCreateLinearGradientReq);
++    if (stuff->nStops > UINT32_MAX/(sizeof(xFixed) + sizeof(xRenderColor)))
++	return BadLength;
+     if (len != stuff->nStops*(sizeof(xFixed) + sizeof(xRenderColor)))
+         return BadLength;
+ 
+@@ -2482,18 +2493,18 @@
+     return (*ProcRenderVector[stuff->renderReqType]) (client);
+ }
+ 
+-static void swapStops(void *stuff, int n)
++static void swapStops(void *stuff, int num)
+ {
+-    int i;
++    int i, n;
+     CARD32 *stops;
+     CARD16 *colors;
+     stops = (CARD32 *)(stuff);
+-    for (i = 0; i < n; ++i) {
++    for (i = 0; i < num; ++i) {
+         swapl(stops, n);
+         ++stops;
+     }
+     colors = (CARD16 *)(stops);
+-    for (i = 0; i < 4*n; ++i) {
++    for (i = 0; i < 4*num; ++i) {
+         swaps(stops, n);
+         ++stops;
+     }
+@@ -2516,6 +2527,8 @@
+     swapl(&stuff->nStops, n);
+ 
+     len = (client->req_len << 2) - sizeof(xRenderCreateLinearGradientReq);
++    if (stuff->nStops > UINT32_MAX/(sizeof(xFixed) + sizeof(xRenderColor)))
++	return BadLength;
+     if (len != stuff->nStops*(sizeof(xFixed) + sizeof(xRenderColor)))
+         return BadLength;
+ 
+@@ -2543,6 +2556,8 @@
+     swapl(&stuff->nStops, n);
+ 
+     len = (client->req_len << 2) - sizeof(xRenderCreateRadialGradientReq);
++    if (stuff->nStops > UINT32_MAX/(sizeof(xFixed) + sizeof(xRenderColor)))
++	return BadLength;
+     if (len != stuff->nStops*(sizeof(xFixed) + sizeof(xRenderColor)))
+         return BadLength;
+ 
+@@ -2567,6 +2582,8 @@
+     swapl(&stuff->nStops, n);
+ 
+     len = (client->req_len << 2) - sizeof(xRenderCreateConicalGradientReq);
++    if (stuff->nStops > UINT32_MAX/(sizeof(xFixed) + sizeof(xRenderColor)))
++	return BadLength;
+     if (len != stuff->nStops*(sizeof(xFixed) + sizeof(xRenderColor)))
+         return BadLength;
+ 

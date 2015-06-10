@@ -1,0 +1,31 @@
+diff -uNr xserver690/xc/programs/Xserver/hw/nxagent/Keystroke.h hw/nxagent/Keystroke.h
+--- xserver690/xc/programs/Xserver/hw/nxagent/Keystroke.h	1970-01-01 01:00:00.000000000 +0100
++++ hw/nxagent/Keystroke.h	2015-06-10 21:19:38.771212884 +0200
+@@ -0,0 +1,27 @@
++/**************************************************************************/
++/*                                                                        */
++/* Copyright (c) 2001, 2011 NoMachine, http://www.nomachine.com/.         */
++/*                                                                        */
++/* NXAGENT, NX protocol compression and NX extensions to this software    */
++/* are copyright of NoMachine. Redistribution and use of the present      */
++/* software is allowed according to terms specified in the file LICENSE   */
++/* which comes in the source distribution.                                */
++/*                                                                        */
++/* Check http://www.nomachine.com/licensing.html for applicability.       */
++/*                                                                        */
++/* NX and NoMachine are trademarks of Medialogic S.p.A.                   */
++/*                                                                        */
++/* All rights reserved.                                                   */
++/*                                                                        */
++/**************************************************************************/
++
++#ifndef __Keystroke_H__
++#define __Keystroke_H__
++
++#include "Events.h"
++
++extern int nxagentCheckSpecialKeystroke(XKeyEvent*, enum HandleEventResult*);
++
++unsigned int nxagentAltMetaMask;
++
++#endif /* __Keystroke_H__ */

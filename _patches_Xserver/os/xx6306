@@ -1,0 +1,60 @@
+diff -uNr xserver690/xc/programs/Xserver/os/xdmcp.c os/xdmcp.c
+--- xserver690/xc/programs/Xserver/os/xdmcp.c	2005-07-03 10:53:52.000000000 +0200
++++ os/xdmcp.c	2015-05-21 22:25:41.726998167 +0200
+@@ -59,6 +59,13 @@
+ #include <netdir.h>
+ #endif
+ 
++#ifndef NX_TRANS_SOCKET
++
++#define NX_TRANS_SOCKET
++#define NX_TRANS_TEST
++
++#endif
++
+ #ifdef XDMCP
+ #undef REQUEST
+ 
+@@ -71,6 +78,15 @@
+ #define X_INCLUDE_NETDB_H
+ #include <X11/Xos_r.h>
+ 
++#ifdef NX_TRANS_SOCKET
++
++xdmcp_states XdmcpState;
++
++int XdmcpStartTime;
++int XdmcpTimeOutRtx;
++
++#endif
++
+ extern char *defaultDisplayClass;
+ 
+ static int		    xdmcpSocket, sessionSocket;
+@@ -590,6 +606,12 @@
+ void 
+ XdmcpInit(void)
+ {
++#ifdef NX_TRANS_SOCKET
++
++    XdmcpStartTime = GetTimeInMillis();	
++
++#endif
++
+     state = XDM_INIT_STATE;
+ #ifdef HASXDMAUTH
+     if (xdmAuthCookie)
+@@ -699,6 +721,13 @@
+     fd_set* LastSelectMask = (fd_set*)pReadmask;
+     fd_set   devicesReadable;
+ 
++#ifdef NX_TRANS_SOCKET
++
++    XdmcpState = state;
++    XdmcpTimeOutRtx = timeOutRtx;
++
++#endif
++
+     if (state == XDM_OFF)
+ 	return;
+     if (i > 0)

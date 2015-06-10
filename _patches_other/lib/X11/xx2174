@@ -1,0 +1,60 @@
+diff -uNr xserver690/xc/lib/X11/Xlibint.h nx-libs/nx-X11/lib/X11/Xlibint.h
+--- xserver690/xc/lib/X11/Xlibint.h	2005-07-08 09:11:56.000000000 +0200
++++ nx-libs/nx-X11/lib/X11/Xlibint.h	2015-06-10 21:19:38.527211674 +0200
+@@ -27,6 +27,24 @@
+ from The Open Group.
+ 
+ */
++
++/**************************************************************************/
++/*                                                                        */
++/* Copyright (c) 2001, 2011 NoMachine, http://www.nomachine.com/.         */
++/*                                                                        */
++/* NX-X11, NX protocol compression and NX extensions to this software     */
++/* are copyright of NoMachine. Redistribution and use of the present      */
++/* software is allowed according to terms specified in the file LICENSE   */
++/* which comes in the source distribution.                                */
++/*                                                                        */
++/* Check http://www.nomachine.com/licensing.html for applicability.       */
++/*                                                                        */
++/* NX and NoMachine are trademarks of Medialogic S.p.A.                   */
++/*                                                                        */
++/* All rights reserved.                                                   */
++/*                                                                        */
++/**************************************************************************/
++
+ /* $XFree86: xc/lib/X11/Xlibint.h,v 3.27 2003/05/27 22:26:26 tsi Exp $ */
+ 
+ #ifndef _XLIBINT_H_
+@@ -44,6 +62,15 @@
+ #include <X11/Xproto.h>		/* to declare xEvent */
+ #include <X11/XlibConf.h>	/* for configured options like XTHREADS */
+ 
++#ifdef NX_TRANS_SOCKET
++
++#include "NXvars.h"
++
++#define _XGetIOError(dpy) \
++    (dpy -> flags & XlibDisplayIOError)
++
++#endif
++
+ #ifdef WIN32
+ #define _XFlush _XFlushIt
+ #endif
+@@ -348,9 +375,15 @@
+ #define LOCKED 1
+ #define UNLOCKED 0
+ 
++#ifdef NX_TRANS_SOCKET
++#ifndef BUFSIZE                         /* Output buffer size is configurable  */
++#define BUFSIZE 8192                    /* but this is still used for reading. */
++#endif
++#else
+ #ifndef BUFSIZE
+ #define BUFSIZE 2048			/* X output buffer size. */
+ #endif
++#endif
+ #ifndef PTSPERBATCH
+ #define PTSPERBATCH 1024		/* point batching */
+ #endif

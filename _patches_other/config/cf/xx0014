@@ -1,0 +1,8 @@
+diff -uNr xserver690/xc/config/cf/nxversion.def nx-libs/nx-X11/config/cf/nxversion.def
+--- xserver690/xc/config/cf/nxversion.def	1970-01-01 01:00:00.000000000 +0100
++++ nx-libs/nx-X11/config/cf/nxversion.def	2015-06-06 17:28:11.700612764 +0200
+@@ -0,0 +1,4 @@
++#define NX_VERSION_MAJOR 3
++#define NX_VERSION_MINOR 5
++#define NX_VERSION_MICRO 99
++#define NX_VERSION_PATCH 0

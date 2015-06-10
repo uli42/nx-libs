@@ -1,0 +1,12 @@
+diff -uNr xserver690/xc/config/cf/site.def nx-libs/nx-X11/config/cf/site.def
+--- xserver690/xc/config/cf/site.def	2004-05-06 17:08:25.000000000 +0200
++++ nx-libs/nx-X11/config/cf/site.def	2015-06-10 21:19:38.135209731 +0200
+@@ -72,7 +72,7 @@
+ #ifdef AfterVendorCF
+ 
+ #ifndef ProjectRoot
+-#define ProjectRoot /usr/X11R6
++#define ProjectRoot /usr/local/lib/nx
+ #endif
+ 
+ /*

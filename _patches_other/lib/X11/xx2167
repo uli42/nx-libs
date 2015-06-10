@@ -1,0 +1,11 @@
+diff -uNr xserver690/xc/lib/X11/XlibConf.h nx-libs/nx-X11/lib/X11/XlibConf.h
+--- xserver690/xc/lib/X11/XlibConf.h	1970-01-01 01:00:00.000000000 +0100
++++ nx-libs/nx-X11/lib/X11/XlibConf.h	2015-05-21 22:25:41.322996161 +0200
+@@ -0,0 +1,7 @@
++/* Defines needed to use Xlib from non-imake projects */
++#ifndef XTHREADS
++#define XTHREADS
++#endif
++#ifndef XUSE_MTSAFE_API
++#define XUSE_MTSAFE_API
++#endif

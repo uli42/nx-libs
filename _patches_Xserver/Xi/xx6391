@@ -1,0 +1,41 @@
+diff -uNr xserver690/xc/programs/Xserver/Xi/chgkmap.c Xi/chgkmap.c
+--- xserver690/xc/programs/Xserver/Xi/chgkmap.c	2005-07-03 09:01:07.000000000 +0200
++++ Xi/chgkmap.c	2015-05-21 22:25:41.502997059 +0200
+@@ -83,19 +83,14 @@
+     register ClientPtr client;
+     {
+     register char n;
+-    register long *p;
+-    register int i, count;
++    unsigned int count;
+ 
+     REQUEST(xChangeDeviceKeyMappingReq);
+     swaps(&stuff->length, n);
+     REQUEST_AT_LEAST_SIZE(xChangeDeviceKeyMappingReq);
+-    p = (long *) &stuff[1];
+     count = stuff->keyCodes * stuff->keySymsPerKeyCode;
+-    for (i = 0; i < count; i++)
+-        {
+-        swapl(p, n);
+-	p++;
+-        }
++    REQUEST_FIXED_SIZE(xChangeDeviceKeyMappingReq, count * sizeof(CARD32));
++    SwapLongs((CARD32 *) (&stuff[1]), count);
+     return(ProcXChangeDeviceKeyMapping(client));
+     }
+ 
+@@ -112,10 +107,14 @@
+     int	ret;
+     unsigned len;
+     DeviceIntPtr dev;
++    unsigned int count;
+ 
+     REQUEST(xChangeDeviceKeyMappingReq);
+     REQUEST_AT_LEAST_SIZE(xChangeDeviceKeyMappingReq);
+ 
++    count = stuff->keyCodes * stuff->keySymsPerKeyCode;
++    REQUEST_FIXED_SIZE(xChangeDeviceKeyMappingReq, count * sizeof(CARD32));
++
+     dev = LookupDeviceIntRec (stuff->deviceid);
+     if (dev == NULL)
+ 	{

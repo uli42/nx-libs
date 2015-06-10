@@ -1,0 +1,25 @@
+diff -uNr xserver690/xc/config/cf/svr4.cf nx-libs/nx-X11/config/cf/svr4.cf
+--- xserver690/xc/config/cf/svr4.cf	2005-05-21 09:46:37.000000000 +0200
++++ nx-libs/nx-X11/config/cf/svr4.cf	2015-06-10 21:19:38.139209750 +0200
+@@ -51,7 +51,12 @@
+ #ifndef HasLdRunPath
+ #define HasLdRunPath		YES
+ #endif
++/*
++ * Currently the NX transport only works with select().
++ *
+ #define HasPoll			YES
++ */
++#define HasPoll			NO
+ #ifndef SVR4Architecture
+ #define SVR4Architecture
+ #endif
+@@ -278,7 +283,7 @@
+ # define XFree86ServerDefines	/* */
+ #endif
+ #ifndef XFree86ServerOSDefines
+-# define XFree86ServerOSDefines -DDDXOSINIT
++# define XFree86ServerOSDefines -DDDXOSINIT -DDDXOSFATALERROR -DDDXOSVERRORF
+ #endif
+ 
+ #if HasGcc2ForCplusplus
