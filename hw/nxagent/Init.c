@@ -207,12 +207,15 @@ void InitOutput(ScreenInfo *screenInfo, int argc, char *argv[])
     fprintf(stderr, "Session: Starting session at '%s'.\n", GetTimeAsString());
   }
 
+#if 0
+  /* Not necessary anymore, we are at 7.0+ now */
   /*
    * Avoid slowness due to buggy_repeat workaround
    * in libcairo versions >= 1.10.
    */
 
   SetVendorRelease(70000000);
+#endif
 
   /*
    * Init the time count for image rate.
