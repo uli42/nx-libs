@@ -396,6 +396,7 @@ AC_ARG_ENABLE(xorg,    	      AS_HELP_STRING([--enable-xorg], [Build Xorg server
 AC_ARG_ENABLE(dmx,    	      AS_HELP_STRING([--enable-dmx], [Build DMX server (default: auto)]), [DMX=$enableval], [DMX=auto])
 AC_ARG_ENABLE(xvfb,    	      AS_HELP_STRING([--enable-xvfb], [Build Xvfb server (default: yes)]), [XVFB=$enableval], [XVFB=yes])
 AC_ARG_ENABLE(xnest,   	      AS_HELP_STRING([--enable-xnest], [Build Xnest server (default: auto)]), [XNEST=$enableval], [XNEST=auto])
+AC_ARG_ENABLE(nxagent, 	      AS_HELP_STRING([--enable-nxagent], [Build nxagent server (default: auto)]), [NXAGENT=$enableval], [NXAGENT=auto])
 AC_ARG_ENABLE(xwin,    	      AS_HELP_STRING([--enable-xwin], [Build XWin server (default: auto)]), [XWIN=$enableval], [XWIN=auto])
 AC_ARG_ENABLE(xprint,         AS_HELP_STRING([--enable-xprint], [Build Xprint extension and server (default: auto)]), [XPRINT=$enableval], [XPRINT=auto])
 
@@ -871,6 +872,22 @@ AM_CONDITIONAL(XNEST, [test "x$XNEST" = xyes])
 if test "x$XNEST" = xyes; then
 	XNEST_LIBS="$FB_LIB $MI_LIB $FIXES_LIB $XEXT_LIB $DBE_LIB $XTRAP_LIB $RECORD_LIB $GLX_LIBS $RENDER_LIB $RANDR_LIB $DAMAGE_LIB $MIEXT_DAMAGE_LIB $MIEXT_SHADOW_LIB $MIEXT_LAYER_LIB $XI_LIB $XKB_LIB $XKB_STUB_LIB $LBX_LIB $COMPOSITE_LIB $XPSTUBS_LIB $CWRAP_LIB $OS_LIB"
 	AC_SUBST([XNEST_LIBS])
+fi
+
+
+dnl nxagent DDX
+
+AC_MSG_CHECKING([whether to build nxagent DDX])
+PKG_CHECK_MODULES(XNESTMODULES, [xfont xext x11 xau $XDMCP_MODULES], [have_nxagent=yes], [have_nxagent=no])
+if test "x$NXAGENT" = xauto; then
+	NXAGENT="$have_nxagent"
+fi
+AC_MSG_RESULT([$NXAGENT])
+AM_CONDITIONAL(NXAGENT, [test "x$NXAGENT" = xyes])
+
+if test "x$NXAGENT" = xyes; then
+	NXAGENT_LIBS="$FB_LIB $MI_LIB $FIXES_LIB $XEXT_LIB $DBE_LIB $XTRAP_LIB $RECORD_LIB $GLX_LIBS $RENDER_LIB $RANDR_LIB $DAMAGE_LIB $MIEXT_DAMAGE_LIB $MIEXT_SHADOW_LIB $MIEXT_LAYER_LIB $XI_LIB $XKB_LIB $XKB_STUB_LIB $LBX_LIB $COMPOSITE_LIB $XPSTUBS_LIB $CWRAP_LIB $OS_LIB"
+	AC_SUBST([NXAGENT_LIBS])
 fi
 
 

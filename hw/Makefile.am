@@ -14,6 +14,10 @@ if XNEST
 XNEST_SUBDIRS = xnest
 endif
 
+if NXAGENT
+NXAGENT_SUBDIRS = nxagent
+endif
+
 if XWIN
 XWIN_SUBDIRS = xwin
 endif
@@ -25,6 +29,7 @@ SUBDIRS =			\
 	$(XWIN_SUBDIRS)		\
 	$(XVFB_SUBDIRS)		\
 	$(XNEST_SUBDIRS)	\
+	$(NXAGENT_SUBDIRS)	\
 	$(DMX_SUBDIRS)
 
 DIST_SUBDIRS = dmx xfree86 vfb xnest xwin darwin
