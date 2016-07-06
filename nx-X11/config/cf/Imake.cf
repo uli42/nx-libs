@@ -1050,14 +1050,6 @@ XCOMM Keep cpp from replacing path elements containing i486/i586/i686
 # endif
 #endif /* __uxp__ */
 
-#ifdef __sxg__
-# define MacroIncludeFile <fujitsu.cf>
-# define MacroFile fujitsu.cf
-# define FujitsuArchitecture
-# undef __sxg__
-# define mc68000Architecture
-#endif /* __sxg__ */
-
 #ifdef _SEQUENT_
 /* undefine assignments resulting from -DSVR4 */
 # undef MacroIncludeFile

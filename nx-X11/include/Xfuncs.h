@@ -69,7 +69,7 @@ void bcopy();
 #undef bzero
 #define bzero(b,len) memset(b,0,len)
 #else /* else X_NOT_STDC_ENV or SunOS 4 */
-#if defined(SYSV) || defined(luna) || defined(sun) || defined(__sxg__)
+#if defined(SYSV) || defined(luna) || defined(sun)
 #include <memory.h>
 #define memmove(dst,src,len) bcopy((char *)(src),(char *)(dst),(int)(len))
 #if defined(SYSV) && defined(_XBCOPYFUNC)

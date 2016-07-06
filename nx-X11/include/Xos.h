@@ -145,7 +145,7 @@ extern int sys_nerr;
  */
 #if defined(X_NOT_POSIX)
 #include <fcntl.h>
-#if defined(USL) || defined(MOTOROLA) || (defined(i386) && (defined(SYSV) || defined(SVR4))) || defined(__sxg__)
+#if defined(USL) || defined(MOTOROLA) || (defined(i386) && (defined(SYSV) || defined(SVR4)))
 #include <unistd.h>
 #endif
 #ifdef WIN32
@@ -175,7 +175,7 @@ extern int sys_nerr;
 #include <sys/time.h>
 #endif
 #include <time.h>
-#if defined(USG) && !defined(MOTOROLA) && !defined(uniosu) && !defined(__sxg__) && !defined(clipper) && !defined(__clipper__)
+#if defined(USG) && !defined(MOTOROLA) && !defined(uniosu) && !defined(clipper) && !defined(__clipper__)
 struct timeval {
     long tv_sec;
     long tv_usec;
