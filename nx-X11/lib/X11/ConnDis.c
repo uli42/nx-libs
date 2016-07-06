@@ -159,7 +159,6 @@ _X11TransConnectDisplay (
     char *phostname = NULL;		/* start of host of display */
     char *pdpynum = NULL;		/* start of dpynum of display */
     char *pscrnum = NULL;		/* start of screen of display */
-    Bool dnet = False;			/* if true, then DECnet format */
     int idisplay = 0;			/* required display number */
     int iscreen = 0;			/* optional screen number */
     /*  int (*connfunc)(); */		/* method to create connection */
@@ -450,7 +449,6 @@ _X11TransConnectDisplay (
      *     phostname                hostname string or NULL
      *     idisplay                 display number
      *     iscreen                  screen number
-     *     dnet                     DECnet boolean
      * 
      * We can now decide which transport to use based on the ConnectionFlags
      * build parameter the hostname string.  If phostname is NULL or equals
@@ -633,14 +631,14 @@ _X11TransConnectDisplay (
      *
      *     [host] : [:] dpy . scr \0
      */
-    len = ((phostname ? strlen(phostname) : 0) + 1 + (dnet ? 1 : 0) +
+    len = ((phostname ? strlen(phostname) : 0) + 1 +
 	   strlen(pdpynum) + 1 + (pscrnum ? strlen(pscrnum) : 1) + 1);
     *fullnamep = (char *) Xmalloc (len);
     if (!*fullnamep) goto bad;
 
     sprintf (*fullnamep, "%s%s%d.%d",
 	     (phostname ? phostname : ""),
-	     (dnet ? "::" : ":"),
+	     ":",
 	     idisplay, iscreen);
 
     *dpynump = idisplay;
