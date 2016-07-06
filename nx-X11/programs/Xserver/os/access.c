@@ -1455,7 +1455,6 @@ AddHost (ClientPtr	client,
 #if defined(IPv6) && defined(AF_INET6)
     case FamilyInternet6:
 #endif
-    case FamilyDECnet:
     case FamilyChaos:
     case FamilyServerInterpreted:
 	if ((len = CheckAddr (family, pAddr, length)) < 0)
@@ -1552,7 +1551,6 @@ RemoveHost (
 #if defined(IPv6) && defined(AF_INET6)
     case FamilyInternet6:
 #endif
-    case FamilyDECnet:
     case FamilyChaos:
     case FamilyServerInterpreted:
     	if ((len = CheckAddr (family, pAddr, length)) < 0)
@@ -1965,8 +1963,7 @@ siHostnameAddrMatch(int family, void * addr, int len,
     Bool res = FALSE;
 
 /* Currently only supports checking against IPv4 & IPv6 connections, but 
- * support for other address families, such as DECnet, could be added if 
- * desired.
+ * support for other address families, could be added if desired.
  */
 #if defined(IPv6) && defined(AF_INET6)
     if ((family == FamilyInternet) || (family == FamilyInternet6)) {

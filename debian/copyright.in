@@ -3046,7 +3046,6 @@ License: UNKNOWN
 
 Files: nx-X11/lib/xtrans/Xtrans.c
  nx-X11/lib/xtrans/Xtrans.h
- nx-X11/lib/xtrans/Xtransdnet.c
  nx-X11/lib/xtrans/Xtransint.h
  nx-X11/lib/xtrans/Xtranslcl.c
  nx-X11/lib/xtrans/Xtransutil.c

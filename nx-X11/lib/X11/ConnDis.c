@@ -1360,13 +1360,6 @@ GetAuthorization(
 	    break;
 	}
 #endif /* AF_UNIX */
-#ifdef AF_DECnet
-	case AF_DECnet:
-	    /*
-	     * What is the defined encoding for this?
-	     */
-	    break;
-#endif /* AF_DECnet */
 	default:
 	    /*
 	     * Need to return some kind of errro status here.
