@@ -53,7 +53,7 @@ extern Bool	_XimXConf(
     char	*address
 );
 
-#if defined(TCPCONN) || defined(UNIXCONN) || defined(DNETCONN) || defined(STREAMSCONN)
+#if defined(TCPCONN) || defined(UNIXCONN) || defined(STREAMSCONN)
 
 extern Bool	_XimTransConf(
     Xim		 im,
