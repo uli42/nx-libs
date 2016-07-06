@@ -49,10 +49,6 @@ from The Open Group.
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifdef __UNIXOS2__
-#define I_NEED_OS2_H
-#endif
-
 #ifdef XSERV_t
 #include "os.h"
 #else
@@ -66,9 +62,6 @@ from The Open Group.
 #endif
 #ifdef LOCALCONN
 #include "Xtranslcl.c"
-#endif
-#ifdef OS2PIPECONN
-#include "Xtransos2.c"
 #endif
 #if defined(TCPCONN) || defined(UNIXCONN)
 #include "Xtranssock.c"

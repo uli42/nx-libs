@@ -71,11 +71,7 @@ from The Open Group.
  */
 
 #ifndef XTRANSDEBUG
-# ifndef __UNIXOS2__
 #  define XTRANSDEBUG 1
-# else
-#  define XTRANSDEBUG 1
-# endif
 #endif
 
 #ifdef WIN32
@@ -98,9 +94,6 @@ from The Open Group.
 # endif
 # include <netinet/in.h>
 # include <arpa/inet.h>
-# ifdef __UNIXOS2__
-#  include <sys/ioctl.h>
-# endif
 
 /*
  * Moved the setting of NEED_UTSNAME to this header file from Xtrans.c,
@@ -130,7 +123,7 @@ from The Open Group.
 #   endif
 #  endif
 #  ifndef OPEN_MAX
-#   if defined(_SC_OPEN_MAX) && !defined(__UNIXOS2__)
+#   if defined(_SC_OPEN_MAX)
 #    define OPEN_MAX (sysconf(_SC_OPEN_MAX))
 #   else
 #    ifdef SVR4
@@ -144,7 +137,7 @@ from The Open Group.
 #       ifdef NOFILE
 #        define OPEN_MAX NOFILE
 #       else
-#        if !defined(__UNIXOS2__) && !defined(__QNX__)
+#        if !defined(__QNX__)
 #         define OPEN_MAX NOFILES_MAX
 #        else
 #         define OPEN_MAX 256
@@ -167,11 +160,7 @@ from The Open Group.
 
 # endif /* TRANS_OPEN_MAX */
 
-# ifdef __UNIXOS2__
-#  define ESET(val)
-# else
 #  define ESET(val) errno = val
-# endif
 # define EGET() errno
 
 #else /* WIN32 */
@@ -381,7 +370,7 @@ typedef struct _Xtransport_table {
  * systems, so they may be emulated.
  */
 
-#if (defined(SYSV) && defined(i386) && !defined(__SCO__)) || defined(WIN32) || defined(__sxg__) || defined(__UNIXOS2__)
+#if (defined(SYSV) && defined(i386) && !defined(__SCO__)) || defined(WIN32) || defined(__sxg__)
 
 #define READV(ciptr, iov, iovcnt)	TRANS(ReadV)(ciptr, iov, iovcnt)
 
@@ -398,7 +387,7 @@ static	int TRANS(ReadV)(
 #endif /* (SYSV && i386) || WIN32 || __sxg__ || */
 
 
-#if (defined(SYSV) && defined(i386) && !defined(__SCO__)) || defined(WIN32) || defined(__sxg__) || defined(__UNIXOS2__)
+#if (defined(SYSV) && defined(i386) && !defined(__SCO__)) || defined(WIN32) || defined(__sxg__)
 
 #define WRITEV(ciptr, iov, iovcnt)	TRANS(WriteV)(ciptr, iov, iovcnt)
 

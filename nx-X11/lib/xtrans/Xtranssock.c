@@ -169,35 +169,8 @@ from the copyright holders.
 #undef SO_DONTLINGER
 #endif
 
-#if defined(__UNIXOS2__)
-#if defined(NOT_EMX09A)
-static int IBMsockInit = 0;
-#define SocketInitOnce()\
-    if (!IBMsockInit) {\
-	sock_init();\
-	IBMsockInit = 1;\
-    }
-
-
-#undef EINTR
-#define EINTR SOCEINTR
-#undef EINVAL
-#define EINVAL SOCEINVAL
-#undef errno
-#define errno sock_errno()
-#undef close
-#define close soclose
-#undef ioctl
-#define ioctl sockioctl
-#else
-#define SocketInitOnce() /**/
-#endif
-/* this is still not there */
-#define SOCKET int
-#else
 /* others don't need this */
 #define SocketInitOnce() /**/
-#endif
 
 #if defined(linux)
 #define HAVE_ABSTRACT_SOCKETS
@@ -2929,11 +2902,7 @@ TRANS(SocketBytesReadable) (XtransConnInfo ciptr, BytesReadable_t *pend)
 #if (defined(i386) && defined(SYSV) && !defined(SCO325)) || (defined(_SEQUENT_) && _SOCKET_VERSION == 1)
     return ioctl (ciptr->fd, I_NREAD, (char *) pend);
 #else
-#if defined(__UNIXOS2__)
-    return ioctl (ciptr->fd, FIONREAD, (char*) pend, sizeof(int));
-#else
     return ioctl (ciptr->fd, FIONREAD, (char *) pend);
-#endif /* __UNIXOS2__ */
 #endif /* i386 && SYSV || _SEQUENT_ && _SOCKET_VERSION == 1 */
 #endif /* WIN32 */
 }
@@ -2980,7 +2949,7 @@ TRANS(SocketRead) (XtransConnInfo ciptr, char *buf, int size)
 
 #else /* #if defined(NX_TRANS_SOCKET) && defined(TRANS_CLIENT) */
 
-#if defined(WIN32) || defined(__UNIXOS2__)
+#if defined(WIN32)
     {
 	int ret = recv ((SOCKET)ciptr->fd, buf, size, 0);
 #ifdef WIN32
@@ -3037,7 +3006,7 @@ TRANS(SocketWrite) (XtransConnInfo ciptr, char *buf, int size)
 
 #else /* #if defined(NX_TRANS_SOCKET) && defined(TRANS_CLIENT) */
 
-#if defined(WIN32) || defined(__UNIXOS2__)
+#if defined(WIN32)
     {
 	int ret = send ((SOCKET)ciptr->fd, buf, size, 0);
 #ifdef WIN32

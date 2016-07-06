@@ -102,9 +102,6 @@ Xtransport_table Xtransports[] = {
 #endif /* !LOCALCONN */
     { &TRANS(SocketUNIXFuncs),	TRANS_SOCKET_UNIX_INDEX },
 #endif /* UNIXCONN */
-#if defined(OS2PIPECONN)
-    { &TRANS(OS2LocalFuncs),	TRANS_LOCAL_LOCAL_INDEX },
-#endif /* OS2PIPECONN */
 #if defined(LOCALCONN)
     { &TRANS(LocalFuncs),	TRANS_LOCAL_LOCAL_INDEX },
 #ifndef sun
@@ -709,7 +706,7 @@ TRANS(SetOption) (XtransConnInfo ciptr, int option, int arg)
 	    break;
 	case 1: /* Set to non-blocking mode */
 
-#if defined(O_NONBLOCK) && (!defined(ultrix) && !defined(hpux) && !defined(AIXV3) && !defined(uniosu) && !defined(__UNIXOS2__) && !defined(SCO325)) && !defined(__QNX__)
+#if defined(O_NONBLOCK) && (!defined(ultrix) && !defined(hpux) && !defined(AIXV3) && !defined(uniosu) && !defined(SCO325)) && !defined(__QNX__)
 	    ret = fcntl (fd, F_GETFL, 0);
 	    if (ret != -1)
 		ret = fcntl (fd, F_SETFL, ret | O_NONBLOCK);
@@ -721,7 +718,7 @@ TRANS(SetOption) (XtransConnInfo ciptr, int option, int arg)
 	    ret = ioctl (fd, FIOSNBIO, &arg);
 	}
 #else
-#if (defined(AIXV3) || defined(uniosu) || defined(WIN32) || defined(__UNIXOS2__) || defined(__QNX__)) && defined(FIONBIO)
+#if (defined(AIXV3) || defined(uniosu) || defined(WIN32) || defined(__QNX__)) && defined(FIONBIO)
 	{
 #ifdef WIN32
 	    u_long arg;
@@ -731,11 +728,7 @@ TRANS(SetOption) (XtransConnInfo ciptr, int option, int arg)
 	    arg = 1;
 /* IBM TCP/IP understands this option too well: it causes TRANS(Read) to fail
  * eventually with EWOULDBLOCK */
-#ifndef __UNIXOS2__
 	    ret = ioctl (fd, FIONBIO, &arg);
-#else
-/*	    ret = ioctl(fd, FIONBIO, &arg, sizeof(int));*/
-#endif
 	}
 #else
 	    ret = fcntl (fd, F_GETFL, 0);
@@ -1262,7 +1255,7 @@ TRANS(MakeAllCLTSServerListeners) (char *port, int *partial, int *count_ret,
  * may be used by it.
  */
 
-#if (defined(SYSV) && defined(i386) && !defined(__SCO__)) || defined(WIN32) || defined(__sxg__) || defined(__UNIXOS2__)
+#if (defined(SYSV) && defined(i386) && !defined(__SCO__)) || defined(WIN32) || defined(__sxg__)
 
 /*
  * emulate readv
@@ -1294,7 +1287,7 @@ static int TRANS(ReadV) (XtransConnInfo ciptr, struct iovec *iov, int iovcnt)
 
 #endif /* SYSV && i386 || WIN32 || __sxg__ */
 
-#if (defined(SYSV) && defined(i386) && !defined(__SCO__)) || defined(WIN32) || defined(__sxg__) || defined(__UNIXOS2__)
+#if (defined(SYSV) && defined(i386) && !defined(__SCO__)) || defined(WIN32) || defined(__sxg__)
 
 /*
  * emulate writev

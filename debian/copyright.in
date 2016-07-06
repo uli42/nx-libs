@@ -3597,7 +3597,6 @@ License: Expat
  FIXME
 
 Files: nx-X11/lib/X11/os2Stubs.c
- nx-X11/lib/xtrans/Xtransos2.c
 Copyright: 1996, Sebastien Marineau and Holger Veit
 License: Expat
  FIXME

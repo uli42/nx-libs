@@ -1829,7 +1829,7 @@ ConvertAddr (
     switch (saddr->sa_family)
     {
     case AF_UNSPEC:
-#if defined(UNIXCONN) || defined(LOCALCONN) || defined(OS2PIPECONN)
+#if defined(UNIXCONN) || defined(LOCALCONN)
     case AF_UNIX:
 #endif
         return FamilyLocal;

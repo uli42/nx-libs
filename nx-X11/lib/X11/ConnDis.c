@@ -488,10 +488,10 @@ _X11TransConnectDisplay (
 
 #endif
 
-#if defined(TCPCONN) || defined(UNIXCONN) || defined(LOCALCONN) || defined(MNX_TCPCONN) || defined(OS2PIPECONN)
+#if defined(TCPCONN) || defined(UNIXCONN) || defined(LOCALCONN) || defined(MNX_TCPCONN)
     if (!pprotocol) {
 	if (!phostname) {
-#if defined(UNIXCONN) || defined(LOCALCONN) || defined(OS2PIPECONN)
+#if defined(UNIXCONN) || defined(LOCALCONN)
 	    pprotocol = copystring ("local", 5);
 #if defined(TCPCONN)
 	    tcphostname = copystring("localhost", 9);
@@ -505,7 +505,7 @@ _X11TransConnectDisplay (
     }
 #endif
 
-#if defined(UNIXCONN) || defined(LOCALCONN) || defined(OS2PIPECONN)
+#if defined(UNIXCONN) || defined(LOCALCONN)
     /*
      * Now that the defaults have been established, see if we have any 
      * special names that we have to override:
