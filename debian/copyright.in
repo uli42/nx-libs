@@ -3049,7 +3049,6 @@ Files: nx-X11/lib/xtrans/Xtrans.c
  nx-X11/lib/xtrans/Xtransdnet.c
  nx-X11/lib/xtrans/Xtransint.h
  nx-X11/lib/xtrans/Xtranslcl.c
- nx-X11/lib/xtrans/Xtranstli.c
  nx-X11/lib/xtrans/Xtransutil.c
  nx-X11/lib/xtrans/transport.c
 Copyright: 1993-1994, 1998 The Open Group

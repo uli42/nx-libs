@@ -45,9 +45,6 @@ Public TransportSW _XimTransportRec[] = {
 #if defined(UNIXCONN) || defined(LOCALCONN)
     { "local",      _XimTransConf }, /* use X transport lib */
 #endif /* UNIXCONN */
-#ifdef STREAMSCONN
-    { "streams",    _XimTransConf }, /* use X transport lib */
-#endif /* STREAMSCONN */
     { (char *)NULL, (Bool (*)(Xim, char *))NULL },
 };
 

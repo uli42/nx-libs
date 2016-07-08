@@ -804,15 +804,6 @@ _XSendClientPrefix (dpy, client, auth_proto, auth_string, prefix)
     return 0;
 }
 
-
-#ifdef STREAMSCONN
-#ifdef SVR4
-#include <tiuser.h>
-#else
-#undef HASXDMAUTH
-#endif
-#endif
-
 #ifdef SECURE_RPC
 #include <rpc/rpc.h>
 #ifdef ultrix
