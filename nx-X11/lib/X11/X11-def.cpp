@@ -1533,7 +1533,6 @@ EXPORTS
 	XUnlockDisplay   
 	_X11TransFreeConnInfo   
 	_X11TransOpenCOTSClient   
-	_X11TransOpenCLTSClient   
 	_X11TransSetOption  
 	_X11TransConnect   
 	_X11TransBytesReadable   
@@ -1741,7 +1740,6 @@ EXPORTS
 	_XimTransRead   
 	_XimXTransFreeConnInfo   
 	_XimXTransOpenCOTSClient   
-	_XimXTransOpenCLTSClient   
 	_XimXTransSetOption   
 	_XimXTransConnect   
 	_XimXTransBytesReadable   

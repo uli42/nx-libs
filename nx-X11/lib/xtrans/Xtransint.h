@@ -53,10 +53,10 @@ from The Open Group.
 #define _XTRANSINT_H_
 
 /*
- * XTRANSDEBUG will enable the PRMSG() macros used in the X Transport 
- * Interface code. Each use of the PRMSG macro has a level associated with 
- * it. XTRANSDEBUG is defined to be a level. If the invocation level is =< 
- * the value of XTRANSDEBUG, then the message will be printed out to stderr. 
+ * XTRANSDEBUG will enable the PRMSG() macros used in the X Transport
+ * Interface code. Each use of the PRMSG macro has a level associated with
+ * it. XTRANSDEBUG is defined to be a level. If the invocation level is =<
+ * the value of XTRANSDEBUG, then the message will be printed out to stderr.
  * Recommended levels are:
  *
  *	XTRANSDEBUG=1	Error messages
@@ -194,8 +194,6 @@ struct _XtransConnInfo {
 
 #define XTRANS_OPEN_COTS_CLIENT       1
 #define XTRANS_OPEN_COTS_SERVER       2
-#define XTRANS_OPEN_CLTS_CLIENT       3
-#define XTRANS_OPEN_CLTS_SERVER       4
 
 
 typedef struct _Xtransport {
@@ -224,38 +222,10 @@ typedef struct _Xtransport {
 
 #endif /* TRANS_SERVER */
 
-#ifdef TRANS_CLIENT
-
-    XtransConnInfo (*OpenCLTSClient)(
-	struct _Xtransport *,	/* transport */
-	char *,			/* protocol */
-	char *,			/* host */
-	char *			/* port */
-    );
-
-#endif /* TRANS_CLIENT */
-
-#ifdef TRANS_SERVER
-
-    XtransConnInfo (*OpenCLTSServer)(
-	struct _Xtransport *,	/* transport */
-	char *,			/* protocol */
-	char *,			/* host */
-	char *			/* port */
-    );
-
-#endif /* TRANS_SERVER */
-
 
 #ifdef TRANS_REOPEN
 
     XtransConnInfo (*ReopenCOTSServer)(
-	struct _Xtransport *,	/* transport */
-        int,			/* fd */
-        char *			/* port */
-    );
-
-    XtransConnInfo (*ReopenCLTSServer)(
 	struct _Xtransport *,	/* transport */
         int,			/* fd */
         char *			/* port */
@@ -424,7 +394,7 @@ static int trans_mkdir (
  * to fprintf.
  */
 #ifdef XTRANSDEBUGTIMESTAMP
-#if defined(XSERV_t) && defined(TRANS_SERVER)
+# if defined(XSERV_t) && defined(TRANS_SERVER)
 /* Use ErrorF() for the X server */
 #define PRMSG(lvl,x,a,b,c)	if (lvl <= XTRANSDEBUG){ \
 			int hack= 0, saveerrno=errno; \
@@ -435,7 +405,7 @@ static int trans_mkdir (
                         ErrorF("timestamp (ms): %d\n",tp.tv_sec*1000+tp.tv_usec/1000); \
 			errno=saveerrno; \
 			} else ((void)0)
-#else
+# else
 #define PRMSG(lvl,x,a,b,c)	if (lvl <= XTRANSDEBUG){ \
 			int hack= 0, saveerrno=errno; \
                         struct timeval tp;\
