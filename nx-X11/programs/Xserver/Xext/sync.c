@@ -72,7 +72,7 @@ PERFORMANCE OF THIS SOFTWARE.
 #include "xf86_ansic.h"
 #else
 #include <stdio.h>
-#if !defined(WIN32) && !defined(Lynx)
+#if !defined(WIN32)
 #include <sys/time.h>
 #endif
 #endif

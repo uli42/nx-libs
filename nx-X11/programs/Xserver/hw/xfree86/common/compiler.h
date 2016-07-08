@@ -570,14 +570,13 @@ inl(unsigned short port)
    return ret;
 }
 
-#   elif (defined(linux) || defined(Lynx) || defined(sun) || defined(__OpenBSD__) || defined(__FreeBSD__)) && defined(__sparc__)
+#   elif (defined(linux) || defined(sun) || defined(__OpenBSD__) || defined(__FreeBSD__)) && defined(__sparc__)
 
-#    if !defined(Lynx)
-#     ifndef ASI_PL
-#      define ASI_PL 0x88
-#     endif
+#   ifndef ASI_PL
+#    define ASI_PL 0x88
+#   endif
 
-#     define barrier() __asm__ __volatile__(".word 0x8143e00a": : :"memory")
+#   define barrier() __asm__ __volatile__(".word 0x8143e00a": : :"memory")
 
 static __inline__ void
 outb(unsigned long port, unsigned char val)
@@ -811,7 +810,6 @@ xf86WriteMmio32LeNB(__volatile__ void *base, const unsigned long offset,
 			     : "r" (val), "r" (addr), "i" (ASI_PL));
 }
 
-#    endif	/* !Lynx */
 
 /*
  * EGCS 1.1 knows about arbitrary unaligned loads.  Define some
@@ -1073,7 +1071,7 @@ xf86WriteMmio32Be(__volatile__ void *base, const unsigned long offset,
 #     define write_mem_barrier()	/* NOP */
 #    endif /* __arm32__ */
 
-#   elif (defined(Lynx) || defined(linux) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__FreeBSD__)) && defined(__powerpc__)
+#   elif (defined(linux) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__FreeBSD__)) && defined(__powerpc__)
 
 #    ifndef MAP_FAILED
 #     define MAP_FAILED ((void *)-1)

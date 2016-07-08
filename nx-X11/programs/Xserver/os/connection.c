@@ -86,11 +86,7 @@ SOFTWARE.
 #include <stdlib.h>
 
 #ifndef WIN32
-#if defined(Lynx)
-#include <socket.h>
-#else
 #include <sys/socket.h>
-#endif
 
 #ifdef hpux
 #include <sys/utsname.h>
@@ -139,11 +135,7 @@ extern __const__ int _nfiles;
 #endif
 
 #if !defined(__UNIXOS2__)
-#ifndef Lynx
 #include <sys/uio.h>
-#else
-#include <uio.h>
-#endif
 #endif
 #endif /* WIN32 */
 #include "misc.h"

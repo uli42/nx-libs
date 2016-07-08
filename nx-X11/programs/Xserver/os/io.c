@@ -68,11 +68,7 @@ SOFTWARE.
 #include <nx-X11/Xmd.h>
 #include <errno.h>
 #if !defined(__UNIXOS2__) && !defined(WIN32)
-#ifndef Lynx
 #include <sys/uio.h>
-#else
-#include <uio.h>
-#endif
 #endif
 #include <nx-X11/X.h>
 #include <nx-X11/Xproto.h>
@@ -899,7 +895,7 @@ WriteToClient (ClientPtr who, int count, const void *__buf)
 		    snprintf(info,127,"XEvent: type: 0x%x detail: 0x%x "
 			     "seq#: 0x%x",  ev->u.u.type, ev->u.u.detail,
 			     ev->u.u.sequenceNumber);
-		}
+		}s
 	    }
 	    ErrorF("REPLY: ClientIDX: %i %s\n",who->index, info);
 	} else

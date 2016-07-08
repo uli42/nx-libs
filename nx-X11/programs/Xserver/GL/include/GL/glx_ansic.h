@@ -64,9 +64,6 @@
 
 #else
 
-#if defined(Lynx) && defined(__assert_h)
-#undef __assert_h
-#endif
 #ifdef assert
 #undef assert
 #endif
