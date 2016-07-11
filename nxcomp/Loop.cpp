@@ -10214,18 +10214,20 @@ int SetCore()
     if (setrlimit(RLIMIT_CORE, &rlim))
     {
       #ifdef TEST
-      *logofs << "Loop: Cannot read RLIMIT_CORE. Error is '"
+      *logofs << "Loop: Cannot set RLIMIT_CORE. Error is '"
               << ESTR() << "'.\n" << logofs_flush;
       #endif
 
       return -2;
     }
+    #ifdef TEST
+    else
+    {
+      *logofs << "Loop: Set RLIMIT_CORE to "<< rlim.rlim_max
+              << ".\n" << logofs_flush;
+    }
+    #endif
   }
-
-  #ifdef TEST
-  *logofs << "Loop: Set RLIMIT_CORE to "<< rlim.rlim_max
-          << ".\n" << logofs_flush;
-  #endif
 
   #endif // #ifdef COREDUMPS
 
