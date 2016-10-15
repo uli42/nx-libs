@@ -42,6 +42,8 @@
 #include <libxml/parser.h>
 #include <libxml/tree.h>
 
+#include <nx-X11/XKBlib.h>
+
 extern Bool nxagentWMIsRunning;
 extern Bool nxagentIpaq;
 extern char *nxagentKeystrokeFile;
@@ -407,6 +409,7 @@ free(filename);
 static enum nxagentSpecialKeystroke find_keystroke(XKeyEvent *X)
 {
   KeySym keysym = XKeycodeToKeysym(nxagentDisplay, X->keycode, 0);
+  KeySym keysym = XkbKeycodeToKeysym(nxagentDisplay,X->keycode, 0, 0);
   struct nxagentSpecialKeystrokeMap *cur = map;
 
   if (! nxagentKeystrokeFileParsed)
@@ -430,7 +433,6 @@ static enum nxagentSpecialKeystroke find_keystroke(XKeyEvent *X)
 int nxagentCheckSpecialKeystroke(XKeyEvent *X, enum HandleEventResult *result)
 {
   KeySym sym;
-  int index = 0;
   enum nxagentSpecialKeystroke stroke = find_keystroke(X);
 
   *result = doNothing;
@@ -440,7 +442,7 @@ int nxagentCheckSpecialKeystroke(XKeyEvent *X, enum HandleEventResult *result)
    * Do we need a cache ?
    */
 
-  sym = XKeycodeToKeysym(nxagentDisplay, X -> keycode, index);
+  sym = XkbKeycodeToKeysym(nxagentDisplay, X->keycode, 0, 0);
 
   if (sym == XK_VoidSymbol || sym == NoSymbol)
   {
