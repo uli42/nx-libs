@@ -222,7 +222,7 @@ XLookupKeysym(register XKeyEvent * event, int col)
     if (_XkbUnavailable(dpy))
         return _XLookupKeysym(event, col);
     _XkbCheckPendingRefresh(dpy, dpy->xkb_info);
-    return XKeycodeToKeysym(dpy, event->keycode, col);
+    return XkbKeycodeToKeysym(dpy, event->keycode, 0, col);
 }
 
    /*

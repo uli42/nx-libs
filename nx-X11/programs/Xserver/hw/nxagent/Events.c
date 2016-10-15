@@ -1101,7 +1101,7 @@ void nxagentDispatchEvents(PredicateFuncPtr predicate)
          * sive delay.
          */
 
-        keysym = XKeycodeToKeysym(nxagentDisplay, X.xkey.keycode, 0);
+        keysym = XkbKeycodeToKeysym(nxagentDisplay, X.xkey.keycode, 0, 0);
 
         if (nxagentMonitoredDuplicate(keysym) == 1)
         {
