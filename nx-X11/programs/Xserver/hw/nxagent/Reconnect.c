@@ -438,22 +438,10 @@ Bool nxagentReconnectSession(void)
 
   if (nxagentKeyboard != NULL)
   {
-    int size;
+    nxagentOldKeyboard = strndup(nxagentKeyboard, strlen(nxagentKeyboard));
+    /* FIXME: check if nxagentOldKeyboard == NULL and abort */
 
-    size = strlen(nxagentKeyboard);
-
-    if ((nxagentOldKeyboard = malloc(size + 1)) != NULL)
-    {
-      strncpy(nxagentOldKeyboard, nxagentKeyboard, size);
-
-      nxagentOldKeyboard[size] = '\0';
-    }
-  }
-
-  if (nxagentKeyboard)
-  {
     free(nxagentKeyboard);
-
     nxagentKeyboard = NULL;
   }
 
