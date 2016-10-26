@@ -1203,8 +1203,7 @@ XkbError:
 	  
           free(nxagentXkbConfigFilePath);
 
-          if (!nxagentKeyboard ||
-                 (nxagentKeyboard && (strcmp(nxagentKeyboard, "query") == 0)))
+	  if (!nxagentKeyboard)
           {
             goto XkbError;
           }
