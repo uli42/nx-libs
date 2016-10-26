@@ -199,7 +199,8 @@ XkbWrapperRec nxagentXkbWrapper;
 
 extern char *nxagentKeyboard;
 
-static char *nxagentXkbGetRules(void);
+char *nxagentXkbGetRules(char *);
+char *nxagentXkbCheckRulesFile(char *);
 
 unsigned int nxagentAltMetaMask;
 
@@ -527,60 +528,83 @@ static void nxagentCheckXkbBaseDirectory(void)
   return;
 }
 
-static char *nxagentXkbGetRules()
+/* returned char * must be freed later */
+char * nxagentXkbCheckRulesFile(char *filename)
 {
   int ret;
-  int size, sizeDflt, sizeAlt;
+  int size;
   char *path;
   struct stat buf;
 
   #ifdef TEST
-  fprintf(stderr, "nxagentXkbGetRules: XkbBaseDirectory [%s].\n",
+  fprintf(stderr, "nxagentXkbCheckRulesFile: XkbBaseDirectory [%s].\n",
               XkbBaseDirectory);
   #endif
 
-  sizeDflt = strlen(XKB_DFLT_RULES_FILE);
-  sizeAlt = strlen(XKB_ALTS_RULES_FILE);
-  size = strlen(XkbBaseDirectory) + strlen("/rules/");
-  size += (sizeDflt > sizeAlt) ? sizeDflt : sizeAlt;
+  size = strlen(XkbBaseDirectory) + strlen("/rules/") + strlen(filename);
 
   if ((path = malloc((size + 1) * sizeof(char))) == NULL)
   {
-    FatalError("nxagentXkbGetRules: malloc failed.");
+    FatalError("nxagentXkbCheckRulesFile: malloc failed.");
   }
 
   strcpy(path, XkbBaseDirectory);
   strcat(path, "/rules/");
-  strcat(path, XKB_DFLT_RULES_FILE);
+  strcat(path, filename);
+
+  #ifdef TEST
+    fprintf(stderr, "nxagentXkbCheckRulesFile: checking existance of file [%s].\n", path);
+  #endif 
   ret = stat(path, &buf);
 
+  #ifdef TEST
+  if (ret != 0)
+    fprintf(stderr, "nxagentXkbCheckRulesFile: WARNING! Failed to stat file [%s]: %s.\n", path, strerror(ret));
+  else
+    fprintf(stderr, "nxagentXkbCheckRulesFile: OK: file [%s] exists.\n", path);
+  #endif 
+  free(path);
+
   if (ret == 0)
-  {
-    free(path);
-    return XKB_DFLT_RULES_FILE;
+    return strdup(filename);
+  else
+    return NULL;
+}
+
+
+char *nxagentXkbGetRules(char *remoterules)
+{
+  char *ret;
+
+  if (remoterules) {
+    if ((ret = nxagentXkbCheckRulesFile(remoterules))) {
+      #ifdef TEST
+      fprintf(stderr, "nxagentXkbGetRules: Using rule [%s].\n", ret);
+      #endif 
+
+      return ret;
+    }
+  }    
+
+  if ((ret = nxagentXkbCheckRulesFile(XKB_DFLT_RULES_FILE))) {
+    #ifdef TEST
+    fprintf(stderr, "nxagentXkbGetRules: Using rule [%s].\n", ret);
+    #endif 
+    return ret;
+  }
+
+  if ((ret = nxagentXkbCheckRulesFile(XKB_ALTS_RULES_FILE))) {
+    #ifdef TEST
+    fprintf(stderr, "nxagentXkbGetRules: Using rule [%s].\n", ret);
+    #endif 
+    return ret;
   }
 
   #ifdef TEST
-  fprintf(stderr, "nxagentXkbGetRules: WARNING! Failed to stat file [%s]: %s.\n", path, strerror(ret));
+  fprintf(stderr, "nxagentXkbGetRules: WARNING! Failed to stat any rules file!\n");
   #endif 
 
-  strcpy(path, XkbBaseDirectory);
-  strcat(path, "/rules/");
-  strcat(path, XKB_ALTS_RULES_FILE);
-  ret = stat(path, &buf);
-
-  if (ret == 0)
-  {
-    free(path);
-    return XKB_ALTS_RULES_FILE;
-  }
-
-  #ifdef WARNING
-  fprintf(stderr, "nxagentXkbGetRules: WARNING! Failed to stat file [%s]: %s.\n", path, strerror(ret));
-  #endif
-
-  free(path);
-  return XKB_DFLT_RULES_FILE;
+  return strdup(XKB_DFLT_RULES_FILE);
 }
  
 void nxagentBell(int volume, DeviceIntPtr pDev, void * ctrl, int cls)
@@ -693,8 +717,12 @@ int nxagentKeyboardProc(DeviceIntPtr pDev, int onoff)
   CARD8 modmap[256];
   int i, j;
   XKeyboardState values;
+  char *rules = NULL; 
   char *model = NULL, *layout = NULL;
+  char *variants = NULL, *options = NULL;
+  int free_rules = 0;
   int free_model = 0, free_layout = 0;
+  int free_variants = 0, free_options = 0;
   XkbDescPtr xkb = NULL;
 
   switch (onoff)
@@ -836,6 +864,11 @@ XkbError:
 
         XkbFreeKeyboard(xkb, XkbAllComponentsMask, True);
         xkb = NULL;
+        if (free_rules) 
+        {
+          free_rules = 0;
+          free(rules);
+        }
         if (free_model) 
         {
           free_model = 0;
@@ -846,6 +879,17 @@ XkbError:
           free_layout = 0;
           free(layout);
         }
+        if (free_variants) 
+        {
+          free_variants = 0;
+          free(variants);
+        }
+        if (free_options) 
+        {
+          free_options = 0;
+          free(options);
+        }
+
 #endif
       XGetKeyboardControl(nxagentDisplay, &values);
 
@@ -865,14 +909,15 @@ XkbError:
       #endif
 
 #ifdef XKB
-      } else {
+      } 
+      else /* if (noXkbExtension) */
+      {
         FILE *file;
         XkbConfigRtrnRec config;
 
         char *nxagentXkbConfigFilePath;
 
         XkbComponentNamesRec names;
-        char *rules, *variants, *options;
 
         #ifdef TEST
         fprintf(stderr, "nxagentKeyboardProc: Using XKB extension.\n");
@@ -884,63 +929,120 @@ XkbError:
 
         memset(&names, 0, sizeof(XkbComponentNamesRec));
 
-        rules = nxagentXkbGetRules();
-
-        if ((nxagentKeyboard != NULL) && (strcmp(nxagentKeyboard, "query") != 0))
+        if (nxagentKeyboard)
         {
-          for (i = 0; nxagentKeyboard[i] != '/' && nxagentKeyboard[i] != 0; i++);
-
-          if(nxagentKeyboard[i] == 0 || nxagentKeyboard[i + 1] == 0 || i == 0)
+          if (strcmp(nxagentKeyboard, "query") == 0)
           {
-            ErrorF("Warning: Wrong keyboard type: %s.\n", nxagentKeyboard);
+	    char *drules = NULL;
+	    char *dmodel = NULL;
+	    char *dlayout = NULL;
+	    char *dvariant = NULL;
+	    char *doptions = NULL;
+	    unsigned int drulesLen;
 
-            goto XkbError;
-          }
+	    drulesLen = nxagentXkbGetNames(&drules, &dmodel, &dlayout,
+					   &dvariant, &doptions);
 
-          free_model = 1;
-	  model = strndup(nxagentKeyboard, i);
+            #ifdef DEBUG
+	    if (drulesLen != 0 && drules != NULL && dmodel != NULL)
+	    {
+	      fprintf(stderr, "nxagentKeyboardProc: "
+	                      "Remote: [rules='%s',model='%s',layout='%s',variant='%s',options='%s'].\n",
+	                      drules, dmodel, dlayout, dvariant, doptions);
+            }
+	    else
+	    {
+	      fprintf(stderr, "nxagentKeyboardProc: "
+	                      "Failed to retrieve remote rules.\n");
+	    }
+            #endif
+	    
+            if (drules)
+            {  
+	      free_rules = 1; 
+              rules = nxagentXkbGetRules(drules);
+            }
+            if (dmodel)
+            {
+              free_model = 1;
+              model = strdup(dmodel);
+            }
+            if (dlayout)
+            {
+              free_layout = 1;
+              layout = strdup(dlayout);
+            }
+            if (dvariant)
+            {
+              free_variants = 1;
+              variants = strdup(dvariant);
+            }
+            if (doptions)
+            {
+              free_options = 1;
+              options = strdup(doptions);
+            }
 
-          free_layout = 1;
-	  layout = strdup(&nxagentKeyboard[i + 1]);
-
-          /*
-           * There is no description for pc105 on Solaris.
-           * Need to revert to the closest approximation.
-           */
-
-          #ifdef TEST
-          fprintf(stderr, "nxagentKeyboardProc: Using keyboard model [%s] with layout [%s].\n",
-                      model, layout);
-          #endif
-
-          #ifdef __sun
-
-          if (strcmp(model, "pc105") == 0)
+	  }
+          else
           {
+	    free_rules = 1; 
+	    rules = nxagentXkbGetRules(NULL);
+
+            for (i = 0; nxagentKeyboard[i] != '/' && nxagentKeyboard[i] != 0; i++);
+
+            if(nxagentKeyboard[i] == 0 || nxagentKeyboard[i + 1] == 0 || i == 0)
+            {
+              ErrorF("Warning: Wrong keyboard type: %s.\n", nxagentKeyboard);
+              goto XkbError;
+            }
+
+            free_model = 1;
+	    model = strndup(nxagentKeyboard, i);
+
+            free_layout = 1;
+	    layout = strdup(&nxagentKeyboard[i + 1]);
+
+            /*
+             * There is no description for pc105 on Solaris.
+             * Need to revert to the closest approximation.
+             */
+
             #ifdef TEST
-            fprintf(stderr, "nxagentKeyboardProc: WARNING! Keyboard model 'pc105' unsupported on Solaris.\n");
-
-            fprintf(stderr, "nxagentKeyboardProc: WARNING! Forcing keyboard model to 'pc104'.\n");
+            fprintf(stderr, "nxagentKeyboardProc: Using keyboard model [%s] with layout [%s].\n",
+                            model, layout);
             #endif
 
-            strcpy(model, "pc104");
-          }
+            #ifdef __sun
 
-          #endif
-        }
-        else
+            if (strcmp(model, "pc105") == 0)
+            {
+              #ifdef TEST
+              fprintf(stderr, "nxagentKeyboardProc: WARNING! Keyboard model 'pc105' unsupported on Solaris.\n");
+              fprintf(stderr, "nxagentKeyboardProc: WARNING! Forcing keyboard model to 'pc104'.\n");
+              #endif
+              strcpy(model, "pc104");
+            }
+
+            #endif /* __sun */
+          }
+        } 
+        else /* nagentKeyboard != NULL */
         {
+          free_rules = 1; 
+          rules = nxagentXkbGetRules(NULL);
+
           layout = XKB_DFLT_KB_LAYOUT;
           model = XKB_DFLT_KB_MODEL;
+	  variants = XKB_DFLT_KB_VARIANT;
+	  options = XKB_DFLT_KB_OPTIONS;
 
           #ifdef TEST
           fprintf(stderr, "nxagentKeyboardProc: Using default keyboard: model [%s] layout [%s].\n",
-                      model, layout);
+                          model, layout);
           #endif
         }
 
-        variants = XKB_DFLT_KB_VARIANT;
-        options = XKB_DFLT_KB_OPTIONS;
 
         #ifdef TEST
         fprintf(stderr, "nxagentKeyboardProc: XkbInitialMap [%s]\n", XkbInitialMap ? XkbInitialMap : "NULL");
@@ -1038,6 +1140,11 @@ XkbError:
             goto XkbError;
           }
           if (config.rules_file)
+            if (free_rules)
+            {
+              free_rules = 0; 
+              free(rules);
+            }
             rules = config.rules_file;
           if (config.model)
           {
@@ -1058,10 +1165,23 @@ XkbError:
             layout = config.layout;
           }
           if (config.variant)
-            variants = config.variant;
+	  {
+	    if (free_variants) 
+	    {
+	      free_variants = 0;
+	      free(variants);
+	    }
+          }
+          variants = config.variant;
           if (config.options)
+	  {
+	    if (free_options) 
+	    {
+	      free_options = 0;
+	      free(options);
+            }
             options = config.options;
-
+          }
           free(nxagentXkbConfigFilePath);
 
           fclose(file);
@@ -1077,10 +1197,10 @@ XkbError:
                           rules, model, layout, variants, options);
           #endif
 
-          XkbSetRulesDflts(rules, model, layout, variants, options);
+	  XkbSetRulesDflts(rules, model, layout, variants, options);
           XkbInitKeyboardDeviceStruct((void *)pDev, &names, &keySyms, modmap,
                                           nxagentBell, nxagentChangeKeyboardControl);
-
+	  
           free(nxagentXkbConfigFilePath);
 
           if (!nxagentKeyboard ||
@@ -1113,6 +1233,12 @@ XkbEnd:
           NXShadowInitKeymap(&(pDev->key->curKeySyms));
         }
 
+        if (free_rules) 
+        {
+          free_rules = 0;
+          free(rules);
+        }
+
         if (free_model) 
         {
           free_model = 0;
@@ -1125,9 +1251,21 @@ XkbEnd:
           free(layout);
         }
 
+        if (free_variants) 
+        {
+          free_variants = 0;
+          free(variants);
+        }
+
+        if (free_options) 
+        {
+          free_options = 0;
+          free(options);
+        }
+
         XkbFreeKeyboard(xkb, XkbAllComponentsMask, True);
         xkb = NULL;
-      }
+      } /* if (noXkbExtension) */
 #endif
 
       #ifdef WATCH

@@ -888,7 +888,7 @@ unsigned	missing;
 	return 0;
     }
 #ifdef DEBUG
-    else if (xkbDebugFlags) {
+    else /*if (xkbDebugFlags)*/ {
 	ErrorF("Loaded %s, defined=0x%x\n",fileName,finfoRtrn->defined);
     }
 #endif
