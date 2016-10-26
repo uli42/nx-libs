@@ -931,7 +931,7 @@ XkbError:
 
         if (nxagentKeyboard)
         {
-          if (strcmp(nxagentKeyboard, "query") == 0)
+          if (strcmp(nxagentKeyboard, "auto") == 0)
           {
 	    char *drules = NULL;
 	    char *dmodel = NULL;
@@ -1204,7 +1204,8 @@ XkbError:
 	  
           free(nxagentXkbConfigFilePath);
 
-          if (!nxagentKeyboard)
+          if (!nxagentKeyboard ||
+                  (nxagentKeyboard && (strcmp(nxagentKeyboard, "query") == 0)))
           {
             goto XkbError;
           }
