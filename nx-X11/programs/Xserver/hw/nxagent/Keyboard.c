@@ -982,7 +982,8 @@ XkbError:
               free_options = 1;
               options = strdup(doptions);
             }
-
+	    if (drules)
+	      Xfree(drules);
 	  }
           else
           {
