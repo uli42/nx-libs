@@ -80,7 +80,6 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #define	PRE_ERROR_MSG "\"The XKEYBOARD keymap compiler (xkbcomp) reports:\""
 #define	ERROR_PREFIX	"\"> \""
 #define	POST_ERROR_MSG1 "\"Errors from xkbcomp are not fatal to the X server\""
-#define	POST_ERROR_MSG2 "\"End of messages from xkbcomp\""
 
 #if defined(__UNIXOS2__) || defined(WIN32)
 #define PATHSEPARATOR "\\"
