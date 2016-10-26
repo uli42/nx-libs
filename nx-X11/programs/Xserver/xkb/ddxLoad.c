@@ -24,6 +24,11 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 ********************************************************/
 
+#define TEST
+#define DEBUG
+#define DEBUG_CMD
+#define NOISY
+
 #ifdef HAVE_DIX_CONFIG_H
 #include <dix-config.h>
 #endif

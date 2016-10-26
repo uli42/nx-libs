@@ -98,8 +98,8 @@ static void nxagentKeycodeConversionSetup(void);
 
 #define PANIC
 #define WARNING
-#undef  TEST
-#undef  DEBUG
+#define  TEST
+#define  DEBUG
 #undef  WATCH
 
 #ifdef WATCH

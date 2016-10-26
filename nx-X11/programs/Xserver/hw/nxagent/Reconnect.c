@@ -67,8 +67,8 @@
 
 #define PANIC
 #define WARNING
-#undef  TEST
-#undef  DEBUG
+#define  TEST
+#define  DEBUG
 
 #define NXAGENT_RECONNECT_DEFAULT_MESSAGE_SIZE  32
 
