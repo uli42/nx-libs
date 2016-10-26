@@ -88,7 +88,7 @@ is" without express or implied warranty.
 static int nxagentXkbGetNames(char **rules, char **model, char **layout,
                                   char **variant, char **options);
 
-static void nxagentKeycodeConversionSetup(void);
+static void nxagentKeycodeConversionSetup(char *);
 
 #endif /* XKB */
 
@@ -1074,7 +1074,7 @@ XkbError:
 
         xkb = XkbGetKeyboard(nxagentDisplay, XkbGBN_AllComponentsMask, XkbUseCoreKbd);
 
-        nxagentKeycodeConversionSetup();
+        nxagentKeycodeConversionSetup(rules);
 
         if (xkb == NULL || xkb->geom == NULL)
         {
@@ -1232,14 +1232,14 @@ XkbEnd:
         /* If the remote side is using evdev and we were able to
            activate evdev in the server there's no need to do
            keycode conversion */
-	 if (nxagentKeycodeConversion == 1 && strcmp(rules, "evdev") == 0)
+	/*        if (nxagentKeycodeConversion == 1 && strcmp(rules, "evdev") == 0)
         {
           #ifdef TEST
           fprintf(stderr, "nxagentKeyboardProc: Disabling keycode conversion because we have evdev on the server.\n");
           #endif
           nxagentKeycodeConversion = 0;
         }
-
+	*/
         if (nxagentOption(Shadow) == 1 && pDev && pDev->key)
         {
           NXShadowInitKeymap(&(pDev->key->curKeySyms));
@@ -1940,7 +1940,7 @@ static int nxagentXkbGetNames(char **rules, char **model, char **layout,
   return n;
 }
 
-void nxagentKeycodeConversionSetup(void)
+void nxagentKeycodeConversionSetup(char *serverrules)
 {
   char *drules = NULL;
   char *dmodel = NULL;
@@ -2017,12 +2017,16 @@ void nxagentKeycodeConversionSetup(void)
       (strcmp(drules, "evdev") == 0 ||
        strcmp(dmodel, "evdev") == 0))
   {
-    #ifdef DEBUG
-    fprintf(stderr, "nxagentKeycodeConversionSetup: "
+    /* if server and remote have evdev there's no need for keycode
+       conversion */
+    if (serverrules == NULL || strcmp(serverrules, "evdev") != 0)
+    {
+      #ifdef DEBUG
+      fprintf(stderr, "nxagentKeycodeConversionSetup: "
                 "Activating KeyCode conversion.\n");
-    #endif
-
-    nxagentKeycodeConversion = 1;
+      #endif
+      nxagentKeycodeConversion = 1;
+    }
   }
 
   if (drules != NULL)
@@ -2042,7 +2046,7 @@ void nxagentResetKeycodeConversion(void)
 
   if (result != 0)
   {
-    nxagentKeycodeConversionSetup();
+    nxagentKeycodeConversionSetup(NULL);
   }
   else
   {
