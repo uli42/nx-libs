@@ -1203,9 +1203,20 @@ XkbError:
 	  
           free(nxagentXkbConfigFilePath);
 
-	  if (!nxagentKeyboard)
+          if (!nxagentKeyboard)
           {
             goto XkbError;
+          }
+
+          /* If the remote side is using evdev and we were able to
+             activate evdev in the server there's no need to do
+             keycode conversion */
+          if (nxagentKeycodeConversion == 1 && strcmp(rules, "evdev") == 0)
+          {
+            #ifdef TEST
+            fprintf(stderr, "nxagentKeyboardProc: Disabling keycode conversion because we have evdev on the server.\n");
+            #endif
+            nxagentKeycodeConversion = 0;
           }
 
           goto XkbEnd;
