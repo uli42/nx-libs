@@ -101,6 +101,7 @@ extern Bool noRenderExtension;
 #ifdef SHAPE
 extern Bool noShapeExtension;
 #endif
+extern Bool noGEExtension;
 #ifdef XCSECURITY
 extern Bool noSecurityExtension;
 #endif
@@ -177,6 +178,7 @@ extern void XTestExtension1Init(void);
 #ifdef SHAPE
 extern void ShapeExtensionInit(void);
 #endif
+extern void GEExtensionInit(void);
 #ifdef MITSHM
 extern void ShmExtensionInit(void);
 #endif
@@ -291,6 +293,7 @@ static ExtensionToggle ExtensionToggleList[] =
 #ifdef DPMSExtension
     { "DPMS", &noDPMSExtension },
 #endif
+    {"Generic Events", &noGEExtension},
 #ifdef GLXEXT
     { "GLX", &noGlxExtension },
 #endif
@@ -388,6 +391,7 @@ InitExtensions(argc, argv)
 #ifdef SHAPE
     if (!noShapeExtension) ShapeExtensionInit();
 #endif
+    if (!noGEExtension) GEExtensionInit();
 #ifdef MITSHM
     if (!noMITShmExtension) ShmExtensionInit();
 #endif

@@ -574,6 +574,8 @@ rm %{buildroot}%{_libdir}/*.la
 %{_includedir}/nx-X11/extensions/damageproto.h
 %{_includedir}/nx-X11/extensions/dpms.h
 %{_includedir}/nx-X11/extensions/dpmsstr.h
+%{_includedir}/nx-X11/extensions/ge.h
+%{_includedir}/nx-X11/extensions/geproto.h
 %{_includedir}/nx-X11/extensions/panoramiXproto.h
 %{_includedir}/nx-X11/extensions/randr.h
 %{_includedir}/nx-X11/extensions/randrproto.h

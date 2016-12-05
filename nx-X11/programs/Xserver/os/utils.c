@@ -226,6 +226,8 @@ Bool noXIdleExtension = FALSE;
 Bool noXvExtension = FALSE;
 #endif
 
+Bool noGEExtension = FALSE;
+
 #define X_INCLUDE_NETDB_H
 #include <nx-X11/Xos_r.h>
 
