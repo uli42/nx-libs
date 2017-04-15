@@ -168,6 +168,7 @@ ISOLatin1ToLower (unsigned char source)
 }
 
 
+/* moved to libXfont
 void
 CopyISOLatin1Lowered(char *dest, const char *source, int length)
 {
@@ -177,7 +178,7 @@ CopyISOLatin1Lowered(char *dest, const char *source, int length)
 	*dest = ISOLatin1ToLower (*source);
     *dest = '\0';
 }
-
+*/
 int
 CompareISOLatin1Lowered(unsigned char *s1, int s1len, 
 			unsigned char *s2, int s2len)

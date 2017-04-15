@@ -289,17 +289,20 @@ NXAGENTOBJS = hw/nxagent/miinitext.o     \
               $(NULL)
 #endif
 
-XPMLIB    =  -lXpm
-XMLLIB    =  `pkg-config --libs libxml-2.0`
-PIXMANLIB =  `pkg-config --libs pixman-1`
-ZLIB      =  `pkg-config --libs zlib`
-PNGLIB    =  `pkg-config --libs libpng`
-JPEGLIB   =  -ljpeg
+XPMLIB    =  `pkg-config --static --libs xpm`
+XMLLIB    =  `pkg-config --static --libs libxml-2.0`
+PIXMANLIB =  `pkg-config --static --libs pixman-1`
+ZLIB      =  `pkg-config --static --libs zlib` -lbz2
+PNGLIB    =  `pkg-config --static --libs libpng`
+JPEGLIB   =  `pkg-config --static --libs libjpeg`
+XLIBS     =  `pkg-config --static --libs xdamage xdmcp xext xcomposite xfixes xinerama xrender xi xfont xtst xrandr`
 
 NXAGENT = hw/nxagent/LibraryTargetName(nxagent)
-NXCOMPEXT =  hw/nxagent/compext/LibraryTargetName(compext)
+NXCOMP = `pkg-config --static --libs nxcomp`
+NXCOMPSHAD = `pkg-config --static --libs nxcompshad`
+NXCOMPEXT = hw/nxagent/compext/LibraryTargetName(compext)
 NXAGENTLIBS = PreFbLibs $(NXAGENT) FbPostFbLibs $(NXCOMPEXT) $(NXAGENT) $(MI)
-NXAGENTSYSLIBS = $(LDPRELIBS) $(XLIB) $(SYSLIBS) $(XPMLIB) $(XMLLIB)
+NXAGENTSYSLIBS = $(LDPRELIBS) $(SYSLIBS) $(XPMLIB) $(XMLLIB)
 NXCOMPEXTSYSLIBS = $(PIXMANLIB) $(ZLIB) $(PNGLIB) $(JPEGLIB)
 #if HasParallelMake
 MakeMutex($(NXAGENTDIRS) $(NXCOMPEXT) $(NXAGENTOBJS) $(NXAGENTLIBS) $(NXCOMPEXTSYSLIBS) $(NXAGENTSYSLIBS))
@@ -315,65 +318,42 @@ $(NXAGENTOBJS) $(NXAGENTLIBS) $(NXAGENTSYSLIBS):: $(NXAGENTDIRS)
 
 #if defined(SunArchitecture)
 NXAGENTNXLIBS = -L/usr/sfw/lib \
-                -L../../../nxcomp  \
+                -L../../../nxcomp \
                 -L../../../nx-X11/exports/lib \
                 -L../../../nxcompshad \
                 -lrt \
+                $(XONLYLIB) \
                 -lXcomp \
                 -lXcompshad \
-                -lXrender \
-                -lXfixes \
-                $(XFONTLIB) \
-                -lXcomposite \
-                -lXinerama \
-                -lXdmcp \
-                -lNX_X11 \
-                -lXext \
+                $(XLIBS) \
                 $(NULL)
 #elif defined(cygwinArchitecture)
-NXAGENTNXLIBS = -L../../../nxcomp  \
+NXAGENTNXLIBS = -L../../../nxcomp \
                 -L../../../nx-X11/exports/lib \
                 -L../../../nxcompshad \
+                $(XONLYLIB) \
                 -lXcomp \
                 -lXcompshad \
-                -lXrender \
-                -lXfixes \
-                $(XFONTLIB) \
-                -lXcomposite \
-                -lXdmcp \
-                -lNX_X11 \
-                -lXext \
+                $(XLIBS) \
                 $(NULL)
 #elif defined(OpenBSDArchitecture)
-NXAGENTNXLIBS = -L../../../nxcomp  \
+NXAGENTNXLIBS = -L../../../nxcomp \
                 -L../../../nx-X11/exports/lib \
                 -L../../../nxcompshad \
                 -lkvm \
+                $(XONLYLIB) \
                 -lXcomp \
                 -lXcompshad \
-                -lXrender \
-                -lXfixes \
-                $(XFONTLIB) \
-                -lXcomposite \
-                -lXinerama \
-                -lXdmcp \
-                -lNX_X11 \
-                -lXext \
+                $(XLIBS) \
                 $(NULL)
 #else
 NXAGENTNXLIBS = -L../../../nxcomp  \
                 -L../../../nx-X11/exports/lib \
                 -L../../../nxcompshad \
+                $(XONLYLIB) \
                 -lXcomp \
                 -lXcompshad \
-                -lXrender \
-                -lXfixes \
-                $(XFONTLIB) \
-                -lXcomposite \
-                -lXinerama \
-                -lXdmcp \
-                -lNX_X11 \
-                -lXext \
+                $(XLIBS) \
                 $(NULL)
 #endif
 #endif
@@ -390,13 +370,17 @@ ServerTarget(nxagent,$(NXAGENTDIRS),$(NXAGENTOBJS), \
 /*
  *  Hard coded target to build a static nxagent server.
  */
+/*	-L../../../nx-X11/exports/lib -L../../../nxcomp -L../../../nxcompshad \*/
 nxagent_static: nxagent
 	if [ -f nxagent_static ]; then set -x; \
 	$(MV) nxagent_static nxagent_static.bak; \
 	else exit 0; fi
-	$(CCLINK) -o nxagent_static -static $(LDOPTIONS) $(NXAGENTOBJS) \
+	$(CCLINK) -o nxagent_static -static-libgcc -static-libstdc++ -static \
+	$(LDOPTIONS) $(NXAGENTOBJS) \
 	$(LIBCWRAPPER) $(NXCOMPEXT) $(NXAGENTLIBS) $(LOADABLEEXTS) $(LDLIBS) \
-	$(NXCOMPEXTSYSLIBS) $(NXAGENTSYSLIBS) $(EXTRA_LOAD_FLAGS)
+	$(NXCOMPEXTSYSLIBS) $(NXAGENTSYSLIBS) $(EXTRA_LOAD_FLAGS) \
+	$(XLIBS) $(NXAGENT) $(NXAGENTNXLIBS) \
+	$(CXXLIB) $(JPEGLIB) -ldl -lc
 
 /*
  *  Hard coded target to build a static nxagent server except for libX11 and libXext.

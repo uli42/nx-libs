@@ -539,3 +539,5 @@
  */ 
 
 #define BuildRman NO
+
+#define NormalLibX11 YES
