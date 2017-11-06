@@ -246,10 +246,10 @@ ExtensionEntry *
 GetExtensionEntry(int major)
 {
     if (major < EXTENSION_BASE)
-	return NULL;
+       return NULL;
     major -= EXTENSION_BASE;
     if (major >= NumExtensions)
-	return NULL;
+       return NULL;
     return extensions[major];
 }
 
