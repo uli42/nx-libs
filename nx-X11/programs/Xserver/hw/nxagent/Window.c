@@ -72,7 +72,7 @@
  * Used to register the window's privates.
  */
 
-int nxagentWindowPrivateIndex;
+DevPrivateKeyRec nxagentWindowPrivateKeyRec;
 
 /*
  * Number of windows which need synchronization.
@@ -1856,7 +1856,7 @@ FIXME: When the caller is nxagentReconfigureWindow
     if (nxagentOption(Rootless))
     {
       if (pWin->cursorIsNone == 0 && pWin->optional != NULL && 
-              pWin->optional->cursor != NULL && nxagentCursorPriv(pWin ->
+              pWin->optional->cursor != NULL && nxagentGetCursorPriv(pWin ->
                   optional -> cursor, pWin -> drawable.pScreen) != NULL)
       {
         attributes.cursor = nxagentCursor(pWin -> optional -> cursor,
@@ -2659,7 +2659,7 @@ void nxagentDisconnectWindow(void * p0, XID x1, void * p2)
   ScreenPtr pScreen = pWin -> drawable.pScreen;
 
   if ((pCursor = wCursor(pWin)) &&
-         nxagentCursorPriv(pCursor, pScreen) &&
+         nxagentGetCursorPriv(pCursor, pScreen) &&
            nxagentCursor(pCursor, pScreen))
   {
     #ifdef NXAGENT_RECONNECT_CURSOR_DEBUG_disabled
@@ -3171,7 +3171,7 @@ static void nxagentReconfigureWindowCursor(void * param0, XID param1, void * dat
 
   pScreen = pWin -> drawable.pScreen;
 
-  if (!(nxagentCursorPriv(pCursor, pScreen)))
+  if (!(nxagentGetCursorPriv(pCursor, pScreen)))
   {
     return;
   }
