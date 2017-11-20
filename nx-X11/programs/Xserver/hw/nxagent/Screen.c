@@ -104,8 +104,6 @@ is" without express or implied warranty.
 
 #include "compext/Compext.h"
 
-#include "mibstorest.h"
-
 /*
  * Set here the required log level.
  */
@@ -1609,26 +1607,11 @@ N/A
      * Backing store procedures.
      */
 
-    pScreen->SaveDoomedAreas = (void (*)()) 0;
-    pScreen->RestoreAreas = (RegionPtr (*)()) 0;
-    pScreen->ExposeCopy = (void (*)()) 0;
-    pScreen->TranslateBackingStore = (RegionPtr (*)()) 0;
-    pScreen->ClearBackingStore = (RegionPtr (*)()) 0;
-    pScreen->DrawGuarantee = (void (*)()) 0;
-
     if (enableBackingStore == 1)
     {
       #ifdef TEST
       fprintf(stderr, "nxagentOpenScreen: Going to initialize backing store.\n");
       #endif
-
-      pScreen -> BackingStoreFuncs.SaveAreas = nxagentSaveAreas;
-      pScreen -> BackingStoreFuncs.RestoreAreas = nxagentRestoreAreas;
-      pScreen -> BackingStoreFuncs.SetClipmaskRgn = 0;
-      pScreen -> BackingStoreFuncs.GetImagePixmap = 0;
-      pScreen -> BackingStoreFuncs.GetSpansPixmap = 0;
-
-      miInitializeBackingStore(pScreen);
     }
 
     /*
@@ -2170,7 +2153,6 @@ static void nxagentSetRootClip (ScreenPtr pScreen, Bool enable)
     WindowPtr   pChild;
     Bool        WasViewable = (Bool)(pWin->viewable);
     Bool        anyMarked = FALSE;
-    RegionPtr   pOldClip = NULL, bsExposed;
 #ifdef DO_SAVE_UNDERS
     Bool        dosave = FALSE;
 #endif
@@ -2231,12 +2213,6 @@ static void nxagentSetRootClip (ScreenPtr pScreen, Bool enable)
 
     if (WasViewable)
     {
-        if (pWin->backStorage)
-        {
-            pOldClip = RegionCreate(NullBox, 1);
-            RegionCopy(pOldClip, &pWin->clipList);
-        }
-
         if (pWin->firstChild)
         {
             anyMarked |= (*pScreen->MarkOverlappedWindows)(pWin->firstChild,
@@ -2260,28 +2236,6 @@ static void nxagentSetRootClip (ScreenPtr pScreen, Bool enable)
             (*pScreen->ValidateTree)(pWin, NullWindow, VTOther);
     }
 
-    if (pWin->backStorage && pOldClip &&
-        ((pWin->backingStore == Always) || WasViewable))
-    {
-        if (!WasViewable)
-            pOldClip = &pWin->clipList; /* a convenient empty region */
-        bsExposed = (*pScreen->TranslateBackingStore)
-                             (pWin, 0, 0, pOldClip,
-                              pWin->drawable.x, pWin->drawable.y);
-        if (WasViewable)
-            RegionDestroy(pOldClip);
-        if (bsExposed)
-        {
-            RegionPtr   valExposed = NullRegion;
-
-            if (pWin->valdata)
-                valExposed = &pWin->valdata->after.exposed;
-            (*pScreen->WindowExposures) (pWin, valExposed, bsExposed);
-            if (valExposed)
-                RegionEmpty(valExposed);
-            RegionDestroy(bsExposed);
-        }
-    }
     if (WasViewable)
     {
         if (anyMarked)

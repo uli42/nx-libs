@@ -38,7 +38,6 @@
 #include "selection.h"
 #include "mi.h"
 #include "fb.h"
-#include "mibstorest.h"
 
 #include "Agent.h"
 #include "Display.h"
@@ -125,13 +124,10 @@ extern Bool nxagentReportPrivateWindowIds;
 int nxagentSplashCount = 0;
 
 #define RECTLIMIT 25
-#define BSPIXMAPLIMIT 128
 
 Bool nxagentExposeArrayIsInitialized = False;
 Window nxagentConfiguredSynchroWindow;
 static int nxagentExposeSerial = 0; 
-
-StoringPixmapPtr nxagentBSPixmapList[BSPIXMAPLIMIT];
 
 /*
  * Used to walk through the window hierarchy

@@ -89,9 +89,6 @@ static void	    miSpriteInstallColormap(ColormapPtr pMap);
 static void	    miSpriteStoreColors(ColormapPtr pMap, int ndef,
 					xColorItem *pdef);
 
-static void	    miSpriteSaveDoomedAreas(WindowPtr pWin,
-					    RegionPtr pObscured, int dx,
-					    int dy);
 static void	    miSpriteComputeSaved(ScreenPtr pScreen);
 
 #define SCREEN_PROLOGUE(pScreen, field)\
@@ -195,8 +192,6 @@ miSpriteInitialize (pScreen, cursorFuncs, screenFuncs)
 
     pScreenPriv->CopyWindow = pScreen->CopyWindow;
     
-    pScreenPriv->SaveDoomedAreas = pScreen->SaveDoomedAreas;
-    
     pScreenPriv->InstallColormap = pScreen->InstallColormap;
     pScreenPriv->StoreColors = pScreen->StoreColors;
     
@@ -227,8 +222,6 @@ miSpriteInitialize (pScreen, cursorFuncs, screenFuncs)
     pScreen->SourceValidate = miSpriteSourceValidate;
     
     pScreen->CopyWindow = miSpriteCopyWindow;
-    
-    pScreen->SaveDoomedAreas = miSpriteSaveDoomedAreas;
     
     pScreen->InstallColormap = miSpriteInstallColormap;
     pScreen->StoreColors = miSpriteStoreColors;
@@ -263,7 +256,6 @@ miSpriteCloseScreen (pScreen)
     pScreen->InstallColormap = pScreenPriv->InstallColormap;
     pScreen->StoreColors = pScreenPriv->StoreColors;
 
-    pScreen->SaveDoomedAreas = pScreenPriv->SaveDoomedAreas;
     miSpriteIsUpFALSE (pScreen, pScreenPriv);
     DamageDestroy (pScreenPriv->pDamage);
     
