@@ -2568,13 +2568,13 @@ int nxagentHandleGraphicsExposeEvent(XEvent *X)
    * must be relative to the screen.
    */
 
-//  #ifdef TEST
+  #ifdef TEST
   fprintf(stderr, "nxagentHandleGraphicsExposeEvent: graphics expose event with expose region rectangle "
               "x1 [%d], y1 [%d] and x2 [%d] y2 [%d]. and drawable [%ld] with x [%d] and y[%d].\n",
                   rect.x1, rect.y1, rect.x2, rect.y2,
                       X -> xgraphicsexpose.drawable,
                           pWin -> drawable.x, pWin -> drawable.y);
-//  #endif
+  #endif
 
   RegionTranslate(exposeRegion, pWin -> drawable.x, pWin -> drawable.y);
 
