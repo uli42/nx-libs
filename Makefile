@@ -254,3 +254,4 @@ uninstall-full:
 
 	if test -d $(DESTDIR)$(NXLIBDIR); then rm -rf $(DESTDIR)$(NXLIBDIR); fi
 	if test -d $(DESTDIR)$(INCLUDEDIR)/nx; then rm -rf $(DESTDIR)$(INCLUDEDIR)/nx; fi
+
