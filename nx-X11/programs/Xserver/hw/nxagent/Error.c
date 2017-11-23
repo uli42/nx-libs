@@ -42,6 +42,7 @@
 
 #include "Error.h"
 #include "Args.h"
+#include "Utils.h"
 
 /*
  * Set here the required log level.
@@ -79,24 +80,6 @@ static int nxagentClientsLog = -1;
  */
 
 char nxagentClientsLogName[DEFAULT_STRING_LENGTH] = { 0 };
-
-/*
- * User's home.
- */
-
-static char nxagentHomeDir[DEFAULT_STRING_LENGTH] = { 0 };
-
-/*
- * NX root directory.
- */
-
-static char nxagentRootDir[DEFAULT_STRING_LENGTH] = { 0 };
-
-/*
- * Session log Directory.
- */
-
-static char nxagentSessionDir[DEFAULT_STRING_LENGTH] = { 0 };
 
 void nxagentGetClientsPath(void);
 
@@ -325,59 +308,35 @@ char *nxagentGetHomePath(void)
   char *homeEnv;
   char *homePath;
 
-  if (*nxagentHomeDir == '\0')
-  {
-    /*
-     * Check the NX_HOME environment.
-     */
+  homeEnv = getenv("NX_HOME");
 
-    homeEnv = getenv("NX_HOME");
+  if (homeEnv == NULL || *homeEnv == '\0')
+  {
+    #ifdef TEST
+    fprintf(stderr, "nxagentGetHomePath: No environment for NX_HOME.\n");
+    #endif
+
+    homeEnv = getenv("HOME");
 
     if (homeEnv == NULL || *homeEnv == '\0')
     {
-      #ifdef TEST
-      fprintf(stderr, "nxagentGetHomePath: No environment for NX_HOME.\n");
-      #endif
-
-      homeEnv = getenv("HOME");
-
-      if (homeEnv == NULL || *homeEnv == '\0')
-      {
-        #ifdef PANIC
-        fprintf(stderr, "nxagentGetHomePath: PANIC! No environment for HOME.\n");
-        #endif
-
-        return NULL;
-      }
-    }
-
-    if (strlen(homeEnv) > DEFAULT_STRING_LENGTH - 1)
-    {
       #ifdef PANIC
-      fprintf(stderr, "nxagentGetHomePath: PANIC! Invalid value for the NX "
-                  "home directory '%s'.\n", homeEnv);
+      fprintf(stderr, "nxagentGetHomePath: PANIC! No environment for HOME.\n");
       #endif
+      return NULL;
     }
-
-    strncpy(nxagentHomeDir, homeEnv, DEFAULT_STRING_LENGTH - 1);
-
-    #ifdef TEST
-    fprintf(stderr, "nxagentGetHomePath: Assuming NX user's home directory '%s'.\n", nxagentHomeDir);
-    #endif
   }
 
-  homePath = (char*) malloc(strlen(nxagentHomeDir) + 1);
-
-  if (homePath == NULL)
+  if ((homePath = strdup(homeEnv)) == NULL)
   {
     #ifdef PANIC
     fprintf(stderr, "nxagentGetHomePath: PANIC! Can't allocate memory for the home path.\n");
     #endif
-
-    return NULL;
   }
 
-  strcpy(homePath, nxagentHomeDir);
+  #ifdef TEST
+  fprintf(stderr, "nxagentGetHomePath: Assuming NX user's home directory [%s].\n", validateString(homePath));
+  #endif
 
   return homePath;
 }
@@ -386,115 +345,63 @@ char *nxagentGetRootPath(void)
 {
   char *rootEnv;
   char *homeEnv;
-  char *rootPath;
+  char *rootPath = NULL;
 
   struct stat dirStat;
 
-  if (*nxagentRootDir == '\0')
+  /*
+   * Check the NX_ROOT environment.
+   */
+
+  rootEnv = getenv("NX_ROOT");
+
+  if (rootEnv == NULL || *rootEnv == '\0')
   {
+    #ifdef TEST
+    fprintf(stderr, "nxagentGetRootPath: WARNING! No environment for NX_ROOT.\n");
+    #endif
+
     /*
-     * Check the NX_ROOT environment.
+     * We will determine the root NX directory
+     * based on the NX_HOME or HOME directory
+     * settings.
      */
 
-    rootEnv = getenv("NX_ROOT");
-
-    if (rootEnv == NULL || *rootEnv == '\0')
+    if ((homeEnv = nxagentGetHomePath()) == NULL)
     {
-      #ifdef TEST
-      fprintf(stderr, "nxagentGetRootPath: WARNING! No environment for NX_ROOT.\n");
+      return NULL;
+    }
+
+    if ((asprintf(&rootPath, "%s/.nx", homeEnv)) == -1)
+    {
+      #ifdef PANIC
+      fprintf(stderr, "nxagentGetRootPath: Can't allocate memory for the root path.\n");
       #endif
-
-      /*
-       * We will determine the root NX directory
-       * based on the NX_HOME or HOME directory
-       * settings.
-       */
-
-      homeEnv = nxagentGetHomePath();
-
-      if (homeEnv == NULL)
-      {
-
-        #ifdef PANIC
-        #endif
-
-        return NULL;
-      }
-
-      if (strlen(homeEnv) > DEFAULT_STRING_LENGTH -
-              strlen("/.nx") - 1)
-      {
-        #ifdef PANIC
-        fprintf(stderr, "nxagentGetRootPath: PANIC! Invalid value for the NX "
-                    "home directory '%s'.\n", homeEnv);
-        #endif
-
-        free(homeEnv);
-
-        return NULL;
-      }
-
-      #ifdef TEST
-      fprintf(stderr, "nxagentGetRootPath: Assuming NX root directory in '%s'.\n", homeEnv);
-      #endif
-
-      strcpy(nxagentRootDir, homeEnv);
-      strcat(nxagentRootDir, "/.nx");
 
       free(homeEnv);
 
-      /*
-       * Create the NX root directory.
-       */
-
-      if ((stat(nxagentRootDir, &dirStat) == -1) && (errno == ENOENT))
-      {
-        if (mkdir(nxagentRootDir, 0777) < 0 && (errno != EEXIST))
-        {
-          #ifdef PANIC
-          fprintf(stderr, "nxagentGetRootPath: PANIC! Can't create directory '%s'. Error is %d '%s'.\n",
-                      nxagentRootDir, errno, strerror(errno));
-          #endif
-
-          return NULL;
-        }
-      }
+      return NULL;
     }
-    else
+
+    free(homeEnv);
+
+    /*
+     * Create the NX root directory.
+     */
+
+    if ((stat(rootPath, &dirStat) == -1) && (errno == ENOENT))
     {
-      if (strlen(rootEnv) > DEFAULT_STRING_LENGTH - 1)
+      if (mkdir(rootPath, 0777) < 0 && (errno != EEXIST))
       {
         #ifdef PANIC
-         fprintf(stderr, "nxagentGetRootPath: PANIC! Invalid value for the NX root directory '%s'.\n",
-                     rootEnv);
+        fprintf(stderr, "nxagentGetRootPath: PANIC! Can't create directory [%s]. Error is [%d] [%s].\n",
+                        rootPath, errno, strerror(errno));
         #endif
-
+        free(rootPath);
         return NULL;
       }
-
-      strcpy(nxagentRootDir, rootEnv);
     }
-
-    #ifdef TEST
-    fprintf(stderr, "nxagentGetRootPath: Assuming NX root directory '%s'.\n",
-                nxagentRootDir);
-    #endif
-        
   }
-
-  rootPath = malloc(strlen(nxagentRootDir) + 1);
-
-  if (rootPath == NULL)
-  {
-    #ifdef PANIC
-    fprintf(stderr, "nxagentGetRootPath: Can't allocate memory for the root path.\n");
-    #endif
-
-    return NULL;
-  }
-
-  strcpy(rootPath, nxagentRootDir);
-
   return rootPath;
 }
 
@@ -502,86 +409,62 @@ char *nxagentGetSessionPath(void)
 {
 
   char *rootPath;
-  char *sessionPath;
+  char *sessionPath = NULL;
 
   struct stat dirStat;
 
-  if (*nxagentSessionDir == '\0')
+  /*
+   * If nxagentSessionId does not exist we
+   * assume that the sessionPath cannot be
+   * realized and do not use the clients
+   * log file.
+   */
+
+  if (*nxagentSessionId == '\0')
   {
-    /*
-     * If nxagentSessionId does not exist we
-     * assume that the sessionPath cannot be
-     * realized and do not use the clients
-     * log file.
-     */
-
-    if (*nxagentSessionId == '\0')
-    {
-      #ifdef TEST
-      fprintf(stderr, "nxagentGetSessionPath: Session id does not exist. Assuming session path NULL.\n");
-      #endif
-
-      return NULL;
-    }
-
-    rootPath = nxagentGetRootPath();
-
-    if (rootPath == NULL)
-    {
-      return NULL;
-    }
-
-    strcpy(nxagentSessionDir, rootPath);
-
-    free(rootPath);
-
-    if (strlen(nxagentSessionDir) + strlen("/C-") + strlen(nxagentSessionId) > DEFAULT_STRING_LENGTH - 1)
-    {
-      #ifdef PANIC
-      fprintf(stderr, "nxagentGetSessionPath: PANIC!: Invalid value for the NX session directory '%s'.\n",
-                  nxagentSessionDir);
-      #endif
-
-      return NULL;
-    }
-
-    strcat(nxagentSessionDir, "/C-");
-
-    strcat(nxagentSessionDir, nxagentSessionId);
-
-    if ((stat(nxagentSessionDir, &dirStat) == -1) && (errno == ENOENT))
-    {
-      if (mkdir(nxagentSessionDir, 0777) < 0 && (errno != EEXIST))
-      {
-        #ifdef PANIC
-        fprintf(stderr, "nxagentGetSessionPath: PANIC! Can't create directory '%s'. Error is %d '%s'.\n",
-                    nxagentSessionDir, errno, strerror(errno));
-        #endif
-
-        return NULL;
-      }
-    }
-
     #ifdef TEST
-    fprintf(stderr, "nxagentGetSessionPath: NX session is '%s'.\n",
-                nxagentSessionDir);
-    #endif
-
-  }
-
-  sessionPath = malloc(strlen(nxagentSessionDir) + 1);
-
-  if (sessionPath  == NULL)
-  {
-    #ifdef PANIC
-    fprintf(stderr, "nxagentGetSessionPath:: PANIC! Can't allocate memory for the session path.\n");
+    fprintf(stderr, "nxagentGetSessionPath: Session id does not exist. Assuming session path NULL.\n");
     #endif
 
     return NULL;
   }
 
+  if ((rootPath = nxagentGetRootPath()) == NULL)
+  {
+    return NULL;
+  }
 
-  strcpy(sessionPath, nxagentSessionDir);
+  if (asprintf(&sessionPath, "%s/C-%s", rootPath, nxagentSessionId) == -1)
+  {
+    #ifdef PANIC
+    fprintf(stderr, "nxagentGetSessionPath:: PANIC! Can't allocate memory for the session path.\n");
+    #endif
+
+    free(rootPath);
+
+    return NULL;
+  }
+  free(rootPath);
+
+  if ((stat(sessionPath, &dirStat) == -1) && (errno == ENOENT))
+  {
+    if (mkdir(sessionPath, 0777) < 0 && (errno != EEXIST))
+    {
+      #ifdef PANIC
+      fprintf(stderr, "nxagentGetSessionPath: PANIC! Can't create directory '%s'. Error is %d '%s'.\n",
+                      sessionPath, errno, strerror(errno));
+      #endif
+
+      free(sessionPath);
+
+      return NULL;
+    }
+  }
+
+  #ifdef TEST
+  fprintf(stderr, "nxagentGetSessionPath: NX session is '%s'.\n",
+                  validateString(sessionPath));
+  #endif
 
   return sessionPath;
 }
