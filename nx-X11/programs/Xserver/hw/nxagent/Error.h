@@ -30,7 +30,7 @@
  * Clients log file name.
  */
 
-extern char nxagentClientsLogName[];
+extern char *nxagentClientsLogName;
 
 extern char nxagentVerbose;
 

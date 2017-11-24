@@ -72,14 +72,12 @@ static int nxagentStderrBackup = -1;
 
 static int nxagentClientsLog = -1;
 
-#define DEFAULT_STRING_LENGTH 256
-
-
 /*
  * Clients log file name.
  */
 
-char nxagentClientsLogName[DEFAULT_STRING_LENGTH] = { 0 };
+/*FIXME: must be freed on exit!*/
+char * nxagentClientsLogName = NULL;
 
 void nxagentGetClientsPath(void);
 
@@ -230,25 +228,25 @@ int nxagentExitHandler(const char *message)
 
 void nxagentOpenClientsLogFile()
 {
-  if (*nxagentClientsLogName == '\0')
+  if (nxagentClientsLogName == NULL)
   {
     nxagentGetClientsPath();
   }
 
-  if (nxagentClientsLogName != NULL && *nxagentClientsLogName !='\0')
+  if (nxagentClientsLogName && nxagentClientsLogName[0] != '\0')
   {
     nxagentClientsLog = open(nxagentClientsLogName, O_RDWR | O_CREAT | O_APPEND, 0600);
 
     if (nxagentClientsLog == -1)
     {
       fprintf(stderr, "Warning: Failed to open clients log. Error is %d '%s'.\n",
-                  errno, strerror(errno));
+                      errno, strerror(errno));
     }
   }
   else
   {
     #ifdef TEST
-    fprintf(stderr, "nxagentOpenClientsLogFile: Cannot open clients log file. The path does not exist.\n");
+    fprintf(stderr, "nxagentOpenClientsLogFile: Cannot open clients log file. The path is invalid.\n");
     #endif
   }
 }
@@ -472,7 +470,7 @@ char *nxagentGetSessionPath(void)
 void nxagentGetClientsPath()
 {
 
-  if (*nxagentClientsLogName == '\0')
+  if (nxagentClientsLogName == NULL)
   {
     char *sessionPath = nxagentGetSessionPath();
 
@@ -481,24 +479,14 @@ void nxagentGetClientsPath()
       return;
     }
 
-    if (strlen(sessionPath) + strlen("/clients") > DEFAULT_STRING_LENGTH - 1)
+    if ((asprintf(&nxagentClientsLogName, "%s/clients", sessionPath)) == -1)
     {
-      #ifdef PANIC
-      fprintf(stderr, "nxagentGetClientsPath: PANIC! Invalid value for the NX clients Log File Path ''.\n");
-      #endif
-
-      free(sessionPath);
-
-      return;
+       #ifdef PANIC
+       fprintf(stderr, "nxagentGetSessionPath:: PANIC! Can't allocate memory for the clients log name.\n");
+       #endif
     }
-
-    strcpy(nxagentClientsLogName, sessionPath);
-
-    strcat(nxagentClientsLogName, "/clients");
-
     free(sessionPath);
   }
 
   return;
 }
-

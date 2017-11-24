@@ -1315,8 +1315,11 @@ static void nxagentParseOptions(char *name, char *value)
   }
   else if (strcmp(name, "clients") == 0)
   {
-    strcpy(nxagentClientsLogName, value);
-
+    free(nxagentClientsLogName);
+    if ((nxagentClientsLogName = strdup(value)) == NULL)
+    {
+       FatalError("malloc failed for clients log file");
+    }
     return;
   }
   else if (strcmp(name, "client") == 0)
