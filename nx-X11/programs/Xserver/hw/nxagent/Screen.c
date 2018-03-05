@@ -113,8 +113,8 @@ is" without express or implied warranty.
 
 #define PANIC
 #define WARNING
-#undef  TEST
-#undef  DEBUG
+#define  TEST
+#define  DEBUG
 #undef  WATCH
 #undef  DUMP
 
@@ -4221,6 +4221,7 @@ int nxagentAdjustRandRXinerama(ScreenPtr pScreen)
 	     refcnt by 1. We decrease it again by calling only
 	     RRModeDestroy() and forget about prevmode */
 	  RRModeDestroy(mymode);
+          RRCrtcSet(pScrPriv->crtcs[i], mymode, new_x, new_y, RR_Rotate_0, 1, &(pScrPriv->outputs[i]));
         }
         else
 	{ 

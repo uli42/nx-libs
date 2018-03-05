@@ -380,6 +380,8 @@ InitExtensions(argc, argv)
     int		argc;
     char	*argv[];
 {
+    if (!noGEExtension) GEExtensionInit();
+
 #ifdef PANORAMIX
 # if !defined(PRINT_ONLY_SERVER) && !defined(NO_PANORAMIX)
   if (!noPanoramiXExtension) PanoramiXExtensionInit();
@@ -391,7 +393,6 @@ InitExtensions(argc, argv)
 #ifdef SHAPE
     if (!noShapeExtension) ShapeExtensionInit();
 #endif
-    if (!noGEExtension) GEExtensionInit();
 #ifdef MITSHM
     if (!noMITShmExtension) ShmExtensionInit();
 #endif

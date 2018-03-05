@@ -2072,7 +2072,8 @@ FIXME: Don't enqueue the KeyRelease event if the key was
       }
       default:
       {
-        /*
+	fprintf(stderr, "nxagentDispatchEvents: default event.\n");
+		  /*
          * Let's check if this is a XKB
          * state modification event.
          */
