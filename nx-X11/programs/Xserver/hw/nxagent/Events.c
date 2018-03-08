@@ -112,8 +112,8 @@
 
 #define PANIC
 #define WARNING
-#undef  TEST
-#undef  DEBUG
+#define  TEST
+#define  DEBUG
 
 /*
  * Log begin and end of the important handlers.
@@ -3203,6 +3203,34 @@ int nxagentCheckWindowConfiguration(XConfigureEvent* X)
 
 int nxagentHandleConfigureNotify(XEvent* X)
 {
+#ifdef TEST
+    fprintf(stderr, "nxagentHandleConfigureNotify: Handling XConfigureEvent:\n"
+            "  int type               [%d]       /* ConfigureNotify == 22*/\n"
+            "  unsigned long serial   [%lu]       /* # of last request processed by server */\n"
+            "  Bool send_event        [%d]        /* true if this came from a SendEvent request */\n"
+            "  Display *display       [%p]        /* Display the event was read from */\n"
+            "  Window event           [%p][0x%lx] /* generating window */\n"
+            "  Window window          [%p][0x%lx] /* target window */\n"
+            "  int x, y               [%d],[%d]   /* relative upper-left outside corner of the window */\n"
+            "  int width, height      [%d],[%d]   /* inside size, not including border */\n"
+            "  int border_width       [%d]        /* width of the window's border */\n"
+            "  Window above           [0x%lx]     /* sibling window (for stacking)*/\n"
+            "  Bool override_redirect [%d]        /* override-redirect attribute of the window */\n",
+            X->xconfigure.type,
+            X->xconfigure.serial,
+            X->xconfigure.send_event,
+            (void *)X->xconfigure.display,
+            (void *)nxagentWindowPtr(X -> xconfigure.event), X -> xconfigure.event,
+            (void *)nxagentWindowPtr(X -> xconfigure.window), X -> xconfigure.window,
+            X->xconfigure.x, X->xconfigure.y,
+            X->xconfigure.width, X->xconfigure.height,
+            X->xconfigure.border_width,
+            X->xconfigure.above,
+            X->xconfigure.override_redirect
+            );
+#endif
+
+
   if (nxagentOption(Rootless) == True)
   {
     ClientPtr pClient;
@@ -3231,7 +3259,7 @@ int nxagentHandleConfigureNotify(XEvent* X)
     if ((pWin = nxagentRootlessTopLevelWindow(X -> xconfigure.window)) != NULL)
     {
       /*
-       * Cheking for new geometry or stacking order changes.
+       * Checking for new geometry or stacking order changes.
        */
 
       nxagentCheckWindowConfiguration((XConfigureEvent*)X);
@@ -3386,10 +3414,16 @@ int nxagentHandleConfigureNotify(XEvent* X)
               while (XCheckTypedWindowEvent(nxagentDisplay, nxagentDefaultWindows[pScreen -> myNum],
                                               ConfigureNotify, X))
               {
+                #ifdef DEBUG
+                fprintf(stderr, "nxagentHandleConfigureNotify: XCheckTypedWindowEvent returned True\n");
+                #endif
                 newEvents = True;
               }
 
             } while (newEvents);
+            #ifdef DEBUG
+            fprintf(stderr, "nxagentHandleConfigureNotify: leaving loop\n");
+            #endif
           }
         }
 
