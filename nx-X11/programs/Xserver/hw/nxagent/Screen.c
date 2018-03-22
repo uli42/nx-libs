@@ -2437,7 +2437,7 @@ FIXME: We should try to restore the previously
       sizeHints.flags |= USSize;
     }
 
-    XSetWMNormalHints(nxagentDisplay, nxagentDefaultWindows[pScreen->myNum], &sizeHints);
+    //XSetWMNormalHints(nxagentDisplay, nxagentDefaultWindows[pScreen->myNum], &sizeHints);
 
     XResizeWindow(nxagentDisplay, nxagentDefaultWindows[pScreen->myNum], width, height);
 
