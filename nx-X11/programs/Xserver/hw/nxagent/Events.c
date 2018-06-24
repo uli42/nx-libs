@@ -2788,7 +2788,8 @@ int nxagentHandleXkbKeyboardStateEvent(XEvent *X)
 {
   XkbEvent *xkbev = (XkbEvent *) X;
 
-  if (xkbev -> type == nxagentXkbInfo.EventBase + XkbEventCode &&
+  if (nxagentXkbInfo.EventBase != -1 &&
+      xkbev -> type == nxagentXkbInfo.EventBase + XkbEventCode &&
           xkbev -> any.xkb_type == XkbStateNotify)
   {
     #ifdef TEST
@@ -3828,6 +3829,11 @@ int nxagentInitXkbKeyboardState(void)
   unsigned int modifiers;
 
   XkbEvent *xkbev = (XkbEvent *) &X;
+
+  if (nxagentXkbInfo.EventBase == -1)
+  {
+      return 1;
+  }
 
   #ifdef TEST
   fprintf(stderr, "%s: Initializing XKB state.\n", __func__);
