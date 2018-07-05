@@ -78,10 +78,10 @@ typedef struct	_SrvXkmInfo {
 /***====================================================================***/
 
 #ifndef XKB_BASE_DIRECTORY
-#define	XKB_BASE_DIRECTORY	"/usr/lib/X11/xkb"
+#define	XKB_BASE_DIRECTORY	"/usr/share/X11/xkb"
 #endif
 #ifndef XKB_BIN_DIRECTORY
-#define	XKB_BIN_DIRECTORY	XKB_BASE_DIRECTORY
+#define	XKB_BIN_DIRECTORY	"/usr/bin"
 #endif
 #ifndef XKB_DFLT_RULES_FILE
 #define	XKB_DFLT_RULES_FILE	"base"
