@@ -103,8 +103,8 @@ static void	    miSpriteComputeSaved(ScreenPtr pScreen);
 #define SCREEN_PROLOGUE(pScreen, field) ((pScreen)->field = \
    ((miSpriteScreenPtr)dixLookupPrivate(&(pScreen)->devPrivates, \
                                        &miSpriteScreenKeyRec))->field)
-#define SCREEN_EPILOGUE(pScreen, field, wrapper)\
-    ((pScreen)->field = wrapper)
+#define SCREEN_EPILOGUE(pScreen, field)\
+    ((pScreen)->field = miSprite##field)
 
 /*
  * pointer-sprite method table
