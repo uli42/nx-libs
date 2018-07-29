@@ -58,9 +58,7 @@
 #include "selection.h"
 #include "xfixes.h"
 
-extern unsigned char		XFixesReqCode;
 extern int			XFixesEventBase;
-extern DevPrivateKeyRec		XFixesClientPrivateKeyRec;
 
 typedef struct _XFixesClient {
     CARD32	major_version;
