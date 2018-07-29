@@ -545,45 +545,6 @@ miSpriteFindColors (ScreenPtr pScreen)
 }
 
 /*
- * BackingStore wrappers
- */
-
-static void
-miSpriteSaveDoomedAreas (pWin, pObscured, dx, dy)
-    WindowPtr	pWin;
-    RegionPtr	pObscured;
-    int		dx, dy;
-{
-    ScreenPtr		pScreen;
-    miSpriteScreenPtr   pScreenPriv;
-    BoxRec		cursorBox;
-
-    pScreen = pWin->drawable.pScreen;
-    
-    SCREEN_PROLOGUE (pScreen, SaveDoomedAreas);
-
-    pScreenPriv = (miSpriteScreenPtr) pScreen->devPrivates[miSpriteScreenIndex].ptr;
-    if (pScreenPriv->isUp)
-    {
-	cursorBox = pScreenPriv->saved;
-
-	if (dx || dy)
- 	{
-	    cursorBox.x1 += dx;
-	    cursorBox.y1 += dy;
-	    cursorBox.x2 += dx;
-	    cursorBox.y2 += dy;
-	}
-	if (RegionContainsRect(pObscured, &cursorBox) != rgnOUT)
-	    miSpriteRemoveCursor (pScreen);
-    }
-
-    (*pScreen->SaveDoomedAreas) (pWin, pObscured, dx, dy);
-
-    SCREEN_EPILOGUE (pScreen, SaveDoomedAreas);
-}
-
-/*
  * miPointer interface routines
  */
 
