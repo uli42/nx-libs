@@ -77,7 +77,7 @@ static void
 PrintPropertys(WindowPtr pWin)
 {
     PropertyPtr pProp;
-    register int j;
+    int j;
 
     pProp = pWin->userProps;
     while (pProp)
@@ -98,7 +98,7 @@ ProcRotateProperties(ClientPtr client)
     int     i, j, delta;
     REQUEST(xRotatePropertiesReq);
     WindowPtr pWin;
-    register    Atom * atoms;
+    Atom * atoms;
     PropertyPtr * props;               /* array of pointer */
     PropertyPtr pProp;
 
@@ -656,7 +656,7 @@ ProcListProperties(ClientPtr client)
 }
 
 int 
-ProcDeleteProperty(register ClientPtr client)
+ProcDeleteProperty(ClientPtr client)
 {
     WindowPtr pWin;
     REQUEST(xDeletePropertyReq);
