@@ -75,7 +75,7 @@ SOFTWARE.
 
 #include <nx-X11/extensions/XI.h>
 #include <nx-X11/extensions/XIproto.h>
-#include "exglobals.h"
+#include "../Xi/exglobals.h"
 #include "exevents.h"
 
 /** @file
