@@ -39,21 +39,22 @@
 # include "imports.h"
 # define __glXMemset  memset
 #else
-# include <X11/X.h>
+# include <nx-X11/X.h>
 # include <GL/glx.h>
 # include "GL/glxint.h"
 
 # ifdef XFree86Server
+#  include <stdlib.h>
+#  include <string.h>
 #  include "GL/glx_ansic.h"
-extern void * __glXMalloc( size_t size );
-extern void __glXFree( void * ptr );
-#  define _mesa_malloc(b) __glXMalloc(b)
-#  define _mesa_free(m)   __glXFree(m)
+#  define __glXMemset     memset
+#  define _mesa_malloc(b) malloc(b)
+#  define _mesa_free(m)   free(m)
 # else
-#  include <X11/Xlibint.h>
+#  include <nx-X11/Xlibint.h>
 #  define __glXMemset  memset
-#  define _mesa_malloc(b) Xmalloc(b)
-#  define _mesa_free(m) Xfree(m)
+#  define _mesa_malloc(b) malloc(b)
+#  define _mesa_free(m) free(m)
 # endif /* XFree86Server */
 #endif /* !defined(IN_MINI_GLX) */
 

@@ -205,6 +205,8 @@ typedef union { GLfloat f; GLint i; } fi_type;
     defined(__hppa__) || defined(hpux) || \
     defined(__mips) || defined(_MIPS_ARCH) || \
     defined(__arm__) || \
+    defined(__aarch64__) || \
+    defined(__mc68000__) || \
     defined(__sh__) || \
     (defined(__alpha__) && (defined(__IEEE_FLOAT) || !defined(VMS)))
 #define USE_IEEE

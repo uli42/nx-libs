@@ -97,8 +97,8 @@
  *
  *    Cosmetic Stuff
  *    -----------------------------------------------------
- * 	- remove any leftover unused grammer.c stuff (dict_ ?)
- * 	- fix grammer.c error handling so its not static
+ * 	- remove any leftover unused grammar.c stuff (dict_ ?)
+ * 	- fix grammar.c error handling so its not static
  * 	- #ifdef around stuff pertaining to extentions
  *
  *    Outstanding Questions:
@@ -1703,7 +1703,7 @@ parse_attrib (GLcontext * ctx, GLubyte ** inst, struct var_cache **vc_head,
    if (found) {
       error_msg = (char *)
          _mesa_malloc (_mesa_strlen ((char *) attrib_var->name) + 40);
-      _mesa_sprintf (error_msg, "Duplicate Varible Declaration: %s",
+      _mesa_sprintf (error_msg, "Duplicate Variable Declaration: %s",
                      attrib_var->name);
 
       _mesa_set_program_error (ctx, Program->Position, error_msg);
@@ -1904,7 +1904,7 @@ parse_param (GLcontext * ctx, GLubyte ** inst, struct var_cache **vc_head,
 
    if (found) {
       error_msg = (char *) _mesa_malloc (_mesa_strlen ((char *) param_var->name) + 40);
-      _mesa_sprintf (error_msg, "Duplicate Varible Declaration: %s",
+      _mesa_sprintf (error_msg, "Duplicate Variable Declaration: %s",
                      param_var->name);
 
       _mesa_set_program_error (ctx, Program->Position, error_msg);
@@ -2013,7 +2013,7 @@ parse_temp (GLcontext * ctx, GLubyte ** inst, struct var_cache **vc_head,
       if (found) {
          error_msg = (char *)
             _mesa_malloc (_mesa_strlen ((char *) temp_var->name) + 40);
-         _mesa_sprintf (error_msg, "Duplicate Varible Declaration: %s",
+         _mesa_sprintf (error_msg, "Duplicate Variable Declaration: %s",
                         temp_var->name);
 
          _mesa_set_program_error (ctx, Program->Position, error_msg);
@@ -2064,7 +2064,7 @@ parse_output (GLcontext * ctx, GLubyte ** inst, struct var_cache **vc_head,
       char *error_msg;
       error_msg = (char *)
          _mesa_malloc (_mesa_strlen ((char *) output_var->name) + 40);
-      _mesa_sprintf (error_msg, "Duplicate Varible Declaration: %s",
+      _mesa_sprintf (error_msg, "Duplicate Variable Declaration: %s",
                      output_var->name);
 
       _mesa_set_program_error (ctx, Program->Position, error_msg);
@@ -2099,7 +2099,7 @@ parse_alias (GLcontext * ctx, GLubyte ** inst, struct var_cache **vc_head,
    if (found) {
       error_msg = (char *)
          _mesa_malloc (_mesa_strlen ((char *) temp_var->name) + 40);
-      _mesa_sprintf (error_msg, "Duplicate Varible Declaration: %s",
+      _mesa_sprintf (error_msg, "Duplicate Variable Declaration: %s",
                      temp_var->name);
 
       _mesa_set_program_error (ctx, Program->Position, error_msg);
@@ -2149,7 +2149,7 @@ parse_address (GLcontext * ctx, GLubyte ** inst, struct var_cache **vc_head,
       if (found) {
          error_msg = (char *)
             _mesa_malloc (_mesa_strlen ((char *) temp_var->name) + 40);
-         _mesa_sprintf (error_msg, "Duplicate Varible Declaration: %s",
+         _mesa_sprintf (error_msg, "Duplicate Variable Declaration: %s",
                         temp_var->name);
 
          _mesa_set_program_error (ctx, Program->Position, error_msg);
@@ -3980,7 +3980,7 @@ _mesa_parse_arb_program (GLcontext * ctx, const GLubyte * str, GLsizei len,
       grammar_get_last_error ((GLubyte *) error_msg, 300, &error_pos);
       _mesa_set_program_error (ctx, error_pos, error_msg);
       _mesa_error (ctx, GL_INVALID_OPERATION,
-                   "Error loading grammer rule set");
+                   "Error loading grammar rule set");
       return GL_FALSE;
    }
 
@@ -4070,7 +4070,7 @@ _mesa_parse_arb_program (GLcontext * ctx, const GLubyte * str, GLsizei len,
    }
 
 #if DEBUG_PARSING
-   printf ("Destroying grammer dict [parse retval: %d]\n", err);
+   printf ("Destroying grammar dict [parse retval: %d]\n", err);
 #endif
    grammar_destroy (arbprogram_syn_id);
 
@@ -4103,11 +4103,11 @@ _mesa_parse_arb_program (GLcontext * ctx, const GLubyte * str, GLsizei len,
    /* Start examining the tokens in the array */
    inst = parsed;
 
-   /* Check the grammer rev */
+   /* Check the grammar rev */
    if (*inst++ != REVISION) {
       _mesa_set_program_error (ctx, 0, "Grammar version mismatch");
       _mesa_error(ctx, GL_INVALID_OPERATION,
-                  "glProgramStringARB(Grammar verison mismatch)");
+                  "glProgramStringARB(Grammar version mismatch)");
       err = GL_TRUE;
    }
    else {
