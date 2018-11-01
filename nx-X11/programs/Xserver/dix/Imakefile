@@ -38,6 +38,7 @@ SRCS =                          \
        extension.c              \
        ffs.c                    \
        gc.c                     \
+       getevents.c              \
        globals.c                \
        grabs.c                  \
        main.c                   \
@@ -61,6 +62,7 @@ OBJS =                          \
        extension.o              \
        ffs.o                    \
        gc.o                     \
+       getevents.o              \
        globals.o                \
        grabs.o                  \
        main.o                   \
@@ -78,6 +80,8 @@ OBJS =                          \
     INCLUDES = -I../include \
                -I$(XINCLUDESRC) \
                -I$(EXTINCSRC) \
+               -I$(SERVERSRC)/Xi \
+               -I$(SERVERSRC)/mi \
                -I$(SERVERSRC)/Xext \
                -I$(SERVERSRC)/lbx \
                `pkg-config --cflags-only-I pixman-1` \
