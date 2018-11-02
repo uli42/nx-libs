@@ -1975,7 +1975,7 @@ ProcGetMotionEvents(ClientPtr client)
     WindowPtr pWin;
     xTimecoord * coords = (xTimecoord *) NULL;
     xGetMotionEventsReply rep = {0};
-    int i, count, xmin, xmax, ymin, ymax, rc;
+    int i, count, xmin, xmax, ymin, ymax;
     unsigned long nEvents;
     DeviceIntPtr mouse = inputInfo.pointer;
     TimeStamp start, stop;
