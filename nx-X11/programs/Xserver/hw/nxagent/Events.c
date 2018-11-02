@@ -2863,7 +2863,8 @@ int nxagentHandleXkbKeyboardStateEvent(XEvent *X)
 {
   XkbEvent *xkbev = (XkbEvent *) X;
 
-  if (xkbev -> type == nxagentXkbInfo.EventBase + XkbEventCode &&
+  if (nxagentXkbInfo.EventBase != -1 &&
+      xkbev -> type == nxagentXkbInfo.EventBase + XkbEventCode &&
           xkbev -> any.xkb_type == XkbStateNotify)
   {
     #ifdef TEST
@@ -2971,9 +2972,21 @@ int nxagentHandleXFixesSelectionNotify(XEvent *X)
 
   XFixesSelectionEvent *xfixesEvent = (XFixesSelectionEvent *) X;
 
-  if (nxagentXFixesInfo.Initialized == 0 ||
-          xfixesEvent -> type != (nxagentXFixesInfo.EventBase + XFixesSelectionNotify))
-    return 0;
+  if (nxagentXFixesInfo.Initialized == 0)
+  {
+      #ifdef DEBUG
+      fprintf(stderr, "nxagentHandleXFixesSelectionNotify: XFixes not initialized - doing nothing.\n");
+      #endif
+      return 0;
+  }
+
+  if (xfixesEvent -> type != (nxagentXFixesInfo.EventBase + XFixesSelectionNotify))
+  {
+      #ifdef DEBUG
+      fprintf(stderr, "nxagentHandleXFixesSelectionNotify: event type is [%d] - doing nothing.\n", xfixesEvent->type);
+      #endif
+      return 0;
+  }
 
   #ifdef TEST
   fprintf(stderr, "nxagentHandleXFixesSelectionNotify: Handling event.\n");
@@ -3880,6 +3893,11 @@ int nxagentInitXkbKeyboardState(void)
   unsigned int modifiers;
 
   XkbEvent *xkbev = (XkbEvent *) &X;
+
+  if (nxagentXkbInfo.EventBase == -1)
+  {
+      return 1;
+  }
 
   #ifdef TEST
   fprintf(stderr, "%s: Initializing XKB state.\n", __func__);
