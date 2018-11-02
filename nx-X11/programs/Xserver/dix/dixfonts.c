@@ -2115,7 +2115,7 @@ DeleteClientFontStuff(ClientPtr client)
 
 #ifdef HAS_XFONT2
 static int
-_fpe_funcs(const xfont2_fpe_funcs_rec *funcs)
+register_fpe_funcs(const xfont2_fpe_funcs_rec *funcs)
 {
     xfont2_fpe_funcs_rec const **new;
 
@@ -2489,7 +2489,7 @@ static const xfont2_client_funcs_rec xfont2_client_funcs = {
     .get_new_font_client_id = get_new_font_client_id,
     .get_time_in_millis = GetTimeInMillis,
     .init_fs_handlers = _init_fs_handlers,
-    ._fpe_funcs = register_fpe_funcs,
+    .register_fpe_funcs = register_fpe_funcs,
     .remove_fs_handlers = _remove_fs_handlers,
     .get_server_client = get_server_client,
     .set_font_authorizations = set_font_authorizations,
