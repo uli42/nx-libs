@@ -703,7 +703,6 @@ N/A
           goto XkbError;
       }
 
-
 #ifdef XKB
 
       /*
@@ -772,7 +771,6 @@ XkbError:
           if(nxagentKeyboard[i] == 0 || nxagentKeyboard[i + 1] == 0 || i == 0)
           {
             ErrorF("Warning: Wrong keyboard type: %s.\n", nxagentKeyboard);
-
             goto XkbError;
           }
 
