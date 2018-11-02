@@ -136,6 +136,10 @@ int nxagentDebugInput = 0;
 extern Bool nxagentRootlessTreesMatch(void);
 #endif
 
+extern xEvent *nxagentEvent;
+extern DeviceIntPtr nxagentKeyboardDevice;
+extern DeviceIntPtr nxagentPointerDevice;
+
 extern Selection *CurrentSelections;
 extern int NumCurrentSelections;
 
@@ -797,6 +801,40 @@ static int nxagentChangeVisibilityPrivate(WindowPtr pWin, void * ptr)
   return WT_WALKCHILDREN;
 }
 
+/*
+   update_last_event_time: update nxagentLastEventTime with the
+                           current time
+   use_time: if != NULL and <= current time use this timestamp instead
+             of the current time
+
+ */
+void nxagentQueueKeyEvent(int type, unsigned int keycode, Bool update_last_event_time, Time use_time)
+{
+  Time now = GetTimeInMillis();
+
+  xEvent x = {
+      .u.u.type = type,
+      .u.u.detail = keycode,
+      .u.keyButtonPointer.time = now,
+  };
+
+  if (update_last_event_time)
+    nxagentLastEventTime = now;
+
+  if (use_time)
+  {
+    if (use_time > now)
+    {
+      x.u.keyButtonPointer.time = now;
+    }
+    else
+    {
+      x.u.keyButtonPointer.time = use_time;
+    }
+  }
+  mieqEnqueue(nxagentKeyboardDevice, &x);
+}
+
 void nxagentDispatchEvents(PredicateFuncPtr predicate)
 {
   XEvent X;
@@ -1160,24 +1198,14 @@ FIXME: Don't enqueue the KeyRelease event if the key was
           nxagentXkbNumTrap = 0;
         }
 
-        memset(&x, 0, sizeof(xEvent));
-        x.u.u.type = KeyRelease;
-        x.u.u.detail = nxagentConvertKeycode(X.xkey.keycode);
-        x.u.keyButtonPointer.time = nxagentLastKeyPressTime +
-            (X.xkey.time - nxagentLastServerTime);
-
         nxagentLastServerTime = X.xkey.time;
-
-        nxagentLastEventTime = GetTimeInMillis();
-
-        if (x.u.keyButtonPointer.time > nxagentLastEventTime)
-        {
-          x.u.keyButtonPointer.time = nxagentLastEventTime;
-        }
 
         if (!(nxagentCheckSpecialKeystroke(&X.xkey, &result)) && sendKey == 1)
         {
-          mieqEnqueue(&x);
+          nxagentQueueKeyEvent(KeyRelease,
+                               nxagentConvertKeycode(X.xkey.keycode),
+                               True,
+                               nxagentLastKeyPressTime + (X.xkey.time - nxagentLastServerTime))
 
           CriticalOutputPending = 1;
 
@@ -1570,11 +1598,6 @@ FIXME: Don't enqueue the KeyRelease event if the key was
                   if (!nxagentOption(Rootless) ||
                           inputInfo.keyboard->key->modifierMap[i * 8 + k])
                   {
-                    memset(&x, 0, sizeof(xEvent));
-                    x.u.u.type = KeyRelease;
-                    x.u.u.detail = i * 8 + k;
-                    x.u.keyButtonPointer.time = nxagentLastEventTime = GetTimeInMillis();
-
                     if (nxagentOption(ViewOnly) == 0 && nxagentOption(Shadow))
                     {
                       xM.type = KeyRelease;
@@ -1586,7 +1609,7 @@ FIXME: Don't enqueue the KeyRelease event if the key was
                       NXShadowEvent(nxagentDisplay, xM);
                     }
 
-                    mieqEnqueue(&x);
+                    nxagentQueueKeyEvent(KeyRelease, i * 8 + k, True, NULL);
                   }
                 }
               }
@@ -2337,16 +2360,10 @@ int nxagentHandleKeyPress(XEvent *X, enum HandleEventResult *result)
     nxagentXkbState.Num = (~nxagentXkbState.Num & 1);
   }
 
-  nxagentLastEventTime = nxagentLastKeyPressTime = GetTimeInMillis();
-  
-  memset(&x, 0, sizeof(xEvent));
-  x.u.u.type = KeyPress;
-  x.u.u.detail = nxagentConvertKeycode(X -> xkey.keycode);
-  x.u.keyButtonPointer.time = nxagentLastKeyPressTime;
+  nxagentQueueKeyEvent(KeyPress, nxagentConvertKeycode(X -> xkey.keycode), True, NULL);
 
   nxagentLastServerTime = X -> xkey.time;
-
-  mieqEnqueue(&x);
+  nxagentLastKeyPressTime = nxagentLastEventTime
 
   CriticalOutputPending = 1;
 
@@ -3788,23 +3805,8 @@ void nxagentDisablePointerEvents(void)
 
 void nxagentSendFakeKey(int key)
 {
-  xEvent fake;
-  Time   now;
-
-  now = GetTimeInMillis();
-
-  memset(&fake, 0, sizeof(xEvent));
-  fake.u.u.type = KeyPress;
-  fake.u.u.detail = key;
-  fake.u.keyButtonPointer.time = now;
-
-  mieqEnqueue(&fake);
-
-  fake.u.u.type = KeyRelease;
-  fake.u.u.detail = key;
-  fake.u.keyButtonPointer.time = now;
-
-  mieqEnqueue(&fake);
+  nxagentQueueKeyEvent(KeyPress, key, false, NULL);
+  nxagentQueueKeyEvent(KeyRelease, key, false, NULL);
 }
 
 int nxagentInitXkbKeyboardState(void)
