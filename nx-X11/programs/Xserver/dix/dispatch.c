@@ -2107,7 +2107,7 @@ DoGetImage(ClientPtr client, int format, Drawable drawable,
            Mask planemask, xGetImageReply **im_return)
 {
     DrawablePtr		pDraw;
-    int			nlines, linesPerBuf, rc;
+    int			nlines, linesPerBuf;
     int	linesDone;
     long		widthBytesLine, length;
     Mask		plane = 0;
