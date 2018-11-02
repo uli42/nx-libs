@@ -273,7 +273,6 @@ main(int argc, char *argv[], char *envp[])
 	ResetPixmapPrivates();
 #endif
 	ResetColormapPrivates();
-	ResetFontPrivateIndex();
 	ResetDevicePrivateIndex();
 	InitFonts();
 	InitCallbackManager();
