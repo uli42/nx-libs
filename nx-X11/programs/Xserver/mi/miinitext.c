@@ -218,7 +218,10 @@ extern void RecordExtensionInit(void);
 extern void DbeExtensionInit(void);
 #endif
 #ifdef XCSECURITY
+#if 0
+/* FIXME: need to update Xext first*/
 extern void SecurityExtensionSetup(void);
+#endif
 extern void SecurityExtensionInit(void);
 #endif
 #ifdef XF86BIGFONT
@@ -379,7 +382,10 @@ InitExtensions(argc, argv)
     char	*argv[];
 {
 #ifdef XCSECURITY
+#if 0
+    /* FIXME: need to update Xext first */
     SecurityExtensionSetup();
+#endif
 #endif
 #ifdef PANORAMIX
 # if !defined(PRINT_ONLY_SERVER) && !defined(NO_PANORAMIX)
