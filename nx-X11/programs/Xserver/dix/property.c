@@ -178,18 +178,10 @@ found:
 	while (delta < 0)                  /* faster if abs value is small */
             delta += stuff->nAtoms;
     	for (i = 0; i < stuff->nAtoms; i++)
- 	{
+	{
 	    deliverPropertyNotifyEvent(pWin, PropertyNewValue,
 				       props[i]->propertyName);
 
-            memset(&event, 0, sizeof(xEvent));
- 	    event.u.u.type = PropertyNotify;
-            event.u.property.window = pWin->drawable.id;
-    	    event.u.property.state = PropertyNewValue;
-	    event.u.property.atom = props[i]->propertyName;	
-	    event.u.property.time = currentTime.milliseconds;
-	    DeliverEvents(pWin, &event, 1, (WindowPtr)NULL);
-	
             props[i]->propertyName = atoms[(i + delta) % stuff->nAtoms];
 	}
     }
