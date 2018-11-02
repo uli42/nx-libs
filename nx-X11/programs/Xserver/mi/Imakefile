@@ -153,6 +153,7 @@ INCLUDES = -I.                  \
            -I../xfixes          \
            -I../damageext       \
            -I../miext/damage    \
+           -I../Xi              \
            -I$(XINCLUDESRC)     \
            -I$(EXTINCSRC)       \
            -I$(SERVERSRC)/Xext  \
