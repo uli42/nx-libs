@@ -142,6 +142,7 @@ extern Bool XkbFilterEvents(ClientPtr, int, xEvent *);
 #ifdef XCSECURITY
 #define _SECURITY_SERVER
 #include <nx-X11/extensions/security.h>
+#endif
 
 #ifdef XSERVER_DTRACE
 #include <sys/types.h>
