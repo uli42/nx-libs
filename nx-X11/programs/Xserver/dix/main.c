@@ -130,12 +130,12 @@ extern FontPtr defaultFont;
 extern void InitProcVectors(void);
 extern Bool CreateGCperDepthArray(void);
 
+extern void FreeScreen(ScreenPtr pScreen);
+
 #ifndef PANORAMIX
 static
 #endif
 Bool CreateConnectionBlock(void);
-
-static void FreeScreen(ScreenPtr);
 
 PaddingInfo PixmapWidthPaddingInfo[33];
 
