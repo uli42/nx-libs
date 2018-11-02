@@ -151,6 +151,8 @@ static char *nxagentRemoteOptions = NULL;
 
 #endif /* XKB */
 
+DeviceIntPtr nxagentKeyboardDevice = NULL;
+
 /*
  * Save the values queried from X server.
  */
