@@ -41,6 +41,7 @@ SRCS =                          \
        devices.c                \
        dixutils.c               \
        gc.c                     \
+       getevents.c              \
        globals.c                \
        grabs.c                  \
        main.c                   \
@@ -62,6 +63,7 @@ OBJS =                          \
        devices.o                \
        dixutils.o               \
        gc.o                     \
+       getevents.o              \
        globals.o                \
        grabs.o                  \
        main.o                   \
