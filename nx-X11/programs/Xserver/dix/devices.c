@@ -1301,8 +1301,10 @@ DoSetModifierMapping(ClientPtr client, KeyCode *inputMap,
                 }
             }
 
-            if (!XaceHook(XACE_DEVICE_ACCESS, client, pDev, TRUE))
+#ifdef XCSECURITY
+            if (!SecurityCheckDeviceAccess(client, pDev, TRUE))
                 return BadAccess;
+#endif
 
             /* None of the modifiers (old or new) may be down while we change
              * the map. */
@@ -1428,8 +1430,10 @@ ProcChangeKeyboardMapping(ClientPtr client)
 
     for (pDev = inputInfo.devices; pDev; pDev = pDev->next) {
         if ((pDev->coreEvents || pDev == inputInfo.keyboard) && pDev->key) {
-            if (!XaceHook(XACE_DEVICE_ACCESS, client, pDev, TRUE))
+#ifdef XCSECURITY
+            if (!SecurityCheckDeviceAccess(client, pDev, TRUE))
                 return BadAccess;
+#endif
         }
     }
 
@@ -1787,8 +1791,10 @@ ProcChangeKeyboardControl (ClientPtr client)
     for (pDev = inputInfo.devices; pDev; pDev = pDev->next) {
         if ((pDev->coreEvents || pDev == inputInfo.keyboard) &&
             pDev->kbdfeed && pDev->kbdfeed->CtrlProc) {
-            if (!XaceHook(XACE_DEVICE_ACCESS, client, pDev, TRUE))
+#ifdef XCSECURITY
+            if (!SecurityCheckDeviceAccess(client, pDev, TRUE))
                 return BadAccess;
+#endif
         }
     }
 
