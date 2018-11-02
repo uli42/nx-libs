@@ -452,7 +452,7 @@ InitCoreDevices(void)
             FatalError("Couldn't allocate void * devPrivates\n");
         dev->devPrivates[CoreDevicePrivatesIndex].ptr = NULL;
         (void)ActivateDevice(dev);
-        inputInfo.void * = dev;
+        inputInfo.pointer = dev;
     }
 }
 
