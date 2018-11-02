@@ -218,6 +218,7 @@ extern void RecordExtensionInit(void);
 extern void DbeExtensionInit(void);
 #endif
 #ifdef XCSECURITY
+extern void SecurityExtensionSetup(void);
 extern void SecurityExtensionInit(void);
 #endif
 #ifdef XF86BIGFONT
@@ -377,6 +378,9 @@ InitExtensions(argc, argv)
     int		argc;
     char	*argv[];
 {
+#ifdef XCSECURITY
+    SecurityExtensionSetup();
+#endif
 #ifdef PANORAMIX
 # if !defined(PRINT_ONLY_SERVER) && !defined(NO_PANORAMIX)
   if (!noPanoramiXExtension) PanoramiXExtensionInit();
@@ -391,7 +395,7 @@ InitExtensions(argc, argv)
 #ifdef MITSHM
     if (!noMITShmExtension) ShmExtensionInit();
 #endif
-#if defined(XINPUT) && !defined(NO_HW_ONLY_EXTS)
+#if defined(XINPUT)
     if (!noXInputExtension) XInputExtensionInit();
 #endif
 #ifdef XTEST
@@ -415,7 +419,7 @@ InitExtensions(argc, argv)
 #ifdef XSYNC
     if (!noSyncExtension) SyncExtensionInit();
 #endif
-#if defined(XKB) && !defined(PRINT_ONLY_SERVER) && !defined(NO_HW_ONLY_EXTS)
+#if defined(XKB) && !defined(PRINT_ONLY_SERVER)
     if (!noXkbExtension) XkbExtensionInit();
 #endif
 #ifdef XCMISC
