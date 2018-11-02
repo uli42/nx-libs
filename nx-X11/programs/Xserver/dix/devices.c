@@ -1358,6 +1358,7 @@ int
 ProcSetModifierMapping(ClientPtr client)
 {
     xSetModifierMappingReply rep = {0};
+    DeviceIntPtr dev;
     REQUEST(xSetModifierMappingReq);
 
     REQUEST_AT_LEAST_SIZE(xSetModifierMappingReq);
