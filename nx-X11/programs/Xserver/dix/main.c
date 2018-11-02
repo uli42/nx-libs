@@ -166,7 +166,7 @@ ReplyNotSwappd(
 int
 main(int argc, char *argv[], char *envp[])
 {
-    int		i, j, k, error;
+    int	i;
     char	*xauthfile;
     HWEventQueueType	alwaysCheckForInput[2];
 
