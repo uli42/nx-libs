@@ -159,6 +159,7 @@ damagePolyText8(DrawablePtr pDrawable,
 
     x = (*pGC->ops->PolyText8)(pDrawable, pGC, x, y, count, chars);
 
+    damageReportPostOp (pDrawable);
     DAMAGE_GC_OP_EPILOGUE(pGC, pDrawable);
     return x;
 }
@@ -180,6 +181,7 @@ damagePolyText16(DrawablePtr	pDrawable,
 
     x = (*pGC->ops->PolyText16)(pDrawable, pGC, x, y, count, chars);
 
+    damageReportPostOp (pDrawable);
     DAMAGE_GC_OP_EPILOGUE(pGC, pDrawable);
     return x;
 }
@@ -200,6 +202,7 @@ damageImageText8(DrawablePtr	pDrawable,
 
     (*pGC->ops->ImageText8)(pDrawable, pGC, x, y, count, chars);
 
+    damageReportPostOp (pDrawable);
     DAMAGE_GC_OP_EPILOGUE(pGC, pDrawable);
 }
 
@@ -220,6 +223,7 @@ damageImageText16(DrawablePtr	pDrawable,
 
     (*pGC->ops->ImageText16)(pDrawable, pGC, x, y, count, chars);
 
+    damageReportPostOp (pDrawable);
     DAMAGE_GC_OP_EPILOGUE(pGC, pDrawable);
 }
 
