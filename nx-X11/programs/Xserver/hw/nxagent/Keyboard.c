@@ -710,7 +710,6 @@ N/A
           goto XkbError;
       }
 
-
 #ifdef XKB
 
       /*
@@ -779,7 +778,6 @@ XkbError:
           if(nxagentKeyboard[i] == 0 || nxagentKeyboard[i + 1] == 0 || i == 0)
           {
             ErrorF("Warning: Wrong keyboard type: %s.\n", nxagentKeyboard);
-
             goto XkbError;
           }
 
@@ -793,7 +791,7 @@ XkbError:
 
           #ifdef TEST
           fprintf(stderr, "nxagentKeyboardProc: Using keyboard model [%s] with layout [%s].\n",
-                      model, layout);
+                      model?model:"(default)", layout?layout:"(default)");
           #endif
 
           #ifdef __sun
@@ -815,7 +813,7 @@ XkbError:
         {
           #ifdef TEST
           fprintf(stderr, "nxagentKeyboardProc: Using default keyboard: model [%s] layout [%s].\n",
-                      model, layout);
+                      model?model:"(default)", layout?layout:"(default)");
           #endif
         }
 
@@ -841,7 +839,8 @@ XkbError:
         #ifdef DEBUG
         fprintf(stderr, "nxagentKeyboardProc: Going to set rules and init device: "
                         "[rules='%s',model='%s',layout='%s',variants='%s',options='%s'].\n",
-                        rules, model, layout, variants, options);
+                        rules?rules:"(default)", model?model:"(default)", layout?layout:"(default)",
+                        variants?variants:"(default)", options?options:"(default)");
         #endif
 
         XkbSetRulesDflts(rules, model, layout, variants, options);
