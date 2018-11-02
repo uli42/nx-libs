@@ -134,7 +134,6 @@ of the copyright holder.
 #include "globals.h"
 
 #ifdef XKB
-#include <xkbproto.h>
 #include "xkbsrv.h"
 extern Bool XkbFilterEvents(ClientPtr, int, xEvent *);
 #endif
@@ -151,7 +150,7 @@ typedef const char *string;
 #endif
 
 #include <nx-X11/extensions/XIproto.h>
-#include "exglobals.h"
+#include "../Xi/exglobals.h"
 #include "exevents.h"
 #include "extnsionst.h"
 
