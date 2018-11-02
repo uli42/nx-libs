@@ -26,7 +26,13 @@
 #ifndef HOTPLUG_H
 #define HOTPLUG_H
 
+/* for nx we simply make these no-ops */
+#define config_init() /**/
+#define config_fini() /**/
+
+/*
 void config_init(void);
 void config_fini(void);
+*/
 
 #endif /* HOTPLUG_H */
