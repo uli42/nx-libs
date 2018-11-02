@@ -453,11 +453,10 @@ CreateConnectionBlock(void)
         sizesofar = 0;
     char *pBuf;
 
+   /* Leave off the ridBase and ridMask, these must be sent with
+      connection */
 
     memset(&setup, 0, sizeof(xConnSetup));
-    /* Leave off the ridBase and ridMask, these must be sent with
-       connection */
-
     setup.release = VendorRelease;
     /*
      * per-server image and bitmap parameters are defined in Xmd.h
