@@ -204,6 +204,7 @@ void checkX2goAgent(void)
     nxagentX2go=0;
 }
 
+xEvent *nxagentEvents = NULL;
 
 /*
  * Called at X server's initialization.
@@ -414,19 +415,20 @@ nxagentNotifyConnection(int fd, int ready, void *data)
     nxagentDispatchEvents(NULL);
 }
 
-void InitInput(argc, argv)
-     int argc;
-     char *argv[];
+void InitInput(int argc, char *argv[])
 {
-  void *ptr, *kbd;
+  nxagentPointerDevice = AddInputDevice(nxagentPointerProc, True);
+  nxagentKeyboardDevice = AddInputDevice(nxagentKeyboardProc, True);
 
-  ptr = AddInputDevice(nxagentPointerProc, True);
-  kbd = AddInputDevice(nxagentKeyboardProc, True);
+  if (!nxagentEvents)
+      nxagentEvents = (xEvent *) calloc(sizeof(xEvent), GetMaximumEventsNum());
+  if (!nxagentEvents)
+      FatalError("couldn't allocate room for events\n");
 
-  RegisterPointerDevice(ptr);
-  RegisterKeyboardDevice(kbd);
+  RegisterPointerDevice(nxagentPointerDevice);
+  RegisterKeyboardDevice(nxagentKeyboardDevice);
 
-  mieqInit(kbd, ptr);
+  mieqInit();
 
   /*
    * Add the display descriptor to the

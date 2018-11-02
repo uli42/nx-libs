@@ -178,6 +178,8 @@ extern int XkbDfltRepeatInterval;
 
 #endif /* XKB */
 
+DeviceIntPtr nxagentKeyboardDevice = NULL;
+
 /*
  * Save the values queried from X server.
  */
