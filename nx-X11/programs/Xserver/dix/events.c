@@ -150,7 +150,7 @@ typedef const char *string;
 #endif
 
 #include <nx-X11/extensions/XIproto.h>
-#include "../Xi/exglobals.h"
+#include "exglobals.h"
 #include "exevents.h"
 #include "extnsionst.h"
 

@@ -40,7 +40,7 @@
 #include "dixstruct.h"
 #include "globals.h"
 #include "dixevents.h"
-#include "../mi/mipointer.h"
+#include "mipointer.h"
 
 #ifdef XKB
 #include <xkbsrv.h>
@@ -54,7 +54,7 @@ extern Bool XkbCopyKeymap(XkbDescPtr src, XkbDescPtr dst, Bool sendNotifies);
 
 #include <nx-X11/extensions/XI.h>
 #include <nx-X11/extensions/XIproto.h>
-#include "../Xi/exglobals.h"
+#include "exglobals.h"
 #include "exevents.h"
 #include "extnsionst.h"
 

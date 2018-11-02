@@ -81,6 +81,8 @@ OBJS =                          \
     INCLUDES = -I../include \
                -I$(XINCLUDESRC) \
                -I$(EXTINCSRC) \
+               -I$(SERVERSRC)/Xi \
+               -I$(SERVERSRC)/mi \
                -I$(SERVERSRC)/Xext \
                -I$(SERVERSRC)/lbx \
                `pkg-config --cflags-only-I pixman-1` \
