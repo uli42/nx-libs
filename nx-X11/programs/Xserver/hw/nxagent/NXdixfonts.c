@@ -658,7 +658,7 @@ finish:
 		  continue;
 		}
 	    }
-#endig /* NXAGENT_SERVER */
+#endif /* NXAGENT_SERVER */
 	    *bufptr++ = names->length[i];
 	    memmove( bufptr, names->names[i], names->length[i]);
 	    bufptr += names->length[i];
