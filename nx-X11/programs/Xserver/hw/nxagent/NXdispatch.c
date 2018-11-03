@@ -227,8 +227,7 @@ InitSelections()
       CurrentSelections[1].pWin = NULL;
       CurrentSelections[1].client = NullClient;
     }
-#endif
-
+#endif /* NXAGENT_CLIPBOARD */
 }
 
 #define MAJOROP ((xReq *)client->requestBuffer)->reqType
@@ -236,11 +235,11 @@ InitSelections()
 void
 Dispatch(void)
 {
-    register int        *clientReady;     /* array of request ready clients */
-    register int	result;
-    register ClientPtr	client;
-    register int	nready;
-    register HWEventQueuePtr* icheck = checkForInput;
+    int        *clientReady;     /* array of request ready clients */
+    int	result;
+    ClientPtr	client;
+    int	nready;
+    HWEventQueuePtr* icheck = checkForInput;
     long			start_tick;
 
     unsigned long currentDispatch = 0;
@@ -277,6 +276,10 @@ Dispatch(void)
     clientReady = (int *) malloc(sizeof(int) * MaxClients);
     if (!clientReady)
 	return;
+
+#ifdef XSERVER_DTRACE
+    LoadRequestNames();
+#endif
 
   #ifdef WATCH
 
@@ -443,10 +446,7 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
 			CloseDownClient(client);
 		    break;
 	        }
-#ifdef NXAGENT_SERVER
-
-                #ifdef TEST
-
+#if defined(NXAGENT_SERVER) && defined(TEST)
                 else
                 {
 
@@ -463,9 +463,7 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
                                       client->index);
                     }
                 }
-
-                #endif
-#endif
+#endif /* NXAGENT_SERVER && TEST*/
 
 		client->sequence++;
 #ifdef DEBUG
@@ -474,15 +472,17 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
 		client->requestLog[client->requestLogIndex] = MAJOROP;
 		client->requestLogIndex++;
 #endif
+#ifdef XSERVER_DTRACE
+                XSERVER_REQUEST_START(GetRequestName(MAJOROP), MAJOROP,
+                              ((xReq *)client->requestBuffer)->length,
+                              client->index, client->requestBuffer);
+#endif
 		if (result > (maxBigRequestSize << 2))
 		    result = BadLength;
-		else
-#ifdef NXAGENT_SERVER
-                {
+		else {
                     result = (* client->requestVector[MAJOROP])(client);
-
-                    #ifdef TEST
-
+#ifdef NXAGENT_SERVER
+        #ifdef TEST
                     if (MAJOROP > 127)
                     {
                       fprintf(stderr, "******Dispatch: Handled [Extension] request OPCODE#%d MINOR#%d "
@@ -496,8 +496,7 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
                                   "result [%d].\n", nxagentRequestLiteral[MAJOROP], MAJOROP,
                                       client->req_len << 2, client->index, result);
                     }
-
-                    #endif
+        #endif
 
                     /*
                      * Can set isItTimeToYield to force
@@ -506,9 +505,11 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
                      */
 
                     nxagentDispatchHandler(client, client->req_len << 2, 0);
+#endif /* NXAGENT_SERVER */
                 }
-#else
-		    result = (* client->requestVector[MAJOROP])(client);
+#ifdef XSERVER_DTRACE
+                XSERVER_REQUEST_DONE(GetRequestName(MAJOROP), MAJOROP,
+                              client->sequence, client->index, result);
 #endif
 
 
@@ -577,16 +578,19 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
     KillAllClients();
     free(clientReady);
     dispatchException &= ~DE_RESET;
+#ifdef XSERVER_DTRACE
+    FreeRequestNames();
+#endif
 }
 
 #undef MAJOROP
 
 int
-ProcReparentWindow(register ClientPtr client)
+ProcReparentWindow(ClientPtr client)
 {
-    register WindowPtr pWin, pParent;
+    WindowPtr pWin, pParent;
     REQUEST(xReparentWindowReq);
-    register int result;
+    int result;
 
     REQUEST_SIZE_MATCH(xReparentWindowReq);
     pWin = (WindowPtr)SecurityLookupWindow(stuff->window, client,
@@ -622,13 +626,12 @@ ProcReparentWindow(register ClientPtr client)
         return (BadMatch);
 }
 
-
 int
-ProcQueryTree(register ClientPtr client)
+ProcQueryTree(ClientPtr client)
 {
-    xQueryTreeReply reply;
+    xQueryTreeReply reply = {0};
     int numChildren = 0;
-    register WindowPtr pChild, pWin, pHead;
+    WindowPtr pChild, pWin, pHead;
     Window  *childIDs = (Window *)NULL;
     REQUEST(xResourceReq);
 
@@ -637,7 +640,6 @@ ProcQueryTree(register ClientPtr client)
 					   DixReadAccess);
     if (!pWin)
         return(BadWindow);
-    memset(&reply, 0, sizeof(xQueryTreeReply));
     reply.type = X_Reply;
     reply.root = pWin->drawable.pScreen->root->drawable.id;
     reply.sequenceNumber = client->sequence;
@@ -662,16 +664,16 @@ ProcQueryTree(register ClientPtr client)
 	    return BadAlloc;
 	for (pChild = pWin->lastChild; pChild != pHead; pChild = pChild->prevSib)
         {
-          if (!IsViewportFrame(pChild))
-          {
-	    childIDs[curChild++] = pChild->drawable.id;
-          }
+            if (!IsViewportFrame(pChild))
+            {
+	        childIDs[curChild++] = pChild->drawable.id;
+            }
         }
     }
-    
+
     reply.nChildren = numChildren;
     reply.length = (numChildren * sizeof(Window)) >> 2;
-    
+
     WriteReplyToClient(client, sizeof(xQueryTreeReply), &reply);
     if (numChildren)
     {
@@ -683,9 +685,8 @@ ProcQueryTree(register ClientPtr client)
     return(client->noClientException);
 }
 
-
 int
-ProcSetSelectionOwner(register ClientPtr client)
+ProcSetSelectionOwner(ClientPtr client)
 {
     WindowPtr pWin;
     TimeStamp time;
@@ -720,8 +721,6 @@ ProcSetSelectionOwner(register ClientPtr client)
             i++;
         if (i < NumCurrentSelections)
         {        
-	    xEvent event = {0};
-
 	    /* If the timestamp in client's request is in the past relative
 		to the time stamp indicating the last time the owner of the
 		selection was set, do not set the selection, just return 
@@ -732,6 +731,7 @@ ProcSetSelectionOwner(register ClientPtr client)
 	    if (CurrentSelections[i].client &&
 		(!pWin || (CurrentSelections[i].client != client)))
 	    {
+		xEvent event = {0};
 		event.u.u.type = SelectionClear;
 		event.u.selectionClear.time = time.milliseconds;
 		event.u.selectionClear.window = CurrentSelections[i].window;
@@ -765,7 +765,7 @@ ProcSetSelectionOwner(register ClientPtr client)
 	CurrentSelections[i].client = (pWin ? client : NullClient);
 	if (SelectionCallback)
 	{
-	    SelectionInfoRec	info;
+	    SelectionInfoRec	info = {0};
 
 	    info.selection = &CurrentSelections[i];
 	    info.kind= SelectionSetOwner;
@@ -790,9 +790,8 @@ ProcSetSelectionOwner(register ClientPtr client)
     }
 }
 
-
 int
-ProcConvertSelection(register ClientPtr client)
+ProcConvertSelection(ClientPtr client)
 {
     Bool paramsOkay;
     xEvent event;
@@ -810,19 +809,19 @@ ProcConvertSelection(register ClientPtr client)
            (stuff->selection == MakeAtom("CLIPBOARD", 9, 0))) &&
                nxagentOption(Clipboard) != ClipboardNone)
     {
-      int i = 0;
+        int i = 0;
 
-      while ((i < NumCurrentSelections) &&
-                CurrentSelections[i].selection != stuff->selection) i++;
+        while ((i < NumCurrentSelections) &&
+                  CurrentSelections[i].selection != stuff->selection) i++;
 
-      if ((i < NumCurrentSelections) && (CurrentSelections[i].window != None))
-      {
-        if (nxagentConvertSelection(client, pWin, stuff->selection, stuff->requestor,
-                                       stuff->property, stuff->target, stuff->time))
+        if ((i < NumCurrentSelections) && (CurrentSelections[i].window != None))
         {
-          return (client->noClientException);
+            if (nxagentConvertSelection(client, pWin, stuff->selection, stuff->requestor,
+                                           stuff->property, stuff->target, stuff->time))
+            {
+                return (client->noClientException);
+            }
         }
-      }
     }
 #endif
 
@@ -879,11 +878,10 @@ ProcConvertSelection(register ClientPtr client)
     }
 }
 
-
 int
-ProcOpenFont(register ClientPtr client)
+ProcOpenFont(ClientPtr client)
 {
-    int	err;
+    int err;
     char fontReq[256];
     REQUEST(xOpenFontReq);
 
@@ -892,7 +890,7 @@ ProcOpenFont(register ClientPtr client)
     LEGAL_NEW_RESOURCE(stuff->fid, client);
 
     memcpy(fontReq,(char *)&stuff[1],(stuff->nbytes<256)?stuff->nbytes:255);
-    fontReq[stuff->nbytes]=0;
+    fontReq[stuff->nbytes] = '\0';
     if (strchr(fontReq,'*') || strchr(fontReq,'?'))
     {
        extern int nxOpenFont(ClientPtr, XID, Mask, unsigned, char*);
@@ -915,7 +913,7 @@ ProcOpenFont(register ClientPtr client)
 }
 
 int
-ProcCloseFont(register ClientPtr client)
+ProcCloseFont(ClientPtr client)
 {
     FontPtr pFont;
     REQUEST(xResourceReq);
@@ -923,10 +921,9 @@ ProcCloseFont(register ClientPtr client)
     REQUEST_SIZE_MATCH(xResourceReq);
     pFont = (FontPtr)SecurityLookupIDByType(client, stuff->id, RT_FONT,
 					    DixDestroyAccess);
-    if (pFont != (FontPtr)NULL)
+    if (pFont != (FontPtr)NULL)         /* id was valid */
     {
-        #ifdef NXAGENT_SERVER
-
+#ifdef NXAGENT_SERVER
         /*
          * When a client closes a font the resource
          * should not be lost if the reference counter
@@ -957,8 +954,7 @@ ProcCloseFont(register ClientPtr client)
           }
           #endif
         }
-
-        #endif
+#endif
 
         FreeResource(stuff->id, RT_NONE);
 	return(client->noClientException);
@@ -972,7 +968,7 @@ ProcCloseFont(register ClientPtr client)
 
 
 int
-ProcListFonts(register ClientPtr client)
+ProcListFonts(ClientPtr client)
 {
     char tmp[256];
 
@@ -991,7 +987,7 @@ ProcListFonts(register ClientPtr client)
 }
 
 int
-ProcListFontsWithInfo(register ClientPtr client)
+ProcListFontsWithInfo(ClientPtr client)
 {
     char tmp[256];
     REQUEST(xListFontsWithInfoReq);
@@ -1009,9 +1005,8 @@ ProcListFontsWithInfo(register ClientPtr client)
 				  (unsigned char *) &stuff[1], stuff->maxNames);
 }
 
-
 int
-ProcFreePixmap(register ClientPtr client)
+ProcFreePixmap(ClientPtr client)
 {
     PixmapPtr pMap;
 
@@ -1022,8 +1017,7 @@ ProcFreePixmap(register ClientPtr client)
 					     DixDestroyAccess);
     if (pMap) 
     {
-        #ifdef NXAGENT_SERVER
-
+#ifdef NXAGENT_SERVER
         /*
          * When a client releases a pixmap the resource
          * should not be lost if the reference counter
@@ -1053,8 +1047,7 @@ ProcFreePixmap(register ClientPtr client)
           }
           #endif
         }
-
-        #endif
+#endif /* NXAGENT_SERVER */
 
 	FreeResource(stuff->id, RT_NONE);
 	return(client->noClientException);
@@ -1066,9 +1059,8 @@ ProcFreePixmap(register ClientPtr client)
     }
 }
 
-
 int
-ProcSetScreenSaver (register ClientPtr client)
+ProcSetScreenSaver (ClientPtr client)
 {
     int blankingOption, exposureOption;
     REQUEST(xSetScreenSaverReq);
@@ -1166,7 +1158,6 @@ ProcSetScreenSaver (register ClientPtr client)
     return (client->noClientException);
 }
 
-
 int ProcForceScreenSaver(register ClientPtr client)
 {
     REQUEST(xForceScreenSaverReq);
@@ -1206,7 +1197,6 @@ int ProcForceScreenSaver(register ClientPtr client)
     return client->noClientException;
 }
 
-
 /**********************
  * CloseDownClient
  *
@@ -1215,7 +1205,7 @@ int ProcForceScreenSaver(register ClientPtr client)
  *********************/
 
 void
-CloseDownClient(register ClientPtr client)
+CloseDownClient(ClientPtr client)
 {
     Bool really_close_down = client->clientGone ||
 			     client->closeDownMode == DestroyAll;
@@ -1309,6 +1299,9 @@ CloseDownClient(register ClientPtr client)
 	    CallCallbacks((&ClientStateCallback), (void *)&clientinfo);
 	} 	    
 	FreeClientResources(client);
+	/* Disable client ID tracking. This must be done after
+	 * ClientStateCallback. */
+	ReleaseClientIds(client);
 	if (client->index < nextFreeClientID)
 	    nextFreeClientID = client->index;
 	clients[client->index] = NullClient;
@@ -1323,11 +1316,11 @@ CloseDownClient(register ClientPtr client)
 int
 InitClientPrivates(ClientPtr client)
 {
-    register char *ptr;
+    char *ptr;
     DevUnion *ppriv;
-    register unsigned *sizes;
-    register unsigned size;
-    register int i;
+    unsigned *sizes;
+    unsigned size;
+    int i;
 
     if (totalClientSize == sizeof(ClientRec))
 	ppriv = (DevUnion *)NULL;
@@ -1351,6 +1344,17 @@ InitClientPrivates(ClientPtr client)
 	}
 	else
 	    ppriv->ptr = (void *)NULL;
+    }
+
+    /* Allow registrants to initialize the serverClient devPrivates */
+    if (!client->index && ClientStateCallback)
+    {
+       NewClientInfoRec clientinfo;
+
+       clientinfo.client = client;
+       clientinfo.prefix = (xConnSetupPrefix *)NULL;
+       clientinfo.setup = (xConnSetup *) NULL;
+       CallCallbacks((&ClientStateCallback), (void *)&clientinfo);
     }
 
     /*
