@@ -148,7 +148,7 @@ extern Display *nxagentDisplay;
 extern WindowPtr nxagentLastEnteredWindow;
 
 void
-ActivatePointerGrab(register DeviceIntPtr mouse, register GrabPtr grab, 
+ActivatePointerGrab(DeviceIntPtr mouse, GrabPtr grab, 
                     TimeStamp time, Bool autoGrab)
 {
     WindowPtr oldWin = (mouse->grab) ? mouse->grab->window
@@ -221,10 +221,10 @@ ActivatePointerGrab(register DeviceIntPtr mouse, register GrabPtr grab,
 }
 
 void
-DeactivatePointerGrab(register DeviceIntPtr mouse)
+DeactivatePointerGrab(DeviceIntPtr mouse)
 {
-    register GrabPtr grab = mouse->grab;
-    register DeviceIntPtr dev;
+    GrabPtr grab = mouse->grab;
+    DeviceIntPtr dev;
 
     mouse->valuator->motionHintWindow = NullWindow;
     mouse->grab = NullGrab;
@@ -317,11 +317,12 @@ DeactivatePointerGrab(register DeviceIntPtr mouse)
 static WindowPtr 
 XYToWindow(int x, int y)
 {
-    register WindowPtr  pWin;
+    WindowPtr  pWin;
     BoxRec		box;
 
     spriteTraceGood = 1;	/* root window still there */
 
+#ifdef NXAGENT_SERVER
     if (nxagentOption(Rootless))
     {
       if (nxagentLastEnteredWindow == NULL)
@@ -337,6 +338,7 @@ XYToWindow(int x, int y)
       }
     }
     else
+#endif /* NXAGENT_SERVER */
     {
       pWin = ROOT->firstChild;
     }
@@ -456,13 +458,15 @@ XYToWindow(int x, int y)
 // }
 
 void
-DefineInitialRootWindow(register WindowPtr win)
+DefineInitialRootWindow(WindowPtr win)
 {
-    register ScreenPtr pScreen = win->drawable.pScreen;
+    ScreenPtr pScreen = win->drawable.pScreen;
+#ifdef NXAGENT_SERVER
     #ifdef VIEWPORT_FRAME
     extern void nxagentInitViewportFrame(ScreenPtr, WindowPtr);
     #endif
     extern int  nxagentShadowInit(ScreenPtr, WindowPtr);
+#endif /* NXAGENT_SERVER */
 
     sprite.hotPhys.pScreen = pScreen;
     sprite.hotPhys.x = pScreen->width / 2;
@@ -500,6 +504,7 @@ DefineInitialRootWindow(register WindowPtr win)
     }
 #endif
 
+#ifdef NXAGENT_SERVER
     #ifdef VIEWPORT_FRAME
     nxagentInitViewportFrame(pScreen, win);
     #endif
@@ -511,6 +516,7 @@ DefineInitialRootWindow(register WindowPtr win)
         FatalError("Failed to connect to display '%s'", nxagentShadowDisplayName);
       }
     }
+#endif /* NXAGENT_SERVER */
 }
 
 int
@@ -525,9 +531,7 @@ ProcSendEvent(ClientPtr client)
     /* The client's event type must be a core event type or one defined by an
 	extension. */
 
-
 #ifdef NXAGENT_CLIPBOARD
-
     if (stuff -> event.u.u.type == SelectionNotify)
     {
     	extern int nxagentSendNotify(xEvent*);
