@@ -200,7 +200,7 @@ doOpenFont(ClientPtr client, OFclosurePtr c)
 
 	BitmapFormatScanlineUnit8;
 
-#ifdef NXAGENT_SERVVER
+#ifdef NXAGENT_SERVER
     nxagentOrigFontNameLen = (c -> origFontNameLen < sizeof(nxagentOrigFontName) ? c -> origFontNameLen : sizeof(nxagentOrigFontName) - 1);
 
     memcpy(nxagentOrigFontName, c -> origFontName, nxagentOrigFontNameLen);
