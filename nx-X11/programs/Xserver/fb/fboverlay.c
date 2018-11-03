@@ -1,4 +1,5 @@
 /*
+ *
  * Copyright © 2000 SuSE, Inc.
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
@@ -20,6 +21,7 @@
  *
  * Author:  Keith Packard, SuSE, Inc.
  */
+
 
 #ifdef HAVE_DIX_CONFIG_H
 #include <dix-config.h>
@@ -414,11 +416,7 @@ fbOverlayFinishScreenInit(ScreenPtr	pScreen,
 	return FALSE;
     if (! miScreenInit(pScreen, 0, xsize, ysize, dpix, dpiy, 0,
 			depth1, ndepths, depths,
-			defaultVisual, nvisuals, visuals
-#ifdef FB_OLD_MISCREENINIT
-		       , (miBSFuncPtr) 0
-#endif
-		       ))
+			defaultVisual, nvisuals, visuals))
 	return FALSE;
     /* MI thinks there's no frame buffer */
 #ifdef MITSHM
