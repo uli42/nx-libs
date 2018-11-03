@@ -304,7 +304,7 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
 
   sleep(30);
 
-  #endif / *WATCH */
+  #endif /* WATCH */
 
   #ifdef TEST
   fprintf(stderr, "Dispatch: Value of dispatchException is [%x].\n",
@@ -1039,6 +1039,7 @@ ProcListFontsWithInfo(ClientPtr client)
         fprintf(stderr, "Dispatch: ListFont with info request with pattern %s max_names=%d\n",tmp,stuff->maxNames);
 #endif
         nxagentListRemoteFonts(tmp, stuff -> maxNames < nxagentMaxFontNames ? nxagentMaxFontNames :stuff->maxNames);
+    }
 #endif /* NXAGENT_SERVER */
 
     return StartListFontsWithInfo(client, stuff->nbytes,
