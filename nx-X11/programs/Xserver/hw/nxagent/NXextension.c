@@ -95,13 +95,14 @@ ProcQueryExtension(ClientPtr client)
     {
 	i = FindExtension((char *)&stuff[1], stuff->nbytes);
         if (i < 0
-
+#ifdef NXAGENT_SERVER
             /*
              * Hide RENDER if our implementation
              * is faulty.
              */
 
             || (nxagentRenderTrap && strcmp(extensions[i]->name, "RENDER") == 0)
+#endif /* NXAGENT_SERVER */
 #ifdef XCSECURITY
 	    /* don't show insecure extensions to untrusted clients */
 	    || (client->trustLevel == XSecurityClientUntrusted &&
@@ -149,6 +150,7 @@ ProcListExtensions(ClientPtr client)
 		!extensions[i]->secure)
 		continue;
 #endif
+#ifdef NXAGENT_SERVER
             /*
              * Hide RENDER if our implementation
              * is faulty.
@@ -156,6 +158,7 @@ ProcListExtensions(ClientPtr client)
 
             if (nxagentRenderTrap && strcmp(extensions[i]->name, "RENDER") == 0)
                 continue;
+#endif /* NXAGENT_SERVER */
 
 	    total_length += strlen(extensions[i]->name) + 1;
 	    reply.nExtensions += 1 + extensions[i]->num_aliases;
