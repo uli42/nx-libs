@@ -16,9 +16,10 @@ SRCS =  \
 	NXglyph.c \
 	NXpicture.c \
 	NXshm.c \
-	NXglxext.c \
-	NXxvdisp.c \
-	NXresource.c \
+        NXglxext.c \
+        NXxvdisp.c \
+        NXmiglyph.c \
+        NXresource.c \
 	NXmitrap.c \
 	Args.c \
 	Binder.c \
@@ -72,9 +73,10 @@ OBJS =  \
 	NXglyph.o \
 	NXpicture.o \
 	NXshm.o \
-	NXglxext.o \
-	NXxvdisp.o \
-	NXresource.o \
+        NXglxext.o \
+        NXxvdisp.o \
+        NXmiglyph.o \
+        NXresource.o \
 	NXmitrap.o \
 	Args.o \
 	Binder.o \
