@@ -242,12 +242,15 @@ Dispatch(void)
     HWEventQueuePtr* icheck = checkForInput;
     long			start_tick;
 
+#ifdef NXAGENT_SERVER
     unsigned long currentDispatch = 0;
+#endif
 
     nextFreeClientID = 1;
     InitSelections();
     nClients = 0;
 
+#ifdef NXAGENT_SERVER
     /*
      * The agent initialization was successfully
      * completed. We can now handle our clients.
@@ -272,6 +275,7 @@ Dispatch(void)
     nxagentWMtimeout = GetTimeInMillis() + 3000;
 
     #endif
+#endif /* NXAGENT_SERVER */
 
     clientReady = (int *) malloc(sizeof(int) * MaxClients);
     if (!clientReady)
@@ -281,6 +285,7 @@ Dispatch(void)
     LoadRequestNames();
 #endif
 
+#ifdef NXAGENT_SERVER
   #ifdef WATCH
 
   fprintf(stderr, "Dispatch: Watchpoint 12.\n");
@@ -299,7 +304,7 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
 
   sleep(30);
 
-  #endif
+  #endif / *WATCH */
 
   #ifdef TEST
   fprintf(stderr, "Dispatch: Value of dispatchException is [%x].\n",
@@ -311,6 +316,7 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
 
   if (!(dispatchException & DE_TERMINATE))
     dispatchException = 0;
+#endif /* NXAGENT_SERVER */
 
   while (!dispatchException)
     {
@@ -320,6 +326,7 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
 	    FlushIfCriticalOutputPending();
 	}
 
+#ifdef NXAGENT_SERVER
         /*
          * Ensure we remove the splash after the timeout.
          * Initializing clientReady[0] to -1 will tell
@@ -359,9 +366,11 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
         #ifdef BLOCKS
         fprintf(stderr, "[End dispatch]\n");
         #endif
+#endif /* NXAGENT_SERVER */
 
 	nready = WaitForSomething(clientReady);
 
+#ifdef NXAGENT_SERVER
         #ifdef BLOCKS
         fprintf(stderr, "[Begin dispatch]\n");
         #endif
@@ -389,6 +398,7 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
         nxagentClients = nClients;
 
         #endif
+#endif /* NXAGENT_SERVER */
 
 	if (nready)
 	{
@@ -434,11 +444,12 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
 		}
 		/* now, finally, deal with client requests */
 
+#ifdef NXAGENT_SERVER
                 #ifdef TEST
                 fprintf(stderr, "******Dispatch: Reading request from client [%d].\n",
                             client->index);
                 #endif
-
+#endif /* NXAGENT_SERVER */
 	        result = ReadRequestFromClient(client);
 	        if (result <= 0) 
 	        {
@@ -512,9 +523,10 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
                               client->sequence, client->index, result);
 #endif
 
-
+#ifdef NXAGENT_SERVER
                 if (!SmartScheduleSignalEnable)
                     SmartScheduleTime = GetTimeInMillis();
+#endif
 
 		if (result != Success) 
 		{
@@ -541,6 +553,8 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
 #if defined(DDXBEFORERESET)
     ddxBeforeReset ();
 #endif
+
+#ifdef NXAGENT_SERVER
     /* FIXME: maybe move the code up to the KillAllClients() call to ddxBeforeReset? */
     if ((dispatchException & DE_RESET) && 
             (serverGeneration > nxagentMaxAllowedResets))
@@ -574,6 +588,7 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
       NXShadowDestroy();
     }
     saveAgentState("TERMINATED");
+#endif /* NXAGENT_SERVER */
 
     KillAllClients();
     free(clientReady);
@@ -598,10 +613,12 @@ ProcReparentWindow(ClientPtr client)
     if (!pWin)
         return(BadWindow);
 
+#ifdef NXAGENT_SERVER
     if (!nxagentWMPassed)
     {
       nxagentRemoveSplashWindow(pWin);
     }
+#endif /* NXAGENT_SERVER */
 
     pParent = (WindowPtr)SecurityLookupWindow(stuff->parent, client,
 					      DixWriteAccess);
@@ -650,7 +667,9 @@ ProcQueryTree(ClientPtr client)
     pHead = RealChildHead(pWin);
     for (pChild = pWin->lastChild; pChild != pHead; pChild = pChild->prevSib)
     {
+#ifdef NXAGENT_SERVER
       if (!IsViewportFrame(pChild))
+#endif
       {
 	numChildren++;
       }
@@ -663,12 +682,16 @@ ProcQueryTree(ClientPtr client)
 	if (!childIDs)
 	    return BadAlloc;
 	for (pChild = pWin->lastChild; pChild != pHead; pChild = pChild->prevSib)
+#ifdef NXAGENT_SERVER
         {
             if (!IsViewportFrame(pChild))
             {
 	        childIDs[curChild++] = pChild->drawable.id;
             }
         }
+#else
+	    childIDs[curChild++] = pChild->drawable.id;
+#endif /* NXAGENT_SERVER */
     }
 
     reply.nChildren = numChildren;
@@ -771,16 +794,17 @@ ProcSetSelectionOwner(ClientPtr client)
 	    info.kind= SelectionSetOwner;
 	    CallCallbacks(&SelectionCallback, &info);
 	}
-
+#ifdef NXAGENT_SERVER
 #ifdef NXAGENT_CLIPBOARD
-      if ((CurrentSelections[i].pWin != NULL) &&
-              (nxagentOption(Clipboard) != ClipboardNone) &&
-                  ((CurrentSelections[i].selection == XA_PRIMARY) ||
-                       (CurrentSelections[i].selection == MakeAtom("CLIPBOARD", 9, 0))))
-      {
-        nxagentSetSelectionOwner(&CurrentSelections[i]);
-      }
-#endif
+        if ((CurrentSelections[i].pWin != NULL) &&
+            (nxagentOption(Clipboard) != ClipboardNone) &&
+                ((CurrentSelections[i].selection == XA_PRIMARY) ||
+                    (CurrentSelections[i].selection == MakeAtom("CLIPBOARD", 9, 0))))
+        {
+            nxagentSetSelectionOwner(&CurrentSelections[i]);
+        }
+#endif /* NXAGENT_CLIPBOARD */
+#endif /* NXAGENT_SERVER */
 	return (client->noClientException);
     }
     else 
@@ -804,6 +828,7 @@ ProcConvertSelection(ClientPtr client)
     if (!pWin)
         return(BadWindow);
 
+#ifdef NXAGENT_SERVER
 #ifdef NXAGENT_CLIPBOARD
     if (((stuff->selection == XA_PRIMARY) ||
            (stuff->selection == MakeAtom("CLIPBOARD", 9, 0))) &&
@@ -823,7 +848,8 @@ ProcConvertSelection(ClientPtr client)
             }
         }
     }
-#endif
+#endif /* NXAGENT_CLIPBOARD */
+#endif /* NXAGENT_SERVER */
 
     paramsOkay = (ValidAtom(stuff->selection) && ValidAtom(stuff->target));
     if (stuff->property != None)
@@ -836,7 +862,10 @@ ProcConvertSelection(ClientPtr client)
 	while ((i < NumCurrentSelections) && 
 	       CurrentSelections[i].selection != stuff->selection) i++;
 	if ((i < NumCurrentSelections) && 
-	    (CurrentSelections[i].window != None) && (CurrentSelections[i].client != NullClient)
+	    (CurrentSelections[i].window != None)
+#ifdef NXAGENT_SERVER
+            && (CurrentSelections[i].client != NullClient)
+#endif
 #ifdef XCSECURITY
 	    && (!client->CheckAccess ||
 		(* client->CheckAccess)(client, CurrentSelections[i].window,
@@ -882,26 +911,30 @@ int
 ProcOpenFont(ClientPtr client)
 {
     int err;
+#ifdef NXAGENT_SERVER
     char fontReq[256];
+#endif
     REQUEST(xOpenFontReq);
 
     REQUEST_FIXED_SIZE(xOpenFontReq, stuff->nbytes);
     client->errorValue = stuff->fid;
     LEGAL_NEW_RESOURCE(stuff->fid, client);
 
+#ifdef NXAGENT_SERVER
     memcpy(fontReq,(char *)&stuff[1],(stuff->nbytes<256)?stuff->nbytes:255);
     fontReq[stuff->nbytes] = '\0';
     if (strchr(fontReq,'*') || strchr(fontReq,'?'))
     {
        extern int nxOpenFont(ClientPtr, XID, Mask, unsigned, char*);
-#ifdef NXAGENT_FONTMATCH_DEBUG
+       #ifdef NXAGENT_FONTMATCH_DEBUG
        fprintf(stderr, "Dispatch: ProcOpenFont try to find a common font with font pattern=%s\n",fontReq);
-#endif
+       #endif
        nxagentListRemoteFonts(fontReq, nxagentMaxFontNames);
        err = nxOpenFont(client, stuff->fid, (Mask) 0,
 		stuff->nbytes, (char *)&stuff[1]);
     }
     else
+#endif /* NXAGENT_SERVER */
     err = OpenFont(client, stuff->fid, (Mask) 0,
 		stuff->nbytes, (char *)&stuff[1]);
     if (err == Success)
@@ -954,7 +987,7 @@ ProcCloseFont(ClientPtr client)
           }
           #endif
         }
-#endif
+#endif /* NXAGENT_SERVER */
 
         FreeResource(stuff->id, RT_NONE);
 	return(client->noClientException);
@@ -970,18 +1003,22 @@ ProcCloseFont(ClientPtr client)
 int
 ProcListFonts(ClientPtr client)
 {
-    char tmp[256];
-
     REQUEST(xListFontsReq);
 
     REQUEST_FIXED_SIZE(xListFontsReq, stuff->nbytes);
-    memcpy(tmp,(unsigned char *) &stuff[1],(stuff->nbytes<256)?stuff->nbytes:255);
-    tmp[stuff->nbytes]=0;
+#ifdef NXAGENT_SERVER
+    {
+        char tmp[256];
+        memcpy(tmp, (unsigned char *) &stuff[1], (stuff->nbytes<256)?stuff->nbytes:255);
+        tmp[stuff->nbytes] = '\0';
 
-#ifdef NXAGENT_FONTMATCH_DEBUG
-    fprintf(stderr, "Dispatch: ListFont request with pattern %s max_names=%d\n",tmp,stuff->maxNames);
-#endif
-    nxagentListRemoteFonts(tmp, stuff -> maxNames < nxagentMaxFontNames ? nxagentMaxFontNames : stuff->maxNames);
+        #ifdef NXAGENT_FONTMATCH_DEBUG
+        fprintf(stderr, "Dispatch: ListFont request with pattern %s max_names=%d\n",tmp,stuff->maxNames);
+        #endif
+        nxagentListRemoteFonts(tmp, stuff -> maxNames < nxagentMaxFontNames ? nxagentMaxFontNames : stuff->maxNames);
+    }
+#endif /* NXAGENT_SERVER */
+
     return ListFonts(client, (unsigned char *) &stuff[1], stuff->nbytes, 
 	stuff->maxNames);
 }
@@ -989,17 +1026,20 @@ ProcListFonts(ClientPtr client)
 int
 ProcListFontsWithInfo(ClientPtr client)
 {
-    char tmp[256];
     REQUEST(xListFontsWithInfoReq);
 
     REQUEST_FIXED_SIZE(xListFontsWithInfoReq, stuff->nbytes);
 
-    memcpy(tmp,(unsigned char *) &stuff[1],(stuff->nbytes<256)?stuff->nbytes:255);
-    tmp[stuff->nbytes]=0;
+#ifdef NXAGENT_SERVER
+    {
+        char tmp[256];
+        memcpy(tmp,(unsigned char *) &stuff[1],(stuff->nbytes<256)?stuff->nbytes:255);
+        tmp[stuff->nbytes]=0;
 #ifdef NXAGENT_FONTMATCH_DEBUG
-    fprintf(stderr, "Dispatch: ListFont with info request with pattern %s max_names=%d\n",tmp,stuff->maxNames);
+        fprintf(stderr, "Dispatch: ListFont with info request with pattern %s max_names=%d\n",tmp,stuff->maxNames);
 #endif
-    nxagentListRemoteFonts(tmp, stuff -> maxNames < nxagentMaxFontNames ? nxagentMaxFontNames :stuff->maxNames);
+        nxagentListRemoteFonts(tmp, stuff -> maxNames < nxagentMaxFontNames ? nxagentMaxFontNames :stuff->maxNames);
+#endif /* NXAGENT_SERVER */
 
     return StartListFontsWithInfo(client, stuff->nbytes,
 				  (unsigned char *) &stuff[1], stuff->maxNames);
@@ -1093,6 +1133,7 @@ ProcSetScreenSaver (ClientPtr client)
         return BadValue;
     }
 
+#ifdef NXAGENT_SERVER
     /*
      * The NX agent uses the screen saver procedure
      * to monitor the user activities and launch its
@@ -1107,6 +1148,7 @@ ProcSetScreenSaver (ClientPtr client)
 
     if (nxagentOption(Timeout) == 0)
     {
+#endif /* NXAGENT_SERVER */
       if (blankingOption == DefaultBlanking)
       {
 	ScreenSaverBlanking = defaultScreenSaverBlanking;
@@ -1144,6 +1186,7 @@ ProcSetScreenSaver (ClientPtr client)
       }
 
       SetScreenSaverTimer();
+#ifdef NXAGENT_SERVER
     }
     #ifdef TEST
 
@@ -1154,7 +1197,7 @@ ProcSetScreenSaver (ClientPtr client)
     }
 
     #endif
-
+#endif /* NXAGENT_SERVER */
     return (client->noClientException);
 }
 
@@ -1171,6 +1214,7 @@ int ProcForceScreenSaver(register ClientPtr client)
         return BadValue;
     }
 
+#ifdef NXAGENT_SERVER
     /*
      * The NX agent uses the screen saver procedure
      * to monitor the user activities and launch its
@@ -1181,7 +1225,11 @@ int ProcForceScreenSaver(register ClientPtr client)
 
     if (nxagentOption(Timeout) == 0)
     {
-      SaveScreens(SCREEN_SAVER_FORCER, (int)stuff->mode);
+#endif /* NXAGENT_SERVER */
+
+        SaveScreens(SCREEN_SAVER_FORCER, (int)stuff->mode);
+
+#ifdef NXAGENT_SERVER
     }
 
     #ifdef TEST
@@ -1193,6 +1241,7 @@ int ProcForceScreenSaver(register ClientPtr client)
     }
 
     #endif
+#endif /* NXAGENT_SERVER */
 
     return client->noClientException;
 }
@@ -1210,6 +1259,7 @@ CloseDownClient(ClientPtr client)
     Bool really_close_down = client->clientGone ||
 			     client->closeDownMode == DestroyAll;
 
+#ifdef NXAGENT_SERVER
     /*
      * There must be a better way to hook a
      * call-back function to be called any
@@ -1231,6 +1281,7 @@ CloseDownClient(ClientPtr client)
      */
 
     nxagentCheckIfShadowAgent(client);
+#endif /* NXAGENT_SERVER */
 
     if (!client->clientGone)
     {
@@ -1357,11 +1408,13 @@ InitClientPrivates(ClientPtr client)
        CallCallbacks((&ClientStateCallback), (void *)&clientinfo);
     }
 
+#ifdef NXAGENT_SERVER
     /*
      * Initialize the private members.
      */
 
     nxagentInitClientPrivates(client);
+#endif /* NXAGENT_SERVER */
 
     return 1;
 }
