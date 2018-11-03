@@ -163,9 +163,11 @@ doOpenFont(ClientPtr client, OFclosurePtr c)
     char       *alias,
                *newname;
     int         newlen;
-    int		aliascount = 20;
+    int	aliascount = 20;
+#ifdef NXAGENT_SERVER
     char nxagentOrigFontName[256];
     int nxagentOrigFontNameLen;
+#endif
 
     /*
      * Decide at runtime what FontFormat to use.
@@ -198,12 +200,12 @@ doOpenFont(ClientPtr client, OFclosurePtr c)
 
 	BitmapFormatScanlineUnit8;
 
-
+#ifdef NXAGENT_SERVVER
     nxagentOrigFontNameLen = (c -> origFontNameLen < sizeof(nxagentOrigFontName) ? c -> origFontNameLen : sizeof(nxagentOrigFontName) - 1);
 
     memcpy(nxagentOrigFontName, c -> origFontName, nxagentOrigFontNameLen);
-
-    nxagentOrigFontName[nxagentOrigFontNameLen] = 0;
+    nxagentOrigFontName[nxagentOrigFontNameLen] = '\0';
+#endif /* NXAGENT_SERVER */
 
     if (client->clientGone)
     {
@@ -292,15 +294,22 @@ doOpenFont(ClientPtr client, OFclosurePtr c)
 	    pScr = screenInfo.screens[i];
 	    if (pScr->RealizeFont)
 	    {
-
+#ifdef NXAGENT_SERVER
                 /* NXAGENT uses useless screen pointer to pass the original font name
                 *  to realizeFont, could be a source of problems in the future.
                 */
 
 		if (!(*pScr->RealizeFont) ((ScreenPtr)nxagentOrigFontName, pfont))
+#else
+		if (!(*pScr->RealizeFont) (pScr, pfont))
+#endif /* NXAGENT_SERVER */
 		{
 		    CloseFont (pfont, (Font) 0);
-		    err=BadFontName;
+#ifdef NXAGENT_SERVER
+		    err = BadFontName;
+#else
+		    err = AllocError;
+#endif /* NXAGENT_SERVER */
 		    goto bail;
 		}
 	    }
@@ -310,6 +319,7 @@ doOpenFont(ClientPtr client, OFclosurePtr c)
 	err = AllocError;
 	goto bail;
     }
+#ifdef NXAGENT_SERVER
     if( nxagentFontPriv(pfont) -> mirrorID == 0 )
     {
       extern RESTYPE RT_NX_FONT;
@@ -321,13 +331,22 @@ doOpenFont(ClientPtr client, OFclosurePtr c)
         goto bail;
       }
     }
+#endif /* NXAGENT_SERVER */
     if (patternCache && pfont != c->non_cachable_font)
 #ifdef HAS_XFONT2
-	xfont2_cache_font_pattern(patternCache, nxagentOrigFontName, nxagentOrigFontNameLen,
+    #ifdef NXAGENT_SERVER
+	xfont2_cache_font_pattern(patternCache, nxagentOrigFontName, nxagentOrigFontNameLen, pfont);
+    #else
+	xfont2_cache_font_pattern(patternCache, c->origFontName, c->origFontNameLen, pfont);
+    #endif /* NXAGENT_SERVER */
 #else
-	CacheFontPattern(patternCache, nxagentOrigFontName, nxagentOrigFontNameLen,
+    #ifdef NXAGENT_SERVER
+	CacheFontPattern(patternCache, nxagentOrigFontName, nxagentOrigFontNameLen, pfont);
+    #else
+	CacheFontPattern(patternCache, c->origFontName, c->origFontNameLen, pfont);
+    #endif /* NXAGENT_SERVER */
 #endif /* HAS_XFONT2 */
-			 pfont);
+
 bail:
     if (err != Successful && c->client != serverClient) {
 	SendErrorToClient(c->client, X_OpenFont, 0,
@@ -349,7 +368,6 @@ bail:
     return TRUE;
 }
 
-
 static Bool
 doListFontsAndAliases(ClientPtr client, LFclosurePtr c)
 {
@@ -358,13 +376,13 @@ doListFontsAndAliases(ClientPtr client, LFclosurePtr c)
     FontNamesPtr names = NULL;
     char       *name, *resolved=NULL;
     int         namelen, resolvedlen;
-    int		nnames;
+    int	nnames;
     int         stringLens;
     int         i;
     xListFontsReply reply = {0};
     char	*bufptr;
     char	*bufferStart;
-    int		aliascount = 0;
+    int	aliascount = 0;
 
     if (client->clientGone)
     {
@@ -446,6 +464,9 @@ doListFontsAndAliases(ClientPtr client, LFclosurePtr c)
 				    (ClientSleepProcPtr)doListFontsAndAliases,
 				    (void *) c);
 			c->slept = TRUE;
+#ifdef NXAGENT_DEBUG
+                        fprintf(stderr, " NXdixfonts: doListFont (2): client [%lx] sleeping.\n", client);
+#endif
 		    }
 		    return TRUE;
 		}
@@ -468,9 +489,6 @@ doListFontsAndAliases(ClientPtr client, LFclosurePtr c)
 				    (ClientSleepProcPtr)doListFontsAndAliases,
 				    (void *) c);
 			c->slept = TRUE;
-#ifdef NXAGENT_DEBUG
-                        fprintf(stderr, " NXdixfonts: doListFont (2): client [%lx] sleeping.\n", client);
-#endif
 #ifdef NXAGENT_DEBUG
                         fprintf(stderr, " NXdixfonts: doListFont (3): client [%lx] sleeping.\n", client);
 #endif
@@ -621,6 +639,7 @@ finish:
 	    reply.nFonts--;
 	else
 	{
+#ifdef NXAGENT_SERVER
 	    {
 	      /* dirty hack: don't list to client fonts not existing on the remote side */
 	      char tmp[256];
@@ -639,6 +658,7 @@ finish:
 		  continue;
 		}
 	    }
+#endig /* NXAGENT_SERVER */
 	    *bufptr++ = names->length[i];
 	    memmove( bufptr, names->names[i], names->length[i]);
 	    bufptr += names->length[i];
@@ -698,9 +718,17 @@ ListFonts(ClientPtr client, unsigned char *pattern, unsigned length,
 	return BadAlloc;
     }
 #ifdef HAS_XFONT2
+  #ifdef NXAGENT_SERVER
     c->names = xfont2_make_font_names_record(max_names < nxagentMaxFontNames ? max_names : nxagentMaxFontNames);
+  #else
+    c->names = xfont2_make_font_names_record(max_names < 100 ? max_names : 100);
+  #endif /* NXAGENT_SERVER */
 #else
+  #ifdef NXAGENT_SERVER
     c->names = MakeFontNamesRecord(max_names < nxagentMaxFontNames ? max_names : nxagentMaxFontNames);
+  #else
+    c->names = MakeFontNamesRecord(max_names < 100 ? max_names : 100);
+  #endif /* NXAGENT_SERVER */
 #endif /* HAS_XFONT2 */
     if (!c->names)
     {
@@ -742,7 +770,7 @@ doListFontsWithInfo(ClientPtr client, LFWIclosurePtr c)
     xFontProp  *pFP;
     int         i;
     int		aliascount = 0;
-    xListFontsWithInfoReply finalReply = {0};
+    xListFontsWithInfoReply finalReply;
 
     if (client->clientGone)
     {
@@ -881,10 +909,10 @@ doListFontsWithInfo(ClientPtr client, LFWIclosurePtr c)
 	    c->current.current_fpe++;
 	    err = Successful;
 	    if (c->haveSaved)
- 	    {
+	    {
 		if (c->current.max_names == 0 ||
 			c->current.current_fpe == c->num_fpes)
- 		{
+		{
 		    c->haveSaved = FALSE;
 		    c->saved.max_names -= (1 - c->current.max_names);
 		    c->current = c->saved;
@@ -893,32 +921,34 @@ doListFontsWithInfo(ClientPtr client, LFWIclosurePtr c)
 	    else if (c->current.max_names == 0)
 		break;
 	}
- 	else if (err == Successful)
- 	{
+	else if (err == Successful)
+	{
 
+#ifdef NXAGENT_SERVER
 	    if (c->haveSaved)
- 	    {
+	    {
 		numFonts = c->savedNumFonts;
 		name = c->savedName;
 		namelen = strlen(name);
 	    }
 
-	   if (nxagentFontLookUp(name) == 0)
-	   {
+	    if (nxagentFontLookUp(name) == 0)
+	    {
 #ifdef NXAGENT_FONTMATCH_DEBUG
 	      fprintf(stderr, "doListFontsAndAliases (with info):\n");
 	      fprintf(stderr, "      removing font: %s \n", name);
 #endif
 	       continue;
-           }
+            }
+#endif /* NXAGENT_SERVER */
 
 	    length = sizeof(*reply) + pFontInfo->nprops * sizeof(xFontProp);
 	    reply = c->reply;
 	    if (c->length < length)
- 	    {
+	    {
 		reply = (xListFontsWithInfoReply *) realloc(c->reply, length);
 		if (!reply)
- 		{
+		{
 		    err = AllocError;
 		    break;
 		}
@@ -926,6 +956,17 @@ doListFontsWithInfo(ClientPtr client, LFWIclosurePtr c)
 		c->reply = reply;
 		c->length = length;
 	    }
+#ifdef NXAGENT_SERVER
+            /* we have extraced numFonts and name above */
+#else
+	    if (c->haveSaved)
+	    {
+		numFonts = c->savedNumFonts;
+		name = c->savedName;
+		namelen = strlen(name);
+	    }
+#endif /* NXAGENT_SERVER */
+
 	    reply->type = X_Reply;
 	    reply->length = (sizeof *reply - sizeof(xGenericReply) +
 			     pFontInfo->nprops * sizeof(xFontProp) +
@@ -947,7 +988,7 @@ doListFontsWithInfo(ClientPtr client, LFWIclosurePtr c)
 	    reply->nReplies = numFonts;
 	    pFP = (xFontProp *) (reply + 1);
 	    for (i = 0; i < pFontInfo->nprops; i++)
- 	    {
+	    {
 		pFP->name = pFontInfo->props[i].name;
 		pFP->value = pFontInfo->props[i].value;
 		pFP++;
@@ -955,7 +996,7 @@ doListFontsWithInfo(ClientPtr client, LFWIclosurePtr c)
 	    WriteSwappedDataToClient(client, length, reply);
 	    WriteToClient(client, namelen, name);
 	    if (pFontInfo == &fontInfo)
- 	    {
+	    {
 		free(fontInfo.props);
 		free(fontInfo.isStringProp);
 	    }
@@ -964,6 +1005,7 @@ doListFontsWithInfo(ClientPtr client, LFWIclosurePtr c)
     }
 finish:
     length = sizeof(xListFontsWithInfoReply);
+    bzero((char *) &finalReply, sizeof(xListFontsWithInfoReply));
     finalReply.type = X_Reply;
     finalReply.sequenceNumber = client->sequence;
     finalReply.length = (sizeof(xListFontsWithInfoReply)
@@ -986,7 +1028,6 @@ bail:
     return TRUE;
 }
 
-
 int
 SetDefaultFontPath(char *path)
 {
@@ -1007,9 +1048,8 @@ SetDefaultFontPath(char *path)
     path = (char *) _NXGetFontPath(path);
 #endif /* NX_TRANS_SOCKET */
 
-    start = path;
-
     /* ensure temp_path contains "built-ins" */
+    start = path;
     while (1) {
 	start = strstr(start, "built-ins");
 	if (start == NULL)
@@ -1023,7 +1063,7 @@ SetDefaultFontPath(char *path)
 	if (asprintf(&temp_path, "%s%sbuilt-ins", path, *path ? "," : "")
 	    == -1)
 	    temp_path = NULL;
-	}
+    }
     else {
 	temp_path = strdup(path);
     }
