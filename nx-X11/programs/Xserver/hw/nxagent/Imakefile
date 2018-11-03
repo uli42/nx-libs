@@ -149,6 +149,7 @@ INCLUDES = \
 	-I../../GL/include \
 	-I../../../../lib/GL/include \
 	-I../../Xext \
+	-I../../Xi \
 	-I../../../../lib/include/X11 \
 	-I$(EXTINCSRC) -I$(XINCLUDESRC) \
 	$(VFBINCLUDES) \
@@ -170,6 +171,7 @@ INCLUDES = \
 	-I../../Xext \
 	-I../../miext/damage \
 	-I../../miext/cw \
+	-I../../Xi \
 	-I../../../../lib/include/X11 \
 	-I$(EXTINCSRC) -I$(XINCLUDESRC) \
 	$(VFBINCLUDES) \
@@ -194,6 +196,7 @@ INCLUDES = \
 	-I../../../../../nxcomp \
 	-I../../../../../nxcompshad \
 	-I../../../../extras/Mesa/include \
+	-I../../Xi \
 	-I../../../../lib/include/X11 \
 	-I$(EXTINCSRC) -I$(XINCLUDESRC) \
 	$(VFBINCLUDES) \
