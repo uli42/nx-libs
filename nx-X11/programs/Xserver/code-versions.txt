@@ -5,8 +5,8 @@ are at (roughly):
 
 module            xorg version
 composite         6.9/7.0
-damageext         6.9/7.0
 GL                6.9/7.0
+damageext         1.4.2
 render            1.4.2
 fb                1.4.2
 os                7.1/1.1
