@@ -246,6 +246,7 @@ NXAGENTOBJS = hw/nxagent/miinitext.o     \
               hw/nxagent/NXpicture.o     \
               hw/nxagent/NXextension.o   \
               hw/nxagent/NXglxext.o      \
+              hw/nxagent/NXmiglyph.o     \
               hw/nxagent/NXmiexpose.o    \
               hw/nxagent/NXresource.o    \
               hw/nxagent/NXdamage.o      \
@@ -264,6 +265,7 @@ NXAGENTOBJS = hw/nxagent/miinitext.o     \
               hw/nxagent/NXextension.o   \
               hw/nxagent/NXglxext.o      \
               hw/nxagent/NXxvdisp.o      \
+              hw/nxagent/NXmiglyph.o     \
               hw/nxagent/NXmiexpose.o    \
               hw/nxagent/NXresource.o    \
               hw/nxagent/NXdamage.o      \
@@ -282,6 +284,7 @@ NXAGENTOBJS = hw/nxagent/miinitext.o     \
               hw/nxagent/NXextension.o   \
               hw/nxagent/NXglxext.o      \
               hw/nxagent/NXxvdisp.o      \
+              hw/nxagent/NXmiglyph.o     \
               hw/nxagent/NXmiexpose.o    \
               hw/nxagent/NXresource.o    \
               hw/nxagent/NXdamage.o      \
