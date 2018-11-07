@@ -855,7 +855,6 @@ void nxagentQueueKeyEvent(int type, unsigned int keycode, Bool update_last_event
 void nxagentDispatchEvents(PredicateFuncPtr predicate)
 {
   XEvent X;
-  xEvent x;
   ScreenPtr pScreen = NULL;
 
   Bool minimize = False;
@@ -1294,20 +1293,17 @@ FIXME: Don't enqueue the KeyRelease event if the key was
                 X.xbutton.window == nxagentFullscreenWindow &&
                     X.xbutton.subwindow == None))
         {
-          memset(&x, 0, sizeof(xEvent));
-          x.u.u.type = ButtonPress;
-          x.u.u.detail = inputInfo.pointer -> button -> map[nxagentReversePointerMap[X.xbutton.button]];
-          x.u.keyButtonPointer.time = nxagentLastEventTime = GetTimeInMillis();
+          int rootX, rootY;
 
           if (nxagentOption(Rootless))
           {
-            x.u.keyButtonPointer.rootX = X.xmotion.x_root;
-            x.u.keyButtonPointer.rootY = X.xmotion.y_root;
+            rootX = X.xmotion.x_root;
+            rootY = X.xmotion.y_root;
           }
           else
           {
-            x.u.keyButtonPointer.rootX = X.xmotion.x - nxagentOption(RootX);
-            x.u.keyButtonPointer.rootY = X.xmotion.y - nxagentOption(RootY);
+            rootX = X.xmotion.x - nxagentOption(RootX);
+            rootY = X.xmotion.y - nxagentOption(RootY);
           }
 
           #ifdef NX_DEBUG_INPUT
@@ -1318,18 +1314,14 @@ FIXME: Don't enqueue the KeyRelease event if the key was
           #endif
 
           nxagentLastEventTime = GetTimeInMillis();
-#if 0
-          mieqEnqueue(&x);
-#else
           int valuators[2];
-          valuators[0] = x.u.keyButtonPointer.rootX;
-          valuators[1] = x.u.keyButtonPointer.rootY;
+          valuators[0] = rootX;
+          valuators[1] = rootY;
           int n = GetPointerEvents(nxagentEvents, nxagentPointerDevice, ButtonPress,
                                    inputInfo.pointer -> button -> map[nxagentReversePointerMap[X.xbutton.button]],
                                    POINTER_ABSOLUTE, 0, 2, valuators);
           for (int i = 0; i < n; i++)
             mieqEnqueue(nxagentPointerDevice, nxagentEvents + i);
-#endif
 
           CriticalOutputPending = 1;
         }
@@ -1380,19 +1372,17 @@ FIXME: Don't enqueue the KeyRelease event if the key was
 
         if (minimize != True)
         {
-          memset(&x, 0, sizeof(xEvent));
-          x.u.u.type = ButtonRelease;
-          x.u.u.detail = inputInfo.pointer -> button -> map[nxagentReversePointerMap[X.xbutton.button]];
+          int rootX, rootY;
 
           if (nxagentOption(Rootless))
           {
-            x.u.keyButtonPointer.rootX = X.xmotion.x_root;
-            x.u.keyButtonPointer.rootY = X.xmotion.y_root;
+            rootX = X.xmotion.x_root;
+            rootY = X.xmotion.y_root;
           }
           else
           {
-            x.u.keyButtonPointer.rootX = X.xmotion.x - nxagentOption(RootX);
-            x.u.keyButtonPointer.rootY = X.xmotion.y - nxagentOption(RootY);
+            rootX = X.xmotion.x - nxagentOption(RootX);
+            rootY = X.xmotion.y - nxagentOption(RootY);
           }
 
           #ifdef NX_DEBUG_INPUT
@@ -1402,20 +1392,16 @@ FIXME: Don't enqueue the KeyRelease event if the key was
           }
           #endif
 
-          x.u.keyButtonPointer.time = nxagentLastEventTime = GetTimeInMillis();
+          nxagentLastEventTime = GetTimeInMillis();
 
-#if 0
-          mieqEnqueue(&x);
-#else
           int valuators[2];
-          valuators[0] = x.u.keyButtonPointer.rootX;
-          valuators[1] = x.u.keyButtonPointer.rootY;
+          valuators[0] = rootX;
+          valuators[1] = rootY;
           int n = GetPointerEvents(nxagentEvents, nxagentPointerDevice, ButtonRelease,
                                    inputInfo.pointer -> button -> map[nxagentReversePointerMap[X.xbutton.button]],
                                    POINTER_ABSOLUTE, 0, 2, valuators);
           for (int i = 0; i < n; i++)
             mieqEnqueue(nxagentPointerDevice, nxagentEvents + i);
-#endif
 
           CriticalOutputPending = 1;
         }
@@ -1442,6 +1428,8 @@ FIXME: Don't enqueue the KeyRelease event if the key was
       }
       case MotionNotify:
       {
+        int rootX, rootY;
+
         ScreenPtr pScreen = nxagentScreen(X.xmotion.window);
 
         #ifdef TEST
@@ -1458,9 +1446,6 @@ FIXME: Don't enqueue the KeyRelease event if the key was
                     X.xmotion.x, X.xmotion.y, X.xmotion.x_root, X.xmotion.y_root);
         }
         #endif
-
-        memset(&x, 0, sizeof(xEvent));
-        x.u.u.type = MotionNotify;
 
         if (nxagentOption(Rootless))
         {
@@ -1487,16 +1472,16 @@ FIXME: Don't enqueue the KeyRelease event if the key was
             }
           }
 
-          x.u.keyButtonPointer.rootX = X.xmotion.x_root;
-          x.u.keyButtonPointer.rootY = X.xmotion.y_root;
+          rootX = X.xmotion.x_root;
+          rootY = X.xmotion.y_root;
         }
         else
         {
-          x.u.keyButtonPointer.rootX = X.xmotion.x - nxagentOption(RootX);
-          x.u.keyButtonPointer.rootY = X.xmotion.y - nxagentOption(RootY);
+          rootX = X.xmotion.x - nxagentOption(RootX);
+          rootY = X.xmotion.y - nxagentOption(RootY);
         }
 
-        x.u.keyButtonPointer.time = nxagentLastEventTime = GetTimeInMillis();
+        nxagentLastEventTime = GetTimeInMillis();
 
         if (viewportCursor == None &&
                 !(nxagentOption(Fullscreen) &&
@@ -1507,23 +1492,17 @@ FIXME: Don't enqueue the KeyRelease event if the key was
           if (nxagentDebugInput == 1)
           {
             fprintf(stderr, "nxagentDispatchEvents: Adding motion event [%d, %d] to the queue.\n",
-                        x.u.keyButtonPointer.rootX, x.u.keyButtonPointer.rootY);
+                        rootX, rootY);
           }
           #endif
 
-#if 0
-          mieqEnqueue(&x);
-#else
-          /* FIXME: drop the event x altogether; this is just to make it compile */
-          //miPointerAbsoluteCursor(x.u.keyButtonPointer.rootX, x.u.keyButtonPointer.rootY, x.u.keyButtonPointer.time);
           int valuators[2];
-          valuators[0] = x.u.keyButtonPointer.rootX;
-          valuators[1] = x.u.keyButtonPointer.rootY;
+          valuators[0] = rootX;
+          valuators[1] = rootY;
           int n = GetPointerEvents(nxagentEvents, nxagentPointerDevice, MotionNotify,
                                    0, POINTER_ABSOLUTE, 0, 2, valuators);
           for (int i = 0; i < n; i++)
             mieqEnqueue(nxagentPointerDevice, nxagentEvents + i);
-#endif
         }
 
         /*
@@ -1770,38 +1749,32 @@ FIXME: Don't enqueue the KeyRelease event if the key was
 
           if (pScreen)
           {
-            NewCurrentScreen(pScreen, X.xcrossing.x, X.xcrossing.y);
+            int rootX, rootY;
 
-            memset(&x, 0, sizeof(xEvent));
-            x.u.u.type = MotionNotify;
+            NewCurrentScreen(pScreen, X.xcrossing.x, X.xcrossing.y);
 
             if (nxagentOption(Rootless))
             {
               nxagentLastEnteredWindow = nxagentWindowPtr(X.xcrossing.window);
-              x.u.keyButtonPointer.rootX = X.xcrossing.x_root;
-              x.u.keyButtonPointer.rootY = X.xcrossing.y_root;
+              rootX = X.xcrossing.x_root;
+              rootY = X.xcrossing.y_root;
             }
             else
             {
-              x.u.keyButtonPointer.rootX = X.xcrossing.x - nxagentOption(RootX);
-              x.u.keyButtonPointer.rootY = X.xcrossing.y - nxagentOption(RootY);
+              rootX = X.xcrossing.x - nxagentOption(RootX);
+              rootY = X.xcrossing.y - nxagentOption(RootY);
             }
 
-            x.u.keyButtonPointer.time = nxagentLastEventTime = GetTimeInMillis();
+            nxagentLastEventTime = GetTimeInMillis();
 
-#if 0
-            mieqEnqueue(&x);
-#else
-            /* FIXME: drop the event x altogether; this is just to make it compile */
-            //miPointerAbsoluteCursor(x.u.keyButtonPointer.rootX, x.u.keyButtonPointer.rootY, x.u.keyButtonPointer.time);
             int valuators[2];
-            valuators[0] = x.u.keyButtonPointer.rootX;
-            valuators[1] = x.u.keyButtonPointer.rootY;
+            valuators[0] = rootX;
+            valuators[1] = rootY;
             int n = GetPointerEvents(nxagentEvents, nxagentPointerDevice, MotionNotify,
                                      0, POINTER_ABSOLUTE, 0, 2, valuators);
             for (int i = 0; i < n; i++)
               mieqEnqueue(nxagentPointerDevice, nxagentEvents + i);
-#endif
+
             nxagentDirectInstallColormaps(pScreen);
           }
         }
