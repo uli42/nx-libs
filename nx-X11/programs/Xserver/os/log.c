@@ -722,9 +722,7 @@ ErrorF(const char * f, ...)
 
 #ifndef NEED_STRERROR
 #ifdef SYSV
-#if !defined(ISC) || defined(ISC202) || defined(ISC22)
 #define NEED_STRERROR
-#endif
 #endif
 #endif
 
