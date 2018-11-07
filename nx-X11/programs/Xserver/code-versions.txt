@@ -4,7 +4,6 @@ backported, it rather describes what functionality level the modules
 are at (roughly):
 
 module            xorg version
-composite         6.9/7.0
 GL                6.9/7.0
 damageext         1.4.2
 render            1.4.2
@@ -19,4 +18,5 @@ record            1.4.2
 xfixes            1.4.2
 Xi                1.4.2
 xkb               1.4.2
+composite         1.12 (~ 9838b70 2012-03-21 Introduce a consistent coding style [Keith Packard])
 randr             1.18.0
