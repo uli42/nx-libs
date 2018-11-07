@@ -1554,6 +1554,10 @@ get_fromaddr_by_name(
       , &ai, &aifirst
 #endif
 	);
+#if defined(IPv6) && defined(AF_INET6)
+    if (aifirst != NULL)
+	freeaddrinfo(aifirst);
+#endif
     xdm_from = argv[i];
 }
 
