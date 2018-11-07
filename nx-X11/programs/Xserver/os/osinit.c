@@ -69,7 +69,7 @@ SOFTWARE.
 #include <sys/wait.h>
 #endif
 
-#if !defined(SYSV) && !defined(WIN32)
+#if !defined(SYSV)
 #include <sys/resource.h>
 #endif
 
@@ -134,7 +134,7 @@ OsInit(void)
 		dup2 (fileno (err), 2);
 		fclose (err);
 	    }
-#if defined(SYSV) || defined(SVR4) || defined(WIN32) || defined(__CYGWIN__)
+#if defined(SYSV) || defined(SVR4) || defined(__CYGWIN__)
 	    {
 	    static char buf[BUFSIZ];
 	    setvbuf (stderr, buf, _IOLBF, BUFSIZ);
@@ -148,7 +148,7 @@ OsInit(void)
 	if (getpgrp () == 0)
 	    setpgid (0, 0);
 #else
-#if !defined(SYSV) && !defined(WIN32)
+#if !defined(SYSV)
 	if (getpgrp (0) == 0)
 	    setpgrp (0, getpid ());
 #endif
