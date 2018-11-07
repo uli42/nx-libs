@@ -294,7 +294,6 @@ void ProcessInputEvents(void)
   #endif
 
   mieqProcessInputEvents();
-  miPointerUpdate();
 }
 
 #ifdef DEBUG
@@ -1324,7 +1323,7 @@ FIXME: Don't enqueue the KeyRelease event if the key was not already
           int valuators[2];
           valuators[0] = x.u.keyButtonPointer.rootX;
           valuators[1] = x.u.keyButtonPointer.rootY;
-          int n = GetPointerEvents(nxagentEvents, nxagentPointerDevice, ButtonRelease,
+          int n = GetPointerEvents(nxagentEvents, nxagentPointerDevice, ButtonPress,
                                    inputInfo.pointer -> button -> map[nxagentReversePointerMap[X.xbutton.button]],
                                    POINTER_ABSOLUTE, 0, 2, valuators);
           for (int i = 0; i < n; i++)
@@ -1409,7 +1408,7 @@ FIXME: Don't enqueue the KeyRelease event if the key was not already
           int valuators[2];
           valuators[0] = x.u.keyButtonPointer.rootX;
           valuators[1] = x.u.keyButtonPointer.rootY;
-          int n = GetPointerEvents(nxagentEvents, nxagentPointerDevice, ButtonPress,
+          int n = GetPointerEvents(nxagentEvents, nxagentPointerDevice, ButtonRelease,
                                    inputInfo.pointer -> button -> map[nxagentReversePointerMap[X.xbutton.button]],
                                    POINTER_ABSOLUTE, 0, 2, valuators);
           for (int i = 0; i < n; i++)
