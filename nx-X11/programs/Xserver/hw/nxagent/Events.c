@@ -294,7 +294,6 @@ void ProcessInputEvents(void)
   #endif
 
   mieqProcessInputEvents();
-  miPointerUpdate();
 }
 
 #ifdef DEBUG_TREE
