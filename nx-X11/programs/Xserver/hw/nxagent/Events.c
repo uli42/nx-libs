@@ -806,14 +806,6 @@ static int nxagentChangeVisibilityPrivate(WindowPtr pWin, void * ptr)
    use_time: if != NULL and <= current time use this timestamp instead
              of the current time
 
-  FIXME: unfortunately xorg does not offer a way to pass an own event
-  time for an event to queue. So use_time is currently ignored, but
-  expected to be used by some callers. The effects of this are
-  currently unknown.
-
-  Maybe we can modify the time to the generated events in
-  nxagentEvents prior to enqueueing them.
-
  */
 void nxagentQueueKeyEvent(int type, unsigned int keycode, Bool update_last_event_time, Time use_time)
 {
@@ -847,7 +839,11 @@ void nxagentQueueKeyEvent(int type, unsigned int keycode, Bool update_last_event
 #else
   int n = GetKeyboardEvents(nxagentEvents, nxagentKeyboardDevice, type, keycode);
   for (int i = 0; i < n; i++)
+  {
+    if (use_time != 0 && use_time < now)
+      nxagentEvents[i].u.keyButtonPointer.time = use_time;
     mieqEnqueue(nxagentKeyboardDevice, nxagentEvents + i);
+  }
 #endif
 }
 
@@ -1217,8 +1213,6 @@ FIXME: Don't enqueue the KeyRelease event if the key was
 
         if (!(nxagentCheckSpecialKeystroke(&X.xkey, &result)) && sendKey == 1)
         {
-            /* FIXME: Current implementation ignored the last
-             * parameter (desired event time)! */
             nxagentQueueKeyEvent(KeyRelease,
                                nxagentConvertKeycode(X.xkey.keycode),
                                True,
