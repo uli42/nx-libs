@@ -1807,8 +1807,6 @@ ProcRenderQueryFilters (ClientPtr client)
 
     if (client->swapped)
     {
-	register int n;
-
 	for (i = 0; i < reply->numAliases; i++)
 	{
 	    swaps (&aliases[i]);
