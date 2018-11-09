@@ -53,7 +53,6 @@
 #include "Keystroke.h"
 #include "Events.h"
 #include "Pointer.h"
-#include "mipointer.h"
 #include "Rootless.h"
 #include "Splash.h"
 #include "Trap.h"
