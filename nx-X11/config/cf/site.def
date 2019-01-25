@@ -31,6 +31,8 @@
 
 #ifdef BeforeVendorCF
 
+#include <compilers.def>
+
 /*
  * Include this for easy XFree86 customisations
  */
