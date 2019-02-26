@@ -166,3 +166,23 @@ AC_DEFUN([NX_XTRANS_SECURE_RPC_FLAGS],
  fi
  AC_MSG_RESULT($SECURE_RPC)
 ]) # NX_XTRANS_SECURE_RPC_FLAGS
+
+# the following two originate from libxtrans/configure.ac
+
+# Because xtrans is included into other modules rather than being linked
+# with, these defines have to be added to the cflags line
+
+# fchown()
+
+# AC_CHECK_FUNC(fchown, [fchown_define="-DHAS_FCHOWN"], [fchown_define=""])
+
+# AC_SUBST(fchown_define)
+
+# sticky bit
+#
+# if any system exists without sticky dir bits this
+# needs to be redone with a real autoconf test
+
+sticky_bit_define="-DHAS_STICKY_DIR_BIT"
+
+AC_SUBST(sticky_bit_define)
