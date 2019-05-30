@@ -84,81 +84,69 @@ extern int nxagentImageLength(int, int, int, int, int);
 void
 ShmExtensionInit(void)
 {
-    ExtensionEntry *extEntry;
-    int i;
+  ShmFuncsPtr store[MAXSCREENS];
+  static ShmFuncs nullfuncs = {NULL, NULL};
 
 #ifdef MUST_CHECK_FOR_SHM_SYSCALL
-    if (!CheckForShmSyscall())
-    {
-	ErrorF("MIT-SHM extension disabled due to lack of kernel support\n");
-	return;
-    }
+  if (!CheckForShmSyscall())
+  {
+    ErrorF("MIT-SHM extension disabled due to lack of kernel support\n");
+    return;
+  }
 #endif
 
 #ifdef NXAGENT_SERVER
-    if (!nxagentOption(SharedMemory))
-    {
-      return;
-    }
+  if (!nxagentOption(SharedMemory))
+  {
+    return;
+  }
 #endif
+  
+  /*
+   * xorg_ShmExtensionInit assumes sharedPixmaps being xTrue. It then
+   * does some checks and sets it to xFalse under some
+   * circumstances. nxagent can be instructed via cmdline
+   * (-shpix/-noshpix) if sharedPixmaps are desired. If the
+   * commandline asks for -noshpix we trick xorg_ShmExtensionInit to
+   * set its internal variable sharedPixmaps to xFalse (and act
+   * accordingly) by preparing shmFuncs[] with nullfuncs and trigger
+   * sharedPixmaps disablement.
+   */
 
-    sharedPixmaps = xFalse;
-    pixmapFormat = 0;
+  if (!nxagentOption(SharedPixmaps))
+  {
+    for (int i = 0; i < screenInfo.numScreens; i++)
     {
-#ifdef NXAGENT_SERVER
-      sharedPixmaps = nxagentOption(SharedPixmaps);
-#else
-      sharedPixmaps = xTrue;
-#endif
-      pixmapFormat = shmPixFormat[0];
-      for (i = 0; i < screenInfo.numScreens; i++)
+      store[i] = shmFuncs[i];
+      shmFuncs[i] = &nullfuncs;
+    }
+  }
+
+  xorg_ShmExtensionInit();
+
+  /*
+   * reset shmFuncs array to the previous values if they have not
+   * been altered by xorg_ShmExtensionInit. If the value has been
+   * NULL before we set it it &miFuncs, just like
+   * xorg_ShmExtensionInit would have done in that case.
+   */
+  if (!nxagentOption(SharedPixmaps))
+  {
+    for (int i = 0; i < screenInfo.numScreens; i++)
+    {
+      if (shmFuncs[i] == &nullfuncs)
       {
-	if (!shmFuncs[i])
+        if (store[i] == NULL)
         {
-            #ifdef TEST
-            fprintf(stderr, "ShmExtensionInit: Registering shmFuncs as miFuncs.\n");
-            #endif
-	    shmFuncs[i] = &miFuncs;
+          shmFuncs[i] = &miFuncs;
         }
-	if (!shmFuncs[i]->CreatePixmap)
-	    sharedPixmaps = xFalse;
-	if (shmPixFormat[i] && (shmPixFormat[i] != pixmapFormat))
-	{
-	    sharedPixmaps = xFalse;
-	    pixmapFormat = 0;
-	}
-      }
-      if (!pixmapFormat)
-	pixmapFormat = ZPixmap;
-      if (sharedPixmaps)
-      {
-	for (i = 0; i < screenInfo.numScreens; i++)
-	{
-	    destroyPixmap[i] = screenInfo.screens[i]->DestroyPixmap;
-	    screenInfo.screens[i]->DestroyPixmap = ShmDestroyPixmap;
-	}
-#ifdef PIXPRIV
-	shmPixmapPrivate = AllocatePixmapPrivateIndex();
-	for (i = 0; i < screenInfo.numScreens; i++)
-	{
-	    if (!AllocatePixmapPrivate(screenInfo.screens[i],
-				       shmPixmapPrivate, 0))
-		return;
-	}
-#endif
+        else
+        {
+          shmFuncs[i] = store[i];
+        }
       }
     }
-    ShmSegType = CreateNewResourceType(ShmDetachSegment);
-    if (ShmSegType &&
-	(extEntry = AddExtension(SHMNAME, ShmNumberEvents, ShmNumberErrors,
-				 ProcShmDispatch, SProcShmDispatch,
-				 ShmResetProc, StandardMinorOpcode)))
-    {
-	ShmReqCode = (unsigned char)extEntry->base;
-	ShmCompletionCode = extEntry->eventBase;
-	BadShmSegCode = extEntry->errorBase;
-	EventSwapVector[ShmCompletionCode] = (EventSwapPtr) SShmCompletionEvent;
-    }
+  }
 }
 
 static void
