@@ -1052,7 +1052,7 @@ _XkbFilterDeviceBtn(	XkbSrvInfoPtr	xkbi,
 			unsigned	keycode,
 			XkbAction *	pAction)
 {
-    if (dev == inputInfo.keyboard)
+    if (xkbi->device == inputInfo.keyboard)
         return 0;
 
     if (filter->keycode==0) {		/* initial press */
