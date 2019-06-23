@@ -66,13 +66,7 @@ is" without express or implied warranty.
 #ifdef XKB
 
 #include <nx-X11/extensions/XKB.h>
-
-/*
-  we need the client side header here, xkbsrv.h will not work because
-  server and libX11 have different struct sizes on
-  64bit. Interestingly upstream xnest does not take care of this.
-*/
-#include <nx-X11/extensions/XKBsrv.h>
+#include "xkbsrv.h"
 #include <nx-X11/extensions/XKBconfig.h>
 
 #include "Xatom.h"

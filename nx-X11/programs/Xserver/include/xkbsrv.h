@@ -27,6 +27,7 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #ifndef _XKBSRV_H_
 #define	_XKBSRV_H_
 
+#ifdef XKB_IN_SERVER
 #define XkbAllocClientMap		SrvXkbAllocClientMap
 #define XkbAllocServerMap		SrvXkbAllocServerMap
 #define XkbChangeTypesOfKey		SrvXkbChangeTypesOfKey
@@ -51,6 +52,7 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #define XkbVirtualModsToReal		SrvXkbVirtualModsToReal
 #define	XkbChangeKeycodeRange		SrvXkbChangeKeycodeRange
 #define	XkbApplyVirtualModChanges	SrvXkbApplyVirtualModChanges
+#endif
 
 #include <nx-X11/extensions/XKBproto.h>
 #include "xkbstr.h"
