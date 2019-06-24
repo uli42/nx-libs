@@ -220,12 +220,13 @@ void nxagentPrintSelectionStat(int sel)
   char *s =NULL;
 
 #ifdef CLIENTIDS
-  fprintf(stderr, "  lastSelectionOwner[%d].client           [%p] index [%d] PID [%d] Cmd [%s]\n",
+  fprintf(stderr, "  lastSelectionOwner[%d].client           [%p] index [%d] PID [%d] Cmd [%s %s]\n",
           sel,
           (void *)lOwner.client,
           lOwner.client ? lOwner.client->index : -1,
           GetClientPid(lOwner.client),
-          GetClientCmdName(lOwner.client));
+          GetClientCmdName(lOwner.client),
+          GetClientCmdArgs(lOwner.client));
 #else
   fprintf(stderr, "  lastSelectionOwner[%d].client           [%p] index [%d]\n",
           sel,
@@ -250,12 +251,13 @@ void nxagentPrintSelectionStat(int sel)
     SAFE_XFree(s);
   }
 #ifdef CLIENTIDS
-  fprintf(stderr, "  CurrentSelections[%d].client            [%p] index [%d] PID [%d] Cmd [%s]\n",
+  fprintf(stderr, "  CurrentSelections[%s].client            [%p] index [%d] PID [%d] Cmd [%s %s]\n",
           sel,
           (void *)curSel.client,
           curSel.client ? curSel.client->index : -1,
           GetClientPid(curSel.client),
-          GetClientCmdName(curSel.client));
+          GetClientCmdName(curSel.client),
+          GetClientCmdArgs(curSel.client));
 #else
   fprintf(stderr, "  CurrentSelections[%d].client            [%p] index [%d]\n",
           sel,
