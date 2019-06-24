@@ -220,45 +220,49 @@ void nxagentPrintSelectionStat(int sel)
   char *s =NULL;
 
 #ifdef CLIENTIDS
-  fprintf(stderr, "  lastSelectionOwner[].client            [%p] index [%d] PID [%d] Cmd [%s]\n",
+  fprintf(stderr, "  lastSelectionOwner[%d].client           [%p] index [%d] PID [%d] Cmd [%s]\n",
+          sel,
           (void *)lOwner.client,
           lOwner.client ? lOwner.client->index : -1,
           GetClientPid(lOwner.client),
           GetClientCmdName(lOwner.client));
 #else
-  fprintf(stderr, "  lastSelectionOwner[].client            [%p] index [%d]\n",
+  fprintf(stderr, "  lastSelectionOwner[%d].client           [%p] index [%d]\n",
+          sel,
           (void *)lOwner.client,
           lOwner.client ? lOwner.client->index : -1);
 #endif
-  fprintf(stderr, "  lastSelectionOwner[].window            [0x%x]\n", lOwner.window);
-  fprintf(stderr, "  lastSelectionOwner[].windowPtr         [%p]\n", (void *)lOwner.windowPtr);
-  fprintf(stderr, "  lastSelectionOwner[].lastTimeChanged   [%u]\n", lOwner.lastTimeChanged);
+  fprintf(stderr, "  lastSelectionOwner[%d].window           [0x%x]\n", sel, lOwner.window);
+  fprintf(stderr, "  lastSelectionOwner[%d].windowPtr        [%p]\n", sel, (void *)lOwner.windowPtr);
+  fprintf(stderr, "  lastSelectionOwner[%d].lastTimeChanged  [%u]\n", sel, lOwner.lastTimeChanged);
 
   /*
     print the selection name.
   */
   if (lOwner.client)
   {
-    fprintf(stderr, "  lastSelectionOwner[].selection         [% 4d][%s] (local)\n", lOwner.selection, NameForAtom(lOwner.selection));
+    fprintf(stderr, "  lastSelectionOwner[%d].selection        [% 4d][%s] (local)\n", sel, lOwner.selection, NameForAtom(lOwner.selection));
   }
   else
   {
     SAFE_XFree(s); s = XGetAtomName(nxagentDisplay, lOwner.selection);
-    fprintf(stderr, "  lastSelectionOwner[].selection         [% 4d][%s] (remote)\n", lOwner.selection, validateString(s));
+    fprintf(stderr, "  lastSelectionOwner[%d].selection        [% 4d][%s] (remote)\n", sel, lOwner.selection, validateString(s));
     SAFE_XFree(s);
   }
 #ifdef CLIENTIDS
-  fprintf(stderr, "  CurrentSelections[].client             [%p] index [%d] PID [%d] Cmd [%s]\n",
+  fprintf(stderr, "  CurrentSelections[%d].client            [%p] index [%d] PID [%d] Cmd [%s]\n",
+          sel,
           (void *)curSel.client,
           curSel.client ? curSel.client->index : -1,
           GetClientPid(curSel.client),
           GetClientCmdName(curSel.client));
 #else
-  fprintf(stderr, "  CurrentSelections[].client             [%p] index [%d]\n",
+  fprintf(stderr, "  CurrentSelections[%d].client            [%p] index [%d]\n",
+          sel,
           (void *)curSel.client,
           curSel.client ? curSel.client->index : -1);
 #endif
-  fprintf(stderr, "  CurrentSelections[].window             [0x%x]\n", curSel.window);
+  fprintf(stderr, "  CurrentSelections[%d].window            [0x%x]\n", sel, curSel.window);
   return;
 }
 #endif
