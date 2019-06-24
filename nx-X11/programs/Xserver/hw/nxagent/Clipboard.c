@@ -74,9 +74,9 @@ Atom serverCutProperty;
 Atom clientCutProperty;
 static Window serverWindow;
 
-static const int nxagentPrimarySelection = 0;
-static const int nxagentClipboardSelection = 1;
-static const int nxagentMaxSelections = 2;
+const int nxagentPrimarySelection = 0;
+const int nxagentClipboardSelection = 1;
+const int nxagentMaxSelections = 2;
 
 typedef struct _SelectionOwner
 {
@@ -1291,7 +1291,7 @@ void nxagentSetSelectionCallback(CallbackListPtr *callbacks, void *data,
     #ifdef DEBUG
     fprintf(stderr, "%s: called with SelectionCallbackKind SelectionSetOwner\n", __func__);
     fprintf(stderr, "%s: pCurSel->pWin [0x%x]\n", __func__, pCurSel->pWin ? pCurSel->pWin->drawable.id : 0);
-    fprintf(stderr, "%s: pCurSel->selection [%s]\n", __func__, NameForAtom(pCurSel->selection));
+    fprintf(stderr, "%s: pCurSel->selection [%d][%s]\n", __func__, pCurSel->selection, NameForAtom(pCurSel->selection));
     #endif
 
     if ((pCurSel->pWin != NULL) &&
