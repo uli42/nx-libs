@@ -1283,14 +1283,14 @@ void nxagentSetSelectionCallback(CallbackListPtr *callbacks, void *data,
   Selection * pCurSel = (Selection *)info->selection;
 
   #ifdef DEBUG
-  fprintf(stderr, "%s: pCurSel->lastTimeChanged [%d]\n", __func__, pCurSel->lastTimeChanged.milliseconds);
+  fprintf(stderr, "%s: pCurSel->lastTimeChanged [%u]\n", __func__, pCurSel->lastTimeChanged.milliseconds);
   #endif
 
   if (info->kind == SelectionSetOwner)
   {
     #ifdef DEBUG
     fprintf(stderr, "%s: called with SelectionCallbackKind SelectionSetOwner\n", __func__);
-    fprintf(stderr, "%s: pCurSel->pWin [0x%x]\n", __func__, pCurSel->pWin ? pCurSel->pWin->drawable.id : NULL);
+    fprintf(stderr, "%s: pCurSel->pWin [0x%x]\n", __func__, pCurSel->pWin ? pCurSel->pWin->drawable.id : 0);
     fprintf(stderr, "%s: pCurSel->selection [%s]\n", __func__, NameForAtom(pCurSel->selection));
     #endif
 
@@ -1362,7 +1362,7 @@ void nxagentSetSelectionOwner(Selection *pSelection)
       fprintf(stderr, "%s: lastSelectionOwner.client [0x%x] -> [0x%x]\n", __func__, lastSelectionOwner[i].client, pSelection->client);
       fprintf(stderr, "%s: lastSelectionOwner.window [0x%x] -> [0x%x]\n", __func__, lastSelectionOwner[i].window, pSelection->window);
       fprintf(stderr, "%s: lastSelectionOwner.windowPtr [0x%x] -> [0x%x] [0x%x] (serverWindow: [0x%x])\n", __func__, lastSelectionOwner[i].windowPtr, pSelection->pWin, nxagentWindow(pSelection->pWin), serverWindow);
-      fprintf(stderr, "%s: lastSelectionOwner.lastTimeChanged [%d]\n", __func__, lastSelectionOwner[i].lastTimeChanged);
+      fprintf(stderr, "%s: lastSelectionOwner.lastTimeChanged [%u]\n", __func__, lastSelectionOwner[i].lastTimeChanged);
       #endif
 
       /*
