@@ -217,7 +217,7 @@ void nxagentPrintSelectionStat(int sel)
 {
   SelectionOwner lOwner = lastSelectionOwner[sel];
   Selection curSel = CurrentSelections[sel];
-  char *s =NULL;
+  char *s = NULL;
 
 #ifdef CLIENTIDS
   fprintf(stderr, "  lastSelectionOwner[%d].client           [%p] index [%d] PID [%d] Cmd [%s %s]\n",
@@ -272,7 +272,7 @@ void nxagentPrintSelectionStat(int sel)
 void nxagentPrintClipboardStat(char *header)
 {
   #ifdef DEBUG
-  char *s =NULL;
+  char *s = NULL;
 
   fprintf(stderr, "/----- Clipboard internal status - %s -----\n", header);
 
@@ -1152,7 +1152,7 @@ void nxagentNotifySelection(XEvent *X)
           if (result == BadAlloc || result == BadAtom ||
                   result == BadWindow || result == BadValue)
           {
-            fprintf (stderr, "SelectionNotify - XChangeProperty failed. Error = %s\n", GetXErrorString(result));
+            fprintf (stderr, "SelectionNotify - XGetWindowProperty failed. Error = %s\n", GetXErrorString(result));
             lastServerProperty = None;
           }
           else
@@ -1368,10 +1368,10 @@ void nxagentSetSelectionOwner(Selection *pSelection)
     if (pSelection->selection == CurrentSelections[i].selection)
     {
       #ifdef DEBUG
-      fprintf(stderr, "%s: lastSelectionOwner.client [0x%x] -> [0x%x]\n", __func__, lastSelectionOwner[i].client, pSelection->client);
-      fprintf(stderr, "%s: lastSelectionOwner.window [0x%x] -> [0x%x]\n", __func__, lastSelectionOwner[i].window, pSelection->window);
-      fprintf(stderr, "%s: lastSelectionOwner.windowPtr [0x%x] -> [0x%x] [0x%x] (serverWindow: [0x%x])\n", __func__, lastSelectionOwner[i].windowPtr, pSelection->pWin, nxagentWindow(pSelection->pWin), serverWindow);
-      fprintf(stderr, "%s: lastSelectionOwner.lastTimeChanged [%u]\n", __func__, lastSelectionOwner[i].lastTimeChanged);
+      fprintf(stderr, "%s: lastSelectionOwner[%d].client [0x%x] -> [0x%x]\n", __func__, i, lastSelectionOwner[i].client, pSelection->client);
+      fprintf(stderr, "%s: lastSelectionOwner[%d].window [0x%x] -> [0x%x]\n", __func__, i, lastSelectionOwner[i].window, pSelection->window);
+      fprintf(stderr, "%s: lastSelectionOwner[%d].windowPtr [0x%x] -> [0x%x] [0x%x] (serverWindow: [0x%x])\n", __func__, i, lastSelectionOwner[i].windowPtr, pSelection->pWin, nxagentWindow(pSelection->pWin), serverWindow);
+      fprintf(stderr, "%s: lastSelectionOwner[%d].lastTimeChanged [%u]\n", __func__, i, lastSelectionOwner[i].lastTimeChanged);
       #endif
 
       /*
