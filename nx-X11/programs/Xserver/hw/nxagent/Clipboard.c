@@ -233,7 +233,10 @@ void nxagentPrintSelectionStat(int sel)
           (void *)lOwner.client,
           lOwner.client ? lOwner.client->index : -1);
 #endif
-  fprintf(stderr, "  lastSelectionOwner[%d].window           [0x%x]\n", sel, lOwner.window);
+  if (lOwner.window == screenInfo.screens[0]->root->drawable.id)
+    fprintf(stderr, "  lastSelectionOwner[%d].window           [0x%x] (root window)\n", sel, lOwner.window);
+  else
+    fprintf(stderr, "  lastSelectionOwner[%d].window           [0x%x]\n", sel, lOwner.window);
   fprintf(stderr, "  lastSelectionOwner[%d].windowPtr        [%p]\n", sel, (void *)lOwner.windowPtr);
   fprintf(stderr, "  lastSelectionOwner[%d].lastTimeChanged  [%u]\n", sel, lOwner.lastTimeChanged);
 
@@ -264,7 +267,10 @@ void nxagentPrintSelectionStat(int sel)
           (void *)curSel.client,
           curSel.client ? curSel.client->index : -1);
 #endif
-  fprintf(stderr, "  CurrentSelections[%d].window            [0x%x]\n", sel, curSel.window);
+  if (curSel.window == screenInfo.screens[0]->root->drawable.id)
+    fprintf(stderr, "  CurrentSelections[%d].window            [0x%x] (root window)\n", sel, curSel.window);
+  else
+    fprintf(stderr, "  CurrentSelections[%d].window            [0x%x]\n", sel, curSel.window);
   return;
 }
 #endif
@@ -282,6 +288,7 @@ void nxagentPrintClipboardStat(char *header)
   fprintf(stderr, "  nxagentMaxSelections             (int) [%d]\n", nxagentMaxSelections);
   fprintf(stderr, "  NumCurrentSelections             (int) [%d]\n", NumCurrentSelections);
   fprintf(stderr, "  serverWindow                  (Window) [0x%x]\n", serverWindow);
+  fprintf(stderr, "  root window                   (Window) [0x%x]\n", screenInfo.screens[0]->root->drawable.id);
   fprintf(stderr, "  nxagentLastClipboardClient       (int) [%d]\n", nxagentLastClipboardClient);
 
   fprintf(stderr, "  ClipboardMode                          ");
@@ -569,6 +576,13 @@ void nxagentClearSelection(XEvent *X)
                              NullGrab);
     }
 
+    #ifdef DEBUG
+    fprintf(stderr, "%s: CurrentSelections[%d].window -> [0x%x] (root window)\n", __func__, i, screenInfo.screens[0]->root->drawable.id);
+    fprintf(stderr, "%s: CurrentSelections[%d].client -> NullClient\n", __func__, i);
+    fprintf(stderr, "%s: lastSelectionOwnwer[%d].client -> NULL\n", __func__, i);
+    fprintf(stderr, "%s: lastSelectionOwnwer[%d].window -> Nonen", __func__, i);
+    #endif
+
     CurrentSelections[i].window = screenInfo.screens[0]->root->drawable.id;
     CurrentSelections[i].client = NullClient;
 
@@ -577,6 +591,9 @@ void nxagentClearSelection(XEvent *X)
     lastSelectionOwner[i].lastTimeChanged = GetTimeInMillis();
   }
 
+  #ifdef DEBUG
+  fprintf(stderr, "%s: lastClientWindowPtr -> NULL\n", __func__);
+  #endif
   lastClientWindowPtr = NULL;
   SetClientSelectionStage(None);
   nxagentPrintClipboardStat("after nxagentClearSelection");
