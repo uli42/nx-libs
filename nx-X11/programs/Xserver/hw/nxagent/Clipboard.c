@@ -219,20 +219,26 @@ void nxagentPrintSelectionStat(int sel)
   Selection curSel = CurrentSelections[sel];
   char *s = NULL;
 
+  if (lOwner.client)
+  {
 #ifdef CLIENTIDS
   fprintf(stderr, "  lastSelectionOwner[%d].client           [%p] index [%d] PID [%d] Cmd [%s %s]\n",
           sel,
           (void *)lOwner.client,
           lOwner.client ? lOwner.client->index : -1,
-          GetClientPid(lOwner.client),
-          GetClientCmdName(lOwner.client),
-          GetClientCmdArgs(lOwner.client));
+          lOwner.client ? GetClientPid(lOwner.client) : -1,
+          lOwner.client ? GetClientCmdName(lOwner.client) : "",
+          lOwner.client ? GetClientCmdArgs(lOwner.client) : "");
 #else
   fprintf(stderr, "  lastSelectionOwner[%d].client           [%p] index [%d]\n",
           sel,
           (void *)lOwner.client,
           lOwner.client ? lOwner.client->index : -1);
 #endif
+  }
+  else
+    fprintf(stderr, "  lastSelectionOwner[%d].client           -\n", sel);
+
   if (lOwner.window == screenInfo.screens[0]->root->drawable.id)
     fprintf(stderr, "  lastSelectionOwner[%d].window           [0x%x] (root window)\n", sel, lOwner.window);
   else
@@ -253,20 +259,26 @@ void nxagentPrintSelectionStat(int sel)
     fprintf(stderr, "  lastSelectionOwner[%d].selection        [% 4d][%s] (remote)\n", sel, lOwner.selection, validateString(s));
     SAFE_XFree(s);
   }
+  if (curSel.client)
+  {
 #ifdef CLIENTIDS
-  fprintf(stderr, "  CurrentSelections[%s].client            [%p] index [%d] PID [%d] Cmd [%s %s]\n",
+  fprintf(stderr, "  CurrentSelections[%d].client            [%p] index [%d] PID [%d] Cmd [%s %s]\n",
           sel,
           (void *)curSel.client,
           curSel.client ? curSel.client->index : -1,
-          GetClientPid(curSel.client),
-          GetClientCmdName(curSel.client),
-          GetClientCmdArgs(curSel.client));
+          curSel.client ? GetClientPid(curSel.client) : -1,
+          curSel.client ? GetClientCmdName(curSel.client) : "",
+          curSel.client ? GetClientCmdArgs(curSel.client) : "");
 #else
   fprintf(stderr, "  CurrentSelections[%d].client            [%p] index [%d]\n",
           sel,
           (void *)curSel.client,
           curSel.client ? curSel.client->index : -1);
 #endif
+  }
+  else
+    fprintf(stderr, "  CurrentSelections[%d].client            -\n", sel);
+
   if (curSel.window == screenInfo.screens[0]->root->drawable.id)
     fprintf(stderr, "  CurrentSelections[%d].window            [0x%x] (root window)\n", sel, curSel.window);
   else
