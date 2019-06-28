@@ -1,0 +1,126 @@
+How the clipboard works in nxagent
+
+nxagent is both a X client of the real X server and an Xserver itself
+for its own clients. So nxagent must deal with receiving clipboard
+related events from any side and passing on/generating fitting events
+to the other side.
+
+As clipboard (or better "selections" in X wording) communication
+consists of multiple requests and events being sent back and forth
+this makes the matter quite complicated.
+
+For simplicity we do not cover the fact that there are multiple
+selection types (PRIMARY, SECONDARY, CLIPBOARD). For now let's only
+look at PRIMARY, for the others it is roughly the same. We may cover
+the details later.
+
+The PRIMARY selection is the one you are using when you mark text in -
+say - an xterm and the paste the text to another window using the
+middle mouse button. The basic communication pattern in this case is
+this:
+
+1. the user marks text in a window
+
+2. the client owning that window sends a XSetSelectionOwner request to
+   its X server. The client is now the selection owner. There can be
+   only one owner per selection type.
+
+3. If the XFixes extension is enabled the X server informs any
+   interested clients about the new selection owner (clients must tell
+   the X server a priori that they are interested in that information)
+
+4. the user presses middle mouse button in another window
+
+5. If the client owning that window ("the requestor") asks the X
+   server via XGetSelectionOwner() about the current selection
+   owner. If the XFixes extension is enabled an the client registered
+   for being informed it will already know about the current owner.
+
+6. the requestor then asks the selection owner about a list of data
+   formats ("targets") the owner can provide the selection in.
+
+7. the selection owner replies with a list of targets
+
+8. the requestor selects one target and asks the owner to send the data
+   in that format.
+
+9. the sender sends the data in the desired format. (If the data is
+   too large there's a mechanism called INCR that sends the data in
+   several chunks. nxagent currently does not implement
+   INCR. Therefore the size of selections is limited to 256k.)
+
+10. the requestor uses the received data in whatever way it desires.
+
+It is important to know is that the selection is not buffered
+anywhere. It stays completely at the owner until someone requests
+it. If the owner is killed or crashes the selection is lost.
+
+It is also important to know that the selection owner can be "none".
+
+To understand how nxagent handles all that we must now distinguish
+these cases:
+1. Owner transitions
+   1. a client of nxagent wants to become the new selection owner
+     1. the current selection owner is client of the nxagent
+     2. the current selection owner is client of the real X server.
+   2. a client of the real X server wants to become the new selection owner
+     1. the current selection owner is client of the nxagent
+     2. the current selection owner is client of the real X server.
+2. data transfers
+   1. inside nxagent
+   2. inside the real X server
+   3. from real X server client to nxagent client
+   4. from nxagent client to real X server client
+
+1.1.1 (new owner and previous owner on the nxagent)
+
+Things take their normal way. The only difference is that as soon as
+the nxagent receives the XSetSelectionOwner request from its client it
+not only informs its other (interested) clients (if XFixes is enabled
+in nxagent) but also sends an XSetSelectionOwner() request
+to the real X server claiming to be new owner. Internally it stores
+which of its clients is the real owner.
+
+nxagent clients calling XGetSelectionOwner will get the nxagent client
+owning the selection.
+
+Real X server clients calling XGetSelectionOwner will get the nxagent
+as the owner.
+
+1.1.2 (new owner: nxagent client, previous owner: the real X server client)
+
+The new owner sends an XSetSelectionOwner request to the nxagent. The
+nxagent calls XSetSelectionOwner against the real X server claiming
+to be the new owner. Internally it stores which of its clients is the
+real owner. 
+
+1.2.1 (new owner: real X server client, previous owner: nxagent client)
+
+The new owner sends an XSetSelectionOwner request to the real X
+server who will inform all interested clients about the new owner, the
+nxagent being one of them. The nxagent will then teill its own clients
+that there's a new selection owner and present a fake client to them.
+
+1.2.2 (owner and requestor on the real X server)
+
+Things take their normal way. The only difference is that the nxagent
+will act as another X client and gets informed about owner changes. It
+will then inform its (interested) clients about an owner change. But
+it will have to present a fake owner to them because the real owner is
+not known within the nxagent.
+
+
+
+After that high-level explanation let's dive into the gory details:
+Atoms and Properties (You should read somewhere else about the details
+of these X design principles). And internal variables in nxagent.
+
+
+
+
+
+
+Nested nxagents
+
+
+Good reference: https://www.uninformativ.de/blog/postings/2017-04-02/0/POSTING-en.html
