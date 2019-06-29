@@ -769,14 +769,12 @@ void nxagentRequestSelection(XEvent *X)
 
 void nxagentSendSelectionNotify(Atom property)
 {
-  xEvent x;
-
   #ifdef DEBUG
   fprintf (stderr, "%s: Sending event to client [%d].\n", __func__,
                lastClientClientPtr -> index);
   #endif
 
-  memset(&x, 0, sizeof(xEvent));
+  xEvent x = {0};
   x.u.u.type = SelectionNotify;
 
   x.u.selectionNotify.time = lastClientTime;
