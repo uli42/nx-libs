@@ -524,14 +524,14 @@ FIXME: Do we need this?
     if (X->xselectionrequest.target == serverTARGETS)
     {
       Atom xa_STRING = XA_STRING;
-      XChangeProperty (nxagentDisplay,
-                                X->xselectionrequest.requestor,
-                                X->xselectionrequest.property,
-                                XInternAtom(nxagentDisplay, "ATOM", 0),
-                                sizeof(Atom)*8,
-                                PropModeReplace,
-                                (unsigned char*)&xa_STRING,
-                                1);
+      XChangeProperty(nxagentDisplay,
+                      X->xselectionrequest.requestor,
+                      X->xselectionrequest.property,
+                      XInternAtom(nxagentDisplay, "ATOM", 0),
+                      sizeof(Atom)*8,
+                      PropModeReplace,
+                      (unsigned char*)&xa_STRING,
+                      1);
       eventSelection.property = X->xselectionrequest.property;
     }
     else if (X->xselectionrequest.target == nxagentTimestampAtom)
@@ -543,13 +543,13 @@ FIXME: Do we need this?
       if (i < NumCurrentSelections)
       {
         XChangeProperty(nxagentDisplay,
-                                 X->xselectionrequest.requestor,
-                                 X->xselectionrequest.property,
-                                 X->xselectionrequest.target,
-                                 32,
-                                 PropModeReplace,
-                                 (unsigned char *) &lastSelectionOwner[i].lastTimeChanged,
-                                 1);
+                        X->xselectionrequest.requestor,
+                        X->xselectionrequest.property,
+                        X->xselectionrequest.target,
+                        32,
+                        PropModeReplace,
+                        (unsigned char *) &lastSelectionOwner[i].lastTimeChanged,
+                        1);
         eventSelection.property = X->xselectionrequest.property;
       }
     }
@@ -686,10 +686,10 @@ FIXME: Do we need this?
         int result =
         #endif
         XSendEvent(nxagentDisplay,
-                            eventSelection.requestor,
-                            False,
-                            0L,
-                            (XEvent *) &eventSelection);
+                   eventSelection.requestor,
+                   False,
+                   0L,
+                   (XEvent *) &eventSelection);
 
         #ifdef DEBUG
         fprintf(stderr, "%s: XSendEvent() returned [%s]\n", __func__, GetXErrorString(result));
@@ -1190,10 +1190,10 @@ void nxagentNotifySelection(XEvent *X)
         #endif
 
         result = XSendEvent(nxagentDisplay,
-                             eventSelection.requestor,
-                             False,
-                             0L,
-                             (XEvent *) &eventSelection);
+                            eventSelection.requestor,
+                            False,
+                            0L,
+                            (XEvent *) &eventSelection);
 
         #ifdef DEBUG
         fprintf(stderr, "%s: XSendEvent() returned [%s]\n", __func__, GetXErrorString(result));
