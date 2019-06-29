@@ -1575,13 +1575,8 @@ int nxagentConvertSelection(ClientPtr client, WindowPtr pWin, Atom selection,
 
   if (target == clientTARGETS)
   {
-    Atom xa_STRING[4];
-
     /* --- Order changed by dimbor (prevent sending COMPOUND_TEXT to client --- */
-    xa_STRING[0] = XA_STRING;
-    xa_STRING[1] = clientUTF8_STRING;
-    xa_STRING[2] = clientTEXT;
-    xa_STRING[3] = clientCOMPOUND_TEXT;
+    Atom targets[] = {XA_STRING, clientUTF8_STRING, clientTEXT, clientCOMPOUND_TEXT};
 
     ChangeWindowProperty(pWin,
                          property,
@@ -1589,7 +1584,8 @@ int nxagentConvertSelection(ClientPtr client, WindowPtr pWin, Atom selection,
                          sizeof(Atom)*8,
                          PropModeReplace,
                          4,
-                         &xa_STRING, 1);
+                         &targets,
+                         1);
 
     xEvent x = {0};
     x.u.u.type = SelectionNotify;
