@@ -487,9 +487,6 @@ void nxagentClearSelection(XEvent *X)
 
 void nxagentRequestSelection(XEvent *X)
 {
-  int i = 0;
-  XSelectionEvent eventSelection = {0};
-
   #ifdef DEBUG
   fprintf(stderr, "%s: Got called.\n", __func__);
   #endif
@@ -522,8 +519,7 @@ FIXME: Do we need this?
 
     SAFE_XFree(strTarget);
 */
-    memset(&eventSelection, 0, sizeof(XSelectionEvent));
-    eventSelection.property = None;
+    XSelectionEvent eventSelection = {.property = None};
 
     if (X->xselectionrequest.target == serverTARGETS)
     {
@@ -540,6 +536,7 @@ FIXME: Do we need this?
     }
     else if (X->xselectionrequest.target == nxagentTimestampAtom)
     {
+      int i = 0;
       while ((i < NumCurrentSelections) &&
                 lastSelectionOwner[i].selection != X->xselectionrequest.selection) i++;
 
@@ -596,7 +593,7 @@ FIXME: Do we need this?
 
   nxagentLastRequestedSelection = X->xselectionrequest.selection;
 
-  /* FIXME: shouldn't we reset i to 0 here first? */
+  int i = 0;
   while ((i < nxagentMaxSelections) &&
             (lastSelectionOwner[i].selection != X->xselectionrequest.selection))
   {
@@ -620,8 +617,6 @@ FIXME: Do we need this?
       if (lastSelectionOwner[i].client != NULL && 
              nxagentOption(Clipboard) != ClipboardClient)
       {
-        xEvent x;
-
         lastServerProperty = X->xselectionrequest.property;
         lastServerRequestor = X->xselectionrequest.requestor;
         lastServerTarget = X->xselectionrequest.target;
@@ -632,7 +627,7 @@ FIXME: Do we need this?
 
         lastServerTime = X->xselectionrequest.time;
 
-        memset(&x, 0, sizeof(xEvent));
+        xEvent x = {0};
         x.u.u.type = SelectionRequest;
         x.u.selectionRequest.time = GetTimeInMillis();
         x.u.selectionRequest.owner = lastSelectionOwner[i].window;
@@ -676,14 +671,16 @@ FIXME: Do we need this?
          * to requestor with property None.
          */
 
-        eventSelection.type = SelectionNotify;
-        eventSelection.send_event = True;
-        eventSelection.display = nxagentDisplay;
-        eventSelection.requestor = X->xselectionrequest.requestor;
-        eventSelection.selection = X->xselectionrequest.selection;
-        eventSelection.target = X->xselectionrequest.target;
-        eventSelection.property = None;
-        eventSelection.time = X->xselectionrequest.time;
+        XSelectionEvent eventSelection = {
+          .type = SelectionNotify,
+          .send_event = True,
+          .display = nxagentDisplay,
+          .requestor = X->xselectionrequest.requestor,
+          .selection = X->xselectionrequest.selection,
+          .target = X->xselectionrequest.target,
+          .property = None,
+          .time = X->xselectionrequest.time
+        };
 
         #ifdef DEBUG
         int result =
