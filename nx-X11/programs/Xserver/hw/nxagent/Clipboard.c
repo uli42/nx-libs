@@ -534,22 +534,20 @@ void nxagentRequestSelection(XEvent *X)
              ((X->xselectionrequest.selection != lastSelectionOwner[nxagentPrimarySelection].selection) &&
                  (X->xselectionrequest.selection != lastSelectionOwner[nxagentClipboardSelection].selection)))
   {
-/*
-FIXME: Do we need this?
+    #ifdef DEBUG
+    {
+      char *strTarget = XGetAtomName(nxagentDisplay, X->xselectionrequest.target);
 
-    char *strTarget;
+      fprintf(stderr, "%s: even aborting sele [%s] target [%s]\n", __func__,
+                  validateString(NameForAtom(X->xselectionrequest.selection)),
+                      validateString(NameForAtom(X->xselectionrequest.target)));
 
-    strTarget = XGetAtomName(nxagentDisplay, X->xselectionrequest.target);
-
-    fprintf(stderr, "SelectionRequest event aborting sele=[%s] target=[%s]\n",
-                validateString(NameForAtom(X->xselectionrequest.selection)),
-                    validateString(NameForAtom(X->xselectionrequest.target)));
-
-    fprintf(stderr, "SelectionRequest event aborting sele=[%s] ext target=[%s] Atom size is [%d]\n",
+      fprintf(stderr, "%s: event aborting sele [%s] ext target [%s] Atom size [%d]\n", __func__,
                 validateString(NameForAtom(X->xselectionrequest.selection)), strTarget, sizeof(Atom));
 
-    SAFE_XFree(strTarget);
-*/
+      SAFE_XFree(strTarget);
+    }
+    #endif
 
     /* prepare the answer. The default property is "None", meaning
        "request is denied" */
