@@ -471,8 +471,7 @@ void nxagentClearSelection(XEvent *X)
     if (lastSelectionOwner[i].client != NULL)
     {
       /* send a SelectionClear event to (our) previous owner */
-      xEvent x;
-      memset(&x, 0, sizeof(xEvent));
+      xEvent x = {0};
       x.u.u.type = SelectionClear;
       x.u.selectionClear.time = GetTimeInMillis();
       x.u.selectionClear.window = lastSelectionOwner[i].window;
@@ -1274,8 +1273,6 @@ void nxagentNotifySelection(XEvent *X)
 
 void nxagentResetSelectionOwner(void)
 {
-  int i;
-
   if (lastServerRequestor != None)
   {
     #ifdef TEST
@@ -1290,7 +1287,7 @@ void nxagentResetSelectionOwner(void)
    * Only for PRIMARY and CLIPBOARD selections.
    */
 
-  for (i = 0; i < nxagentMaxSelections; i++)
+  for (int i = 0; i < nxagentMaxSelections; i++)
   {
     XSetSelectionOwner(nxagentDisplay, lastSelectionOwner[i].selection, serverWindow, CurrentTime);
 
@@ -1466,8 +1463,6 @@ FIXME
 void nxagentNotifyConvertFailure(ClientPtr client, Window requestor,
                                      Atom selection, Atom target, Time time)
 {
-  xEvent x;
-
 /*
 FIXME: Why this pointer can be not a valid
        client pointer?
@@ -1481,7 +1476,7 @@ FIXME: Why this pointer can be not a valid
     return;
   }
 
-  memset(&x, 0, sizeof(xEvent));
+  xEvent x = {0};
   x.u.u.type = SelectionNotify;
   x.u.selectionNotify.time = time;
   x.u.selectionNotify.requestor = requestor;
@@ -1581,7 +1576,6 @@ int nxagentConvertSelection(ClientPtr client, WindowPtr pWin, Atom selection,
   if (target == clientTARGETS)
   {
     Atom xa_STRING[4];
-    xEvent x;
 
     /* --- Order changed by dimbor (prevent sending COMPOUND_TEXT to client --- */
     xa_STRING[0] = XA_STRING;
@@ -1597,7 +1591,7 @@ int nxagentConvertSelection(ClientPtr client, WindowPtr pWin, Atom selection,
                          4,
                          &xa_STRING, 1);
 
-    memset(&x, 0, sizeof(xEvent));
+    xEvent x = {0};
     x.u.u.type = SelectionNotify;
     x.u.selectionNotify.time = time;
     x.u.selectionNotify.requestor = requestor;
@@ -1633,7 +1627,6 @@ int nxagentConvertSelection(ClientPtr client, WindowPtr pWin, Atom selection,
 
     if (i < NumCurrentSelections)
     {
-      xEvent x;
       ChangeWindowProperty(pWin,
                            property,
                            target,
@@ -1643,7 +1636,7 @@ int nxagentConvertSelection(ClientPtr client, WindowPtr pWin, Atom selection,
                            (unsigned char *) &lastSelectionOwner[i].lastTimeChanged,
                            1);
 
-      memset(&x, 0, sizeof(xEvent));
+      xEvent x = {0};
       x.u.u.type = SelectionNotify;
       x.u.selectionNotify.time = time;
       x.u.selectionNotify.requestor = requestor;
@@ -1655,7 +1648,6 @@ int nxagentConvertSelection(ClientPtr client, WindowPtr pWin, Atom selection,
                              NoEventMask , NullGrab);
 
       return 1;
-
     }
   }
 
@@ -1731,14 +1723,12 @@ int nxagentConvertSelection(ClientPtr client, WindowPtr pWin, Atom selection,
   {
     /* deny request */
 
-    xEvent x;
-
     #ifdef DEBUG
     fprintf(stderr, "%s: Xserver generates a SelectionNotify event "
                 "to the requestor with property None.\n", __func__);
     #endif
 
-    memset(&x, 0, sizeof(xEvent));
+    xEvent x = {0};
     x.u.u.type = SelectionNotify;
     x.u.selectionNotify.time = time;
     x.u.selectionNotify.requestor = requestor;
@@ -1774,18 +1764,18 @@ int nxagentSendNotify(xEvent *event)
 
   if (event->u.selectionNotify.property == clientCutProperty)
   {
-    XSelectionEvent x;
-    int result;
-
     /*
      * Setup selection notify event to real server.
      */
 
-    memset(&x, 0, sizeof(XSelectionEvent));
-    x.type = SelectionNotify;
-    x.send_event = True;
-    x.display = nxagentDisplay;
-    x.requestor = serverWindow;
+    XSelectionEvent x = {
+      .type = SelectionNotify,
+      .send_event = True,
+      .display = nxagentDisplay,
+      .requestor = serverWindow,
+      .target = event->u.selectionNotify.target,
+      .property = event->u.selectionNotify.property,
+    };
 
     /*
      * On real server, the right CLIPBOARD atom is
@@ -1801,15 +1791,13 @@ int nxagentSendNotify(xEvent *event)
       x.selection = event->u.selectionNotify.selection;
     }
 
-    x.target = event->u.selectionNotify.target;
-    x.property = event->u.selectionNotify.property;
     x.time = CurrentTime;
 
     #ifdef DEBUG
     fprintf(stderr, "%s: Propagating clientCutProperty to requestor [%p].\n", __func__, (void *)x.requestor);
     #endif
 
-    result = XSendEvent (nxagentDisplay, x.requestor, False,
+    int result = XSendEvent (nxagentDisplay, x.requestor, False,
                              0L, (XEvent *) &x);
 
     #ifdef DEBUG
@@ -1864,7 +1852,6 @@ WindowPtr nxagentGetClipboardWindow(Atom property, WindowPtr pWin)
 
 int nxagentInitClipboard(WindowPtr pWin)
 {
-  int i;
   Window iWindow = nxagentWindow(pWin);
 
   #ifdef DEBUG
@@ -1947,7 +1934,7 @@ int nxagentInitClipboard(WindowPtr pWin)
     fprintf(stderr, "%s: Registering for XFixesSelectionNotify events.\n", __func__);
     #endif
 
-    for (i = 0; i < nxagentMaxSelections; i++)
+    for (int i = 0; i < nxagentMaxSelections; i++)
     {
       XFixesSelectSelectionInput(nxagentDisplay, iWindow,
                                  lastSelectionOwner[i].selection,
@@ -1987,7 +1974,7 @@ int nxagentInitClipboard(WindowPtr pWin)
      * Only for PRIMARY and CLIPBOARD selections.
      */
 
-    for (i = 0; i < nxagentMaxSelections; i++)
+    for (int i = 0; i < nxagentMaxSelections; i++)
     {
       if (lastSelectionOwner[i].client && lastSelectionOwner[i].window)
       {
