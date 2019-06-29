@@ -500,6 +500,48 @@ void nxagentClearSelection(XEvent *X)
   nxagentPrintClipboardStat("after nxagentClearSelection");
 }
 
+/*
+ * Send an SelectionNotify event as reply to the RequestSelection
+ * event X. property is the property that will be filled into
+ * SelectionNotifyEvent.property.
+ */
+
+void nxagentReplyRequestSelection(Display *display, XEvent *X, Atom property)
+{
+  XSelectionEvent eventSelection = {
+    .type = SelectionNotify,
+    .send_event = True,
+    .display = display,
+    .requestor = X->xselectionrequest.requestor,
+    .selection = X->xselectionrequest.selection,
+    .target = X->xselectionrequest.target,
+    .time = X->xselectionrequest.time,
+    .property = property
+  };
+
+  #ifdef DEBUG
+  int result =
+  #endif
+  XSendEvent(display,
+             eventSelection.requestor,
+             False,
+             0L,
+             (XEvent *) &eventSelection);
+
+  #ifdef DEBUG
+  fprintf(stderr, "%s: XSendEvent() returned [%s]\n", __func__, GetXErrorString(result));
+  if (result == BadValue || result == BadWindow)
+  {
+    fprintf(stderr, "%s: WARNING! XSendEvent failed.\n", __func__);
+  }
+  else
+  {
+    fprintf(stderr, "%s: XSendEvent sent to window [0x%lx].\n", __func__,
+            eventSelection.requestor);
+  }
+  #endif
+}
+
 /* This is called when a client of the real X server wants to have the
    selection content. The real X server knows the nxagent as selection
    owner. But in reality one of our windows is the owner, so we must
@@ -524,7 +566,7 @@ void nxagentRequestSelection(XEvent *X)
    * - this is a special request like TARGETS or TIMESTAMP
    * - lastServerRequestor in non-NULL (FIXME: why?)
    * - the selection in this request is none we own.
-   * In all cases we'll send back an XSendSelectionEvent with an
+   * In all cases we'll send back an SelectionNotify event with an
    * appropriate answer
    *
    * FIXME: I think lastServerRequestor should be X->xselectionrequest.requestor
@@ -548,10 +590,6 @@ void nxagentRequestSelection(XEvent *X)
       SAFE_XFree(strTarget);
     }
     #endif
-
-    /* prepare the answer. The default property is "None", meaning
-       "request is denied" */
-    XSelectionEvent eventSelection = {.property = None};
 
     if (X->xselectionrequest.target == serverTARGETS)
     {
@@ -578,8 +616,8 @@ void nxagentRequestSelection(XEvent *X)
                       PropModeReplace,
                       (unsigned char*)&xa_STRING,
                       1);
-      /* set the property we changed in the answer, meaning "success" */
-      eventSelection.property = X->xselectionrequest.property;
+
+      nxagentReplyRequestSelection(nxagentDisplay, X, X->xselectionrequest.property);
     }
     else if (X->xselectionrequest.target == nxagentTimestampAtom)
     {
@@ -613,43 +651,15 @@ void nxagentRequestSelection(XEvent *X)
                         PropModeReplace,
                         (unsigned char *) &lastSelectionOwner[i].lastTimeChanged,
                         1);
-        /* set the property we changed in the answer, meaning "success" */
-        eventSelection.property = X->xselectionrequest.property;
+
+        nxagentReplyRequestSelection(nxagentDisplay, X, X->xselectionrequest.property);
       }
-    }
-
-    /* complete the answer and send it to the requestor. */
-
-    eventSelection.type = SelectionNotify;
-    eventSelection.send_event = True;
-    eventSelection.display = nxagentDisplay;
-    eventSelection.requestor = X->xselectionrequest.requestor;
-    eventSelection.selection = X->xselectionrequest.selection;
-    eventSelection.target = X->xselectionrequest.target;
-    eventSelection.time = X->xselectionrequest.time;
-
-    #ifdef DEBUG
-    int result =
-    #endif
-    XSendEvent(nxagentDisplay,
-                        eventSelection.requestor,
-                        False,
-                        0L,
-                        (XEvent *) &eventSelection);
-
-    #ifdef DEBUG
-    fprintf(stderr, "%s: XSendEvent() returned [%s]\n", __func__, GetXErrorString(result));
-    if (result == BadValue || result == BadWindow)
-    {
-      fprintf(stderr, "%s: WARNING! XSendEvent failed.\n", __func__);
     }
     else
     {
-      fprintf(stderr, "%s: XSendEvent sent to window [0x%lx].\n", __func__,
-                  eventSelection.requestor);
+      /* Deny the request */
+      nxagentReplyRequestSelection(nxagentDisplay, X, None);
     }
-    #endif
-
     return;
   }
 
@@ -746,42 +756,11 @@ void nxagentRequestSelection(XEvent *X)
       else
       {
         /*
-         * Probably we must send a Notify
-         * to requestor with property None.
+         * Probably we must send a Notify to requestor with property
+         * None.
          */
 
-        XSelectionEvent eventSelection = {
-          .type = SelectionNotify,
-          .send_event = True,
-          .display = nxagentDisplay,
-          .requestor = X->xselectionrequest.requestor,
-          .selection = X->xselectionrequest.selection,
-          .target = X->xselectionrequest.target,
-          .property = None,
-          .time = X->xselectionrequest.time
-        };
-
-        #ifdef DEBUG
-        int result =
-        #endif
-        XSendEvent(nxagentDisplay,
-                   eventSelection.requestor,
-                   False,
-                   0L,
-                   (XEvent *) &eventSelection);
-
-        #ifdef DEBUG
-        fprintf(stderr, "%s: XSendEvent() returned [%s]\n", __func__, GetXErrorString(result));
-        if (result == BadValue || result == BadWindow)
-        {
-          fprintf(stderr, "%s: WARNING! XSendEvent failed.\n", __func__);
-        }
-        else
-        {
-          fprintf(stderr, "%s: XSendEvent with property None sent to window [0x%lx].\n", __func__,
-                      eventSelection.requestor);
-        }
-        #endif
+        nxagentReplyRequestSelection(nxagentDisplay, X, None);
       }
     }
   }
