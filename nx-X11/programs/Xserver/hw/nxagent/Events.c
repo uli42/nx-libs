@@ -509,9 +509,7 @@ void nxagentInternalWindowInfo(WindowPtr pWin, int indent, Bool newLine)
 
   if (result == Success && pszReturnData != NULL)
   {
-    pszReturnData[ulReturnItems] = '\0';
-
-    fprintf(stderr, "\"%s\"\n", (char *) pszReturnData);
+    fprintf(stderr, "\"%*.*s\"\n", (int)ulReturnItems, (int)ulReturnItems, (char *) pszReturnData);
   }
   else
   {
