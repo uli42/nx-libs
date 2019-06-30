@@ -1093,8 +1093,6 @@ void nxagentCollectPropertyEvent(int resource)
 
 void nxagentNotifySelection(XEvent *X)
 {
-  XSelectionEvent eventSelection;
-
   #ifdef DEBUG
   fprintf(stderr, "%s: Got called.\n", __func__);
   #endif
@@ -1223,26 +1221,18 @@ void nxagentNotifySelection(XEvent *X)
 
         }
 
-        memset(&eventSelection, 0, sizeof(XSelectionEvent));
-        eventSelection.type = SelectionNotify;
-        eventSelection.send_event = True;
-        eventSelection.display = nxagentDisplay;
-        eventSelection.requestor = lastServerRequestor;
-
-        eventSelection.selection = X->xselection.selection;
-
-        /*
-         * eventSelection.target = X->xselection.target;
-         */
-
-        eventSelection.target = lastServerTarget;
-        eventSelection.property = lastServerProperty;
-        eventSelection.time = lastServerTime;
-
-        /*
-         * eventSelection.time = CurrentTime;
-         * eventSelection.time = lastServerTime;
-         */
+        XSelectionEvent eventSelection = {
+          .type       = SelectionNotify,
+	  .send_event = True,
+	  .display    = nxagentDisplay,
+	  .requestor  = lastServerRequestor,
+	  .selection  = X->xselection.selection,
+	  /* .target  = X->xselection.target, */
+	  .target     = lastServerTarget,
+	  .property   = lastServerProperty,
+	  .time       = lastServerTime,
+	  /* .time    = CurrentTime, */
+	};
 
         #ifdef DEBUG
         fprintf(stderr, "%s: Sending event to requestor [%p].\n", __func__, (void *)eventSelection.requestor);
