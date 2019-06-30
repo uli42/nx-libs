@@ -334,7 +334,7 @@ void nxagentRemoteWindowID(Window window, Bool newline)
 
 #else
 
-    if (XGetWMName(nxagentDisplay, window, &tp) != 0)
+    if (XGetWMName(nxagentDisplay, window, &tp) == 0)
     {
       fprintf(stderr, " (has no name) ");
     }
