@@ -358,6 +358,38 @@ int GetWindowProperty(WindowPtr pWin, Atom property, long longOffset, long longL
                                   unsigned char **propData);
 
 /*
+ * Call XSendEvent and do some error handling (in DEBUG mode)
+ */
+Status XSendEventHelper(Display *display, Window w, Bool propagate, long event_mask, XEvent *event_send)
+{
+  Status result = XSendEvent(display, w, propagate, event_mask, event_send);
+
+#ifdef DEBUG
+  /*
+   * man XSendEvent: XSendEvent returns zero if the conversion to wire
+   * protocol format failed and returns nonzero otherwise.  XSendEvent
+   * can generate BadValue and BadWindow errors.
+   */
+  if (result == 0)
+  {
+    fprintf(stderr, "%s: XSendEvent to [0x%x] failed.\n", __func__, w);
+  }
+  else
+  {
+    if (result == BadValue || result == BadWindow)
+    {
+      fprintf(stderr, "%s: WARNING! XSendEvent to [0x%x] failed: %s\n", __func__, w, GetXErrorString(result));
+    }
+    else
+    {
+      fprintf(stderr, "%s: XSendEvent() sucessfully sent to [0x%x]\n", __func__, w);
+    }
+  }
+#endif
+  return result;
+}
+
+/*
  * Check if target is a valid content type target sent by the real X
  * server, like .e.g XA_STRING or UTF8_STRING. Other, non content type
  * targets like "TARGETS" or "TIMESTAMP" will return false.
@@ -540,27 +572,11 @@ void nxagentReplyRequestSelection(Display *display, XEvent *X, Atom property)
     .property = property
   };
 
-  #ifdef DEBUG
-  int result =
-  #endif
-  XSendEvent(display,
-             eventSelection.requestor,
-             False,
-             0L,
-             (XEvent *) &eventSelection);
-
-  #ifdef DEBUG
-  fprintf(stderr, "%s: XSendEvent() returned [%s]\n", __func__, GetXErrorString(result));
-  if (result == BadValue || result == BadWindow)
-  {
-    fprintf(stderr, "%s: WARNING! XSendEvent failed.\n", __func__);
-  }
-  else
-  {
-    fprintf(stderr, "%s: XSendEvent sent to window [0x%lx].\n", __func__,
-            eventSelection.requestor);
-  }
-  #endif
+  XSendEventHelper(display,
+		   eventSelection.requestor,
+		   False,
+		   0L,
+		   (XEvent *) &eventSelection);
 }
 
 /* This is called when a client of the real X server wants to have the
@@ -1249,19 +1265,11 @@ void nxagentNotifySelection(XEvent *X)
         fprintf(stderr, "%s: Sending event to requestor [%p].\n", __func__, (void *)eventSelection.requestor);
         #endif
 
-        result = XSendEvent(nxagentDisplay,
-                            eventSelection.requestor,
-                            False,
-                            0L,
-                            (XEvent *) &eventSelection);
-
-        #ifdef DEBUG
-        fprintf(stderr, "%s: XSendEvent() returned [%s]\n", __func__, GetXErrorString(result));
-        #endif
-        if (result == BadValue || result == BadWindow)
-        {
-          fprintf (stderr, "SelectionRequest - XSendEvent failed\n");
-        }
+        XSendEventHelper(nxagentDisplay,
+			 eventSelection.requestor,
+			 False,
+			 0L,
+			 (XEvent *) &eventSelection);
 
         lastServerRequestor = None; /* allow further request */
       }
@@ -1797,16 +1805,7 @@ int nxagentSendNotify(xEvent *event)
     fprintf(stderr, "%s: Propagating clientCutProperty to requestor [%p].\n", __func__, (void *)x.requestor);
     #endif
 
-    int result = XSendEvent (nxagentDisplay, x.requestor, False,
-                             0L, (XEvent *) &x);
-
-    #ifdef DEBUG
-    fprintf(stderr, "%s: XSendEvent() returned [%s]\n", __func__, GetXErrorString(result));
-    #endif
-    if (result == BadValue || result == BadWindow)
-    {
-      fprintf (stderr, "%s: XSendEvent failed.\n", __func__);
-    }
+    XSendEventHelper(nxagentDisplay, x.requestor, False, 0L, (XEvent *) &x);
 
     return 1;
   }
