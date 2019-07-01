@@ -451,12 +451,32 @@ void nxagentClearClipboard(ClientPtr pClient, WindowPtr pWindow)
   nxagentPrintClipboardStat("after nxagentClearClipboard");
 }
 
+int nxagentFindLastSelectionOwnerIndex(Atom sel)
+{
+  int i = 0;
+  while ((i < nxagentMaxSelections) &&
+            (lastSelectionOwner[i].selection != sel))
+  {
+    i++;
+  }
+  return i;
+}
+
+int nxagentFindCurrentSelectionIndex(Atom sel)
+{
+  int i = 0;
+  while ((i < NumCurrentSelections) &&
+            (CurrentSelections[i].selection != sel))
+  {
+    i++;
+  }
+  return i;
+}
+
 /* we receive this event if someone on the real X server claimed the
    selection ownership. */
 void nxagentClearSelection(XEvent *X)
 {
-  int i = 0;
-
   #ifdef DEBUG
   fprintf(stderr, "%s: SelectionClear event for selection [%lu].\n", __func__, X->xselectionclear.selection);
   #endif
@@ -469,11 +489,7 @@ void nxagentClearSelection(XEvent *X)
     return;
   }
 
-  while ((i < nxagentMaxSelections) &&
-            (lastSelectionOwner[i].selection != X->xselectionclear.selection))
-  {
-    i++;
-  }
+  int i = nxagentFindLastSelectionOwnerIndex(X->xselectionclear.selection);
 
   if (i < nxagentMaxSelections)
   {
@@ -642,11 +658,9 @@ void nxagentRequestSelection(XEvent *X)
        * X server.
        */
 
-      int i = 0;
-      while ((i < NumCurrentSelections) &&
-                lastSelectionOwner[i].selection != X->xselectionrequest.selection) i++;
+      int i = nxagentFindLastSelectionOwnerIndex(X->xselectionrequest.selection);
 
-      if (i < NumCurrentSelections)
+      if (i < nxagentMaxSelections)
       {
         XChangeProperty(nxagentDisplay,
                         X->xselectionrequest.requestor,
@@ -680,12 +694,7 @@ void nxagentRequestSelection(XEvent *X)
   nxagentLastRequestedSelection = X->xselectionrequest.selection;
 
   /* find the index of the requested selection */
-  int i = 0;
-  while ((i < nxagentMaxSelections) &&
-            (lastSelectionOwner[i].selection != X->xselectionrequest.selection))
-  {
-    i++;
-  }
+  int i = nxagentFindLastSelectionOwnerIndex(X->xselectionrequest.selection);
 
   if (i < nxagentMaxSelections)
   {
@@ -1157,12 +1166,7 @@ void nxagentNotifySelection(XEvent *X)
   }
   else
   {
-    int i = 0;
-
-    while ((i < nxagentMaxSelections) && (lastSelectionOwner[i].selection != X->xselection.selection))
-    {
-      i++;
-    }
+    int i = nxagentFindLastSelectionOwnerIndex(X->xselection.selection);
 
     if (i < nxagentMaxSelections)
     {
@@ -1294,10 +1298,8 @@ void nxagentResetSelectionOwner(void)
     fprintf(stderr, "%s: Reset clipboard state.\n", __func__);
     #endif
 
-    lastSelectionOwner[i].client = NULL;
-    lastSelectionOwner[i].window = None;
+    nxagentClearSelectionOwner(&lastSelectionOwner[i]);
     lastSelectionOwner[i].windowPtr = NULL;
-    lastSelectionOwner[i].lastTimeChanged = GetTimeInMillis();
   }
 
   lastClientWindowPtr = NULL;
@@ -1621,10 +1623,7 @@ int nxagentConvertSelection(ClientPtr client, WindowPtr pWin, Atom selection,
    */
   if (target == MakeAtom("TIMESTAMP", 9, 1))
   {
-    int i = 0;
-
-    while ((i < NumCurrentSelections) &&
-              CurrentSelections[i].selection != selection) i++;
+    int i = nxagentFindCurrentSelectionIndex(selection);
 
     if (i < NumCurrentSelections)
     {
@@ -1819,17 +1818,11 @@ int nxagentSendNotify(xEvent *event)
 
 WindowPtr nxagentGetClipboardWindow(Atom property, WindowPtr pWin)
 {
-  int i = 0;
-
   #ifdef DEBUG
   fprintf(stderr, "%s: Got called, property [%d][%s] window [%p].\n", __func__, property, NameForAtom(property), (void *)pWin);
   #endif
 
-  while ((i < nxagentMaxSelections) &&
-            (lastSelectionOwner[i].selection != nxagentLastRequestedSelection))
-  {
-    i++;
-  }
+  int i = nxagentFindLastSelectionOwnerIndex(nxagentLastRequestedSelection);
 
   if ((i < nxagentMaxSelections) && (property == clientCutProperty) &&
           (lastSelectionOwner[i].windowPtr != NULL))
@@ -1851,7 +1844,7 @@ WindowPtr nxagentGetClipboardWindow(Atom property, WindowPtr pWin)
 
 }
 
-nxagentInitSelectionOwner(SelectionOwner *owner, Atom selection)
+void nxagentInitSelectionOwner(SelectionOwner *owner, Atom selection)
 {
   owner->selection = selection;
   owner->client = NullClient;
