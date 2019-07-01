@@ -1062,8 +1062,11 @@ void nxagentCollectPropertyEvent(int resource)
                            ulReturnItems, pszReturnData, 1);
 
       #ifdef DEBUG
-      fprintf(stderr, "%s: Selection property [%s] changed to [%s]\n", __func__,
-                   validateString(NameForAtom(lastClientProperty)), pszReturnData);
+      fprintf(stderr, "%s: Selection property [%s] changed to [\"%*.*s\"...]\n", __func__,
+	      validateString(NameForAtom(lastClientProperty)),
+	          (int)(min(20, ulReturnItems * resultFormat / 8)),
+	              (int)(min(20, ulReturnItems * resultFormat / 8)),
+	                  pszReturnData);
       #endif
 
       nxagentSendSelectionNotify(lastClientProperty);
