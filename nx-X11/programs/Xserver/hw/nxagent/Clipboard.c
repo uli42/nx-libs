@@ -1233,19 +1233,18 @@ void nxagentNotifySelection(XEvent *X)
           }
           else
           {
-	    /* FIXME: better use the format returned by above request */
-            result = XChangeProperty(nxagentDisplay,
-                                     lastServerRequestor,
-                                     lastServerProperty,
-                                     lastServerTarget,
-                                     8,
-                                     PropModeReplace,
-                                     pszReturnData,
-                                     ulReturnItems);
+            /* The XChangeProperty source code reveals it will always
+               return 1, no matter what, so no need to check the result */
+            /* FIXME: better use the format returned by above request */
+            XChangeProperty(nxagentDisplay,
+                            lastServerRequestor,
+                            lastServerProperty,
+                            lastServerTarget,
+                            8,
+                            PropModeReplace,
+                            pszReturnData,
+                            ulReturnItems);
           }
-          #ifdef DEBUG
-          fprintf(stderr, "%s: XChangeProperty() returned [%s]\n", __func__, GetXErrorString(result));
-          #endif
 
 	  /* FIXME: free it or not? */
           /*
