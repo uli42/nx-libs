@@ -1202,6 +1202,7 @@ void nxagentNotifySelection(XEvent *X)
         unsigned long   ulReturnBytesLeft;
         unsigned char   *pszReturnData = NULL;
 
+        /* first get size values ... */
         int result = GetWindowProperty(lastSelectionOwner[i].windowPtr, clientCutProperty, 0, 0, False,
                                            AnyPropertyType, &atomReturnType, &resultFormat,
                                                &ulReturnItems, &ulReturnBytesLeft, &pszReturnData);
@@ -1209,14 +1210,13 @@ void nxagentNotifySelection(XEvent *X)
         #ifdef DEBUG
         fprintf(stderr, "%s: GetWindowProperty() returned [%s]\n", __func__, GetXErrorString(result));
         #endif
-        if (result == BadAlloc || result == BadAtom ||
-                result == BadWindow || result == BadValue)
+        if (result == BadAlloc || result == BadAtom || result == BadWindow || result == BadValue)
         {
-          fprintf (stderr, "Client GetProperty failed. Error = %s", GetXErrorString(result));
           lastServerProperty = None;
         }
         else
         {
+          /* ... then use the size values for the actual request */
           result = GetWindowProperty(lastSelectionOwner[i].windowPtr, clientCutProperty, 0,
                                          ulReturnBytesLeft, False, AnyPropertyType, &atomReturnType,
                                              &resultFormat, &ulReturnItems, &ulReturnBytesLeft,
@@ -1225,10 +1225,8 @@ void nxagentNotifySelection(XEvent *X)
           fprintf(stderr, "%s: GetWindowProperty() returned [%s]\n", __func__, GetXErrorString(result));
           #endif
 
-          if (result == BadAlloc || result == BadAtom ||
-                  result == BadWindow || result == BadValue)
+          if (result == BadAlloc || result == BadAtom || result == BadWindow || result == BadValue)
           {
-            fprintf (stderr, "SelectionNotify - XChangeProperty failed. Error = %s\n", GetXErrorString(result));
             lastServerProperty = None;
           }
           else
@@ -1244,7 +1242,21 @@ void nxagentNotifySelection(XEvent *X)
                             PropModeReplace,
                             pszReturnData,
                             ulReturnItems);
-          }
+
+	    #ifdef DEBUG
+	    {
+	      char *s = XGetAtomName(nxagentDisplay, lastServerProperty);
+	      fprintf (stderr, "%s: XChangeProperty sent to window [0x%x] for property [%s] value [\"%*.*s\"...]\n",
+		       __func__,
+		       lastServerRequestor,
+		       s,
+		       (int)(min(20, ulReturnItems * 8 / 8)),
+		       (int)(min(20, ulReturnItems * 8 / 8)),
+		       pszReturnData);
+	      SAFE_XFree(s);
+	    }
+	    #endif
+	  }
 
 	  /* FIXME: free it or not? */
           /*
@@ -1267,7 +1279,7 @@ void nxagentNotifySelection(XEvent *X)
 	};
 
         #ifdef DEBUG
-        fprintf(stderr, "%s: Sending event to requestor [%p].\n", __func__, (void *)eventSelection.requestor);
+        fprintf(stderr, "%s: Sending SelectionNotify event to requestor [%p].\n", __func__, (void *)eventSelection.requestor);
         #endif
 
         XSendEventHelper(nxagentDisplay,
