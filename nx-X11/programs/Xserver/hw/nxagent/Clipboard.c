@@ -449,8 +449,8 @@ void nxagentClearSelectionOwner(SelectionOwner *owner)
 void nxagentClearClipboard(ClientPtr pClient, WindowPtr pWindow)
 {
   #ifdef DEBUG
-  fprintf(stderr, "%s: Called with client [%p] window [%p].\n", __func__,
-              (void *) pClient, (void *) pWindow);
+  fprintf(stderr, "%s: Called with client [%p] index [%d] window [%p] ([0x%x]).\n", __func__,
+	  (void *) pClient, pClient ? pClient->index : -1 ,(void *) pWindow, pWindow ? pWindow->drawable.id : 0);
   #endif
 
   nxagentPrintClipboardStat("before nxagentClearClipboard");
@@ -623,11 +623,11 @@ void nxagentRequestSelection(XEvent *X)
     {
       char *strTarget = XGetAtomName(nxagentDisplay, X->xselectionrequest.target);
 
-      fprintf(stderr, "%s: even aborting sele [%s] target [%s]\n", __func__,
+      fprintf(stderr, "%s: int. interpretation: selection [%s] target [%s]\n", __func__,
                   validateString(NameForAtom(X->xselectionrequest.selection)),
                       validateString(NameForAtom(X->xselectionrequest.target)));
 
-      fprintf(stderr, "%s: event aborting sele [%s] ext target [%s] Atom size [%d]\n", __func__,
+      fprintf(stderr, "%s: ext. interpretation: selection [%s] ext target [%s] Atom size [%ld]\n", __func__,
                 validateString(NameForAtom(X->xselectionrequest.selection)), strTarget, sizeof(Atom));
 
       SAFE_XFree(strTarget);
@@ -1320,7 +1320,7 @@ void nxagentResetSelectionOwner(void)
     XSetSelectionOwner(nxagentDisplay, lastSelectionOwner[i].selection, serverWindow, CurrentTime);
 
     #ifdef DEBUG
-    fprintf(stderr, "%s: Reset clipboard state.\n", __func__);
+    fprintf(stderr, "%s: Reset selection state for selection [%d].\n", __func__, i);
     #endif
 
     nxagentClearSelectionOwner(&lastSelectionOwner[i]);
@@ -1411,7 +1411,6 @@ void nxagentStoreSelectionOwner(SelectionOwner *owner, Selection *sel)
   owner->window = sel->window;
   owner->windowPtr = sel->pWin;
   owner->lastTimeChanged = GetTimeInMillis();
-  owner->internalTime = True;
 }
 
 void nxagentSetSelectionOwner(Selection *pSelection)
@@ -1867,7 +1866,6 @@ void nxagentInitSelectionOwner(SelectionOwner *owner, Atom selection)
   owner->window = screenInfo.screens[0]->root->drawable.id;
   owner->windowPtr = NULL;
   owner->lastTimeChanged = GetTimeInMillis();
-  owner->internalTime = True;
 }
 
 int nxagentInitClipboard(WindowPtr pWin)
