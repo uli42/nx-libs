@@ -1446,11 +1446,11 @@ void nxagentSetSelectionOwner(Selection *pSelection)
     if (pSelection->selection == CurrentSelections[i].selection)
     {
       #ifdef DEBUG
-      fprintf(stderr, "%s: lastSelectionOwner.client [0x%x] -> [0x%x]\n", __func__, lastSelectionOwner[i].client, pSelection->client);
+      fprintf(stderr, "%s: lastSelectionOwner.client [%p] index [%d]-> [%p] index [%d]\n", __func__, (void *)lastSelectionOwner[i].client, lastSelectionOwner[i].client->index, (void *)pSelection->client, pSelection->client->index);
       fprintf(stderr, "%s: lastSelectionOwner.window [0x%x] -> [0x%x]\n", __func__, lastSelectionOwner[i].window, pSelection->window);
-      fprintf(stderr, "%s: lastSelectionOwner.windowPtr [0x%x] -> [0x%x] [0x%x] (serverWindow: [0x%x])\n", __func__, lastSelectionOwner[i].windowPtr, pSelection->pWin, nxagentWindow(pSelection->pWin), serverWindow);
+      fprintf(stderr, "%s: lastSelectionOwner.windowPtr [%p] -> [%p] [0x%x] (serverWindow: [0x%x])\n", __func__, (void *)lastSelectionOwner[i].windowPtr, (void *)pSelection->pWin, nxagentWindow(pSelection->pWin), serverWindow);
       fprintf(stderr, "%s: lastSelectionOwner.lastTimeChanged [%d]\n", __func__, lastSelectionOwner[i].lastTimeChanged);
-      #endif
+#endif
 
       /*
        * inform the real X server that our serverWindow is the
