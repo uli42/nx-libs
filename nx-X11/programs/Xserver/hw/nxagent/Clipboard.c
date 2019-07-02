@@ -1446,9 +1446,14 @@ void nxagentSetSelectionOwner(Selection *pSelection)
     if (pSelection->selection == CurrentSelections[i].selection)
     {
       #ifdef DEBUG
-      fprintf(stderr, "%s: lastSelectionOwner.client [%p] index [%d]-> [%p] index [%d]\n", __func__, (void *)lastSelectionOwner[i].client, lastSelectionOwner[i].client->index, (void *)pSelection->client, pSelection->client->index);
+      fprintf(stderr, "%s: lastSelectionOwner.client [%p] index [%d]-> [%p] index [%d]\n", __func__,
+	      (void *)lastSelectionOwner[i].client,
+	      lastSelectionOwner[i].client ? lastSelectionOwner[i].client->index : -1,
+	      (void *)pSelection->client,
+	      pSelection->client ? pSelection->client->index : -1);
       fprintf(stderr, "%s: lastSelectionOwner.window [0x%x] -> [0x%x]\n", __func__, lastSelectionOwner[i].window, pSelection->window);
-      fprintf(stderr, "%s: lastSelectionOwner.windowPtr [%p] -> [%p] [0x%x] (serverWindow: [0x%x])\n", __func__, (void *)lastSelectionOwner[i].windowPtr, (void *)pSelection->pWin, nxagentWindow(pSelection->pWin), serverWindow);
+      fprintf(stderr, "%s: lastSelectionOwner.windowPtr [%p] -> [%p] [0x%x] (serverWindow: [0x%x])\n", __func__,
+	      (void *)lastSelectionOwner[i].windowPtr, (void *)pSelection->pWin, nxagentWindow(pSelection->pWin), serverWindow);
       fprintf(stderr, "%s: lastSelectionOwner.lastTimeChanged [%d]\n", __func__, lastSelectionOwner[i].lastTimeChanged);
 #endif
 
@@ -1834,7 +1839,7 @@ int nxagentSendNotify(xEvent *event)
 WindowPtr nxagentGetClipboardWindow(Atom property, WindowPtr pWin)
 {
   #ifdef DEBUG
-  fprintf(stderr, "%s: Got called, property [%d][%s] window [%p] (0x%x).\n", __func__, property, NameForAtom(property), (void *)pWin, pWin->drawable.id);
+  fprintf(stderr, "%s: Got called, property [%d][%s] window [%p] (0x%x).\n", __func__, property, NameForAtom(property), (void *)pWin, pWin ? pWin->drawable.id : 0);
   #endif
 
   int i = nxagentFindLastSelectionOwnerIndex(nxagentLastRequestedSelection);
@@ -1843,7 +1848,7 @@ WindowPtr nxagentGetClipboardWindow(Atom property, WindowPtr pWin)
           (lastSelectionOwner[i].windowPtr != NULL))
   {
     #ifdef DEBUG
-    fprintf(stderr, "%s: Returning last clipboard owner window [%p] (0x%x).\n", __func__, (void *)lastSelectionOwner[i].windowPtr, lastSelectionOwner[i].windowPtr->drawable.id);
+    fprintf(stderr, "%s: Returning last clipboard owner window [%p] (0x%x).\n", __func__, (void *)lastSelectionOwner[i].windowPtr, lastSelectionOwner[i].windowPtr ? lastSelectionOwner[i].windowPtr->drawable.id : 0);
     #endif
 
     return lastSelectionOwner[i].windowPtr;
@@ -1851,7 +1856,7 @@ WindowPtr nxagentGetClipboardWindow(Atom property, WindowPtr pWin)
   else
   {
     #ifdef DEBUG
-    fprintf(stderr, "%s: Returning original target window [%p] (0x%x).\n", __func__, (void *)pWin, pWin->drawable.id);
+    fprintf(stderr, "%s: Returning original target window [%p] (0x%x).\n", __func__, (void *)pWin, pWin ? pWin->drawable.id : 0);
     #endif
 
     return pWin;
