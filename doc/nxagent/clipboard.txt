@@ -123,4 +123,7 @@ of these X design principles). And internal variables in nxagent.
 Nested nxagents
 
 
-Good reference: https://www.uninformativ.de/blog/postings/2017-04-02/0/POSTING-en.html
+Good references: https://www.uninformativ.de/blog/postings/2017-04-02/0/POSTING-en.html
+https://specifications.freedesktop.org/clipboards-spec/clipboards-latest.txt
+https://keithp.com/~keithp/talks/selection.ps
+https://www.freedesktop.org/wiki/Specifications/ClipboardsWiki/
