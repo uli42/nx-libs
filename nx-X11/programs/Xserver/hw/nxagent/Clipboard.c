@@ -1369,7 +1369,7 @@ void nxagentSetSelectionCallback(CallbackListPtr *callbacks, void *data,
   {
     #ifdef DEBUG
     fprintf(stderr, "%s: called with SelectionCallbackKind SelectionSetOwner\n", __func__);
-    fprintf(stderr, "%s: pCurSel->pWin [0x%x]\n", __func__, pCurSel->pWin ? pCurSel->pWin->drawable.id : NULL);
+    fprintf(stderr, "%s: pCurSel->pWin [0x%x]\n", __func__, pCurSel->pWin ? pCurSel->pWin->drawable.id : 0);
     fprintf(stderr, "%s: pCurSel->selection [%s]\n", __func__, NameForAtom(pCurSel->selection));
     #endif
 
