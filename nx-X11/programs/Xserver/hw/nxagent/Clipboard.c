@@ -623,12 +623,16 @@ void nxagentRequestSelection(XEvent *X)
     {
       char *strTarget = XGetAtomName(nxagentDisplay, X->xselectionrequest.target);
 
-      fprintf(stderr, "%s: int. interpretation: selection [%s] target [%s]\n", __func__,
-                  validateString(NameForAtom(X->xselectionrequest.selection)),
-                      validateString(NameForAtom(X->xselectionrequest.target)));
+      fprintf(stderr, "%s: int. interpretation: selection [%ld][%s] target [%ld][%s]\n", __func__,
+                  X->xselectionrequest.selection,
+	              validateString(NameForAtom(X->xselectionrequest.selection)),
+	                  X->xselectionrequest.target,
+	                      validateString(NameForAtom(X->xselectionrequest.target)));
 
-      fprintf(stderr, "%s: ext. interpretation: selection [%s] ext target [%s] Atom size [%ld]\n", __func__,
-                validateString(NameForAtom(X->xselectionrequest.selection)), strTarget, sizeof(Atom));
+      fprintf(stderr, "%s: ext. interpretation: selection [%ld][%s] ext target [%ld][%s] Atom size [%ld]\n", __func__,
+	          X->xselectionrequest.selection,
+	              validateString(NameForAtom(X->xselectionrequest.selection)),
+	                  X->xselectionrequest.target, strTarget, sizeof(Atom));
 
       SAFE_XFree(strTarget);
     }
