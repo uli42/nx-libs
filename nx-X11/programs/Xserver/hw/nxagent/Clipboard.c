@@ -95,8 +95,6 @@ typedef struct _SelectionOwner
    external atom of the selection */
 static SelectionOwner *lastSelectionOwner;
 static Atom nxagentLastRequestedSelection;
-static Atom nxagentClipboardAtom;
-static Atom nxagentTimestampAtom;
 
 /*
  * Needed to handle the notify selection event to
@@ -131,6 +129,8 @@ static Atom   lastServerTarget;
 static Time   lastServerTime;
 
 static Atom serverTARGETS;
+static Atom serverCLIPBOARD;
+static Atom serverTIMESTAMP;
 static Atom serverTEXT;
 static Atom serverUTF8_STRING;
 static Atom clientTARGETS;
@@ -336,10 +336,10 @@ void nxagentPrintClipboardStat(char *header)
   SAFE_XFree(s); s = XGetAtomName(nxagentDisplay, serverCutProperty);
   fprintf(stderr, "  serverCutProperty                      [% 4d][%s]\n", serverCutProperty, s);
 
-  SAFE_XFree(s); s = XGetAtomName(nxagentDisplay, nxagentClipboardAtom);
-  fprintf(stderr, "  nxagentClipboardAtom                   [% 4d][%s]\n", nxagentClipboardAtom, s);
-  SAFE_XFree(s); s = XGetAtomName(nxagentDisplay, nxagentTimestampAtom);
-  fprintf(stderr, "  nxagentTimestampAtom                   [% 4d][%s]\n", nxagentTimestampAtom, s);
+  SAFE_XFree(s); s = XGetAtomName(nxagentDisplay, serverCLIPBOARD);
+  fprintf(stderr, "  serverCLIPBOARD                   [% 4d][%s]\n", serverCLIPBOARD, s);
+  SAFE_XFree(s); s = XGetAtomName(nxagentDisplay, serverTIMESTAMP);
+  fprintf(stderr, "  serverTIMESTAMP                   [% 4d][%s]\n", serverTIMESTAMP, s);
 
   fprintf(stderr, "Atoms (inside nxagent)\n");
   fprintf(stderr, "  clientTARGETS                          [% 4d][%s]\n", clientTARGETS, NameForAtom(clientTARGETS));
@@ -432,7 +432,7 @@ Bool nxagentValidServerTargets(Atom target)
     #endif
     return False;
   }
-  else if (target == nxagentTimestampAtom)
+  else if (target == serverTIMESTAMP)
   {
     #ifdef DEBUG
     fprintf(stderr, "%s: special target [TIMESTAMP].\n", __func__);
@@ -674,7 +674,7 @@ void nxagentRequestSelection(XEvent *X)
 
       nxagentReplyRequestSelection(nxagentDisplay, X, X->xselectionrequest.property);
     }
-    else if (X->xselectionrequest.target == nxagentTimestampAtom)
+    else if (X->xselectionrequest.target == serverTIMESTAMP)
     {
       /*
        * Section 2.6.2 of the ICCCM states:
@@ -1912,11 +1912,11 @@ int nxagentInitClipboard(WindowPtr pWin)
     FatalError("nxagentInitClipboard: Failed to allocate memory for the clipboard selections.\n");
   }
 
-  nxagentClipboardAtom = nxagentAtoms[10];   /* CLIPBOARD */
-  nxagentTimestampAtom = nxagentAtoms[11];   /* TIMESTAMP */
+  serverCLIPBOARD = nxagentAtoms[10];   /* CLIPBOARD */
+  serverTIMESTAMP = nxagentAtoms[11];   /* TIMESTAMP */
 
   nxagentInitSelectionOwner(&lastSelectionOwner[nxagentPrimarySelection], XA_PRIMARY);
-  nxagentInitSelectionOwner(&lastSelectionOwner[nxagentClipboardSelection], nxagentClipboardAtom);
+  nxagentInitSelectionOwner(&lastSelectionOwner[nxagentClipboardSelection], serverCLIPBOARD);
 
   #ifdef NXAGENT_TIMESTAMP
   {
