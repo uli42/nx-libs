@@ -535,6 +535,8 @@ ProcSendEvent(ClientPtr client)
 
 #ifdef NXAGENT_CLIPBOARD
 
+    /* nxagentSendNotify will send out the Notification to the real X server
+       only if the property is clientCutProperty */
     if (stuff -> event.u.u.type == SelectionNotify)
     {
     	extern int nxagentSendNotify(xEvent*);
