@@ -1141,6 +1141,11 @@ void nxagentCollectPropertyEvent(int resource)
   SAFE_XFree(pszReturnData);
 }
 
+
+/*
+ * This is _only_ called from Events.c dispatch loop if nxagent receives a
+ * SelectionNotify event from the real X server
+ */
 void nxagentNotifySelection(XEvent *X)
 {
   #ifdef DEBUG
@@ -1362,6 +1367,12 @@ void nxagentResetSelectionOwner(void)
 }
 
 #ifdef NXAGENT_CLIPBOARD
+
+/* The callback is called from dix. This is the normal operation
+   mode. The callback is also called when nxagent gets XFixes events
+   from the real X server. In that case the Trap is set and the
+   callback will do nothing. */
+
 void nxagentSetSelectionCallback(CallbackListPtr *callbacks, void *data,
                                    void *args)
 {
@@ -1437,6 +1448,9 @@ void nxagentStoreSelectionOwner(SelectionOwner *owner, Selection *sel)
   owner->windowPtr = sel->pWin;
   owner->lastTimeChanged = GetTimeInMillis();
 }
+
+/* This is called from the nxagentSetSelectionCallback, so it is using
+   internal Atoms */
 
 void nxagentSetSelectionOwner(Selection *pSelection)
 {
@@ -1550,7 +1564,8 @@ FIXME: Why this pointer can be not a valid
 }
 
 /* this is called from dix (ProcConvertSelection) if a nxagent client
-   issues a ConvertSelection request */
+   issues a ConvertSelection request. So all the Atoms are internal */
+
 int nxagentConvertSelection(ClientPtr client, WindowPtr pWin, Atom selection,
                                 Window requestor, Atom property, Atom target, Time time)
 {
