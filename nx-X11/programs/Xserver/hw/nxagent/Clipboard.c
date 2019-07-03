@@ -1153,13 +1153,26 @@ void nxagentNotifySelection(XEvent *X)
   }
 
   #ifdef DEBUG
-  fprintf(stderr, "%s: SelectionNotify event.\n", __func__);
+  {
+    char *s = NULL;
+    s = XGetAtomName(nxagentDisplay, X->xselection.property);
+    fprintf(stderr, "%s: SelectionNotify event, property [%ld][%s].\n", __func__, X->xselection.property, validateString(s));
+    SAFE_XFree(s);
+  }
   #endif
 
   PrintClientSelectionStage();
 
   if (lastClientWindowPtr != NULL)
   {
+    /*
+     * We reach here after a paste inside the nxagent, triggered by
+     * the XConvertSelection call in nxagentConvertSelection(). This
+     * means that data we need has been transferred to the
+     * serverCutProperty of serverWindow (our window on the real X
+     * server). We now need to transfer it to the original requestor,
+     * which is stored in lastClientClientPtr.
+     */
     if ((lastClientStage == SelectionStageNone) && (X->xselection.property == serverCutProperty))
     {
       #ifdef DEBUG
@@ -1550,19 +1563,14 @@ int nxagentConvertSelection(ClientPtr client, WindowPtr pWin, Atom selection,
     return 0;
   }
 
-  /*
-   * There is a client owner on the agent side, let normal stuff happen.
-   */
-
-  /*
-   * Only for PRIMARY and CLIPBOARD selections.
-   */
-
   for (i = 0; i < nxagentMaxSelections; i++)
   {
     if ((selection == CurrentSelections[i].selection) &&
            (lastSelectionOwner[i].client != NULL))
     {
+      /*
+       * There is a client owner on the agent side, let normal stuff happen.
+       */
       return 0;
     }
   }
@@ -1599,8 +1607,8 @@ int nxagentConvertSelection(ClientPtr client, WindowPtr pWin, Atom selection,
     }
   }
 
-  #ifdef TEST
-  fprintf(stderr, "%s: client [%d] ask for sel [%s] "
+  #if defined(TEST) || defined(DEBUG)
+  fprintf(stderr, "%s: client [%d] requests sel [%s] "
               "on window [%x] prop [%s] target [%s].\n", __func__,
                   client -> index, validateString(NameForAtom(selection)), requestor,
                       validateString(NameForAtom(property)), validateString(NameForAtom(target)));
@@ -1610,6 +1618,9 @@ int nxagentConvertSelection(ClientPtr client, WindowPtr pWin, Atom selection,
 
   if (strTarget == NULL)
   {
+    #ifdef DEBUG
+    fprintf(stderr, "%s: cannot find name for target Atom [%d] - returning\n", __func__, target);
+    #endif
     return 1;
   }
 
@@ -1723,6 +1734,8 @@ int nxagentConvertSelection(ClientPtr client, WindowPtr pWin, Atom selection,
   {
     lastClientWindowPtr = pWin;
     SetClientSelectionStage(None);
+    /* store the original requestor, we need that later after
+       serverCutProperety contains the desired selection content */
     lastClientRequestor = requestor;
     lastClientClientPtr = client;
     lastClientTime = time;
@@ -1744,18 +1757,29 @@ int nxagentConvertSelection(ClientPtr client, WindowPtr pWin, Atom selection,
 
     if (target == clientUTF8_STRING)
     {
+      #ifdef DEBUG
+      fprintf(stderr, "%s: Sending XConvertSelection with target [%d][UTF8_STRING], property [%d][NX_CUT_BUFFER_SERVER]\n", __func__,
+	      serverUTF8_STRING, serverCutProperty);
+      #endif
+
       XConvertSelection(nxagentDisplay, selection, serverUTF8_STRING, serverCutProperty,
                            serverWindow, CurrentTime);
     }
     else
     {
+      #ifdef DEBUG
+      fprintf(stderr, "%s: Sending XConvertSelection with target [%d][%s], property [%d][NX_CUT_BUFFER_SERVER]\n", __func__,
+	      XA_STRING, validateString(NameForAtom(XA_STRING)), serverCutProperty);
+      #endif
+
       XConvertSelection(nxagentDisplay, selection, XA_STRING, serverCutProperty,
                            serverWindow, CurrentTime);
     }
 
+    /* FIXME: check returncode of XConvertSelection */
+
     #ifdef DEBUG
-    fprintf(stderr, "%s: Sent XConvertSelection with target=[%s], property [%s]\n", __func__,
-                validateString(NameForAtom(target)), validateString(NameForAtom(property)));
+    fprintf(stderr, "%s: Sent XConvertSelection, destination [NX_CUT_BUFFER_SERVER] of window [0x%x]\n", __func__, serverWindow);
     #endif
 
     return 1;
