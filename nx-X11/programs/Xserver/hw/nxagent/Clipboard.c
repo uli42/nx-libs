@@ -82,17 +82,17 @@ static const int nxagentMaxSelections = 2;
 
 typedef struct _SelectionOwner
 {
-    Atom selection;
-    ClientPtr client;
-    Window window;
-    WindowPtr windowPtr;
-    Time lastTimeChanged;
-
+  Atom selection;       // _external_ Atom
+  ClientPtr client;     // internal client
+  Window window;        // internal window id
+  WindowPtr windowPtr;  // internal window struct
+  Time lastTimeChanged; // internal time
 } SelectionOwner;
 
 /* this contains the last selection owner in nxagent. The
-   lastTimeChanged is always an internal time. If .client is NULL
-   the owner is outside nxagent */
+   lastTimeChanged is always an internal time. If .client is NULL the
+   owner is outside nxagent. .selection will _always_ contain the
+   external atom of the selection */
 static SelectionOwner *lastSelectionOwner;
 static Atom nxagentLastRequestedSelection;
 static Atom nxagentClipboardAtom;
