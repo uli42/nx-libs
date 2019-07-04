@@ -340,17 +340,15 @@ void nxagentRemoteWindowID(Window window, Bool newline)
     }
     else if (tp.nitems > 0)
     {
-      int count = 0;
-      int i, ret;
-      char **list = NULL;
-
       fprintf(stderr, " \"");
 
-      ret = XmbTextPropertyToTextList(nxagentDisplay, &tp, &list, &count);
+      int count = 0;
+      char **list = NULL;
+      int ret = XmbTextPropertyToTextList(nxagentDisplay, &tp, &list, &count);
 
       if ((ret == Success || ret > 0) && list != NULL)
       {
-        for (i = 0; i < count; i++)
+        for (int i = 0; i < count; i++)
         {
           fprintf(stderr, "%s", list[i]);
         }
@@ -1525,22 +1523,18 @@ FIXME: Don't enqueue the KeyRelease event if the key was
            * Force the keys all up when focus is lost.
            */
 
-          int i, k;
-          int mask = 1;
-          CARD8 val;
-
           XEvent xM;
           memset(&xM, 0, sizeof(XEvent));
 
-          for (i = 0; i < DOWN_LENGTH; i++) /* input.h */
+          for (int i = 0; i < DOWN_LENGTH; i++) /* input.h */
           {
-            val = inputInfo.keyboard->key->down[i];
+            CARD8 val = inputInfo.keyboard->key->down[i];
 
             if (val != 0)
             {
-              for (k = 0; k < 8; k++)
+              for (int k = 0; k < 8; k++)
               {
-                if (val & (mask << k))
+                if (val & (1 << k))
                 {
                   #ifdef NXAGENT_FIXKEYS_DEBUG
                   fprintf(stderr, "sending KeyRelease event for keycode: %x\n",
@@ -3728,14 +3722,13 @@ int nxagentHandleReparentNotify(XEvent* X)
 
 void nxagentEnableKeyboardEvents(void)
 {
-  int i;
   Mask mask = nxagentGetDefaultEventMask();
 
   mask |= NXAGENT_KEYBOARD_EVENT_MASK;
 
   nxagentSetDefaultEventMask(mask);
 
-  for (i = 0; i < nxagentNumScreens; i++)
+  for (int i = 0; i < nxagentNumScreens; i++)
   {
     XSelectInput(nxagentDisplay, nxagentDefaultWindows[i], mask);
   }
@@ -3747,14 +3740,13 @@ void nxagentEnableKeyboardEvents(void)
 
 void nxagentDisableKeyboardEvents(void)
 {
-  int i;
   Mask mask = nxagentGetDefaultEventMask();
 
   mask &= ~NXAGENT_KEYBOARD_EVENT_MASK;
 
   nxagentSetDefaultEventMask(mask);
 
-  for (i = 0; i < nxagentNumScreens; i++)
+  for (int i = 0; i < nxagentNumScreens; i++)
   {
     XSelectInput(nxagentDisplay, nxagentDefaultWindows[i], mask);
   }
@@ -3764,14 +3756,13 @@ void nxagentDisableKeyboardEvents(void)
 
 void nxagentEnablePointerEvents(void)
 {
-  int i;
   Mask mask = nxagentGetDefaultEventMask();
 
   mask |= NXAGENT_POINTER_EVENT_MASK;
 
   nxagentSetDefaultEventMask(mask);
 
-  for (i = 0; i < nxagentNumScreens; i++)
+  for (int i = 0; i < nxagentNumScreens; i++)
   {
     XSelectInput(nxagentDisplay, nxagentDefaultWindows[i], mask);
   }
@@ -3779,14 +3770,13 @@ void nxagentEnablePointerEvents(void)
 
 void nxagentDisablePointerEvents(void)
 {
-  int i;
   Mask mask = nxagentGetDefaultEventMask();
 
   mask &= ~NXAGENT_POINTER_EVENT_MASK;
 
   nxagentSetDefaultEventMask(mask);
 
-  for (i = 0; i < nxagentNumScreens; i++)
+  for (int i = 0; i < nxagentNumScreens; i++)
   {
     XSelectInput(nxagentDisplay, nxagentDefaultWindows[i], mask);
   }
@@ -4169,12 +4159,9 @@ void nxagentSynchronizeExpose(void)
 
 int nxagentLookupByWindow(WindowPtr pWin)
 {
-  int i;
-  int j;
-
-  for (j = 0; j < nxagentExposeQueue.length; j++)
+  for (int j = 0; j < nxagentExposeQueue.length; j++)
   {
-    i = (nxagentExposeQueue.start + j) % EXPOSED_SIZE;
+    int i = (nxagentExposeQueue.start + j) % EXPOSED_SIZE;
 
     if (nxagentExposeQueue.exposures[i].pWindow == pWin &&
             !nxagentExposeQueue.exposures[i].remoteRegionIsCompleted)
@@ -4654,9 +4641,6 @@ static const char *nxagentGrabStateToString(int state)
 
 void nxagentDumpInputDevicesState(void)
 {
-  int i, k;
-  int mask = 1;
-  CARD8 val;
   DeviceIntPtr dev;
   GrabPtr grab;
   WindowPtr pWin = NULL;
@@ -4666,15 +4650,15 @@ void nxagentDumpInputDevicesState(void)
 
   dev = inputInfo.keyboard;
 
-  for (i = 0; i < DOWN_LENGTH; i++)
+  for (int i = 0; i < DOWN_LENGTH; i++)
   {
-    val = dev -> key -> down[i];
+    CARD8 val = dev -> key -> down[i];
 
     if (val != 0)
     {
-      for (k = 0; k < 8; k++)
+      for (int k = 0; k < 8; k++)
       {
-        if (val & (mask << k))
+        if (val & (1 << k))
         {
           fprintf(stderr, "\n\t[%d] [%s]", i * 8 + k,
                       XKeysymToString(XKeycodeToKeysym(nxagentDisplay, i * 8 + k, 0)));
@@ -4727,15 +4711,15 @@ void nxagentDumpInputDevicesState(void)
 
   dev = inputInfo.pointer;
 
-  for (i = 0; i < DOWN_LENGTH; i++)
+  for (int i = 0; i < DOWN_LENGTH; i++)
   {
-    val = dev -> button -> down[i];
+    CARD8 val = dev -> button -> down[i];
 
     if (val != 0)
     {
-      for (k = 0; k < 8; k++)
+      for (int k = 0; k < 8; k++)
       {
-        if (val & (mask << k))
+        if (val & (1 << k))
         {
           fprintf(stderr, "\n\t[%d]", i * 8 + k);
         }
