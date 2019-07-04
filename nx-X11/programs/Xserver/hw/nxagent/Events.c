@@ -4640,24 +4640,15 @@ static const char *nxagentGrabStateToString(int state)
 {
   switch (state)
   {
-    case 0:
-      return "NOT_GRABBED";
-    case 1:
-      return "THAWED";
-    case 2:
-      return "THAWED_BOTH";
-    case 3:
-      return "FREEZE_NEXT_EVENT";
-    case 4:
-      return "FREEZE_BOTH_NEXT_EVENT";
-    case 5:
-      return "FROZEN_NO_EVENT";
-    case 6:
-      return "FROZEN_WITH_EVENT";
-    case 7:
-      return "THAW_OTHERS";
-    default:
-      return "unknown state";
+    case 0:   return "NOT_GRABBED";
+    case 1:   return "THAWED";
+    case 2:   return "THAWED_BOTH";
+    case 3:   return "FREEZE_NEXT_EVENT";
+    case 4:   return "FREEZE_BOTH_NEXT_EVENT";
+    case 5:   return "FROZEN_NO_EVENT";
+    case 6:   return "FROZEN_WITH_EVENT";
+    case 7:   return "THAW_OTHERS";
+    default:  return "unknown state";
   }
 }
 
