@@ -2883,11 +2883,7 @@ int nxagentHandleXFixesSelectionNotify(XEvent *X)
 
   if (SelectionCallback)
   {
-    int i = 0;
-
-    while ((i < NumCurrentSelections) &&
-            CurrentSelections[i].selection != local)
-      i++;
+    int i = nxagentFindCurrentSelectionIndex(local);
 
     if (i < NumCurrentSelections)
     {
