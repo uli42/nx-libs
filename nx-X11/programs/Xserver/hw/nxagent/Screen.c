@@ -4742,9 +4742,7 @@ void nxagentShadowAdaptToRatio(void)
 
 void nxagentPrintGeometry(void)
 {
-  int i;
-
-  for (i = 0; i < screenInfo.numScreens; i++)
+  for (int i = 0; i < screenInfo.numScreens; i++)
   {
     if (nxagentPrintGeometryFlags & (1 << i))
     {
