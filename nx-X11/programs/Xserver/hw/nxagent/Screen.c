@@ -3945,6 +3945,7 @@ int nxagentChangeScreenConfig(int screen, int width, int height)
   UpdateCurrentTime();
 
   #ifdef DEBUG
+  /* FIXME: there's a function called nxagentGrabStateToString in Events.c, maybe that could be used here */
   if (nxagentGrabServerInfo.grabstate == SERVER_GRABBED)
     fprintf(stderr, "nxagentChangeScreenConfig: grabstate [SERVER_GRABBED], client [%p]\n", (void *) nxagentGrabServerInfo.client);
   else if (nxagentGrabServerInfo.grabstate == SERVER_UNGRABBED)
