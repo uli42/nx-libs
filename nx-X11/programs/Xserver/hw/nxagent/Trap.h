@@ -47,7 +47,7 @@ extern int nxagentScreenTrap;
  * implementation is faulty.
  */
 
-extern int nxagentRenderTrap;
+extern int nxagentRenderIsFaulty;
 
 /*
  * Set if we are executing a GC operation

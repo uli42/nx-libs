@@ -101,7 +101,7 @@ ProcQueryExtension(ClientPtr client)
              * is faulty.
              */
 
-            || (nxagentRenderTrap && strcmp(extensions[i]->name, "RENDER") == 0)
+            || (nxagentRenderIsFaulty && strcmp(extensions[i]->name, "RENDER") == 0)
 #ifdef XCSECURITY
 	    /* don't show insecure extensions to untrusted clients */
 	    || (client->trustLevel == XSecurityClientUntrusted &&
@@ -154,7 +154,7 @@ ProcListExtensions(ClientPtr client)
              * is faulty.
              */
 
-            if (nxagentRenderTrap && strcmp(extensions[i]->name, "RENDER") == 0)
+            if (nxagentRenderIsFaulty && strcmp(extensions[i]->name, "RENDER") == 0)
                 continue;
 
 	    total_length += strlen(extensions[i]->name) + 1;

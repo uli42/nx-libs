@@ -343,13 +343,13 @@ PixmapPtr nxagentCreatePixmap(ScreenPtr pScreen, int width, int height,
                            usage_hint);
     #endif
 
-    if (!nxagentRenderTrap)
+    if (!nxagentRenderIsFaulty)
     {
       #ifdef WARNING
       fprintf(stderr, "Warning: Disabling render extension due to missing pixmap format.\n");
       #endif
 
-      nxagentRenderTrap = 1;
+      nxagentRenderIsFaulty = 1;
     }
 
     nxagentDestroyPixmap(pPixmap);

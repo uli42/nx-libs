@@ -1674,7 +1674,7 @@ ProcRenderDispatch (ClientPtr client)
      * hiding the RENDER extension.
      */
     
-    if (nxagentRenderTrap)
+    if (nxagentRenderIsFaulty)
     {
         return BadRequest;
     }
@@ -1716,7 +1716,7 @@ SProcRenderDispatch (ClientPtr client)
      * hiding the RENDER extension.
      */
     
-    if (nxagentRenderTrap)
+    if (nxagentRenderIsFaulty)
     {
         return BadRequest;
     }

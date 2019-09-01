@@ -46,7 +46,7 @@ int nxagentScreenTrap = 0;
  * implementation is faulty.
  */
 
-int nxagentRenderTrap = 0;
+int nxagentRenderIsFaulty = 0;
 
 /*
  * Set if we are executing a GC operation
