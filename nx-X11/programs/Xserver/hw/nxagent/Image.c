@@ -171,7 +171,6 @@ typedef struct _ImageStatisticsRec
   double totalMatches;
   double totalEncoded;
   double totalAdded;
-
 } ImageStatisticsRec;
 
 ImageStatisticsRec nxagentImageStatistics;
@@ -256,7 +255,6 @@ int nxagentImageLength(int width, int height, int format, int leftPad, int depth
   else if (format == XYPixmap)
   {
     line  = BitmapBytePad(width + leftPad);
-
     line *= depth;
   }
   else if (format == ZPixmap)
@@ -708,7 +706,6 @@ FIXME: Temporarily stream the GLX data.
   #endif
 
   #ifdef TEST
-
   if (split == 1)
   {
     fprintf(stderr, "nxagentPutImage: Splitting the image with size [%d] "
@@ -889,7 +886,6 @@ void nxagentRealizeImage(DrawablePtr pDrawable, GCPtr pGC, int depth,
   RegionPtr clipRegion = NullRegion;
 
   XImage *image = NULL;
-
 
   if (NXDisplayError(nxagentDisplay) == 1)
   {
