@@ -325,16 +325,13 @@ void nxagentEndRedirectToClientsLog(void)
 
 char *nxagentGetHomePath(void)
 {
-  char *homeEnv;
-  char *homePath;
-
   if (*nxagentHomeDir == '\0')
   {
     /*
      * Check the NX_HOME environment.
      */
 
-    homeEnv = getenv("NX_HOME");
+    char *homeEnv = getenv("NX_HOME");
 
     if (homeEnv == NULL || *homeEnv == '\0')
     {
@@ -369,7 +366,7 @@ char *nxagentGetHomePath(void)
     #endif
   }
 
-  homePath = strdup(nxagentHomeDir);
+  char *homePath = strdup(nxagentHomeDir);
 
   if (homePath == NULL)
   {
@@ -385,19 +382,13 @@ char *nxagentGetHomePath(void)
 
 char *nxagentGetRootPath(void)
 {
-  char *rootEnv;
-  char *homeEnv;
-  char *rootPath;
-
-  struct stat dirStat;
-
   if (*nxagentRootDir == '\0')
   {
     /*
      * Check the NX_ROOT environment.
      */
 
-    rootEnv = getenv("NX_ROOT");
+    char *rootEnv = getenv("NX_ROOT");
 
     if (rootEnv == NULL || *rootEnv == '\0')
     {
@@ -411,7 +402,7 @@ char *nxagentGetRootPath(void)
        * settings.
        */
 
-      homeEnv = nxagentGetHomePath();
+      char *homeEnv = nxagentGetHomePath();
 
       if (homeEnv == NULL)
       {
@@ -443,6 +434,7 @@ char *nxagentGetRootPath(void)
        * Create the NX root directory.
        */
 
+      struct stat dirStat;
       if ((stat(nxagentRootDir, &dirStat) == -1) && (errno == ENOENT))
       {
         if (mkdir(nxagentRootDir, 0777) < 0 && (errno != EEXIST))
@@ -478,7 +470,7 @@ char *nxagentGetRootPath(void)
 
   }
 
-  rootPath = strdup(nxagentRootDir);
+  char *rootPath = strdup(nxagentRootDir);
 
   if (rootPath == NULL)
   {
@@ -494,12 +486,6 @@ char *nxagentGetRootPath(void)
 
 char *nxagentGetSessionPath(void)
 {
-
-  char *rootPath;
-  char *sessionPath;
-
-  struct stat dirStat;
-
   if (*nxagentSessionDir == '\0')
   {
     /*
@@ -517,7 +503,7 @@ char *nxagentGetSessionPath(void)
       return NULL;
     }
 
-    rootPath = nxagentGetRootPath();
+    char *rootPath = nxagentGetRootPath();
 
     if (rootPath == NULL)
     {
@@ -543,6 +529,7 @@ char *nxagentGetSessionPath(void)
 
     SAFE_free(rootPath);
 
+    struct stat dirStat;
     if ((stat(nxagentSessionDir, &dirStat) == -1) && (errno == ENOENT))
     {
       if (mkdir(nxagentSessionDir, 0777) < 0 && (errno != EEXIST))
@@ -563,7 +550,7 @@ char *nxagentGetSessionPath(void)
 
   }
 
-  sessionPath = strdup(nxagentSessionDir);
+  char *sessionPath = strdup(nxagentSessionDir);
 
   if (sessionPath == NULL)
   {
@@ -579,7 +566,6 @@ char *nxagentGetSessionPath(void)
 
 void nxagentGetClientsPath(void)
 {
-
   if (*nxagentClientsLogName == '\0')
   {
     char *sessionPath = nxagentGetSessionPath();
