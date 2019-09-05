@@ -250,13 +250,11 @@ void nxagentCheckIfShadowAgent(ClientPtr client)
 
 void nxagentWakeupByReconnect(void)
 {
-  int i;
-
   #ifdef TEST
   fprintf(stderr, "++++++nxagentWakeupByReconnect: Going to wakeup all clients.\n");
   #endif
 
-  for (i = 1; i < currentMaxClients; i++)
+  for (int i = 1; i < currentMaxClients; i++)
   {
     if (clients[i] != NULL)
     {
@@ -490,15 +488,13 @@ void nxagentCheckRestartedClients(struct timeval **timeout)
 {
   static struct timeval zero;
 
-  int i;
-
   /*
    * If any of the restarted clients had requests in input we'll need
    * to enter the select with a null timeout, or we will block until
    * any other client becomes available.
    */
 
-  for (i = 1; i < currentMaxClients; i++)
+  for (int i = 1; i < currentMaxClients; i++)
   {
     if (clients[i] != NULL && clients[i] -> osPrivate != NULL &&
            nxagentNeedWakeup(clients[i]) == 0)
