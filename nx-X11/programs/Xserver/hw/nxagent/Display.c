@@ -2066,7 +2066,6 @@ static int nxagentCheckForDefaultDepthCompatibility(void)
                     "is [%d], former default depth value is [%d].\n", tolerance,
             ToleranceChecksBypass, dDepth, nxagentDefaultDepthRecBackup);
     #endif
-
     return 1;
   }
 
@@ -2076,7 +2075,6 @@ static int nxagentCheckForDefaultDepthCompatibility(void)
     fprintf(stderr, "nxagentCheckForDefaultDepthCompatibility: New default depth [%d] "
                 "matches with old default depth.\n", dDepth);
     #endif
-
     return 1;
   }
   else if ((ToleranceChecksSafe <= tolerance) && (nxagentDefaultDepthRecBackup < dDepth))
@@ -2086,7 +2084,6 @@ static int nxagentCheckForDefaultDepthCompatibility(void)
                     "higher than the old default depth [%d] at tolerance [%u].\n", dDepth,
             nxagentDefaultDepthRecBackup, tolerance);
     #endif
-
     return 1;
   }
   else
@@ -2096,7 +2093,6 @@ static int nxagentCheckForDefaultDepthCompatibility(void)
                 "doesn't match with old default depth [%d] at tolerance [%u].\n", dDepth,
             nxagentDefaultDepthRecBackup, tolerance);
     #endif
-
     return 0;
   }
 }
@@ -2130,7 +2126,6 @@ static int nxagentCheckForDepthsCompatibility(void)
                     "is [%d], number of old depths is [%d].\n", tolerance, ToleranceChecksBypass,
             nxagentNumDepths, nxagentNumDepthsRecBackup);
     #endif
-
     return 1;
   }
 
@@ -2142,7 +2137,6 @@ static int nxagentCheckForDepthsCompatibility(void)
                     "depths [%d].\n", nxagentNumDepths,
             nxagentNumDepthsRecBackup);
     #endif
-
     return 0;
   }
 
@@ -2154,7 +2148,6 @@ static int nxagentCheckForDepthsCompatibility(void)
                     "lower than number of old depths [%d].\n", tolerance,
             nxagentNumDepths, nxagentNumDepthsRecBackup);
     #endif
-
     return 0;
   }
 
@@ -2287,7 +2280,6 @@ static int nxagentCheckForPixmapFormatsCompatibility(void)
                     "pixmap formats is [%d], number of externally available pixmap formats is [%d].\n",
             tolerance, ToleranceChecksBypass, nxagentNumPixmapFormats, nxagentRemoteNumPixmapFormats);
     #endif
-
     return 1;
   }
 
@@ -2298,7 +2290,6 @@ static int nxagentCheckForPixmapFormatsCompatibility(void)
                     "of internal pixmap formats [%d] doesn't match with number of remote formats [%d].\n",
             nxagentNumPixmapFormats, nxagentRemoteNumPixmapFormats);
     #endif
-
     return 0;
   }
 
@@ -2309,7 +2300,6 @@ static int nxagentCheckForPixmapFormatsCompatibility(void)
                     "and number of internal pixmap formats [%d] higher than number of external formats [%d].\n",
             tolerance, nxagentNumPixmapFormats, nxagentRemoteNumPixmapFormats);
     #endif
-
     return 0;
   }
 
@@ -2500,7 +2490,6 @@ static int nxagentCheckForColormapsCompatibility(int flexibility)
     fprintf(stderr, "nxagentCheckForColormapsCompatibility: Number of new colormaps [%d] "
                 "matches with old colormaps.\n", nxagentNumDefaultColormaps);
     #endif
-
     return 1;
   }
   else
