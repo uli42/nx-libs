@@ -152,8 +152,8 @@ Drawable nxagentDefaultDrawables[MAXDEPTH + 1];
 Pixmap nxagentScreenSaverPixmap;
 
 /*
- * Also used in Cursor.c. There are huge problems
- * using GC definition. This is to be reworked.
+ * Also used in Cursor.c. There are huge problems using GC
+ * definition. This is to be reworked.
  */
 
 XlibGC nxagentBitmapGC;
@@ -212,20 +212,18 @@ int nxagentServerOrder(void)
 }
 
 /*
- * FIXME: This error handler is not printing anything
- * in the session log. This is OK once the session is
- * started, because the error is handled by the other
- * layers, but not before that point, as the agent
- * would die without giving any feedback to the user
- * (or, worse, to the NX server). We should check how
- * many requests have been handled for this display
- * and print a message if the display dies before the
- * session is up and running.
+ * FIXME: This error handler is not printing anything in the session
+ * log. This is OK once the session is started, because the error is
+ * handled by the other layers, but not before that point, as the
+ * agent would die without giving any feedback to the user (or, worse,
+ * to the NX server). We should check how many requests have been
+ * handled for this display and print a message if the display dies
+ * before the session is up and running.
  */
 
 /*
- * FIXME: This should be moved to Error.c, The other
- * handlers should be probably moved to Handlers.c.
+ * FIXME: This should be moved to Error.c, The other handlers should
+ * be probably moved to Handlers.c.
  */
 
 int nxagentIOErrorHandler(Display *display)
@@ -246,11 +244,9 @@ int nxagentIOErrorHandler(Display *display)
 }
 
 /*
- * Force a shutdown of any connection attempt
- * while connecting to the remote display.
- * This is needed to avoid a hang up in case
- * of loopback connections to our own listen-
- * ing sockets.
+ * Force a shutdown of any connection attempt while connecting to the
+ * remote display.  This is needed to avoid a hang up in case of
+ * loopback connections to our own listen- ing sockets.
  */
 
 static void nxagentRejectConnection(int signal)
@@ -266,16 +262,15 @@ static void nxagentRejectConnection(int signal)
   #endif
 
   /*
-   * A further timeout is unlikely to happen
-   * in the case of loopback connections.
+   * A further timeout is unlikely to happen in the case of loopback
+   * connections.
    */
 
   alarm(5);
 }
 
 /*
- * Ignore the signal if the NX transport is
- * not running.
+ * Ignore the signal if the NX transport is not running.
  */
 
 static void nxagentSigusrHandler(int signal)
@@ -575,22 +570,19 @@ Display *nxagentInternalOpenDisplay(char *display)
   int result;
 
   /*
-   * Stop the smart schedule timer since
-   * it uses SIGALRM as we do.
+   * Stop the smart schedule timer since it uses SIGALRM as we do.
    */
 
   nxagentStopTimer();
 
   /*
-   * Install the handler rejecting a possible
-   * loopback connection.
+   * Install the handler rejecting a possible loopback connection.
    */
 /*
-FIXME: Should print a warning if the user tries to let
-       the agent impersonate the same display as the
-       display where the agent is supposed to connect.
-       We actually handle this by means of RejectWell-
-       KnownSockets() but without giving a friendly
+FIXME: Should print a warning if the user tries to let the agent
+       impersonate the same display as the display where the agent is
+       supposed to connect.  We actually handle this by means of
+       RejectWellKnownSockets() but without giving a friendly
        explanation for the error to the user.
 */
 
@@ -646,9 +638,8 @@ static void nxagentDisplayBlockHandler(Display *display, int reason)
   if (nxagentDisplay != NULL)
   {
     /*
-     * Don't allow the smart schedule to
-     * interrupt the agent while waiting
-     * for the remote display.
+     * Don't allow the smart schedule to interrupt the agent while
+     * waiting for the remote display.
      */
 
     #ifdef DEBUG
@@ -675,8 +666,7 @@ static void nxagentDisplayBlockHandler(Display *display, int reason)
       {
 
         /*
-         * Let the dispatch attend the next
-         * client.
+         * Let the dispatch attend the next client.
          */
 
         #ifdef DEBUG
@@ -804,18 +794,17 @@ static int nxagentDisplayErrorPredicate(Display *display, int error)
 void nxagentInstallDisplayHandlers(void)
 {
   /*
-   * If the display was already opened, be sure
-   * all structures are freed.
+   * If the display was already opened, be sure all structures are
+   * freed.
    */
 
   nxagentResetDisplayHandlers();
 
   /*
-   * We want the Xlib I/O error handler to return,
-   * instead of quitting the application. Using
-   * setjmp()/longjmp() leaves the door open to
-   * unexpected bugs when dealing with interaction
-   * with the other X server layers.
+   * We want the Xlib I/O error handler to return, instead of quitting
+   * the application. Using setjmp()/longjmp() leaves the door open to
+   * unexpected bugs when dealing with interaction with the other X
+   * server layers.
    */
 
   NXHandleDisplayError(1);
@@ -833,14 +822,12 @@ void nxagentInstallDisplayHandlers(void)
   XSetIOErrorHandler(nxagentIOErrorHandler);
 
   /*
-   * Let Xlib become aware of our interrupts. In theory
-   * we don't need to have the error handler installed
-   * during the normal operations and could simply let
-   * the dispatcher handle the interrupts. In practice
-   * it's better to have Xlib invalidating the display
-   * as soon as possible rather than incurring in the
-   * risk of entering a loop that doesn't care checking
-   * the display errors explicitly.
+   * Let Xlib become aware of our interrupts. In theory we don't need
+   * to have the error handler installed during the normal operations
+   * and could simply let the dispatcher handle the interrupts. In
+   * practice it's better to have Xlib invalidating the display as
+   * soon as possible rather than incurring in the risk of entering a
+   * loop that doesn't care checking the display errors explicitly.
    */
 
   #ifdef TEST
@@ -853,8 +840,8 @@ void nxagentInstallDisplayHandlers(void)
 void nxagentPostInstallDisplayHandlers(void)
 {
   /*
-   * This is executed after having opened the
-   * display, once we know the display address.
+   * This is executed after having opened the display, once we know
+   * the display address.
    */
 
   if (nxagentDisplay != NULL)
@@ -886,15 +873,13 @@ void nxagentResetDisplayHandlers(void)
   if (nxagentDisplay != NULL)
   {
     /*
-     * Free the internal nxcompext
-     * structures.
+     * Free the internal nxcompext structures.
      */
 
     NXResetDisplay(nxagentDisplay);
 
     /*
-     * Remove the display descriptor
-     * from the listened sockets.
+     * Remove the display descriptor from the listened sockets.
      */
 
     nxagentRemoveXConnection();
@@ -917,8 +902,7 @@ void nxagentResetDisplayHandlers(void)
   nxagentCongestion = 0;
 
   /*
-   * Reset the counter of synchronization
-   * requests pending.
+   * Reset the counter of synchronization requests pending.
    */
 
   nxagentTokens.soft    = 0;
@@ -942,9 +926,8 @@ void nxagentInstallSignalHandlers(void)
   #endif
 
   /*
-   * Keep the default X server's handlers for
-   * SIGINT and SIGTERM and restore the other
-   * signals of interest to our defaults.
+   * Keep the default X server's handlers for SIGINT and SIGTERM and
+   * restore the other signals of interest to our defaults.
    */
 
   struct sigaction newAction;
@@ -952,9 +935,9 @@ void nxagentInstallSignalHandlers(void)
   int result;
 
   /*
-   * By default nxcomp installs its signal handlers.
-   * We need to ensure that SIGUSR1 and SIGUSR2 are
-   * ignored if the NX transport is not running.
+   * By default nxcomp installs its signal handlers.  We need to
+   * ensure that SIGUSR1 and SIGUSR2 are ignored if the NX transport
+   * is not running.
    */
 
   newAction.sa_handler = nxagentSigusrHandler;
@@ -998,8 +981,7 @@ void nxagentInstallSignalHandlers(void)
   }
 
   /*
-   * Let the smart schedule set the SIGALRM
-   * handler again.
+   * Let the smart schedule set the SIGALRM handler again.
    */
 
   nxagentInitTimer();
@@ -1048,13 +1030,12 @@ void nxagentPostInstallSignalHandlers(void)
   #endif
 
   /*
-   * Reconfigure our signal handlers to work well
-   * with the NX transport.
+   * Reconfigure our signal handlers to work well with the NX
+   * transport.
    *
-   * Let our handlers manage the SIGINT and SIGTERM.
-   * The following calls will tell the NX transport
-   * to restore the old handlers (those originally
-   * installed by us or the X server).
+   * Let our handlers manage the SIGINT and SIGTERM.  The following
+   * calls will tell the NX transport to restore the old handlers
+   * (those originally installed by us or the X server).
    */
 
   NXTransSignal(SIGINT,  NX_SIGNAL_DISABLE);
@@ -1067,16 +1048,14 @@ void nxagentPostInstallSignalHandlers(void)
   NXTransSignal(SIGHUP, NX_SIGNAL_DISABLE);
 
   /*
-   * Both the proxy and the agent need to catch
-   * their children, so we'll have to send the
-   * signal to transport.
+   * Both the proxy and the agent need to catch their children, so
+   * we'll have to send the signal to transport.
    */
 
   NXTransSignal(SIGCHLD, NX_SIGNAL_DISABLE);
 
   /*
-   * Let the NX transport take care of SIGUSR1
-   * and SIGUSR2.
+   * Let the NX transport take care of SIGUSR1 and SIGUSR2.
    */
 }
 
@@ -1089,8 +1068,7 @@ void nxagentResetSignalHandlers(void)
   memset(&newAction, 0, sizeof(newAction));
 
   /*
-   * Reset the signal handlers
-   * to a well known state.
+   * Reset the signal handlers to a well known state.
    */
 
   #ifdef TEST
@@ -1116,8 +1094,7 @@ void nxagentResetSignalHandlers(void)
   }
 
   /*
-   * Let the smart schedule set the SIGALRM
-   * handler again.
+   * Let the smart schedule set the SIGALRM handler again.
    */
 
   nxagentInitTimer();
@@ -1140,8 +1117,8 @@ void nxagentOpenDisplay(int argc, char *argv[])
   #endif
 
   /*
-   * Initialize the reconnector only in the case
-   * of persistent sessions.
+   * Initialize the reconnector only in the case of persistent
+   * sessions.
    */
 
   if (nxagentOption(Persistent))
@@ -1169,8 +1146,8 @@ void nxagentOpenDisplay(int argc, char *argv[])
   if (nxagentDisplay == NULL)
   {
 /*
-FIXME: The agent should never exit the program with a FatalError()
-       but rather use a specific function that may eventually call
+FIXME: The agent should never exit the program with a FatalError() but
+       rather use a specific function that may eventually call
        FatalError() on its turn.
 */
     FatalError("Unable to open display '%s'.\n", nxagentDisplayName);
@@ -1217,9 +1194,8 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
                                  DefaultScreenOfDisplay(nxagentDisplay));
 
   /*
-   * Processing the arguments all the timeouts
-   * have been set. Now we have to change the
-   * screen-saver timeout.
+   * Processing the arguments all the timeouts have been set. Now we
+   * have to change the screen-saver timeout.
    */
 
   nxagentSetScreenSaverTime();
@@ -1311,16 +1287,15 @@ FIXME: Use of nxagentParentWindow is strongly deprecated.
   #endif
 
   /*
-   * This GC is referenced in Cursor.c. It can be
-   * probably removed.
+   * This GC is referenced in Cursor.c. It can be probably removed.
    */
 
   nxagentBitmapGC = XCreateGC(nxagentDisplay, nxagentDefaultDrawables[1], 0L, NULL);
 
   /*
-   * Note that this "confine window" is useless at the
-   * moment as we reimplement nxagentConstrainCursor()
-   * to skip the "constrain" stuff.
+   * Note that this "confine window" is useless at the moment as we
+   * reimplement nxagentConstrainCursor() to skip the "constrain"
+   * stuff.
    */
 
   #ifdef TEST
@@ -1584,10 +1559,10 @@ void nxagentInitPixmapFormats(void)
   int depth;
 
   /*
-   * Formats are created with no care of which are supported
-   * on the real display. Creating only formats supported
-   * by the remote end makes troublesome handling migration
-   * of session from a display to another.
+   * Formats are created with no care of which are supported on the
+   * real display. Creating only formats supported by the remote end
+   * makes troublesome handling migration of session from a display to
+   * another.
    */
 
   nxagentNumPixmapFormats = 0;
@@ -1750,11 +1725,9 @@ void nxagentCloseDisplay(void)
   }
 
   /*
-   * If nxagentDoFullGeneration is true, all
-   * the X resources will be destroyed upon
-   * closing the display connection, so there
-   * is no real need to generate additional
-   * traffic
+   * If nxagentDoFullGeneration is true, all the X resources will be
+   * destroyed upon closing the display connection, so there is no
+   * real need to generate additional traffic
    */
 
   SAFE_free(nxagentDefaultColormaps);
@@ -1771,14 +1744,12 @@ FIXME: Is this needed?
 */
 
   /*
-   * Free the image cache. This is useful
-   * for detecting memory leaks.
+   * Free the image cache. This is useful for detecting memory leaks.
    */
 
   if (nxagentDisplay != NULL)
   {
     NXFreeCache(nxagentDisplay);
-
     NXResetDisplay(nxagentDisplay);
   }
 
@@ -1983,14 +1954,11 @@ void nxagentBackupDisplayInfo(void)
   }
 
   /*
-   * Since we need the display structure
-   * in order to behave correctly when no X
-   * connection is available, we must always
-   * have a good display record.
-   * It can be discarded only when a new X
-   * connection is available, so we store it
-   * in order to destroy whenever the recon-
-   * nection succed.
+   * Since we need the display structure in order to behave correctly
+   * when no X connection is available, we must always have a good
+   * display record.  It can be discarded only when a new X connection
+   * is available, so we store it in order to destroy whenever the
+   * reconnection succeeds.
    */
 
   nxagentDisplayBackup = nxagentDisplay;
@@ -2072,9 +2040,8 @@ void nxagentDisconnectDisplay(void)
     case GOT_VISUAL_INFO:
     case OPENED:
       /*
-       * Actually we need the nxagentDisplay
-       * structure in order to let the agent
-       * go when no X connection is available.
+       * Actually we need the nxagentDisplay structure in order to let
+       * the agent go when no X connection is available.
        */
 
       if (nxagentDisplay &&
@@ -2098,14 +2065,13 @@ static int nxagentCheckForDefaultDepthCompatibility(void)
   /*
    * Depending on the (reconnect) tolerance checks value, this
    * function checks stricter or looser:
-   *   - Strict means that the old and new default depth values
-   *     must match exactly.
-   *   - Safe or Risky means that the default depth values might differ,
-   *     but the new default depth value must be at least as
-   *     high as the former default depth value. This is
-   *     recommended, because it allows clients with a
-   *     higher default depth value to still connect, but
-   *     not lose functionality.
+   *   - Strict means that the old and new default depth values must
+   *     match exactly.
+   *   - Safe or Risky means that the default depth values might
+   *     differ, but the new default depth value must be at least as
+   *     high as the former default depth value. This is recommended,
+   *     because it allows clients with a higher default depth value
+   *     to still connect, but not lose functionality.
    *   - Bypass means that all of these checks are essentially
    *     deactivated. This is probably a very bad idea.
    */
@@ -2164,18 +2130,16 @@ static int nxagentCheckForDepthsCompatibility(void)
   /*
    * Depending on the (reconnect) tolerance checks value, this
    * function checks stricter or looser:
-   *   - Strict means that the number of old and new depths must
-   *     match exactly and every old depth value must be
-   *     available in the new depth array.
-   *   - Safe means that the number of depths might diverge,
-   *     but all former depth must also be included in the
-   *     new depth array. This is recommended, because
-   *     it allows clients with more depths to still
-   *     connect, but not lose functionality.
+   *   - Strict means that the number of old and new depths must match
+   *     exactly and every old depth value must be available in the
+   *     new depth array.
+   *   - Safe means that the number of depths might diverge, but all
+   *     former depth must also be included in the new depth
+   *     array. This is recommended, because it allows clients with
+   *     more depths to still connect, but not lose functionality.
    *   - Risky means that the new depths array is allowed to be
-   *     smaller than the old depths array, but at least
-   *     one depth value must be included in both.
-   *     This is potentially unsafe.
+   *     smaller than the old depths array, but at least one depth
+   *     value must be included in both.  This is potentially unsafe.
    *   - Bypass or higher means that all of these checks are
    *     essentially deactivated. This is a very bad idea.
    */
@@ -2322,20 +2286,18 @@ static int nxagentCheckForPixmapFormatsCompatibility(void)
   /*
    * Depending on the (reconnect) tolerance checks value, this
    * function checks stricter or looser:
-   *   - Strict means that the number of internal and external
-   *     pixmap formats must match exactly and every
-   *     internal pixmap format must be available in the
-   *     external pixmap format array.
-   *   - Safe means that the number of pixmap formats might
-   *     diverge, but all internal pixmap formats must
-   *     also be included in the external pixmap formats
-   *     array. This is recommended, because it allows
-   *     clients with more pixmap formats to still connect,
+   *   - Strict means that the number of internal and external pixmap
+   *     formats must match exactly and every internal pixmap format
+   *     must be available in the external pixmap format array.
+   *   - Safe means that the number of pixmap formats might diverge,
+   *     but all internal pixmap formats must also be included in the
+   *     external pixmap formats array. This is recommended, because
+   *     it allows clients with more pixmap formats to still connect,
    *     but not lose functionality.
-   *   - Risky means that the internal pixmap formats array is
-   *     allowed to be smaller than the external pixmap
-   *     formats array, but at least one pixmap format must
-   *     be included in both. This is potentially unsafe.
+   *   - Risky means that the internal pixmap formats array is allowed
+   *     to be smaller than the external pixmap formats array, but at
+   *     least one pixmap format must be included in both. This is
+   *     potentially unsafe.
    *   - Bypass or higher means that all of these checks are
    *     essentially deactivated. This is a very bad idea.
    */
@@ -2481,10 +2443,9 @@ static int nxagentInitAndCheckVisuals(int flexibility)
       if (nxagentCompareVisuals(nxagentVisuals[i], viList[n]) == 1)
       {
 /*
-FIXME: Should the visual be ignored in this case?
-       We can flag the visuals with inverted masks,
-       and use this information to switch the masks
-       when contacting the remote X server.
+FIXME: Should the visual be ignored in this case?  We can flag the
+       visuals with inverted masks, and use this information to switch
+       the masks when contacting the remote X server.
 */
         if (nxagentVisuals[i].red_mask == viList[n].blue_mask &&
                 nxagentVisuals[i].blue_mask == viList[n].red_mask)
@@ -2656,9 +2617,8 @@ Bool nxagentReconnectDisplay(void *p0)
                                                  DefaultScreenOfDisplay(nxagentDisplay));
 
   /*
-   * After processing the arguments all the
-   * timeout values have been set. Now we
-   * have to change the screen-saver timeout.
+   * After processing the arguments all the timeout values have been
+   * set. Now we have to change the screen-saver timeout.
    */
 
   nxagentSetScreenSaverTime();
@@ -2739,8 +2699,7 @@ Bool nxagentReconnectDisplay(void *p0)
   SAFE_XFree(nxagentRemotePixmapFormats);
 
   /*
-   * Check if all the required pixmap
-   * formats are supported.
+   * Check if all the required pixmap formats are supported.
    */
 
   nxagentInitPixmapFormats();
@@ -2756,9 +2715,8 @@ Bool nxagentReconnectDisplay(void *p0)
   reconnectDisplayState = GOT_PIXMAP_FORMAT_LIST;
 
   /*
-   * Create a pixmap for each depth matching the
-   * local supported formats with format available
-   * on the remote display.
+   * Create a pixmap for each depth matching the local supported
+   * formats with format available on the remote display.
    */
 
   nxagentSetDefaultDrawables();
@@ -2786,12 +2744,11 @@ Bool nxagentReconnectDisplay(void *p0)
   nxagentWhitePixel = WhitePixel(nxagentDisplay, DefaultScreen(nxagentDisplay));
 
   /*
-   * Initialize the agent's event mask that will be requested
-   * for the root or all the top level windows. If the nested
-   * window is a child of an existing window we will need to
-   * receive StructureNotify events. If we are going to manage
-   * the changes in root window's visibility we'll also need
-   * VisibilityChange events.
+   * Initialize the agent's event mask that will be requested for the
+   * root or all the top level windows. If the nested window is a
+   * child of an existing window we will need to receive
+   * StructureNotify events. If we are going to manage the changes in
+   * root window's visibility we'll also need VisibilityChange events.
    */
 
   nxagentInitDefaultEventMask();
@@ -2821,8 +2778,7 @@ Bool nxagentReconnectDisplay(void *p0)
   useXpmIcon = nxagentMakeIcon(nxagentDisplay, &nxagentIconPixmap, &nxagentIconShape);
 
   /*
-   * All went fine. We can continue
-   * handling our clients.
+   * All went fine. We can continue handling our clients.
    */
 
   reconnectDisplayState = EVERYTHING_DONE;
@@ -2855,10 +2811,9 @@ void nxagentRemoveXConnection(void)
 }
 
 /*
- * Force an I/O error and wait until the NX trans-
- * port is gone. It must be called before suspend-
- * ing or terminating a session to ensure that the
- * NX transport is terminated first.
+ * Force an I/O error and wait until the NX transport is gone. It must
+ * be called before suspending or terminating a session to ensure that
+ * the NX transport is terminated first.
  */
 
 void nxagentWaitDisplay(void)
@@ -2896,27 +2851,25 @@ void nxagentWaitDisplay(void)
   #endif
 
   /*
-   * Be sure the signal handlers are
-   * in a known state.
+   * Be sure the signal handlers are in a known state.
    */
 
   nxagentResetSignalHandlers();
 }
 
 /*
- * This has not to do with the remote display but
- * with the X server that the agent is impersonating.
- * We have it here to be consistent with the other
- * cleanup procedures which have mainly to do with
- * the Xlib display connection.
+ * This has not to do with the remote display but with the X server
+ * that the agent is impersonating.  We have it here to be consistent
+ * with the other cleanup procedures which have mainly to do with the
+ * Xlib display connection.
  */
 
 void nxagentAbortDisplay(void)
 {
   /*
-   * Be sure the X server socket in .X11-unix is
-   * deleted otherwise other users may to become
-   * unable to run a session on the same display.
+   * Be sure the X server socket in .X11-unix is deleted otherwise
+   * other users may to become unable to run a session on the same
+   * display.
    */
 
   #ifdef TEST
