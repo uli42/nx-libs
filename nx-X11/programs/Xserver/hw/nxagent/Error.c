@@ -503,10 +503,9 @@ char *nxagentGetSessionPath(void)
   if (*nxagentSessionDir == '\0')
   {
     /*
-     * If nxagentSessionId does not exist we
-     * assume that the sessionPath cannot be
-     * realized and do not use the clients
-     * log file.
+     * If nxagentSessionId does not exist we assume that the
+     * sessionPath cannot be realized and do not use the clients log
+     * file.
      */
 
     if (*nxagentSessionId == '\0')
