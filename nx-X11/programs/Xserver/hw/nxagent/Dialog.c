@@ -312,8 +312,7 @@ void nxagentLaunchDialog(DialogType dialogType)
   }
 
   /*
-   * We don't want to receive SIGCHLD
-   * before we store the child pid.
+   * We don't want to receive SIGCHLD before we store the child pid.
    */
 
   sigemptyset(&set);
@@ -333,8 +332,7 @@ void nxagentLaunchDialog(DialogType dialogType)
   dialogDisplay[0] = '\0';
 
   /*
-   * Restore the previous set of
-   * blocked signal. 
+   * Restore the previous set of blocked signal.
    */
 
   sigprocmask(SIG_SETMASK, &oldSet, NULL);
@@ -372,8 +370,7 @@ void nxagentFailedReconnectionDialog(int alert, char *error)
     NXTransAlert(alert, NX_ALERT_REMOTE);
 
     /*
-     * Make it possible to interrupt the
-     * loop with a signal.
+     * Make it possible to interrupt the loop with a signal.
      */
 
     while (NXDisplayError(nxagentDisplay) == 0 &&
