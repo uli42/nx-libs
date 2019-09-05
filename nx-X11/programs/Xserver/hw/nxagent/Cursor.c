@@ -78,10 +78,8 @@ is" without express or implied warranty.
 #undef  DEBUG
 
 /*
- * Defined in Display.c. There are huge
- * problems mixing the GC definition in
- * Xlib with the server code. This must
- * be reworked.
+ * Defined in Display.c. There are huge problems mixing the GC
+ * definition in Xlib with the server code. This must be reworked.
  */
 
 extern XlibGC nxagentBitmapGC;
@@ -126,9 +124,8 @@ Bool nxagentDisplayCursor(ScreenPtr pScreen, CursorPtr pCursor)
 {
 
   /*
-   * Don't define the root cursor
-   * so that nxagent root window
-   * inherits the parent's cursor.
+   * Don't define the root cursor so that nxagent root window inherits
+   * the parent's cursor.
    */
 
   Cursor cursor;
