@@ -529,5 +529,4 @@ void nxagentCheckRestartedClients(struct timeval **timeout)
     }
   }
 }
-
 #endif
