@@ -198,7 +198,6 @@ void nxagentLaunchDialog(DialogType dialogType)
       type = DIALOG_KILL_SESSION_TYPE;
       local = DIALOG_KILL_SESSION_LOCAL;
       pid = &nxagentKillDialogPid;
-
       break;
     }
     case DIALOG_SUSPEND_SESSION:
@@ -207,7 +206,6 @@ void nxagentLaunchDialog(DialogType dialogType)
       type = DIALOG_SUSPEND_SESSION_TYPE;
       local = DIALOG_SUSPEND_SESSION_LOCAL;
       pid = &nxagentSuspendDialogPid;
-
       break;
     }
     case DIALOG_ROOTLESS:
@@ -216,7 +214,6 @@ void nxagentLaunchDialog(DialogType dialogType)
       type = DIALOG_ROOTLESS_TYPE;
       local = DIALOG_ROOTLESS_LOCAL;
       pid = &nxagentRootlessDialogPid;
-
       break;
     }
     case DIALOG_PULLDOWN:
@@ -226,7 +223,6 @@ void nxagentLaunchDialog(DialogType dialogType)
       local = DIALOG_PULLDOWN_LOCAL;
       pid = &nxagentPulldownDialogPid;
       window = nxagentPulldownWindow;
-
       break;
     }
     case DIALOG_FONT_REPLACEMENT:
@@ -235,7 +231,6 @@ void nxagentLaunchDialog(DialogType dialogType)
       type = DIALOG_FONT_REPLACEMENT_TYPE;
       local = DIALOG_FONT_REPLACEMENT_LOCAL;
       pid = &nxagentFontsReplacementDialogPid;
-
       break;
     }
     case DIALOG_FAILED_RECONNECTION:
@@ -244,7 +239,6 @@ void nxagentLaunchDialog(DialogType dialogType)
       type = DIALOG_FAILED_RECONNECTION_TYPE;
       local = DIALOG_FAILED_RECONNECTION_LOCAL;
       pid = &nxagentFailedReconnectionDialogPid;
-
       break;
     }
     case DIALOG_ENABLE_DESKTOP_RESIZE_MODE:
@@ -253,7 +247,6 @@ void nxagentLaunchDialog(DialogType dialogType)
       type = DIALOG_ENABLE_DESKTOP_RESIZE_MODE_TYPE;
       local = DIALOG_ENABLE_DESKTOP_RESIZE_MODE_LOCAL;
       pid = &nxagentEnableRandRModeDialogPid;
-
       break;
     }
     case DIALOG_DISABLE_DESKTOP_RESIZE_MODE:
@@ -262,7 +255,6 @@ void nxagentLaunchDialog(DialogType dialogType)
       type = DIALOG_DISABLE_DESKTOP_RESIZE_MODE_TYPE;
       local = DIALOG_DISABLE_DESKTOP_RESIZE_MODE_LOCAL;
       pid = &nxagentDisableRandRModeDialogPid;
-
       break;
     }
     case DIALOG_ENABLE_DEFER_MODE:
@@ -271,7 +263,6 @@ void nxagentLaunchDialog(DialogType dialogType)
       type = DIALOG_ENABLE_DEFER_MODE_TYPE;
       local = DIALOG_ENABLE_DEFER_MODE_LOCAL;
       pid = &nxagentEnableDeferModePid;
-
       break;
     }
     case DIALOG_DISABLE_DEFER_MODE:
@@ -280,7 +271,6 @@ void nxagentLaunchDialog(DialogType dialogType)
       type = DIALOG_DISABLE_DEFER_MODE_TYPE;
       local = DIALOG_DISABLE_DEFER_MODE_LOCAL;
       pid = &nxagentDisableDeferModePid;
-
       break;
     }
     case DIALOG_ENABLE_AUTOGRAB_MODE:
@@ -289,7 +279,6 @@ void nxagentLaunchDialog(DialogType dialogType)
       type = DIALOG_ENABLE_AUTOGRAB_MODE_TYPE;
       local = DIALOG_ENABLE_AUTOGRAB_MODE_LOCAL;
       pid = &nxagentEnableAutograbModePid;
-
       break;
     }
     case DIALOG_DISABLE_AUTOGRAB_MODE:
@@ -298,7 +287,6 @@ void nxagentLaunchDialog(DialogType dialogType)
       type = DIALOG_DISABLE_AUTOGRAB_MODE_TYPE;
       local = DIALOG_DISABLE_AUTOGRAB_MODE_LOCAL;
       pid = &nxagentDisableAutograbModePid;
-
       break;
     }
     default:
@@ -306,7 +294,6 @@ void nxagentLaunchDialog(DialogType dialogType)
       #ifdef WARNING
       fprintf(stderr, "nxagentLaunchDialog: Unknown Dialog type [%d].\n", dialogType);
       #endif
-
       return;
     }
   }
@@ -477,73 +464,61 @@ void nxagentTerminateDialog(DialogType type)
     case DIALOG_KILL_SESSION:
     {
       pid = nxagentKillDialogPid;
-
       break;
     }
     case DIALOG_SUSPEND_SESSION:
     {
       pid = nxagentSuspendDialogPid;
-
       break;
     }
     case DIALOG_ROOTLESS:
     {
       pid = nxagentRootlessDialogPid;
-
       break;
     }
     case DIALOG_PULLDOWN:
     {
       pid = nxagentPulldownDialogPid;
-
       break;
     }
     case DIALOG_FONT_REPLACEMENT:
     {
       pid = nxagentFontsReplacementDialogPid;
-
       break;
     }
     case DIALOG_FAILED_RECONNECTION:
     {
       pid = nxagentFailedReconnectionDialogPid;
-
       break;
     }
     case DIALOG_ENABLE_DESKTOP_RESIZE_MODE:
     {
       pid = nxagentEnableRandRModeDialogPid;
-
       break;
     }
     case DIALOG_DISABLE_DESKTOP_RESIZE_MODE:
     {
       pid = nxagentDisableRandRModeDialogPid;
-
       break;
     }
     case DIALOG_ENABLE_DEFER_MODE:
     {
       pid = nxagentEnableDeferModePid;
-
       break;
     }
     case DIALOG_DISABLE_DEFER_MODE:
     {
       pid = nxagentDisableDeferModePid;
-
       break;
     }
     case DIALOG_ENABLE_AUTOGRAB_MODE:
     {
       pid = nxagentEnableAutograbModePid;
-
       break;
     }
     case DIALOG_DISABLE_AUTOGRAB_MODE:
     {
       pid = nxagentDisableAutograbModePid;
-
       break;
     }
     default:
@@ -551,7 +526,6 @@ void nxagentTerminateDialog(DialogType type)
       #ifdef WARNING
       fprintf(stderr, "nxagentTerminateDialog: Unknown dialog type [%d].\n", type);
       #endif
-
       return;
     }
   }
