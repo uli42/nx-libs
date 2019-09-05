@@ -105,9 +105,8 @@
 #include "compext/Compext.h"
 
 /*
- * Set here the required log level. Please note
- * that if you want to enable DEBUG here, then
- * you need to enable DEBUG even in Rootless.c
+ * Set here the required log level. Please note that if you want to
+ * enable DEBUG here, then you need to enable DEBUG even in Rootless.c
  */
 
 #define PANIC
@@ -163,8 +162,7 @@ PropertyRequestRec nxagentPropertyRequests[NXNumberOfResources];
 void nxagentHandleCollectPropertyEvent(XEvent*);
 
 /*
- * Finalize the asynchronous handling
- * of the X_GrabPointer requests.
+ * Finalize the asynchronous handling of the X_GrabPointer requests.
  */
 
 void nxagentHandleCollectGrabPointerEvent(int resource);
@@ -172,8 +170,8 @@ void nxagentHandleCollectGrabPointerEvent(int resource);
 Bool nxagentCollectGrabPointerPredicate(Display *display, XEvent *X, XPointer ptr);
 
 /*
- * Used in Handlers.c to synchronize
- * the agent with the remote X server.
+ * Used in Handlers.c to synchronize the agent with the remote X
+ * server.
  */
 
 void nxagentHandleCollectInputFocusEvent(int resource);
@@ -193,12 +191,12 @@ static Cursor viewportCursor;
 #define nextinc(x)  ((x) < MAX_INC ? (x) += INC_STEP : (x))
 
 /*
- * Keyboard and pointer are handled as they were real devices by
- * Xnest and we inherit this behaviour. The following mask will
- * contain the event mask selected for the root window of the
- * agent. All the keyboard and pointer events will be translated
- * by the agent and sent to the internal clients according to
- * events selected by the inferior windows.
+ * Keyboard and pointer are handled as they were real devices by Xnest
+ * and we inherit this behaviour. The following mask will contain the
+ * event mask selected for the root window of the agent. All the
+ * keyboard and pointer events will be translated by the agent and
+ * sent to the internal clients according to events selected by the
+ * inferior windows.
  */
 
 static Mask defaultEventMask;
@@ -206,9 +204,8 @@ static Mask defaultEventMask;
 static int lastEventSerial = 0;
 
 /*
- * Used to mask the appropriate bits in
- * the state reported by XkbStateNotify
- * and XkbGetIndicatorState.
+ * Used to mask the appropriate bits in the state reported by
+ * XkbStateNotify and XkbGetIndicatorState.
  */
 
 #define CAPSFLAG_IN_REPLY     1
@@ -221,8 +218,8 @@ CARD32 nxagentLastKeyPressTime  = 0;
 Time   nxagentLastServerTime    = 0;
 
 /*
- * Used for storing windows that need to
- * receive expose events from the agent.
+ * Used for storing windows that need to receive expose events from
+ * the agent.
  */
 
 #define nxagentExposeQueueHead nxagentExposeQueue.exposures[nxagentExposeQueue.start]
@@ -246,16 +243,14 @@ int GetWindowProperty(WindowPtr pWin, Atom property, long longOffset,
                                       unsigned char **propData);
 
 /*
- * Associate a resource to a drawable and
- * store the region affected by the split
- * operation.
+ * Associate a resource to a drawable and store the region affected by
+ * the split operation.
  */
 
 SplitResourceRec nxagentSplitResources[NXNumberOfResources];
 
 /*
- * Associate a resource to an unpack
- * operation.
+ * Associate a resource to an unpack operation.
  */
 
 UnpackResourceRec nxagentUnpackResources[NXNumberOfResources];
@@ -269,8 +264,7 @@ Bool nxagentLastWindowDestroyed = False;
 Time nxagentLastWindowDestroyedTime = 0;
 
 /*
- * Set this flag when an user input event
- * is received.
+ * Set this flag when an user input event is received.
  */
 
 int nxagentInputEvent = 0;
@@ -728,9 +722,8 @@ static void nxagentToggleAutoGrab(void)
 static Bool nxagentExposurePredicate(Display *display, XEvent *event, XPointer window)
 {
   /*
-   *  Handle both Expose and ProcessedExpose events.
-   *  The latters are those not filtered by function
-   *  nxagentWindowExposures().
+   *  Handle both Expose and ProcessedExpose events.  The latters are
+   *  those not filtered by function nxagentWindowExposures().
    */
 
   if (window)
@@ -876,13 +869,11 @@ void nxagentDispatchEvents(PredicateFuncPtr predicate)
   }
 
   /*
-   * We must read here, even if apparently there is
-   * nothing to read. The ioctl() based readable
-   * function, in fact, is often unable to detect a
-   * failure of the socket, in particular if the
-   * agent was connected to the proxy and the proxy
-   * is gone. Thus we must trust the wakeup handler
-   * that called us after the select().
+   * We must read here, even if apparently there is nothing to
+   * read. The ioctl() based readable function, in fact, is often
+   * unable to detect a failure of the socket, in particular if the
+   * agent was connected to the proxy and the proxy is gone. Thus we
+   * must trust the wakeup handler that called us after the select().
    */
 
   #ifdef TEST
@@ -895,11 +886,10 @@ void nxagentDispatchEvents(PredicateFuncPtr predicate)
   #endif
 
   /*
-   * We want to process all the events already in
-   * the queue, plus any additional event that may
-   * be read from the network. If no event can be
-   * read, we want to continue handling our clients
-   * without flushing the output buffer.
+   * We want to process all the events already in the queue, plus any
+   * additional event that may be read from the network. If no event
+   * can be read, we want to continue handling our clients without
+   * flushing the output buffer.
    */
 
   while (nxagentCheckEvents(nxagentDisplay, &X, predicate != NULL ? predicate :
@@ -1126,13 +1116,11 @@ void nxagentDispatchEvents(PredicateFuncPtr predicate)
         }
 
         /*
-         * Elide multiple KeyPress/KeyRelease events of
-         * the same key and generate a single pair. This
-         * is intended to reduce the impact of the laten-
-         * cy on the key auto-repeat, handled by the re-
-         * mote X server. We may optionally do that only
-         * if the timestamps in the events show an exces-
-         * sive delay.
+         * Elide multiple KeyPress/KeyRelease events of the same key
+         * and generate a single pair. This is intended to reduce the
+         * impact of the latency on the key auto-repeat, handled by
+         * the remote X server. We may optionally do that only if the
+         * timestamps in the events show an exces- sive delay.
          */
 
         keysym = XKeycodeToKeysym(nxagentDisplay, X.xkey.keycode, 0);
@@ -1157,18 +1145,17 @@ void nxagentDispatchEvents(PredicateFuncPtr predicate)
         int sendKey = 0;
 
 /*
-FIXME: If we don't flush the queue here, it could happen
-       that the inputInfo structure will not be up to date
-       when we perform the following check on down keys.
+FIXME: If we don't flush the queue here, it could happen that the
+       inputInfo structure will not be up to date when we perform the
+       following check on down keys.
 */
         ProcessInputEvents();
 
 /*
-FIXME: Don't enqueue the KeyRelease event if the key was
-       not already pressed. This workaround avoids a fake
-       KeyPress being enqueued by the XKEYBOARD extension.
-       Another solution would be to let the events
-       enqueued and to remove the KeyPress afterwards.
+FIXME: Don't enqueue the KeyRelease event if the key was not already
+       pressed. This workaround avoids a fake KeyPress being enqueued
+       by the XKEYBOARD extension.  Another solution would be to let
+       the events enqueued and to remove the KeyPress afterwards.
 */
         if (BitIsOn(inputInfo.keyboard -> key -> down,
                        nxagentConvertKeycode(X.xkey.keycode)))
@@ -1206,9 +1193,9 @@ FIXME: Don't enqueue the KeyRelease event if the key was
           nxagentXkbNumTrap = 0;
         }
 
-        /* Calculate the time elapsed between this and the last event we
-           received. Add this delta to time we recorded for the last
-           KeyPress event we passed on to our clients.  */
+        /* Calculate the time elapsed between this and the last event
+           we received. Add this delta to time we recorded for the
+           last KeyPress event we passed on to our clients. */
         memset(&x, 0, sizeof(xEvent));
         x.u.u.type = KeyRelease;
         x.u.u.detail = nxagentConvertKeycode(X.xkey.keycode);
@@ -1564,9 +1551,9 @@ FIXME: Don't enqueue the KeyRelease event if the key was
         #endif
 
         /*
-         * Here we change the focus state in the agent.
-         * It looks like this is needed only for root-
-         * less mode at the present moment.
+         * Here we change the focus state in the agent.  It looks like
+         * this is needed only for rootless mode at the present
+         * moment.
          */
 
         if (nxagentOption(Rootless) &&
@@ -1743,9 +1730,9 @@ FIXME: Don't enqueue the KeyRelease event if the key was
                             pWin -> drawable.y != X.xcrossing.y_root - X.xcrossing.y - pWin -> borderWidth))
         {
           /*
-           * This code is useful for finding the window
-           * position. It should be re-implemented by
-           * following the ICCCM 4.1.5 recommendations.
+           * This code is useful for finding the window position. It
+           * should be re-implemented by following the ICCCM 4.1.5
+           * recommendations.
            */
 
           XID values[4];
@@ -2141,8 +2128,8 @@ FIXME: Don't enqueue the KeyRelease event if the key was
 
         /*
          * without window manager there will be no ConfigureNotify
-         * event that would trigger xinerama updates. So we do that once
-         * the nxagent window gets mapped.
+         * event that would trigger xinerama updates. So we do that
+         * once the nxagent window gets mapped.
          */
         if (!nxagentWMIsRunning &&
             X.xmap.window == nxagentDefaultWindows[nxagentScreen(X.xmap.window)->myNum])
@@ -2171,8 +2158,7 @@ FIXME: Don't enqueue the KeyRelease event if the key was
       default:
       {
         /*
-         * Let's check if this is a XKB
-         * state modification event.
+         * Let's check if this is a XKB state modification event.
          */
 
         if (nxagentHandleXkbKeyboardStateEvent(&X) == 0 && nxagentHandleXFixesSelectionNotify(&X) == 0)
@@ -2280,8 +2266,7 @@ FIXME: Don't enqueue the KeyRelease event if the key was
   #endif
 
   /*
-   * Let the underlying X server code
-   * process the input events.
+   * Let the underlying X server code process the input events.
    */
 
   #ifdef BLOCKS
@@ -2296,9 +2281,8 @@ FIXME: Don't enqueue the KeyRelease event if the key was
   #endif
 
   /*
-   * Write the events to our clients. We may
-   * flush only in the case of critical output
-   * but this doesn't seem beneficial.
+   * Write the events to our clients. We may flush only in the case of
+   * critical output but this doesn't seem beneficial.
    *
    * if (CriticalOutputPending == 1)
    * {
@@ -2330,8 +2314,7 @@ FIXME: Don't enqueue the KeyRelease event if the key was
 }
 
 /*
- * Functions providing the ad-hoc handling
- * of the remote X events.
+ * Functions providing the ad-hoc handling of the remote X events.
  */
 
 int nxagentHandleKeyPress(XEvent *X, enum HandleEventResult *result)
@@ -2558,9 +2541,9 @@ FIXME: This can be maybe optimized by consuming the
 int nxagentHandleGraphicsExposeEvent(XEvent *X)
 {
   /*
-   * Send an expose event to client, instead of graphics
-   * expose. If target drawable is a backing pixmap, send
-   * expose event for the saved window, else do nothing.
+   * Send an expose event to client, instead of graphics expose. If
+   * target drawable is a backing pixmap, send expose event for the
+   * saved window, else do nothing.
    */
 
   RegionPtr exposeRegion;
@@ -2609,8 +2592,7 @@ int nxagentHandleGraphicsExposeEvent(XEvent *X)
   }
 
   /*
-   * Rectangle affected by GraphicsExpose
-   * event.
+   * Rectangle affected by GraphicsExpose event.
    */
 
   rect.x1 = X -> xgraphicsexpose.x;
@@ -2628,19 +2610,17 @@ int nxagentHandleGraphicsExposeEvent(XEvent *X)
     #endif
 
     /*
-     * The exposeRegion coordinates are relative
-     * to the pixmap to which GraphicsExpose
-     * event refers. But the BS coordinates of
-     * the savedRegion  are relative to the
-     * window.
+     * The exposeRegion coordinates are relative to the pixmap to
+     * which GraphicsExpose event refers. But the BS coordinates of
+     * the savedRegion are relative to the window.
      */
 
     RegionTranslate(exposeRegion, pStoringPixmapRec -> backingStoreX,
                          pStoringPixmapRec -> backingStoreY);
 
     /*
-     * We remove from SavedRegion the part
-     * affected by the GraphicsExpose event.
+     * We remove from SavedRegion the part affected by the
+     * GraphicsExpose event.
      */
 
     RegionSubtract(&(pBSwindow -> SavedRegion), &(pBSwindow -> SavedRegion),
@@ -2648,9 +2628,8 @@ int nxagentHandleGraphicsExposeEvent(XEvent *X)
   }
 
   /*
-   * Store the exposeRegion in order to send
-   * the expose event later. The coordinates
-   * must be relative to the screen.
+   * Store the exposeRegion in order to send the expose event
+   * later. The coordinates must be relative to the screen.
    */
 
   RegionTranslate(exposeRegion, pWin -> drawable.x, pWin -> drawable.y);
@@ -2673,8 +2652,8 @@ int nxagentHandleClientMessageEvent(XEvent *X, enum HandleEventResult *result)
   #endif
 
   /*
-   * If window is 0, message_type is 0 and format is
-   * 32 then we assume event is coming from proxy.
+   * If window is 0, message_type is 0 and format is 32 then we assume
+   * event is coming from proxy.
    */
 
   if (X -> xclient.window == 0 &&
@@ -3012,10 +2991,8 @@ int nxagentHandleProxyEvent(XEvent *X)
     case NXStartSplitNotify:
     {
       /*
-       * We should never receive such events
-       * in the event loop, as they should
-       * be caught at the time the split is
-       * initiated.
+       * We should never receive such events in the event loop, as
+       * they should be caught at the time the split is initiated.
        */
 
       #ifdef PANIC
@@ -3040,10 +3017,9 @@ int nxagentHandleProxyEvent(XEvent *X)
     case NXCommitSplitNotify:
     {
       /*
-       * We need to commit an image. Image can be the
-       * result of a PutSubImage() generated by Xlib,
-       * so there can be more than a single image to
-       * commit, even if only one PutImage was perfor-
+       * We need to commit an image. Image can be the result of a
+       * PutSubImage() generated by Xlib, so there can be more than a
+       * single image to commit, even if only one PutImage was perfor-
        * med by the agent.
        */
 
@@ -3064,8 +3040,8 @@ int nxagentHandleProxyEvent(XEvent *X)
     case NXEndSplitNotify:
     {
       /*
-       * All images for the split were transferred and
-       * we need to restart the client.
+       * All images for the split were transferred and we need to
+       * restart the client.
        */
 
       int client = (int) X -> xclient.data.l[1];
@@ -3153,9 +3129,8 @@ int nxagentHandleProxyEvent(XEvent *X)
 }
 
 /*
- * In this function it is assumed that we never
- * get a configure with both stacking order and
- * geometry changed, this way we can ignore
+ * In this function it is assumed that we never get a configure with
+ * both stacking order and geometry changed, this way we can ignore
  * stacking changes if the geometry has changed.
  */
 
@@ -3322,9 +3297,8 @@ int nxagentHandleConfigureNotify(XEvent* X)
       nxagentCheckWindowConfiguration((XConfigureEvent*)X);
 
       /*
-       * This workaround should help with
-       * Java 1.6.0 that seems to ignore
-       * non-synthetic events.
+       * This workaround should help with Java 1.6.0 that seems to
+       * ignore non-synthetic events.
        */
 
       if (nxagentOption(ClientOs) == ClientOsWinnt)
@@ -3372,15 +3346,14 @@ int nxagentHandleConfigureNotify(XEvent* X)
   else
   {
     /*
-     * Save the position of the agent default window. Don't
-     * save the values if the agent is in fullscreen mode.
+     * Save the position of the agent default window. Don't save the
+     * values if the agent is in fullscreen mode.
      *
-     * If we use these values to restore the position of a
-     * window after that we have dynamically changed the
-     * fullscreen attribute, depending on the behaviour of
-     * window manager, we could be not able to place the
-     * window exactly in the requested position, so let the
-     * window manager do the job for us.
+     * If we use these values to restore the position of a window
+     * after that we have dynamically changed the fullscreen
+     * attribute, depending on the behaviour of window manager, we
+     * could be not able to place the window exactly in the requested
+     * position, so let the window manager do the job for us.
      */
 
     ScreenPtr pScreen = nxagentScreen(X -> xconfigure.window);
@@ -3589,9 +3562,8 @@ int nxagentHandleReparentNotify(XEvent* X)
     if (nxagentWindowTopLevel(pWin))
     {
       /*
-       * If the window manager reparents our top level
-       * window, we need to know the new top level
-       * ancestor.
+       * If the window manager reparents our top level window, we need
+       * to know the new top level ancestor.
        */
 
       w = None;
@@ -3924,10 +3896,9 @@ void nxagentGrabPointerAndKeyboard(XEvent *X)
   #endif
 
   /*
-   * The smart scheduler could be stopped while
-   * waiting for the reply. In this case we need
-   * to yield explicitly to avoid to be stuck in
-   * the dispatch loop forever.
+   * The smart scheduler could be stopped while waiting for the
+   * reply. In this case we need to yield explicitly to avoid to be
+   * stuck in the dispatch loop forever.
    */
 
   isItTimeToYield = 1;
@@ -4360,9 +4331,8 @@ int nxagentClipAndSendExpose(WindowPtr pWin, void * ptr)
       #endif
 
       /*
-       * The miWindowExposures() clears out the
-       * region parameters, so the subtract ope-
-       * ration must be done before calling it.
+       * The miWindowExposures() clears out the region parameters, so
+       * the subtract ope- ration must be done before calling it.
        */
 
       RegionSubtract(remoteExposeRgn, remoteExposeRgn, exposeRgn);
@@ -4396,13 +4366,10 @@ int nxagentUserInput(void *p)
   int result = 0;
 
   /*
-   * This function is used as callback in
-   * the polling handler of agent in shadow
-   * mode. When inside the polling loop the
-   * handlers are never called, so we have
-   * to dispatch enqueued events to eventu-
-   * ally change the nxagentInputEvent sta-
-   * tus.
+   * This function is used as callback in the polling handler of agent
+   * in shadow mode. When inside the polling loop the handlers are
+   * never called, so we have to dispatch enqueued events to
+   * eventually change the nxagentInputEvent status.
    */
 
   if (nxagentOption(Shadow) == 1 &&
@@ -4419,11 +4386,9 @@ int nxagentUserInput(void *p)
   }
 
   /*
-   * The agent working in shadow mode synch-
-   * ronizes the remote X server even if a
-   * button/key is not released (i.e. when
-   * scrolling a long browser's page), in
-   * order to update the screen smoothly.
+   * The agent working in shadow mode synchronizes the remote X server
+   * even if a button/key is not released (i.e. when scrolling a long
+   * browser's page), in order to update the screen smoothly.
    */
 
   if (nxagentOption(Shadow) == 1)
@@ -4434,9 +4399,8 @@ int nxagentUserInput(void *p)
   if (result == 0)
   {
     /*
-     * If there is at least one button/key down,
-     * we are receiving an input. This is not a
-     * condition to break a synchronization loop
+     * If there is at least one button/key down, we are receiving an
+     * input. This is not a condition to break a synchronization loop
      * if there is enough bandwidth.
      */
 
@@ -4476,13 +4440,11 @@ int nxagentHandleRRScreenChangeNotify(XEvent *X)
 }
 
 /*
- * Returns true if there is any event waiting to
- * be dispatched. This function is critical for
- * the performance because it is called very,
- * very often. It must also handle the case when
- * the display is down. The display descriptor,
- * in fact, may have been reused by some other
- * client.
+ * Returns true if there is any event waiting to be dispatched. This
+ * function is critical for the performance because it is called very,
+ * very often. It must also handle the case when the display is
+ * down. The display descriptor, in fact, may have been reused by some
+ * other client.
  */
 
 int nxagentPendingEvents(Display *dpy)
