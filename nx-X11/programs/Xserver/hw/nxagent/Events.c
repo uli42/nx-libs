@@ -1611,9 +1611,7 @@ FIXME: Don't enqueue the KeyRelease event if the key was not already
 
                     if (nxagentOption(ViewOnly) == 0 && nxagentOption(Shadow))
                     {
-                      XEvent xM;
-
-                      memset(&xM, 0, sizeof(XEvent));
+                      XEvent xM = {0};
                       xM.type = KeyRelease;
                       xM.xkey.display = nxagentDisplay;
                       xM.xkey.type = KeyRelease;
@@ -2495,7 +2493,6 @@ int nxagentHandleGraphicsExposeEvent(XEvent *X)
    */
 
   RegionPtr exposeRegion;
-  BoxRec rect;
   WindowPtr pWin;
   StoringPixmapPtr pStoringPixmapRec = NULL;
   miBSWindowPtr pBSwindow = NULL;
@@ -2543,10 +2540,12 @@ int nxagentHandleGraphicsExposeEvent(XEvent *X)
    * Rectangle affected by GraphicsExpose event.
    */
 
-  rect.x1 = X -> xgraphicsexpose.x;
-  rect.y1 = X -> xgraphicsexpose.y;
-  rect.x2 = rect.x1 + X -> xgraphicsexpose.width;
-  rect.y2 = rect.y1 + X -> xgraphicsexpose.height;
+  BoxRec rect = {
+    .x1 = X -> xgraphicsexpose.x,
+    .y1 = X -> xgraphicsexpose.y,
+    .x2 = rect.x1 + X -> xgraphicsexpose.width,
+    .y2 = rect.y1 + X -> xgraphicsexpose.height,
+  };
 
   exposeRegion = RegionCreate(&rect, 0);
 
@@ -2639,12 +2638,9 @@ int nxagentHandleClientMessageEvent(XEvent *X, enum HandleEventResult *result)
 
     if (message_type == MakeAtom("WM_PROTOCOLS", strlen("WM_PROTOCOLS"), False))
     {
-      xEvent x;
-
-      memset(&x, 0, sizeof(xEvent));
+      xEvent x = {0};
       x.u.u.type = ClientMessage;
       x.u.u.detail = X -> xclient.format;
-
       x.u.clientMessage.window = pWin -> drawable.id;
       x.u.clientMessage.u.l.type = message_type;
       x.u.clientMessage.u.l.longs0 = nxagentRemoteToLocalAtom(X -> xclient.data.l[0]);
@@ -3253,9 +3249,8 @@ int nxagentHandleConfigureNotify(XEvent* X)
 
       if (sendEventAnyway || X -> xconfigure.send_event)
       {
-        xEvent x;
+        xEvent x = {0};
 
-        memset(&x, 0, sizeof(xEvent));
         x.u.u.type = X -> xconfigure.type;
         x.u.u.type |= 0x80;
 
@@ -3699,10 +3694,9 @@ void nxagentDisablePointerEvents(void)
 
 void nxagentSendFakeKey(int key)
 {
-  xEvent fake;
   Time now = GetTimeInMillis();
 
-  memset(&fake, 0, sizeof(xEvent));
+  xEvent fake = {0};
   fake.u.u.type = KeyPress;
   fake.u.u.detail = key;
   fake.u.keyButtonPointer.time = now;
@@ -3718,7 +3712,7 @@ void nxagentSendFakeKey(int key)
 
 int nxagentInitXkbKeyboardState(void)
 {
-  XEvent X;
+  XEvent X = {0};
 
   unsigned int modifiers;
 
@@ -3732,8 +3726,6 @@ int nxagentInitXkbKeyboardState(void)
   #ifdef TEST
   fprintf(stderr, "%s: Initializing XKB state.\n", __func__);
   #endif
-
-  memset(&X, 0, sizeof(XEvent));
 
   XkbGetIndicatorState(nxagentDisplay, XkbUseCoreKbd, &modifiers);
 
