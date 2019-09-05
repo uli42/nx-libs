@@ -548,13 +548,11 @@ void nxagentTerminateDialog(DialogType type)
 
 void nxagentTerminateDialogs(void)
 {
-  DialogType type;
-
   #ifdef DEBUG
   fprintf(stderr, "nxagentTerminateDialogs: Terminating all the running dialogs.\n");
   #endif
 
-  for (type = DIALOG_FIRST_TAG; type < DIALOG_LAST_TAG; type++)
+  for (DialogType type = DIALOG_FIRST_TAG; type < DIALOG_LAST_TAG; type++)
   {
     nxagentTerminateDialog(type);
   }
