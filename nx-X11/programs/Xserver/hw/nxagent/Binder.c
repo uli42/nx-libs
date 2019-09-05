@@ -54,8 +54,7 @@ int nxagentCheckBinder(int argc, char *argv[], int i)
     display = argv[i];
 
     /*
-     * Check if a display specification follows
-     * the -B switch.
+     * Check if a display specification follows the -B switch.
      */
 
     found = rindex(display, ':');
@@ -78,8 +77,8 @@ int nxagentCheckBinder(int argc, char *argv[], int i)
 
     /*
      * The NX options must be specified in the DISPLAY
-     * environment. Check if the display specified on
-     * the command line matches the NX virtual display.
+     * environment. Check if the display specified on the command line
+     * matches the NX virtual display.
      */
 
     display = getenv("DISPLAY");
@@ -108,8 +107,8 @@ int nxagentCheckBinder(int argc, char *argv[], int i)
     #endif
 
     /*
-     * Save the proxy options. They will be later
-     * used to create the transport.
+     * Save the proxy options. They will be later used to create the
+     * transport.
      */
 
     nxagentChangeOption(Rootless, False);
@@ -117,10 +116,9 @@ int nxagentCheckBinder(int argc, char *argv[], int i)
     nxagentChangeOption(Binder, True);
 
     /*
-     * FIXME: This now points to the buffer that was
-     * returned by getenv(). It is to be decided how
-     * to handle the values of type string in the
-     * Options repository.
+     * FIXME: This now points to the buffer that was returned by
+     * getenv(). It is to be decided how to handle the values of type
+     * string in the Options repository.
      */
      
     nxagentChangeOption(BinderOptions, display);
