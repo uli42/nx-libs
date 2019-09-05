@@ -54,8 +54,7 @@
 #include "Utils.h"
 
 /*
- * Need to include this after the stub
- * definition of GC in Agent.h.
+ * Need to include this after the stub definition of GC in Agent.h.
  */
 
 #include "compext/Compext.h"
@@ -70,22 +69,20 @@
 #undef  DEBUG
 
 /*
- * Returns the last signal delivered
- * to the process.
+ * Returns the last signal delivered to the process.
  */
 
 extern int _X11TransSocketCheckSignal(void);
 
 /*
- * Time in milliseconds of first iteration
- * through the dispatcher.
+ * Time in milliseconds of first iteration through the dispatcher.
  */
 
 unsigned long nxagentStartTime = -1;
 
 /*
- * If defined, add a function checking if we
- * need a null timeout after a client wakeup.
+ * If defined, add a function checking if we need a null timeout after
+ * a client wakeup.
  */
 
 #undef CHECK_RESTARTED_CLIENTS
@@ -103,8 +100,8 @@ void nxagentCheckRestartedClients(struct timeval **timeout);
 int nxagentClientPrivateIndex;
 
 /*
- * The master nxagent holds in nxagentShadowCounter
- * the number of shadow nxagents connected to itself.
+ * The master nxagent holds in nxagentShadowCounter the number of
+ * shadow nxagents connected to itself.
  */
 
 int nxagentShadowCounter = 0;
@@ -120,8 +117,8 @@ void nxagentInitClientPrivates(ClientPtr client)
 }
 
 /*
- * Guess the running application based on the
- * properties attached to its main window.
+ * Guess the running application based on the properties attached to
+ * its main window.
  */
 
 void nxagentGuessClientHint(ClientPtr client, Atom property, char *data)
@@ -238,10 +235,8 @@ void nxagentCheckIfShadowAgent(ClientPtr client)
     if (nxagentShadowCounter == 0)
     {
       /*
-       * The last shadow nxagent has been detached
-       * from master nxagent.
-       * The master nxagent could do some action
-       * here.
+       * The last shadow nxagent has been detached from master
+       * nxagent.  The master nxagent could do some action here.
        */
 
        #ifdef TEST
@@ -343,8 +338,7 @@ void nxagentWaitWakeupBySplit(ClientPtr client)
   #endif
 
   /*
-   * Be sure we intercept an I/O error
-   * as well as an interrupt.
+   * Be sure we intercept an I/O error as well as an interrupt.
    */
 
   #ifdef USE_FINISH_SPLIT
@@ -358,11 +352,9 @@ void nxagentWaitWakeupBySplit(ClientPtr client)
   for (;;)
   {
     /*
-     * Can we handle all the possible events here
-     * or we need to select only the split events?
-     * Handling all the possible events would pre-
-     * empt the queue and make a better use of the
-     * link.
+     * Can we handle all the possible events here or we need to select
+     * only the split events?  Handling all the possible events would
+     * pre- empt the queue and make a better use of the link.
      */
 
     #ifdef WAIT_ALL_EVENTS
@@ -407,9 +399,9 @@ void nxagentWaitWakeupBySplit(ClientPtr client)
 int nxagentSuspendBySplit(ClientPtr client)
 {
 /*
-FIXME: Should record a serial number for the client, so that
-       the client is not restarted because of an end of split
-       of a previous client with the same index.
+FIXME: Should record a serial number for the client, so that the
+       client is not restarted because of an end of split of a
+       previous client with the same index.
 */
   if (client -> index < MAX_CONNECTIONS)
   {
@@ -453,9 +445,9 @@ FIXME: Should record a serial number for the client, so that
 int nxagentWakeupBySplit(ClientPtr client)
 {
 /*
-FIXME: Should record a serial number for the client, so that
-       the client is not restarted because of the end of the
-       split for a previous client with the same index.
+FIXME: Should record a serial number for the client, so that the
+       client is not restarted because of the end of the split for a
+       previous client with the same index.
 */
   if (client -> index < MAX_CONNECTIONS)
   {
@@ -501,10 +493,9 @@ void nxagentCheckRestartedClients(struct timeval **timeout)
   int i;
 
   /*
-   * If any of the restarted clients had requests
-   * in input we'll need to enter the select with
-   * a null timeout, or we will block until any
-   * other client becomes available.
+   * If any of the restarted clients had requests in input we'll need
+   * to enter the select with a null timeout, or we will block until
+   * any other client becomes available.
    */
 
   for (i = 1; i < currentMaxClients; i++)
