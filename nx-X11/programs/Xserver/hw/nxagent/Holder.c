@@ -79,13 +79,11 @@ void nxagentMarkPlaceholderNotLoaded(int depth)
 
 void nxagentInitPlaceholder(int depth)
 {
-  int status;
-  XpmAttributes attributes;
-
-  attributes.valuemask = XpmDepth | XpmSize;
-  attributes.depth = depth;
-
-  status = XpmCreatePixmapFromData(nxagentDisplay, DefaultRootWindow(nxagentDisplay),
+  XpmAttributes attributes = {
+    .valuemask = XpmDepth | XpmSize,
+    .depth = depth,
+  };
+  int status = XpmCreatePixmapFromData(nxagentDisplay, DefaultRootWindow(nxagentDisplay),
                                        placeholderXpm, nxagentPlaceholderPixmaps + depth, NULL, &attributes);
 
   if (status != Success)
@@ -108,20 +106,18 @@ void nxagentApplyPlaceholder(Drawable drawable, int x, int y,
    * the boundaries of the affected area.
    */
 
-  GC gc;
-  XGCValues value;
-  XPoint points[3];
-
-  value.foreground = 0xffffffff;
-  value.background = 0x00000000;
-  value.plane_mask = 0xffffffff;
-  value.fill_style = FillSolid;
+  XGCValues value = {
+    .foreground = 0xffffffff,
+    .background = 0x00000000,
+    .plane_mask = 0xffffffff,
+    .fill_style = FillSolid,
+  };
 
   /*
    * FIXME: Should we use a gc cache to save some bandwidth?
    */
 
-  gc = XCreateGC(nxagentDisplay, drawable, GCBackground |
+  GC gc = XCreateGC(nxagentDisplay, drawable, GCBackground |
            GCForeground | GCFillStyle | GCPlaneMask, &value);
 
   XFillRectangle(nxagentDisplay, drawable, gc, x, y, w, h);
@@ -135,6 +131,7 @@ void nxagentApplyPlaceholder(Drawable drawable, int x, int y,
   value.line_style = LineSolid;
   value.line_width = 1;
 
+  XPoint points[3];
   points[0].x = x;
   points[0].y = y + h - 1;
   points[1].x = x;
@@ -179,7 +176,6 @@ void nxagentApplyPlaceholder(Drawable drawable, int x, int y,
 
     XCopyArea(nxagentDisplay, nxagentPlaceholderPixmaps[depth],
                   drawable, gc, 0, 0, PLACEHOLDER_WIDTH, PLACEHOLDER_HEIGHT, x + 4, y + 4);
-
   }
 
   XFreeGC(nxagentDisplay, gc);
@@ -190,7 +186,6 @@ void nxagentApplyPlaceholder(Drawable drawable, int x, int y,
 static char hexdigit(char c)
 {
   char map[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', '?'};
-
   return map[c];
 }
 
@@ -202,15 +197,13 @@ char *nxagentChecksum(char *string, int length)
 {
   static char md5_output[MD5_DIGEST_LENGTH * 2 + 1];
   static char md5[MD5_DIGEST_LENGTH];
-  char * ret;
-  int i;
 
   memset(md5, 0, sizeof(md5));
   memset(md5_output, 0, sizeof(md5_output));
 
-  ret = MD5(string, length, md5);
+  char * ret = MD5(string, length, md5);
 
-  for (i = 0; i < MD5_DIGEST_LENGTH; i++)
+  for (int i = 0; i < MD5_DIGEST_LENGTH; i++)
   {
     char c = md5[i];
 
