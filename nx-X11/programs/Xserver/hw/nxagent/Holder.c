@@ -103,10 +103,9 @@ void nxagentApplyPlaceholder(Drawable drawable, int x, int y,
                                  int w, int h, int depth)
 {
   /*
-   * Instead of the image, a white rectangle that
-   * covers the pixmap area is drawn, alongside
-   * with a black and grey line that outlines the
-   * boundaries of the affected area.
+   * Instead of the image, a white rectangle that covers the pixmap
+   * area is drawn, alongside with a black and grey line that outlines
+   * the boundaries of the affected area.
    */
 
   GC gc;
@@ -119,8 +118,7 @@ void nxagentApplyPlaceholder(Drawable drawable, int x, int y,
   value.fill_style = FillSolid;
 
   /*
-   * FIXME: Should we use a gc cache to save
-   *        some bandwidth?
+   * FIXME: Should we use a gc cache to save some bandwidth?
    */
 
   gc = XCreateGC(nxagentDisplay, drawable, GCBackground |
@@ -162,9 +160,9 @@ void nxagentApplyPlaceholder(Drawable drawable, int x, int y,
   XDrawLines(nxagentDisplay, drawable, gc, points, 3, CoordModeOrigin);
 
   /*
-   * We are going to apply place holder only if on region
-   * we have enough space for the placeholder plus three
-   * pixel for spacing and one for region border.
+   * We are going to apply place holder only if on region we have
+   * enough space for the placeholder plus three pixel for spacing and
+   * one for region border.
    */
 
   if ((w >= PLACEHOLDER_WIDTH + 8) && (h >= PLACEHOLDER_HEIGHT + 8))
@@ -197,8 +195,8 @@ static char hexdigit(char c)
 }
 
 /*
-FIXME: Please, check the implementation of the same
-       function in nxcomp.
+FIXME: Please, check the implementation of the same function in
+       nxcomp.
 */
 char *nxagentChecksum(char *string, int length)
 {
