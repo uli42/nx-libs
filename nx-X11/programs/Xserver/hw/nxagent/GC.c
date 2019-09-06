@@ -66,6 +66,7 @@ is" without express or implied warranty.
 #include "../../fb/fb.h"
 
 RESTYPE RT_NX_GC;
+
 /*
  * Set here the required log level.
  */
@@ -562,7 +563,6 @@ void nxagentChangeClip(GCPtr pGC, int type, void * pValue, int nRects)
       {
         XSetClipMask(nxagentDisplay, nxagentGC(pGC), None);
       }
-
       break;
     }
     case CT_REGION:
@@ -586,7 +586,6 @@ void nxagentChangeClip(GCPtr pGC, int type, void * pValue, int nRects)
                                pRects, nRects, Unsorted);
         SAFE_free(pRects);
       }
-
       break;
     }
     case CT_PIXMAP:
@@ -615,7 +614,6 @@ void nxagentChangeClip(GCPtr pGC, int type, void * pValue, int nRects)
                                pGC->clipOrg.x, pGC->clipOrg.y,
                                    (XRectangle *)pValue, nRects, Unsorted);
       }
-
       break;
     }
     case CT_YSORTED:
@@ -626,7 +624,6 @@ void nxagentChangeClip(GCPtr pGC, int type, void * pValue, int nRects)
                            pGC->clipOrg.x, pGC->clipOrg.y,
                            (XRectangle *)pValue, nRects, YSorted);
       }
-
       break;
     }
     case CT_YXSORTED:
@@ -637,7 +634,6 @@ void nxagentChangeClip(GCPtr pGC, int type, void * pValue, int nRects)
                            pGC->clipOrg.x, pGC->clipOrg.y,
                            (XRectangle *)pValue, nRects, YXSorted);
       }
-
       break;
     }
     case CT_YXBANDED:
@@ -648,7 +644,6 @@ void nxagentChangeClip(GCPtr pGC, int type, void * pValue, int nRects)
                          pGC->clipOrg.x, pGC->clipOrg.y,
                          (XRectangle *)pValue, nRects, YXBanded);
       }
-
       break;
     }
   }
