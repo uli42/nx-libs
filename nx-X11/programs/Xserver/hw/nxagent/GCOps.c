@@ -214,17 +214,12 @@ RegionPtr nxagentBitBlitHelper(GC *pGC)
 
 int nxagentWindowIsPopup(DrawablePtr pDrawable)
 {
-  WindowPtr parent;
-
-  int windowIsPopup;
-  int level;
-
   if (pDrawable -> type != DRAWABLE_WINDOW)
   {
     return 0;
   }
 
-  windowIsPopup = 0;
+  int windowIsPopup = 0;
 
   if (((WindowPtr) pDrawable) -> overrideRedirect == 1)
   {
@@ -232,14 +227,14 @@ int nxagentWindowIsPopup(DrawablePtr pDrawable)
   }
   else
   {
-    parent = ((WindowPtr) pDrawable) -> parent;
+    WindowPtr parent = ((WindowPtr) pDrawable) -> parent;
 
     /*
      * Go up on the tree until a parent exists or 4 windows has been
      * checked. This seems a good limit to up children's popup.
      */
 
-    level = 0;
+    int level = 0;
 
     while (parent != NULL && ++level <= 4)
     {
@@ -304,6 +299,7 @@ FIXME: The popup could be synchronized with one single put image,
                     pSrcRegion -> extents.x2, pSrcRegion -> extents.y2);
     #endif
 
+    RegionRec corruptedRegion;
     RegionInit(&corruptedRegion, NullBox, 1);
 
     RegionIntersect(&corruptedRegion,
@@ -380,6 +376,7 @@ FIXME: The popup could be synchronized with one single put image,
     }
     else
     {
+      RegionRec tmpRegion;
       RegionInit(&tmpRegion, NullBox, 1);
 
       #ifdef DEBUG
@@ -441,8 +438,6 @@ FIXME: The popup could be synchronized with one single put image,
 
     if (RegionNil(pClipRegion) == 0)
     {
-      GCPtr  targetGC;
-
       CARD32 targetAttributes[2];
 
       Bool pClipRegionFree = True;
@@ -453,7 +448,7 @@ FIXME: The popup could be synchronized with one single put image,
        * setting a new clip mask.
        */
 
-      targetGC = GetScratchGC(pDstDrawable -> depth, pDstDrawable -> pScreen);
+      GCPtr targetGC = GetScratchGC(pDstDrawable -> depth, pDstDrawable -> pScreen);
 
       ValidateGC(pDstDrawable, targetGC);
 
@@ -553,6 +548,7 @@ FIXME: The popup could be synchronized with one single put image,
                     pSrcRegion -> extents.x2, pSrcRegion -> extents.y2);
     #endif
 
+    RegionRec corruptedRegion;
     RegionInit(&corruptedRegion, NullBox, 1);
 
     RegionIntersect(&corruptedRegion,
@@ -580,12 +576,6 @@ RegionPtr nxagentCopyArea(DrawablePtr pSrcDrawable, DrawablePtr pDstDrawable,
                                GCPtr pGC, int srcx, int srcy, int width,
                                    int height, int dstx, int dsty)
 {
-  int leftPad = 0;
-  unsigned int format;
-  unsigned long planeMask = 0xffffffff;
-
-  RegionPtr pDstRegion;
-
   int skip = 0;
 
   #ifdef TEST
@@ -734,13 +724,12 @@ RegionPtr nxagentCopyArea(DrawablePtr pSrcDrawable, DrawablePtr pDstDrawable,
          nxagentIsShmPixmap((PixmapPtr) pSrcDrawable))
   {
     char *data;
-    int depth, length;
 
-    depth  = pSrcDrawable -> depth;
+    int depth  = pSrcDrawable -> depth;
 
-    format = (depth == 1) ? XYPixmap : ZPixmap;
+    unsigned int format = (depth == 1) ? XYPixmap : ZPixmap;
 
-    length = nxagentImageLength(width, height, format, leftPad, depth);
+    int length = nxagentImageLength(width, height, format, 0, depth);
 
     if ((data = malloc(length)) == NULL)
     {
@@ -751,6 +740,7 @@ RegionPtr nxagentCopyArea(DrawablePtr pSrcDrawable, DrawablePtr pDstDrawable,
       return NullRegion;
     }
 
+    unsigned long planeMask = 0xffffffff;
     fbGetImage(nxagentVirtualDrawable(pSrcDrawable), srcx, srcy, width, height, format, planeMask, data);
 
     /*
@@ -759,7 +749,7 @@ RegionPtr nxagentCopyArea(DrawablePtr pSrcDrawable, DrawablePtr pDstDrawable,
      */
 
     nxagentPutImage(pDstDrawable, pGC, depth, dstx, dsty,
-                        width, height, leftPad, format, data);
+                        width, height, 0, format, data);
 
     #ifdef TEST
     fprintf(stderr,"nxagentCopyArea: Realize Pixmap %p virtual %p x %d y %d w %d h %d\n",
@@ -810,7 +800,7 @@ RegionPtr nxagentCopyArea(DrawablePtr pSrcDrawable, DrawablePtr pDstDrawable,
 
     if (nxagentDrawableStatus(pDstDrawable) == NotSynchronized)
     {
-      pDstRegion = nxagentCreateRegion(pDstDrawable, pGC, dstx, dsty, width, height);
+      RegionPtr pDstRegion = nxagentCreateRegion(pDstDrawable, pGC, dstx, dsty, width, height);
 
       nxagentUnmarkCorruptedRegion(pDstDrawable, pDstRegion);
 
@@ -895,13 +885,6 @@ RegionPtr nxagentCopyPlane(DrawablePtr pSrcDrawable, DrawablePtr pDstDrawable,
                                GCPtr pGC, int srcx, int srcy, int width, int height,
                                    int dstx, int dsty, unsigned long plane)
 {
-  unsigned int format;
-  int leftPad = 0;
-  unsigned long planeMask = 0xffffffff;
-
-  RegionPtr pSrcRegion, pDstRegion;
-  RegionRec corruptedRegion;
-
   int skip = 0;
 
   #ifdef TEST
@@ -949,13 +932,12 @@ RegionPtr nxagentCopyPlane(DrawablePtr pSrcDrawable, DrawablePtr pDstDrawable,
          nxagentIsShmPixmap((PixmapPtr) pSrcDrawable))
   {
     char *data;
-    int depth, length;
 
-    depth  = pSrcDrawable -> depth;
+    int depth  = pSrcDrawable -> depth;
 
-    format = (depth == 1) ? XYPixmap : ZPixmap;
+    unsigned int format = (depth == 1) ? XYPixmap : ZPixmap;
 
-    length = nxagentImageLength(width, height, format, leftPad, depth);
+    int length = nxagentImageLength(width, height, format, 0, depth);
 
     if ((data = malloc(length)) == NULL)
     {
@@ -966,6 +948,7 @@ RegionPtr nxagentCopyPlane(DrawablePtr pSrcDrawable, DrawablePtr pDstDrawable,
       return 0;
     }
 
+    unsigned long planeMask = 0xffffffff;
     fbGetImage(nxagentVirtualDrawable(pSrcDrawable), srcx, srcy, width, height, format, planeMask, data);
 
     /*
@@ -974,7 +957,7 @@ RegionPtr nxagentCopyPlane(DrawablePtr pSrcDrawable, DrawablePtr pDstDrawable,
      */
 
     nxagentPutImage(pDstDrawable, pGC, depth, dstx, dsty,
-                        width, height, leftPad, format, data);
+                        width, height, 0, format, data);
 
     #ifdef TEST
     fprintf(stderr,"nxagentCopyPlane: Synchronize Pixmap %p virtual %p x %d y %d w %d h %d \n",
@@ -998,7 +981,7 @@ RegionPtr nxagentCopyPlane(DrawablePtr pSrcDrawable, DrawablePtr pDstDrawable,
     if (pDstDrawable -> type == DRAWABLE_PIXMAP &&
             nxagentOption(DeferLevel) > 0)
     {
-      pDstRegion = nxagentCreateRegion(pDstDrawable, pGC, dstx, dsty, width, height);
+      RegionPtr pDstRegion = nxagentCreateRegion(pDstDrawable, pGC, dstx, dsty, width, height);
 
       nxagentMarkCorruptedRegion(pDstDrawable, pDstRegion);
 
@@ -1008,7 +991,9 @@ RegionPtr nxagentCopyPlane(DrawablePtr pSrcDrawable, DrawablePtr pDstDrawable,
     }
     else
     {
-      pSrcRegion = nxagentCreateRegion(pSrcDrawable, NULL, srcx, srcy, width, height);
+      RegionPtr pSrcRegion = nxagentCreateRegion(pSrcDrawable, NULL, srcx, srcy, width, height);
+
+      RegionRec corruptedRegion;
 
       RegionInit(&corruptedRegion, NullBox, 1);
 
@@ -1024,7 +1009,7 @@ RegionPtr nxagentCopyPlane(DrawablePtr pSrcDrawable, DrawablePtr pDstDrawable,
 
         nxagentSynchronizeRegion(pSrcDrawable, &corruptedRegion /*pSrcRegion*/, NEVER_BREAK, NULL);
 
-        pDstRegion = nxagentCreateRegion(pDstDrawable, pGC, dstx, dsty, width, height);
+        RegionPtr pDstRegion = nxagentCreateRegion(pDstDrawable, pGC, dstx, dsty, width, height);
 
         nxagentUnmarkCorruptedRegion(pDstDrawable, pDstRegion);
 
@@ -1445,8 +1430,6 @@ void nxagentFillPolygon(DrawablePtr pDrawable, GCPtr pGC, int shape,
 
   if (mode == CoordModeOrigin)
   {
-    int i;
-
     mode = CoordModePrevious;
 
     newPoints = malloc(nPoints * sizeof(xPoint));
@@ -1460,10 +1443,10 @@ void nxagentFillPolygon(DrawablePtr pDrawable, GCPtr pGC, int shape,
 
     /*
      * If coordinate-mode is CoordModePrevious, the points following
-     * the first are rela- tive to the previous point.
+     * the first are relative to the previous point.
      */
 
-    for (i = 1; i < nPoints; i++)
+    for (int i = 1; i < nPoints; i++)
     {
       newPoints[i].x = pPoints[i].x - pPoints[i-1].x;
       newPoints[i].y = pPoints[i].y - pPoints[i-1].y;
@@ -1523,10 +1506,6 @@ void nxagentFillPolygon(DrawablePtr pDrawable, GCPtr pGC, int shape,
 void nxagentPolyFillRect(DrawablePtr pDrawable, GCPtr pGC,
                              int nRectangles, xRectangle *pRectangles)
 {
-  RegionPtr rectRegion;
-
-  int inheritCorruptedRegion;
-
   #ifdef TEST
 
   if (nRectangles == 1)
@@ -1565,7 +1544,7 @@ void nxagentPolyFillRect(DrawablePtr pDrawable, GCPtr pGC,
    * will be cleared.
    */
 
-  inheritCorruptedRegion = 0;
+  int inheritCorruptedRegion = 0;
 
   if (pGC -> fillStyle == FillTiled &&
           pGC -> tileIsPixel == 0 && pGC -> tile.pixmap != NULL)
@@ -1587,7 +1566,7 @@ void nxagentPolyFillRect(DrawablePtr pDrawable, GCPtr pGC,
 
   if (inheritCorruptedRegion == 1 || nxagentDrawableStatus(pDrawable) == NotSynchronized)
   {
-    rectRegion = RegionFromRects(nRectangles, pRectangles, CT_REGION);
+    RegionPtr rectRegion = RegionFromRects(nRectangles, pRectangles, CT_REGION);
 
     if (pGC -> clientClip != NULL)
     {
@@ -1753,8 +1732,6 @@ void nxagentPolyFillArc(DrawablePtr pDrawable, GCPtr pGC,
 int nxagentPolyText8(DrawablePtr pDrawable, GCPtr pGC, int x,
                          int y, int count, char *string)
 {
-  int width;
-
   /*
    * While the session is suspended the font structure is NULL.
    */
@@ -1764,7 +1741,7 @@ int nxagentPolyText8(DrawablePtr pDrawable, GCPtr pGC, int x,
     return x;
   }
 
-  width = XTextWidth(nxagentFontStruct(pGC->font), string, count);
+  int width = XTextWidth(nxagentFontStruct(pGC->font), string, count);
 
   if (nxagentGCTrap == 1)
   {
@@ -1825,8 +1802,6 @@ int nxagentPolyText8(DrawablePtr pDrawable, GCPtr pGC, int x,
 int nxagentPolyText16(DrawablePtr pDrawable, GCPtr pGC, int x,
                           int y, int count, unsigned short *string)
 {
-  int width;
-
   /*
    * While the session is suspended the font structure is NULL.
    */
@@ -1836,7 +1811,7 @@ int nxagentPolyText16(DrawablePtr pDrawable, GCPtr pGC, int x,
     return x;
   }
 
-  width = XTextWidth16(nxagentFontStruct(pGC->font), (XChar2b *)string, count);
+  int width = XTextWidth16(nxagentFontStruct(pGC->font), (XChar2b *)string, count);
 
   if (nxagentGCTrap == 1)
   {
