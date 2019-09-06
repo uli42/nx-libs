@@ -142,8 +142,6 @@ static GCOps nxagentOps =
 
 Bool nxagentCreateGC(GCPtr pGC)
 {
-  FbGCPrivPtr pPriv;
-
   pGC->clientClipType = CT_NONE;
   pGC->clientClip = NULL;
 
@@ -176,7 +174,7 @@ Bool nxagentCreateGC(GCPtr pGC)
   fprintf(stderr, "nxagentCreateGC: GC [%p]\n", (void *) pGC);
   #endif
 
-  pPriv = (pGC)->devPrivates[fbGCPrivateIndex].ptr;
+  FbGCPrivPtr pPriv = (pGC)->devPrivates[fbGCPrivateIndex].ptr;
 
   fbGetRotatedPixmap(pGC) = 0;
   fbGetExpose(pGC) = 1;
@@ -212,8 +210,6 @@ Bool nxagentCreateGC(GCPtr pGC)
 
 void nxagentValidateGC(GCPtr pGC, unsigned long changes, DrawablePtr pDrawable)
 {
-  PixmapPtr lastTile, lastStipple;
-
   DrawablePtr pVirtual = (pDrawable -> type == DRAWABLE_PIXMAP) ?
                           nxagentVirtualDrawable(pDrawable) :
                           pDrawable;
@@ -231,9 +227,9 @@ void nxagentValidateGC(GCPtr pGC, unsigned long changes, DrawablePtr pDrawable)
     pGC -> tile.pixmap = nxagentVirtualPixmap(pGC -> tile.pixmap); 
   }
 
-  lastTile = pGC -> tile.pixmap;
+  PixmapPtr lastTile = pGC -> tile.pixmap;
 
-  lastStipple = pGC->stipple;
+  PixmapPtr lastStipple = pGC->stipple;
   
   if (lastStipple)
   {
@@ -1126,10 +1122,6 @@ Bool nxagentDisconnectAllGCs(void)
 
 static void nxagentReconnectClip(GCPtr pGC, int type, void * pValue, int nRects)
 {
-  int i, size;
-  BoxPtr pBox;
-  XRectangle *pRects;
-
   #ifdef TEST
   fprintf(stderr, "nxagentReconnectClip: going to change clip on GC [%p]\n",
               (void *) pGC);
@@ -1151,10 +1143,10 @@ static void nxagentReconnectClip(GCPtr pGC, int type, void * pValue, int nRects)
       if (nxagentGCPriv(pGC)->pPixmap == NULL)
       {
         nRects = RegionNumRects((RegionPtr)pValue);
-        size = nRects * sizeof(*pRects);
-        pRects = (XRectangle *) malloc(size);
-        pBox = RegionRects((RegionPtr)pValue);
-        for (i = nRects; i-- > 0;) {
+        int size = nRects * sizeof(XRectangle *);
+        XRectangle *pRects = (XRectangle *) malloc(size);
+        BoxPtr pBox = RegionRects((RegionPtr)pValue);
+        for (int i = nRects; i-- > 0;) {
           pRects[i].x = pBox[i].x1;
           pRects[i].y = pBox[i].y1;
           pRects[i].width = pBox[i].x2 - pBox[i].x1;
@@ -1255,8 +1247,6 @@ static void nxagentReconnectClip(GCPtr pGC, int type, void * pValue, int nRects)
 
 static int nxagentCompareRegions(RegionPtr r1, RegionPtr r2)
 {
-  int i;
-
  /*
   *  It returns 1 if regions are equal, 0 otherwise
   */
@@ -1285,7 +1275,7 @@ static int nxagentCompareRegions(RegionPtr r1, RegionPtr r2)
   else if ((*RegionExtents(r1)).y2 !=  (*RegionExtents(r2)).y2) return 0;
   else
   {
-    for (i = 0; i < RegionNumRects(r1); i++)
+    for (int i = 0; i < RegionNumRects(r1); i++)
     {
       if (RegionRects(r1)[i].x1 !=  RegionRects(r2)[i].x1) return 0;
       else if (RegionRects(r1)[i].x2 !=  RegionRects(r2)[i].x2) return 0;
@@ -1383,10 +1373,7 @@ void nxagentFreeScratchGC(GCPtr pGC)
 
 GCPtr nxagentGetGraphicContext(DrawablePtr pDrawable)
 {
-  int i;
-  int result;
-
-  for (i = 0; i < nxagentGraphicContextsSize; i++)
+  for (int i = 0; i < nxagentGraphicContextsSize; i++)
   {
     if (pDrawable -> depth == nxagentGraphicContexts[i].depth)
     {
@@ -1405,7 +1392,7 @@ GCPtr nxagentGetGraphicContext(DrawablePtr pDrawable)
         fprintf(stderr, "nxagentGetGraphicContext: Going to reconnect the GC.\n");
         #endif
 
-        result = 1;
+        int result = 1;
 
         nxagentReconnectGC(nxagentGraphicContexts[i].pGC, (XID) 0, &result);
 
@@ -1430,18 +1417,12 @@ GCPtr nxagentGetGraphicContext(DrawablePtr pDrawable)
 
 GCPtr nxagentCreateGraphicContext(int depth)
 {
-  GCPtr pGC;
-
-  nxagentGraphicContextsPtr nxagentGCs;
-
-  XID attributes[2];
-
   /*
    * We have not found a GC, so we have to spread the list and add a
    * new GC.
    */
 
-  nxagentGCs = realloc(nxagentGraphicContexts, (nxagentGraphicContextsSize + 1) * sizeof(nxagentGraphicContextsRec));
+  nxagentGraphicContextsPtr nxagentGCs = realloc(nxagentGraphicContexts, (nxagentGraphicContextsSize + 1) * sizeof(nxagentGraphicContextsRec));
    
   if (nxagentGCs == NULL)
   {
@@ -1454,7 +1435,7 @@ GCPtr nxagentCreateGraphicContext(int depth)
 
   nxagentGraphicContexts = nxagentGCs;
 
-  pGC = CreateScratchGC(nxagentDefaultScreen, depth);
+  GCPtr pGC = CreateScratchGC(nxagentDefaultScreen, depth);
 
   if (pGC == NULL)
   {
@@ -1469,6 +1450,8 @@ GCPtr nxagentCreateGraphicContext(int depth)
   /*
    * Color used in nxagentFillRemoteRegion().
    */
+
+  XID attributes[2];
 
   attributes[0] = 0xc1c1c1;
 
@@ -1509,13 +1492,9 @@ GCPtr nxagentCreateGraphicContext(int depth)
 
 void nxagentAllocateGraphicContexts(void)
 {
-  int *depths;
+  int *depths = nxagentDepths;
 
-  int i;
-
-  depths = nxagentDepths;
-
-  for (i = 0; i < nxagentNumDepths; i++)
+  for (int i = 0; i < nxagentNumDepths; i++)
   {
     nxagentCreateGraphicContext(*depths);
 
@@ -1525,9 +1504,7 @@ void nxagentAllocateGraphicContexts(void)
 
 void nxagentDisconnectGraphicContexts(void)
 {
-  int i;
-
-  for (i = 0; i < nxagentGraphicContextsSize; i++)
+  for (int i = 0; i < nxagentGraphicContextsSize; i++)
   {
     nxagentGraphicContexts[i].dirty = 1;
   }
