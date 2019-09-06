@@ -311,22 +311,19 @@ void nxagentChangeKeyboardControl(DeviceIntPtr pDev, KeybdCtrl *ctrl)
 
   if (nxagentOption(DeviceControl))
   {
-    unsigned long value_mask;
-    XKeyboardControl values;
 
     #ifdef TEST
     fprintf(stderr, "nxagentChangeKeyboardControl: WARNING! Propagating changes to keyboard settings.\n");
     #endif
 
-    value_mask = KBKeyClickPercent |
-                 KBBellPercent |
-                 KBBellPitch |
-                 KBBellDuration;
+    unsigned long value_mask = KBKeyClickPercent |  KBBellPercent | KBBellPitch | KBBellDuration;
 
-    values.key_click_percent = ctrl->click;
-    values.bell_percent = ctrl->bell;
-    values.bell_pitch = ctrl->bell_pitch;
-    values.bell_duration = ctrl->bell_duration;
+    XKeyboardControl values = {
+      .key_click_percent = ctrl->click,
+      .bell_percent = ctrl->bell,
+      .bell_pitch = ctrl->bell_pitch,
+      .bell_duration = ctrl->bell_duration,
+    };
 
     /*
      * Don't propagate the auto repeat mode. It is forced to be off in
@@ -366,7 +363,6 @@ void nxagentChangeKeyboardControl(DeviceIntPtr pDev, KeybdCtrl *ctrl)
 
 int nxagentKeyboardProc(DeviceIntPtr pDev, int onoff)
 {
-  XModifierKeymap *modifier_keymap;
   KeySym *keymap;
   int mapWidth;
   int min_keycode, max_keycode;
@@ -422,7 +418,7 @@ N/A
                   XkbDfltRepeatDelay, XkbDfltRepeatInterval);
       #endif
 
-      modifier_keymap = XGetModifierMapping(nxagentDisplay);
+      XModifierKeymap *modifier_keymap = XGetModifierMapping(nxagentDisplay);
 
       if (modifier_keymap == NULL)
       {
@@ -432,20 +428,17 @@ N/A
       XDisplayKeycodes(nxagentDisplay, &min_keycode, &max_keycode);
 #ifdef _XSERVER64
       {
-        KeySym64 *keymap64;
-        int len;
-        keymap64 = XGetKeyboardMapping(nxagentDisplay,
-                                     min_keycode,
-                                     max_keycode - min_keycode + 1,
-                                     &mapWidth);
-
+        KeySym64 *keymap64 = XGetKeyboardMapping(nxagentDisplay,
+                                                 min_keycode,
+                                                 max_keycode - min_keycode + 1,
+                                                 &mapWidth);
         if (keymap64 == NULL)
         {
           XFreeModifiermap(modifier_keymap);
           return -1;
         }
 
-        len = (max_keycode - min_keycode + 1) * mapWidth;
+        int len = (max_keycode - min_keycode + 1) * mapWidth;
         keymap = (KeySym *)malloc(len * sizeof(KeySym));
         for(i = 0; i < len; ++i)
         {
@@ -868,9 +861,7 @@ void nxagentNotifyKeyboardChanges(int oldMinKeycode, int oldMaxKeycode)
 
   #endif
 
-    int i;
     xEvent event = {0};
-
     event.u.u.type = MappingNotify;
     event.u.mappingNotify.request = MappingKeyboard;
     event.u.mappingNotify.firstKeyCode = inputInfo.keyboard -> key -> curKeySyms.minKeyCode;
@@ -881,7 +872,7 @@ void nxagentNotifyKeyboardChanges(int oldMinKeycode, int oldMaxKeycode)
      *  0 is the server client
      */
 
-    for (i = 1; i < currentMaxClients; i++)
+    for (int i = 1; i < currentMaxClients; i++)
     {
       if (clients[i] && clients[i] -> clientState == ClientStateRunning)
       {
@@ -907,10 +898,6 @@ int nxagentResetKeyboard(void)
   int oldMinKeycode = 8;
   int oldMaxKeycode = 255;
 
-  int savedBellPercent;
-  int savedBellPitch;
-  int savedBellDuration;
-
   if (NXDisplayError(nxagentDisplay) == 1)
   {
     return 0;
@@ -920,9 +907,9 @@ int nxagentResetKeyboard(void)
    * Save bell settings.
    */
 
-  savedBellPercent = inputInfo.keyboard -> kbdfeed -> ctrl.bell;
-  savedBellPitch = inputInfo.keyboard -> kbdfeed -> ctrl.bell_pitch;
-  savedBellDuration = inputInfo.keyboard -> kbdfeed -> ctrl.bell_duration;
+  int savedBellPercent = inputInfo.keyboard -> kbdfeed -> ctrl.bell;
+  int savedBellPitch = inputInfo.keyboard -> kbdfeed -> ctrl.bell_pitch;
+  int savedBellDuration = inputInfo.keyboard -> kbdfeed -> ctrl.bell_duration;
 
   #ifdef TEST
   fprintf(stderr, "nxagentResetKeyboard: bellPercent [%d]  bellPitch [%d]  bellDuration [%d].\n",
@@ -948,12 +935,11 @@ int nxagentResetKeyboard(void)
     }
     #endif
 
-    dev->key=NULL;
+    dev->key = NULL;
   }
 
-  dev->focus=NULL;
-
-  dev->kbdfeed=NULL;
+  dev->focus = NULL;
+  dev->kbdfeed = NULL;
 
   #ifdef XKB
   nxagentTuneXkbWrapper();
@@ -1101,37 +1087,37 @@ static int nxagentFreeKeyboardDeviceData(DeviceIntPtr dev)
 
   if (dev->key)
   {
-      #ifdef XKB
-      if (noXkbExtension == 0 && dev->key->xkbInfo)
-      {
-          XkbFreeInfo(dev->key->xkbInfo);
-          dev->key->xkbInfo = NULL;
-      }
-      #endif
+    #ifdef XKB
+    if (noXkbExtension == 0 && dev->key->xkbInfo)
+    {
+        XkbFreeInfo(dev->key->xkbInfo);
+        dev->key->xkbInfo = NULL;
+    }
+    #endif
 
-      SAFE_free(dev->key->curKeySyms.map);
-      SAFE_free(dev->key->modifierKeyMap);
-      SAFE_free(dev->key);
+    SAFE_free(dev->key->curKeySyms.map);
+    SAFE_free(dev->key->modifierKeyMap);
+    SAFE_free(dev->key);
   }
 
   if (dev->focus)
   {
-      SAFE_free(dev->focus->trace);
-      SAFE_free(dev->focus);
+    SAFE_free(dev->focus->trace);
+    SAFE_free(dev->focus);
   }
 
   if (dev->kbdfeed)
   {
-      for (KbdFeedbackPtr k = dev->kbdfeed, knext; k; k = knext)
-      {
-          knext = k->next;
-          #ifdef XKB
-          if (k->xkb_sli)
-              XkbFreeSrvLedInfo(k->xkb_sli);
-          #endif
-          SAFE_free(k);
-      }
-      dev->kbdfeed = NULL;
+    for (KbdFeedbackPtr k = dev->kbdfeed, knext; k; k = knext)
+    {
+      knext = k->next;
+      #ifdef XKB
+      if (k->xkb_sli)
+        XkbFreeSrvLedInfo(k->xkb_sli);
+      #endif
+      SAFE_free(k);
+    }
+    dev->kbdfeed = NULL;
   }
 
   #ifdef DEBUG
@@ -1145,14 +1131,11 @@ static int nxagentFreeKeyboardDeviceData(DeviceIntPtr dev)
 
 int ProcXkbInhibited(register ClientPtr client)
 {
-  unsigned char majorop;
-  unsigned char minorop;
-
   #ifdef TEST
   fprintf(stderr, "ProcXkbInhibited: Called.\n");
   #endif
 
-  majorop = ((xReq *)client->requestBuffer)->reqType;
+  unsigned char majorop = ((xReq *)client->requestBuffer)->reqType;
 
   #ifdef PANIC
   if (majorop != (unsigned char)nxagentXkbWrapper.base)
@@ -1162,7 +1145,7 @@ int ProcXkbInhibited(register ClientPtr client)
   }
   #endif
 
-  minorop = *((unsigned char *) client->requestBuffer + 1);
+  unsigned char minorop = *((unsigned char *) client->requestBuffer + 1);
 
   #ifdef TEST
   fprintf(stderr, "ProcXkbInhibited: MAJOROP is [%d] MINOROP is [%d].\n",
@@ -1371,7 +1354,16 @@ void nxagentXkbClearNames(void)
 
 static void nxagentXkbGetNames(void)
 {
-  Atom atom;
+  if (nxagentRemoteRules)
+    return;
+
+  Atom atom = XInternAtom(nxagentDisplay, "_XKB_RULES_NAMES", 1);
+
+  if (atom == 0)
+  {
+    return;
+  }
+
   #ifdef _XSERVER64
   Atom64 type;
   #else
@@ -1380,25 +1372,11 @@ static void nxagentXkbGetNames(void)
   int format;
   unsigned long n;
   unsigned long after;
-  char *data;
-  char *name;
-  Status result;
+  char *data = NULL;
 
-  if (nxagentRemoteRules)
-    return;
-
-  atom = XInternAtom(nxagentDisplay, "_XKB_RULES_NAMES", 1);
-
-  if (atom == 0)
-  {
-    return;
-  }
-
-  data = name = NULL;
-
-  result = XGetWindowProperty(nxagentDisplay, DefaultRootWindow(nxagentDisplay),
-                                  atom, 0, 256, 0, XA_STRING, &type, &format,
-                                      &n, &after, (unsigned char **)&data);
+  Status result = XGetWindowProperty(nxagentDisplay, DefaultRootWindow(nxagentDisplay),
+                                        atom, 0, 256, 0, XA_STRING, &type, &format,
+                                            &n, &after, (unsigned char **)&data);
 
   if (result != Success || !data)
   {
@@ -1414,7 +1392,7 @@ static void nxagentXkbGetNames(void)
     }
   }
 
-  name = data;
+  char *name = data;
 
   if (name < data + n)
   {
