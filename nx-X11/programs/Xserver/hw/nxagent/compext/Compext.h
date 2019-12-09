@@ -194,7 +194,7 @@ extern int NXDisplayCongestion(
  * transport.
  */
 
-extern int NXFlushDisplay(
+extern void NXFlushDisplay(
 #if NeedFunctionPrototypes
     Display*            /* display */,
     int                 /* what */

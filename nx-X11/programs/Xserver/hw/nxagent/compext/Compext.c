@@ -660,7 +660,7 @@ int NXDisplayCongestion(Display *dpy)
   #endif
 }
 
-int NXFlushDisplay(Display *dpy, int what)
+void NXFlushDisplay(Display *dpy, int what)
 {
   if (!(dpy -> flags & XlibDisplayWriting) &&
           dpy -> bufptr - dpy -> buffer > 0)
@@ -675,7 +675,7 @@ int NXFlushDisplay(Display *dpy, int what)
 
   if (what == NXFlushBuffer)
   {
-    return 0;
+    return;
   }
 
   #ifdef DEBUG
@@ -683,7 +683,7 @@ int NXFlushDisplay(Display *dpy, int what)
               NXDisplayFlushable(dpy));
   #endif
 
-  return NXTransFlush(dpy -> fd);
+  NXTransFlush(dpy -> fd);
 }
 
 NXDisplayErrorPredicate NXSetDisplayErrorPredicate(NXDisplayErrorPredicate predicate)
