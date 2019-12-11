@@ -75,7 +75,7 @@ Atom nxagentAtoms[NXAGENT_NUMBER_OF_ATOMS];
 
 static char *nxagentAtomNames[NXAGENT_NUMBER_OF_ATOMS + 1] =
 {
-  "NX_IDENTITY",                 /* 0  */
+  "NX_IDENTITY",                 /* 0  */  /* not mapped to the real X server, see nxagentAtomNoMapping */
   "WM_PROTOCOLS",                /* 1  */
   "WM_DELETE_WINDOW",            /* 2  */
   "WM_NX_READY",                 /* 3  */
@@ -83,7 +83,7 @@ static char *nxagentAtomNames[NXAGENT_NUMBER_OF_ATOMS + 1] =
   "NX_CUT_BUFFER_SERVER",        /* 5  */
   "TARGETS",                     /* 6  */
   "TEXT",                        /* 7  */
-  "NX_AGENT_SIGNATURE",          /* 8  */
+  "NX_AGENT_SIGNATURE",          /* 8  */  /* not mapped to the real X server, see nxagentAtomNoMapping */
   "NXDARWIN",                    /* 9  */
   "CLIPBOARD",                   /* 10 */
   "TIMESTAMP",                   /* 11 */
@@ -94,6 +94,9 @@ static char *nxagentAtomNames[NXAGENT_NUMBER_OF_ATOMS + 1] =
   NULL,
   NULL
 };
+
+/* these atoms must not be created on the real X server */
+static int nxagentAtomNoMapping[] = {0, 8};
 
 static XErrorHandler previousErrorHandler = NULL;
 
@@ -273,20 +276,9 @@ int nxagentQueryAtoms(ScreenPtr pScreen)
   }
 
   /*
-   * Value of nxagentAtoms[8] is "NX_AGENT_SIGNATURE".
-   *
-   * This atom is created internally by the agent server at
-   * startup to let other agents determine if they are run
-   * nested. If agent is run nested, in fact, at the time it
-   * will create the NX_AGENT_SIGNATURE atom on the real X
-   * server it will find the existing atom with a value less
-   * than any NX_IDENTITY created but itself.
+   * if the remote X server has a atom called NX_AGENT_SIGNATURE we
+   * are running nested.
    */
-
-  if (nxagentAtoms[8] > nxagentAtoms[0])
-  {
-    nxagentAtoms[8] = None;
-  }
 
   if (nxagentAtoms[8] != None)
   {
@@ -439,7 +431,21 @@ static int nxagentInitAtomMap(char **atomNameList, int count, Atom *atomsRet)
     name_list[i] = atomNameList[i];
     atom_list[i] = None;
   }
-  
+
+  /*
+   * We do not want to create certain atoms on the real X server so we
+   * map them to None. Unfortunately XInternAtoms() cannot be
+   * instructed per-atom if it should be created if non-existing or
+   * not. So for now we use this hack which allows us to still use
+   * XInternAtoms() instead of one XInternAtom() per atom
+   */
+  for (i = 0; i < sizeof(nxagentAtomNoMapping) / sizeof(nxagentAtomNoMapping[0]); i++)
+  {
+    char * tmp;
+    asprintf(&tmp, "NX_HIDDEN_ATOM_%d", i);
+    name_list[nxagentAtomNoMapping[i]] = tmp;
+  }
+
   for (i = 0; i < privLastAtom; i++)
   {
     name_list[count + i] = (char *)privAtomMap[i].string;
@@ -459,10 +465,29 @@ static int nxagentInitAtomMap(char **atomNameList, int count, Atom *atomsRet)
     fprintf(stderr, "nxagentInitAtomMap: WARNING! XInternAtoms request failed.\n");
     #endif
 
+    for (i = 0; i < sizeof(nxagentAtomNoMapping) / sizeof(nxagentAtomNoMapping[0]); i++)
+    {
+      SAFE_free(name_list[nxagentAtomNoMapping[i]]);
+    }
+
     SAFE_free(atom_list);
     SAFE_free(name_list);
 
     return 0;
+  }
+
+  /*
+   * Restore the atoms that should not be created on the real X server
+   * to make the following mapping/caching work. If the list gets
+   * longer than 1 or 2 we we should implement this using one
+   * XInternAtoms() call
+   */
+  for (i = 0; i < sizeof(nxagentAtomNoMapping) / sizeof(nxagentAtomNoMapping[0]); i++)
+  {
+    int index = nxagentAtomNoMapping[i];
+    free(name_list[index]);
+    name_list[index] = atomNameList[index];
+    atom_list[index] = XInternAtom(nxagentDisplay, name_list[index], True);
   }
 
   for (i = 0; i < list_size; i++)
