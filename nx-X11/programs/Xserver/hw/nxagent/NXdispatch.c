@@ -584,8 +584,6 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
     nxagentFreeFontData();
 #endif /* NXAGENT_SERVER */
 
-    nxagentFreeAtomMap();
-
     KillAllClients();
     free(clientReady);
     dispatchException &= ~DE_RESET;
