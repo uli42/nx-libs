@@ -257,7 +257,7 @@ WaitForSomething(int *pClientsReady)
 
             timeoutInMillis = GetTimeInMillis();
 
-            if (timeoutInMillis - startTimeInMillis >= NX_TRANS_WAKEUP)
+            if (timeoutInMillis - startTimeInMillis >= pClientsReady[1])
             {
                 #ifdef NX_TRANS_DEBUG
                 fprintf(stderr, "WaitForSomething: Returning 0 because of wakeup timeout.\n");
@@ -265,7 +265,7 @@ WaitForSomething(int *pClientsReady)
 		return 0;
             }
 
-            timeoutInMillis = NX_TRANS_WAKEUP - (timeoutInMillis - startTimeInMillis);
+            timeoutInMillis = pClientsReady[1] - (timeoutInMillis - startTimeInMillis);
 
             #ifdef NX_TRANS_DEBUG
             fprintf(stderr, "WaitForSomething: Milliseconds to next wakeup are %ld.\n",
