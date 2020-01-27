@@ -776,7 +776,7 @@ void nxagentSwitchAllScreens(ScreenPtr pScreen, Bool switchOn)
     }
   }
 
-  Window w = nxagentDefaultWindows[pScreen -> myNum];
+  XlibWindow w = nxagentDefaultWindows[pScreen -> myNum];
 
   /*
    * override_redirect makes the window manager ignore the window and

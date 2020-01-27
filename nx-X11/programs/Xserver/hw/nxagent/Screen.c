@@ -144,9 +144,9 @@ extern Bool nxagentReportWindowIds;
 extern unsigned long startTime;
 #endif
 
-Window nxagentDefaultWindows[MAXSCREENS];
-Window nxagentInputWindows[MAXSCREENS];
-Window nxagentScreenSaverWindows[MAXSCREENS];
+XlibWindow nxagentDefaultWindows[MAXSCREENS];
+XlibWindow nxagentInputWindows[MAXSCREENS];
+XlibWindow nxagentScreenSaverWindows[MAXSCREENS];
 
 #ifdef NXAGENT_ONSTART
 XlibAtom nxagentReadyAtom;
@@ -162,8 +162,8 @@ Atom mcop_local_atom = None;
 unsigned char fromHexNibble(char c);
 #endif
 
-Window nxagentIconWindow = None;
-Window nxagentFullscreenWindow = None;
+XlibWindow nxagentIconWindow = None;
+XlibWindow nxagentFullscreenWindow = None;
 
 #ifdef VIEWPORT_FRAME
 
@@ -347,7 +347,7 @@ void nxagentMaximizeToFullScreen(ScreenPtr pScreen)
   XUnmapWindow(nxagentDisplay, nxagentIconWindow);
 */
 
-    Window root = RootWindow(nxagentDisplay, DefaultScreen(nxagentDisplay));
+    XlibWindow root = RootWindow(nxagentDisplay, DefaultScreen(nxagentDisplay));
 
 /*
 FIXME: We'll check for ReparentNotify and LeaveNotify events after
@@ -412,7 +412,7 @@ FIXME: We'll check for ReparentNotify and LeaveNotify events after
 */
 }
 
-Window nxagentCreateIconWindow(void)
+XlibWindow nxagentCreateIconWindow(void)
 {
   /*
    * Create icon window.
@@ -430,7 +430,7 @@ Window nxagentCreateIconWindow(void)
   fprintf(stderr, "nxagentCreateIconWindow: Going to create new icon window.\n");
   #endif
 
-  Window w = XCreateWindow(nxagentDisplay, DefaultRootWindow(nxagentDisplay),
+  XlibWindow w = XCreateWindow(nxagentDisplay, DefaultRootWindow(nxagentDisplay),
                         0, 0, 1, 1, 0,
                             DefaultDepth(nxagentDisplay, DefaultScreen(nxagentDisplay)),
                                 InputOutput,
@@ -439,7 +439,7 @@ Window nxagentCreateIconWindow(void)
 
   if (nxagentReportWindowIds)
   {
-    fprintf(stderr, "NXAGENT_WINDOW_ID: ICON_WINDOW,WID:[0x%x]\n", w);
+    fprintf(stderr, "NXAGENT_WINDOW_ID: ICON_WINDOW,WID:[0x%lx]\n", w);
   }
   #ifdef TEST
   fprintf(stderr, "nxagentCreateIconWindow: Created new icon window with id [0x%x].\n",
@@ -1800,7 +1800,7 @@ N/A
 
       if (nxagentReportWindowIds)
       {
-        fprintf(stderr, "NXAGENT_WINDOW_ID: SCREEN_WINDOW:[%d],WID:[0x%x]\n", pScreen->myNum, nxagentDefaultWindows[pScreen->myNum]);
+        fprintf(stderr, "NXAGENT_WINDOW_ID: SCREEN_WINDOW:[%d],WID:[0x%lx]\n", pScreen->myNum, nxagentDefaultWindows[pScreen->myNum]);
       }
 
       #ifdef TEST
@@ -1826,7 +1826,7 @@ N/A
 
         if (nxagentReportWindowIds)
         {
-          fprintf(stderr, "NXAGENT_WINDOW_ID: INPUT_WINDOW:[%d],WID:[0x%x]\n", pScreen->myNum, nxagentInputWindows[pScreen->myNum]);
+          fprintf(stderr, "NXAGENT_WINDOW_ID: INPUT_WINDOW:[%d],WID:[0x%lx]\n", pScreen->myNum, nxagentInputWindows[pScreen->myNum]);
         }
 
         #ifdef TEST
@@ -3294,7 +3294,7 @@ FIXME: The port information is not used at the moment and produces a
   char *chport;
   char hex[] = "0123456789abcdef";
 */
-  Window         rootWin = DefaultRootWindow(nxagentDisplay);
+  XlibWindow     rootWin = DefaultRootWindow(nxagentDisplay);
   XlibAtom       propAtom = nxagentAtoms[4];  /* MCOPGLOBALS */
   XlibAtom       atomReturnType;
   int            iReturnFormat;
@@ -4523,7 +4523,7 @@ void nxagentShowPixmap(PixmapPtr pPixmap, int x, int y, int width, int height)
 {
   static int init = 1;
   static Display *shadow = NULL;
-  static Window win = 0;
+  static XlibWindow win = 0;
 
   int depth = pPixmap -> drawable.depth;
   /*

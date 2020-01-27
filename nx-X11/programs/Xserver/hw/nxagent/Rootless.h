@@ -46,29 +46,23 @@ extern WindowPtr nxagentRootlessWindow;
  * connected to the real X server.
  */
 
-#ifdef XlibAtom
+#if defined(XlibAtom) && defined(XlibWindow)
 typedef struct
 {
-  Window window;
+  XlibWindow window;
   XlibAtom property;
 } PropertyRequestRec;
 
 extern PropertyRequestRec nxagentPropertyRequests[256];
 #endif
 
-Window nxagentRootlessWindowParent(WindowPtr pWin);
-
-void nxagentRootlessAddTopLevelWindow(WindowPtr pWin, Window w);
-void nxagentRootlessDelTopLevelWindow(WindowPtr pWin);
-
-WindowPtr nxagentRootlessTopLevelWindow(Window w);
-
-#ifndef _XSERVER64
-void nxagentRootlessRestack(Window *toplevel, unsigned int ntoplevel);
-#else
-void nxagentRootlessRestack(unsigned long *toplevel, unsigned int ntoplevel);
+#ifdef XlibWindow
+XlibWindow nxagentRootlessWindowParent(WindowPtr pWin);
+void nxagentRootlessAddTopLevelWindow(WindowPtr pWin, XlibWindow w);
+WindowPtr nxagentRootlessTopLevelWindow(XlibWindow w);
+void nxagentRootlessRestack(XlibWindow *toplevel, unsigned int ntoplevel);
 #endif
-
+void nxagentRootlessDelTopLevelWindow(WindowPtr pWin);
 
 int nxagentExportAllProperty(WindowPtr pWin);
 
@@ -77,8 +71,8 @@ int nxagentExportProperty(WindowPtr pWin, Atom property, Atom type, int format,
 
 #define MAX_RETRIEVED_PROPERTY_SIZE 256 * 1024
 
-#ifdef XlibAtom
-void nxagentImportProperty(Window window, XlibAtom property, XlibAtom type, int format,
+#if defined(XlibAtom) && defined(XlibWindow)
+void nxagentImportProperty(XlibWindow window, XlibAtom property, XlibAtom type, int format,
                                unsigned long nitems, unsigned long bytes_after, unsigned char *buffer);
 #endif
 

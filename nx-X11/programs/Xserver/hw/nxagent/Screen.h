@@ -61,9 +61,10 @@ extern int nxagentAutoDisconnectTimeout;
 
 extern ScreenPtr nxagentDefaultScreen;
 
-extern Window nxagentIconWindow;
-
-extern Window nxagentFullscreenWindow;
+#ifdef XlibWindow
+extern XlibWindow nxagentIconWindow;
+extern XlibWindow nxagentFullscreenWindow;
+#endif
 
 extern RegionRec nxagentShadowUpdateRegion;
 
@@ -78,9 +79,11 @@ void nxagentSetPixmapFormats(ScreenInfo *screenInfo);
 
 void nxagentPrintGeometry();
 
-extern Window nxagentDefaultWindows[MAXSCREENS];
-extern Window nxagentInputWindows[MAXSCREENS];
-extern Window nxagentScreenSaverWindows[MAXSCREENS];
+#ifdef XlibWindow
+extern XlibWindow nxagentDefaultWindows[MAXSCREENS];
+extern XlibWindow nxagentInputWindows[MAXSCREENS];
+extern XlibWindow nxagentScreenSaverWindows[MAXSCREENS];
+#endif
 
 #ifdef VIEWPORT_FRAME
 
@@ -107,7 +110,9 @@ void nxagentMinimizeFromFullScreen(ScreenPtr pScreen);
 
 void nxagentMaximizeToFullScreen(ScreenPtr pScreen);
 
-Window nxagentCreateIconWindow(void);
+#ifdef XlibWindow
+XlibWindow nxagentCreateIconWindow(void);
+#endif
 
 Bool nxagentMagicPixelZone(int x, int y);
 

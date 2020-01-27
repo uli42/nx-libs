@@ -94,7 +94,7 @@ WindowPtr nxagentRootlessWindow = NULL;
 #define TOP_LEVEL_TABLE_UNIT 100
 
 typedef struct {
-  Window xid;
+  XlibWindow xid;
   WindowPtr pWin;
 } TopLevelParentRec;
 
@@ -132,7 +132,7 @@ void nxagentPrintRootlessTopLevelWindowMap(void)
 #endif
 #endif
 
-void nxagentRootlessAddTopLevelWindow(WindowPtr pWin, Window w)
+void nxagentRootlessAddTopLevelWindow(WindowPtr pWin, XlibWindow w)
 {
   for (int i = 0; i < topLevelParentMap.next; i++)
   {
@@ -173,7 +173,7 @@ void nxagentRootlessAddTopLevelWindow(WindowPtr pWin, Window w)
   topLevelParentMap.next++;
 }
 
-WindowPtr nxagentRootlessTopLevelWindow(Window w)
+WindowPtr nxagentRootlessTopLevelWindow(XlibWindow w)
 {
   for (int i = 0; i < topLevelParentMap.next; i++)
   {
@@ -274,11 +274,7 @@ Bool nxagentRootlessTreesMatch(void)
 
 #endif
 
-#ifndef _XSERVER64
-void nxagentRootlessRestack(Window children[], unsigned int nchildren)
-#else
-void nxagentRootlessRestack(unsigned long children[], unsigned int nchildren)
-#endif
+void nxagentRootlessRestack(XlibWindow children[], unsigned int nchildren)
 {
   WindowPtr *toplevel = malloc(sizeof(WindowPtr) * nchildren);
 
@@ -377,7 +373,7 @@ void nxagentRootlessRestack(unsigned long children[], unsigned int nchildren)
  * Determine if window is a top-level window.
  */
 
-Window nxagentRootlessWindowParent(WindowPtr pWin)
+XlibWindow nxagentRootlessWindowParent(WindowPtr pWin)
 {
   #ifdef TEST
   fprintf(stderr, "%s: Called for window at [%p][%d] with parent [%p][%d].\n", __func__,
@@ -792,7 +788,7 @@ int nxagentExportProperty(WindowPtr pWin,
   return export;
 }
 
-void nxagentImportProperty(Window window,
+void nxagentImportProperty(XlibWindow window,
                            XlibAtom property,
                            XlibAtom type,
                            int format,
@@ -805,7 +801,7 @@ void nxagentImportProperty(Window window,
 
   typedef struct {
       CARD32 state;
-      Window icon;
+      XlibWindow icon;
     } WMState;
   WMState wmState;
 
