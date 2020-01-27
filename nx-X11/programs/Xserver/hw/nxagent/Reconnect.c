@@ -677,6 +677,21 @@ Bool nxagentReconnectSession(void)
 
   nxagentCleanupBackupDisplayInfo();
 
+  for (int i = 0; i < screenInfo.numScreens; i++)
+  {
+    /*
+     * nxagent is only using one screen currently, so this loop is
+     * kind of weird. But it's the same as in
+     * nxagentMapDefaultWindows. If we _ever_ use more screens this
+     * code will just work.
+     */
+    WindowPtr pWin = screenInfo.screens[i]->root;
+    ScreenPtr pScreen = pWin -> drawable.pScreen;
+
+    /* FIXME: replace pScreen->myNum by i? Is the order guaranteed? */
+    nxagentShowSplashWindow(nxagentDefaultWindows[pScreen->myNum]);
+  }
+
   return 1;
 
 nxagentReconnectError:
