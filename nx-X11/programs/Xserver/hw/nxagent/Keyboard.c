@@ -359,7 +359,6 @@ void nxagentChangeKeyboardControl(DeviceIntPtr pDev, KeybdCtrl *ctrl)
 
 int nxagentKeyboardProc(DeviceIntPtr pDev, int onoff)
 {
-  KeySym *keymap;
   int mapWidth;
   int min_keycode, max_keycode;
   CARD8 modmap[MAP_LENGTH];
@@ -420,41 +419,24 @@ N/A
       }
 
       XDisplayKeycodes(nxagentDisplay, &min_keycode, &max_keycode);
-#ifdef _XSERVER64
-      {
-        KeySym64 *keymap64 = XGetKeyboardMapping(nxagentDisplay,
-                                                 min_keycode,
-                                                 max_keycode - min_keycode + 1,
-                                                 &mapWidth);
-        if (keymap64 == NULL)
-        {
-          XFreeModifiermap(modifier_keymap);
-          return -1;
-        }
 
-        int len = (max_keycode - min_keycode + 1) * mapWidth;
-        keymap = (KeySym *)malloc(len * sizeof(KeySym));
-        for(int i = 0; i < len; ++i)
-        {
-          keymap[i] = keymap64[i];
-        }
-        SAFE_XFree(keymap64);
-      }
-
-#else /* #ifdef _XSERVER64 */
-
-      keymap = XGetKeyboardMapping(nxagentDisplay,
-                                   min_keycode,
-                                   max_keycode - min_keycode + 1,
-                                   &mapWidth);
-
-      if (keymap == NULL)
+      XlibKeySym *xlibkeymap = XGetKeyboardMapping(nxagentDisplay,
+                                                   min_keycode,
+                                                   max_keycode - min_keycode + 1,
+                                                   &mapWidth);
+      if (xlibkeymap == NULL)
       {
         XFreeModifiermap(modifier_keymap);
         return -1;
       }
 
-#endif /* #ifdef _XSERVER64 */
+      int len = (max_keycode - min_keycode + 1) * mapWidth;
+      KeySym *keymap = (KeySym *)malloc(len * sizeof(KeySym));
+      for (int i = 0; i < len; ++i)
+      {
+        keymap[i] = xlibkeymap[i];
+      }
+      SAFE_XFree(xlibkeymap);
 
       nxagentAltMetaMask = 0;
       nxagentAltMask = 0;
@@ -767,11 +749,8 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
 
       #endif
 
-#ifdef _XSERVER64
       SAFE_free(keymap);
-#else
-      SAFE_XFree(keymap);
-#endif
+
       break;
     case DEVICE_ON:
 
