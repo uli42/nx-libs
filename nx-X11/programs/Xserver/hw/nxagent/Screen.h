@@ -61,8 +61,6 @@ extern int nxagentAutoDisconnectTimeout;
 
 extern ScreenPtr nxagentDefaultScreen;
 
-extern Pixmap nxagentPixmapLogo;
-
 extern Window nxagentIconWindow;
 
 extern Window nxagentFullscreenWindow;
