@@ -2512,11 +2512,14 @@ void nxagentMapDefaultWindows(void)
        * Show the NX splash screen.
        */
 
-      #ifdef TEST
-      fprintf(stderr, "nxagentMapDefaultWindows: Showing the splash window.\n");
-      #endif
+      if (!nxagentReconnectTrap)
+      {
+        #ifdef TEST
+        fprintf(stderr, "nxagentMapDefaultWindows: Showing the splash window.\n");
+        #endif
 
-      nxagentShowSplashWindow(nxagentDefaultWindows[pScreen->myNum]);
+        nxagentShowSplashWindow(nxagentDefaultWindows[pScreen->myNum]);
+      }
 
       /*
        * Map the default window. Defer the mapping if the session is

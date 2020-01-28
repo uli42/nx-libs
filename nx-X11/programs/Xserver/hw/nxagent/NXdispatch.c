@@ -260,17 +260,6 @@ Dispatch(void)
 
     #endif
 
-    #ifdef NXAGENT_ONSTART
-
-    /*
-     * Set NX_WM property (used by NX client to identify the agent's
-     * window) three seconds since the first client connects.
-     */
-
-    unsigned int nxagentWMtimeout = GetTimeInMillis() + 3000;
-
-    #endif
-
 #endif /* NXAGENT_SERVER */
     clientReady = (int *) malloc(sizeof(int) * MaxClients);
     if (!clientReady)
@@ -322,15 +311,18 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
 
 #ifdef NXAGENT_SERVER
         /*
-         * Ensure we remove the splash after the timeout.
          * Initializing clientReady[0] to -1 will tell
          * WaitForSomething() to yield control after the
          * timeout set in clientReady[1].
+         *
+         * This was also used for removing the splash window on time
+         * in case the WaitForSomething call did not return for a long
+         * time.
          */
 
         clientReady[0] = 0;
 
-        if (nxagentHaveSplashWindow() || (nxagentOption(Xdmcp) == 1 && nxagentXdmcpUp == 0))
+        if (nxagentOption(Xdmcp) == 1 && nxagentXdmcpUp == 0)
         {
           #ifdef TEST
           fprintf(stderr, "******Dispatch: Requesting a timeout of [%d] Ms.\n",
@@ -375,16 +367,6 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
         #endif
         
         #ifdef NXAGENT_ONSTART
-
-	/*
-	 * If the timeout is expired set the selection informing the
-	 * NX client that the agent is ready.
-	 */
-
-	if (nxagentWMtimeout < GetTimeInMillis())
-	{
-	  nxagentRemoveSplashWindow();
-	}
 
         nxagentClients = nClients;
 
@@ -606,10 +588,6 @@ ProcReparentWindow(register ClientPtr client)
 					   DixWriteAccess);
     if (!pWin)
         return(BadWindow);
-
-#ifdef NXAGENT_SERVER
-    nxagentRemoveSplashWindow();
-#endif
 
     pParent = (WindowPtr)SecurityLookupWindow(stuff->parent, client,
 					      DixWriteAccess);

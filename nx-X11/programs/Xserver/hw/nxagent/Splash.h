@@ -29,6 +29,4 @@
 #ifdef XlibWindow
 extern void nxagentShowSplashWindow(XlibWindow);
 #endif
-extern void nxagentRemoveSplashWindow(void);
-extern Bool nxagentHaveSplashWindow(void);
 #endif /* __Splash_H__ */

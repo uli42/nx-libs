@@ -663,8 +663,6 @@ Bool nxagentReconnectSession(void)
   #endif
   saveAgentState("RUNNING");
 
-  nxagentRemoveSplashWindow();
-
   /*
    * We let the proxy flush the link on our behalf after having opened
    * the display. We are now entering again the dispatcher so can

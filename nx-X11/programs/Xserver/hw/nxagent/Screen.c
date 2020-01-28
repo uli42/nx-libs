@@ -2905,8 +2905,6 @@ int nxagentShadowPoll(PixmapPtr shadowPixmapPtr, GCPtr shadowGCPtr,
     char *tBuffer = NULL;
     char *iBuffer, *ptBox;
 
-    nxagentRemoveSplashWindow();
-
     long numRects;
     NXShadowExportChanges(&numRects, &ptBox);
 

@@ -61,18 +61,39 @@ static XlibPixmap nxagentPixmapLogo;
 static XlibWindow nxagentSplashWindow = None;
 static Bool nxagentWMPassed = False;
 
+OsTimerPtr nxagentSplashTimer = NULL;
+
+static void nxagentRemoveSplashWindow(void);
+
 static void nxagentPaintLogo(XlibWindow win, int scale, int width, int height);
+
+CARD32 nxagentSplashCallback(OsTimerPtr timer, CARD32 now, void *arg)
+{
+  #ifdef TEST
+  fprintf(stderr, "%s: removing splash window\n", __func__);
+  #endif
+
+  nxagentRemoveSplashWindow();
+
+  return 0;
+}
 
 void nxagentShowSplashWindow(XlibWindow parentWindow)
 {
   /*
    * Show splash window only when running as X2Go Agent
    */
-  if(!nxagentX2go)
+  if (!nxagentX2go)
+    return;
+
+  /*
+   * Do not run any splash window related code in rootless mode
+   */
+  if (nxagentOption(Rootless))
     return;
 
   #ifdef TEST
-  fprintf(stderr, "%s: Got called.\n", __func__);
+  fprintf(stderr, "%s: Called, parentWindow [%lx].\n", __func__, parentWindow);
   #endif
 
   #ifdef NXAGENT_TIMESTAMP
@@ -90,35 +111,21 @@ void nxagentShowSplashWindow(XlibWindow parentWindow)
 
   nxagentWMPassed = False;
 
-  XWindowAttributes getAttributes;
-
   /*
    * This would cause a GetWindowAttributes and a GetGeometry
    * (asynchronous) reply. We use instead the geometry requested by
    * the user for the agent window.
    *
+   * XWindowAttributes getAttributes;
    * XGetWindowAttributes(nxagentDisplay, parentWindow, &getAttributes);
    */
 
-  /*
-   * During reconnection we draw the splash over the default window
-   * and not over the root window because it would be hidden by other
-   * windows.
-   */
-
-  if (nxagentReconnectTrap)
-  {
-    getAttributes.x = nxagentOption(RootX);
-    getAttributes.y = nxagentOption(RootY);
-  }
-  else
-  {
-    getAttributes.x = 0;
-    getAttributes.y = 0;
-  }
-
-  getAttributes.width  = nxagentOption(RootWidth);
-  getAttributes.height = nxagentOption(RootHeight);
+  XWindowAttributes getAttributes = {
+    .x = nxagentOption(RootX),
+    .y = nxagentOption(RootY),
+    .width  = nxagentOption(RootWidth),
+    .height = nxagentOption(RootHeight)
+  };
 
   #ifdef TEST
   fprintf(stderr, "%s: Going to create new splash window.\n", __func__);
@@ -159,6 +166,9 @@ void nxagentShowSplashWindow(XlibWindow parentWindow)
   XConfigureWindow(nxagentDisplay, nxagentSplashWindow, CWStackMode, &values);
 #endif
 
+  /* remove the Splash window after 3s */
+  TimerSet(nxagentSplashTimer, 0, 3000, nxagentSplashCallback, NULL);
+
   #ifdef NXAGENT_TIMESTAMP
   {
     extern unsigned long startTime;
@@ -166,11 +176,6 @@ void nxagentShowSplashWindow(XlibWindow parentWindow)
             GetTimeInMillis() - startTime);
   }
   #endif
-}
-
-Bool nxagentHaveSplashWindow(void)
-{
-  return (nxagentSplashWindow != None);
 }
 
 void nxagentPaintLogo(XlibWindow win, int scale, int width, int height)
