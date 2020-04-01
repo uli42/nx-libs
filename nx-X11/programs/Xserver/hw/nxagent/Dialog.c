@@ -189,7 +189,6 @@ void nxagentLaunchDialog(DialogType dialogType)
   char *type;
   char *message;
   char *strings[2] = {NULL}; /* don't forget to add free() calls if you change the number */
-  int local;
   const char *window = NULL;
 
   switch (dialogType)
@@ -198,7 +197,6 @@ void nxagentLaunchDialog(DialogType dialogType)
     {
       message = DIALOG_KILL_SESSION_MESSAGE;
       type = DIALOG_KILL_SESSION_TYPE;
-      local = DIALOG_KILL_SESSION_LOCAL;
       pid = &nxagentKillDialogPid;
       break;
     }
@@ -206,7 +204,6 @@ void nxagentLaunchDialog(DialogType dialogType)
     {
       message = DIALOG_SUSPEND_SESSION_MESSAGE;
       type = DIALOG_SUSPEND_SESSION_TYPE;
-      local = DIALOG_SUSPEND_SESSION_LOCAL;
       pid = &nxagentSuspendDialogPid;
       break;
     }
@@ -214,7 +211,6 @@ void nxagentLaunchDialog(DialogType dialogType)
     {
       message = DIALOG_ROOTLESS_MESSAGE;
       type = DIALOG_ROOTLESS_TYPE;
-      local = DIALOG_ROOTLESS_LOCAL;
       pid = &nxagentRootlessDialogPid;
       break;
     }
@@ -222,7 +218,6 @@ void nxagentLaunchDialog(DialogType dialogType)
     {
       message = DIALOG_PULLDOWN_MESSAGE;
       type = DIALOG_PULLDOWN_TYPE;
-      local = DIALOG_PULLDOWN_LOCAL;
       pid = &nxagentPulldownDialogPid;
       window = nxagentPulldownWindow;
       break;
@@ -231,7 +226,6 @@ void nxagentLaunchDialog(DialogType dialogType)
     {
       message = DIALOG_FONT_REPLACEMENT_MESSAGE;
       type = DIALOG_FONT_REPLACEMENT_TYPE;
-      local = DIALOG_FONT_REPLACEMENT_LOCAL;
       pid = &nxagentFontsReplacementDialogPid;
       break;
     }
@@ -239,7 +233,6 @@ void nxagentLaunchDialog(DialogType dialogType)
     {
       message = DIALOG_FAILED_RECONNECTION_MESSAGE;
       type = DIALOG_FAILED_RECONNECTION_TYPE;
-      local = DIALOG_FAILED_RECONNECTION_LOCAL;
       pid = &nxagentFailedReconnectionDialogPid;
       break;
     }
@@ -247,7 +240,6 @@ void nxagentLaunchDialog(DialogType dialogType)
     {
       message = DIALOG_ENABLE_DESKTOP_RESIZE_MODE_MESSAGE;
       type = DIALOG_ENABLE_DESKTOP_RESIZE_MODE_TYPE;
-      local = DIALOG_ENABLE_DESKTOP_RESIZE_MODE_LOCAL;
       pid = &nxagentEnableRandRModeDialogPid;
       strings[0] = nxagentFindFirstKeystroke("resize");
       break;
@@ -256,7 +248,6 @@ void nxagentLaunchDialog(DialogType dialogType)
     {
       message = DIALOG_DISABLE_DESKTOP_RESIZE_MODE_MESSAGE;
       type = DIALOG_DISABLE_DESKTOP_RESIZE_MODE_TYPE;
-      local = DIALOG_DISABLE_DESKTOP_RESIZE_MODE_LOCAL;
       pid = &nxagentDisableRandRModeDialogPid;
       strings[0] = nxagentFindFirstKeystroke("resize");
       strings[1] = nxagentFindMatchingKeystrokes("viewport_");
@@ -266,7 +257,6 @@ void nxagentLaunchDialog(DialogType dialogType)
     {
       message = DIALOG_ENABLE_DEFER_MODE_MESSAGE;
       type = DIALOG_ENABLE_DEFER_MODE_TYPE;
-      local = DIALOG_ENABLE_DEFER_MODE_LOCAL;
       pid = &nxagentEnableDeferModePid;
       strings[0] = nxagentFindFirstKeystroke("defer");
       break;
@@ -275,7 +265,6 @@ void nxagentLaunchDialog(DialogType dialogType)
     {
       message = DIALOG_DISABLE_DEFER_MODE_MESSAGE;
       type = DIALOG_DISABLE_DEFER_MODE_TYPE;
-      local = DIALOG_DISABLE_DEFER_MODE_LOCAL;
       pid = &nxagentDisableDeferModePid;
       strings[0] = nxagentFindFirstKeystroke("defer");
       break;
@@ -284,7 +273,6 @@ void nxagentLaunchDialog(DialogType dialogType)
     {
       message = DIALOG_ENABLE_AUTOGRAB_MODE_MESSAGE;
       type = DIALOG_ENABLE_AUTOGRAB_MODE_TYPE;
-      local = DIALOG_ENABLE_AUTOGRAB_MODE_LOCAL;
       pid = &nxagentEnableAutograbModePid;
       strings[0] = nxagentFindFirstKeystroke("autograb");
       break;
@@ -293,7 +281,6 @@ void nxagentLaunchDialog(DialogType dialogType)
     {
       message = DIALOG_DISABLE_AUTOGRAB_MODE_MESSAGE;
       type = DIALOG_DISABLE_AUTOGRAB_MODE_TYPE;
-      local = DIALOG_DISABLE_AUTOGRAB_MODE_LOCAL;
       pid = &nxagentDisableAutograbModePid;
       strings[0] = nxagentFindFirstKeystroke("autograb");
       break;
@@ -351,8 +338,8 @@ void nxagentLaunchDialog(DialogType dialogType)
 
   sigprocmask(SIG_BLOCK, &set, &oldSet);
 
-  *pid = NXTransDialog(nxagentDialogName, msg, window,
-                           type, local, dialogDisplay);
+  *pid = NXTransDialog(nxagentDialogName, message, window,
+                           type, 0, dialogDisplay);
 
   SAFE_free(strings[0]);
   SAFE_free(strings[1]);

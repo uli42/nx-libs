@@ -111,8 +111,6 @@ Do you really want to close the session?\
 
 #define DIALOG_KILL_SESSION_TYPE "yesno"
 
-#define DIALOG_KILL_SESSION_LOCAL 0
-
 
 #define DIALOG_SUSPEND_SESSION_MESSAGE \
 \
@@ -125,8 +123,6 @@ programs.\
 
 #define DIALOG_SUSPEND_SESSION_TYPE "yesnosuspend"
 
-#define DIALOG_SUSPEND_SESSION_LOCAL 0
-
 
 #define DIALOG_ROOTLESS_MESSAGE \
 \
@@ -137,16 +133,12 @@ Do you want to close the session?\
 
 #define DIALOG_ROOTLESS_TYPE "yesno"
 
-#define DIALOG_ROOTLESS_LOCAL 0
-
 
 #define DIALOG_PULLDOWN_MESSAGE \
 \
 nxagentPulldownWindow
 
 #define DIALOG_PULLDOWN_TYPE "pulldown"
-
-#define DIALOG_PULLDOWN_LOCAL 0
 
 
 #define DIALOG_FONT_REPLACEMENT_MESSAGE \
@@ -158,16 +150,12 @@ Missing fonts have been replaced.\
 
 #define DIALOG_FONT_REPLACEMENT_TYPE "ok"
 
-#define DIALOG_FONT_REPLACEMENT_LOCAL 0
-
 
 #define DIALOG_FAILED_RECONNECTION_MESSAGE \
 \
 nxagentFailedReconnectionMessage
 
 #define DIALOG_FAILED_RECONNECTION_TYPE "ok"
-
-#define DIALOG_FAILED_RECONNECTION_LOCAL 0
 
 
 #define DIALOG_ENABLE_DESKTOP_RESIZE_MODE_MESSAGE \
@@ -181,7 +169,6 @@ again to disable this option.\
 
 #define DIALOG_ENABLE_DESKTOP_RESIZE_MODE_TYPE "ok"
 
-#define DIALOG_ENABLE_DESKTOP_RESIZE_MODE_LOCAL 0
 
 #define DIALOG_DISABLE_DESKTOP_RESIZE_MODE_MESSAGE \
 \
@@ -198,8 +185,6 @@ Use these keystrokes to navigate:\n\
 
 #define DIALOG_DISABLE_DESKTOP_RESIZE_MODE_TYPE "ok"
 
-#define DIALOG_DISABLE_DESKTOP_RESIZE_MODE_LOCAL 0
-
 
 #define DIALOG_ENABLE_DEFER_MODE_MESSAGE \
 \
@@ -209,8 +194,6 @@ Deferred screen updates are now enabled. You can press\n\
 "
 
 #define DIALOG_ENABLE_DEFER_MODE_TYPE "ok"
-
-#define DIALOG_ENABLE_DEFER_MODE_LOCAL 0
 
 
 #define DIALOG_DISABLE_DEFER_MODE_MESSAGE \
@@ -222,8 +205,6 @@ Deferred screen updates are now disabled. You can press\n\
 
 #define DIALOG_DISABLE_DEFER_MODE_TYPE "ok"
 
-#define DIALOG_DISABLE_DEFER_MODE_LOCAL 0
-
 
 #define DIALOG_ENABLE_AUTOGRAB_MODE_MESSAGE \
 \
@@ -234,8 +215,6 @@ Keyboard auto-grabbing mode is now enabled. You can press\n\
 
 #define DIALOG_ENABLE_AUTOGRAB_MODE_TYPE "ok"
 
-#define DIALOG_ENABLE_AUTOGRAB_MODE_LOCAL 0
-
 
 #define DIALOG_DISABLE_AUTOGRAB_MODE_MESSAGE \
 \
@@ -245,8 +224,6 @@ Keyboard auto-grabbing mode is now disabled. You can press\n\
 "
 
 #define DIALOG_DISABLE_AUTOGRAB_MODE_TYPE "ok"
-
-#define DIALOG_DISABLE_AUTOGRAB_MODE_LOCAL 0
 
 #endif /* __Dialog_H__ */
 
