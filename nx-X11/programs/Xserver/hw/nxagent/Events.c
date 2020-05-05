@@ -70,10 +70,11 @@
 #include <nx/NXproto.h>
 
 #include "xfixesproto.h"
-#define Window     XlibWindow
+#define Window XlibWindow
 #define Atom   XlibAtom
-#define Time XlibXID
+#define Time   XlibXID
 #include "X11/include/Xfixes_nxagent.h"
+#include "X11/include/Xrandr_nxagent.h"
 #undef Window
 #undef Atom
 #undef Time
@@ -100,7 +101,6 @@
 #include <nx-X11/cursorfont.h>
 
 #include <nx/Shadow.h>
-#include "X11/include/Xrandr_nxagent.h"
 
 #include "compext/Compext.h"
 
