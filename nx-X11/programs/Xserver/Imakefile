@@ -318,6 +318,7 @@ NXAGENTNXLIBS = -L/usr/sfw/lib \
                 -lXcomposite \
                 -lXinerama \
                 -lXdmcp \
+                -lXrandr \
                 -lNX_X11 \
                 -lXext \
                 $(NULL)
@@ -333,6 +334,7 @@ NXAGENTNXLIBS = -L../../../nxcomp/src/.libs \
                 $(XFONTLIB) \
                 -lXcomposite \
                 -lXdmcp \
+                -lXrandr \
                 -lNX_X11 \
                 -lXext \
                 $(NULL)
@@ -350,6 +352,7 @@ NXAGENTNXLIBS = -L../../../nxcomp/src/.libs \
                 -lXcomposite \
                 -lXinerama \
                 -lXdmcp \
+                -lXrandr \
                 -lNX_X11 \
                 -lXext \
                 $(NULL)
@@ -366,6 +369,7 @@ NXAGENTNXLIBS = -L../../../nxcomp/src/.libs \
                 -lXcomposite \
                 -lXinerama \
                 -lXdmcp \
+                -lXrandr \
                 -lNX_X11 \
                 -lXext \
                 $(NULL)

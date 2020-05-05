@@ -127,6 +127,7 @@ extern int nxagentHandleKeyPress(XEvent *X, enum HandleEventResult*);
 extern int nxagentHandleReparentNotify(XEvent *X);
 extern int nxagentHandleConfigureNotify(XEvent *X);
 extern int nxagentHandleXFixesSelectionNotify(XEvent *X);
+extern int nxagentHandleRRScreenChangeNotify(XEvent *X);
 
 /*
  * Send a fake keystroke to the remote X server.

@@ -154,4 +154,11 @@ extern void nxagentShadowAdaptToRatio(void);
 
 extern PixmapPtr nxagentShadowPixmapPtr;
 
+/*
+ * The XRandR extension on the real X server
+ */
+
+extern int nxagentXRREventBase;
+extern int nxagentXRRErrorBase;
+
 #endif /* __Screen_H__ */

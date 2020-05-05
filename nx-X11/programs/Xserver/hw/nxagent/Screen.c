@@ -82,6 +82,13 @@ is" without express or implied warranty.
 #include <nx-X11/Xlib.h>
 #include "X11/include/Xinerama_nxagent.h"
 
+#define Window XlibWindow
+#define Atom   XlibAtom
+#define Time   XlibXID
+#include "X11/include/Xrandr_nxagent.h"
+#undef Window
+#undef Atom
+#undef Time
 
 #define GC     XlibGC
 #define Font   XlibFont
@@ -207,6 +214,9 @@ RegionRec nxagentShadowUpdateRegion;
 #ifndef NXAGENT_RANDR_MODE_PREFIX
 #define NXAGENT_RANDR_MODE_PREFIX nx_
 #endif
+
+int nxagentXRREventBase;
+int nxagentXRRErrorBase;
 
 extern Bool nxagentAutoDPI;
 
@@ -2028,15 +2038,32 @@ N/A
   #endif /* RENDER */
 
   /*
-   * Check if the composite extension is
-   * supported on the remote display and
-   * prepare the agent for its use.
+   * Check if the composite extension is supported on the remote
+   * display and prepare the agent for its use.
    */
 
   nxagentCompositeExtensionInit();
 
-  /* We use this to get informed about RandR changes on the real display.
-     FIXME: It would probably be better to use an RRScreenChangeNotifyEvent here. */
+  /*
+   * Ensure we are getting informed of RandR changes on the real display.
+   */
+
+  nxagentXRREventBase = -1;
+  nxagentXRRErrorBase = -1;
+
+  if (XRRQueryExtension(nxagentDisplay, &nxagentXRREventBase, &nxagentXRRErrorBase))
+  {
+    #ifdef TEST
+    fprintf(stderr, "%s: using XRandR extension on real display\n", __func__);
+    #endif
+
+    XRRSelectInput(nxagentDisplay, DefaultRootWindow(nxagentDisplay), RRScreenChangeNotifyMask);
+  }
+
+  /*
+   * We need this to adapt Xinerama on changes
+   */
+
   XSelectInput(nxagentDisplay, DefaultRootWindow(nxagentDisplay), StructureNotifyMask);
 
   #ifdef NXAGENT_TIMESTAMP

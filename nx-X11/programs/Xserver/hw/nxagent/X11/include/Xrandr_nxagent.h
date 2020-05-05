@@ -78,6 +78,12 @@ typedef struct {
     int mheight;
 } XRRScreenChangeNotifyEvent;
 
+Bool XRRQueryExtension (Display *dpy,
+                        int *event_base_return,
+                        int *error_base_return);
+
+void XRRSelectInput(Display *dpy, Window window, int mask);
+
 _XFUNCPROTOEND
 
 #endif /* _XRANDR_H_ */

@@ -152,6 +152,8 @@ typedef union _XFixesSelectionEvent {
         XEvent                       core;
 } XFixesSelectionEvent;
 
+extern int nxagentXRREventBase;
+
 Bool   xkbdRunning = False;
 pid_t  pidkbd;
 
@@ -2108,7 +2110,7 @@ FIXME: Don't enqueue the KeyRelease event if the key was not already
          * Let's check if this is a XKB state modification event.
          */
 
-        if (nxagentHandleXkbKeyboardStateEvent(&X) == 0 && nxagentHandleXFixesSelectionNotify(&X) == 0)
+        if (nxagentHandleXkbKeyboardStateEvent(&X) == 0 && nxagentHandleXFixesSelectionNotify(&X) == 0 && nxagentHandleRRScreenChangeNotify(&X) == 0)
         {
           #ifdef TEST
           fprintf(stderr, "%s: WARNING! Unhandled event code [%d].\n", __func__, X.type);
@@ -4303,19 +4305,47 @@ int nxagentUserInput(void *p)
 
 int nxagentHandleRRScreenChangeNotify(XEvent *X)
 {
+  if (nxagentXRREventBase == -1)
+  {
+    #ifdef TEST
+    fprintf(stderr, "%s: real X server has no Xrandr extension.\n", __func__);
+    #endif
+    return 0;
+  }
+
+
+  if (X->type != nxagentXRREventBase + RRScreenChangeNotify)
+  {
+    #ifdef TEST
+    fprintf(stderr, "%s: wrong type %d.\n", __func__, X->type);
+    #endif
+    return 0;
+  }
+
   XRRScreenChangeNotifyEvent *Xr = (XRRScreenChangeNotifyEvent *) X;
 
   #ifdef DEBUG
-  fprintf(stderr, "%s: Called.\n", __func__);
+  fprintf(stderr, "%s: width [%d] height [%d] mmwidth [%d] mmheight [%d].\n", __func__, Xr -> width, Xr -> height, Xr -> mwidth, Xr -> mheight);
   #endif
 
-  nxagentResizeScreen(screenInfo.screens[DefaultScreen(nxagentDisplay)], Xr -> width, Xr -> height,
-                          Xr -> mwidth, Xr -> mheight);
+  int oldw = nxagentOption(Width);
+  int oldh = nxagentOption(Height);
 
-  nxagentShadowCreateMainWindow(screenInfo.screens[DefaultScreen(nxagentDisplay)], screenInfo.screens[0]->root,
-                                Xr -> width, Xr -> height);
+  if (oldw != Xr->width || oldh != Xr->height)
+  {
+    nxagentChangeOption(Width, Xr->width);
+    nxagentChangeOption(Height, Xr->height);
 
-  nxagentShadowSetWindowsSize();
+    nxagentResizeScreen(screenInfo.screens[DefaultScreen(nxagentDisplay)], Xr -> width, Xr -> height,
+                            Xr -> mwidth, Xr -> mheight);
+
+    nxagentAdjustRandRXinerama(screenInfo.screens[DefaultScreen(nxagentDisplay)]);
+
+    //nxagentShadowCreateMainWindow(screenInfo.screens[DefaultScreen(nxagentDisplay)], screenInfo.screens[0]->root,
+    //                              Xr -> width, Xr -> height);
+
+    nxagentShadowSetWindowsSize();
+  }
 
   return 1;
 }
