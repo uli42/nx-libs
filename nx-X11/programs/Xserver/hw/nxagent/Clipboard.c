@@ -42,7 +42,14 @@
 
 #include "gcstruct.h"
 #include "xfixeswire.h"
+
+#define Window XlibWindow
+#define Atom   XlibAtom
+#define Time   XlibXID
 #include "X11/include/Xfixes_nxagent.h"
+#undef Window
+#undef Atom
+#undef Time
 
 /*
  * Use asynchronous get property replies.
