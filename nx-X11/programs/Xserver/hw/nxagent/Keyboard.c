@@ -245,19 +245,22 @@ static Bool nxagentKeycodeConversion = False;
 
 CARD8 nxagentConvertKeycode(CARD8 k)
 {
- if (nxagentKeycodeConversion)
- {
-   #ifdef DEBUG
-   if (k != nxagentConvertedKeycodes[k])
-     fprintf(stderr, "%s: converting keycode [%d] to [%d]\n", __func__, k, nxagentConvertedKeycodes[k]);
-   #endif
+  if (nxagentKeycodeConversion && k != nxagentConvertedKeycodes[k])
+  {
+    #ifdef DEBUG
+    fprintf(stderr, "%s: converting keycode [%d] to [%d]\n", __func__, k, nxagentConvertedKeycodes[k]);
+    #endif
 
-   return nxagentConvertedKeycodes[k];
- }
- else
- {
-   return k;
- }
+    return nxagentConvertedKeycodes[k];
+  }
+  else
+  {
+    #ifdef DEBUG
+    fprintf(stderr, "%s: not converting keycode [%d]\n", __func__, k);
+    #endif
+
+    return k;
+  }
 }
 
 static int nxagentSaveKeyboardDeviceData(DeviceIntPtr dev, DeviceIntPtr devBackup);
@@ -645,6 +648,9 @@ XkbError:
 
           if (nxagentKeyboard && (strcmp(nxagentKeyboard, "clone") == 0))
           {
+	    if (nxagentOption(Shadow))
+	      nxagentKeycodeConversionSetup();
+
             SAFE_free(rules); rules = strdup(nxagentRemoteRules);
             SAFE_free(model); model = strdup(nxagentRemoteModel);
             SAFE_free(layout); layout = strdup(nxagentRemoteLayout);
@@ -1535,7 +1541,7 @@ void nxagentKeycodeConversionSetup(void)
   {
     if (nxagentRemoteRules && nxagentRemoteModel &&
         (strcmp(nxagentRemoteRules, "evdev") == 0 ||
-         strcmp(nxagentRemoteModel, "evdev") == 0))
+         strcmp(nxagentRemoteModel, "evdev") == 0 || nxagentOption(Shadow)))
     {
       #ifdef DEBUG
       fprintf(stderr, "%s: Activating KeyCode conversion.\n", __func__);

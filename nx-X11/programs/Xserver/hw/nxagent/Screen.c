@@ -2476,7 +2476,8 @@ int nxagentShadowInit(ScreenPtr pScreen, WindowPtr pWin)
                       nxagentShadowDisplayName);
   #endif
 
-  if (nxagentKeyboard != NULL)
+  if (nxagentKeyboard &&
+      (strcmp(nxagentKeyboard, "clone") != 0))
   {
     int i;
     for (i = 0; nxagentKeyboard[i] != '/' && nxagentKeyboard[i] != 0; i++);
