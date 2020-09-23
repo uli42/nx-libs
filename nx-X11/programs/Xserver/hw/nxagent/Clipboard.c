@@ -2143,6 +2143,8 @@ int nxagentConvertSelection(ClientPtr client, WindowPtr pWin, Atom selection,
   return 1;
 }
 
+  /* FIXME: do we still need this special treatment? Can't we just
+     nxagentLocalToRemoteAtom() everywhere? */
 XlibAtom translateLocalToRemoteSelection(Atom local)
 {
   /*
@@ -2178,6 +2180,8 @@ XlibAtom translateLocalToRemoteSelection(Atom local)
   return remote;
 }
 
+  /* FIXME: do we still need this special treatment? Can't we just
+     nxagentLocalToRemoteAtom() everywhere? */
 XlibAtom translateLocalToRemoteTarget(Atom local)
 {
   /*
