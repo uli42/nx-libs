@@ -2536,11 +2536,17 @@ Bool nxagentInitClipboard(WindowPtr pWin)
          */
          if (IS_INTERNAL_OWNER(index) && lastSelectionOwner[index].window)
          {
+           /* remSelection has already be adjusted above */
            XSetSelectionOwner(nxagentDisplay, lastSelectionOwner[index].remSelection, serverWindow, CurrentTime);
          }
+         /*
+          * FIXME: Shouldn't we reset lastServers[index].* and
+          * lastClients[index].* here? Problem is that (internal)
+          * clients might still be waiting for answers. Should reply
+          * with failure then
+          */
       }
     }
-    /* FIXME: Shouldn't we reset lastServers[index].* and lastClients[index].* here? */
   }
   else
   {
