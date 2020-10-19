@@ -32,15 +32,36 @@
 
 #include "validate.h"
 
+/*
+ * the structures below use types (e.g. Window) that are Xlib
+ * types. If Agent.h has been included then XlibWindow will be
+ * defined. Window then is the type INSIDE nxagent which can differ in
+ * size from XlibWindow. So if XlibWindow is defined it must be used
+ * instead of Window to have the proper size. We add a guard here to
+ * prevent usage of the wrong size by accident.
+ */
+
+//#ifdef XlibWindow
+//#error "wrong type prevention guard"
+//#endif
+
 typedef struct
 {
+#ifdef XlibWindow
+  XlibWindow window;
+#else
   Window window;
+#endif
   int x;
   int y;
   unsigned int width;
   unsigned int height;
   unsigned int borderWidth;
+#ifdef XlibWindow
+  XlibWindow siblingAbove;
+#else
   Window siblingAbove;
+#endif
   int backingStore;
 #ifdef SHAPE
   RegionPtr boundingShape;
@@ -111,6 +132,7 @@ extern int nxagentWindowPrivateIndex;
 #define nxagentWindowPriv(pWin) \
   ((nxagentPrivWindowPtr)((pWin)->devPrivates[nxagentWindowPrivateIndex].ptr))
 
+/* This an XlibWindow! */
 #define nxagentWindow(pWin) (nxagentWindowPriv(pWin)->window)
 
 /*
@@ -171,7 +193,11 @@ do\
   nxagentRefreshWindows(screenInfo.screens[0]->root);\
 } while (0)
 
+#ifdef XlibWindow
+WindowPtr nxagentWindowPtr(XlibWindow window);
+#else
 WindowPtr nxagentWindowPtr(Window window);
+#endif
 
 #ifdef XlibAtom
 extern XlibAtom serverTransToAgentProperty;
@@ -257,13 +283,19 @@ void nxagentConfigureWindow(WindowPtr pWin, unsigned int mask);
 
 extern int nxagentVisibility;
 
+#if 0
+/* currently unused */
+#ifdef XlibWindow
 /*
  * Return the pointer to the window given the remote id. It tries to
  * match the id from the last matched window before iterating through
  * the hierarchy.
  */
 
-WindowPtr nxagentGetWindowFromID(Window id);
+WindowPtr nxagentGetWindowFromID(XlibWindow id);
+#endif
+
+#endif
 
 /*
  * Handle the shape bitmap for windows.
@@ -275,7 +307,9 @@ void nxagentShapeWindow(WindowPtr pWin);
 
 #endif
 
-extern Window nxagentConfiguredSynchroWindow;
+#ifdef XlibWindow
+extern XlibWindow nxagentConfiguredSynchroWindow;
+#endif
 extern Bool nxagentExposeArrayIsInitialized;
 
 typedef struct _ConfiguredWindow

@@ -3144,7 +3144,7 @@ int nxagentHandleConfigureNotify(XEvent* X)
   fprintf(stderr, "%s:   X->x, X->y [%d][%d]\n", __func__, X->xconfigure.x, X->xconfigure.y);
   fprintf(stderr, "%s:   X->width, X->height [%d][%d]\n", __func__, X->xconfigure.width, X->xconfigure.height);
   fprintf(stderr, "%s: References:\n", __func__);
-  fprintf(stderr, "%s:   DefaultWindow[0]: [0x%x]\n", __func__, nxagentDefaultWindows[0]);
+  fprintf(stderr, "%s:   DefaultWindow[0]: [0x%lx]\n", __func__, nxagentDefaultWindows[0]);
   fprintf(stderr, "%s:   DefaultRootWindow(DISPLAY) [0x%lx]\n", __func__, DefaultRootWindow(nxagentDisplay));
   #endif
 
@@ -3493,7 +3493,7 @@ int nxagentHandleReparentNotify(XEvent* X)
   fprintf(stderr, "%s:   X->x, X->y [%d][%d]\n", __func__, X->xreparent.x, X->xreparent.y);
   fprintf(stderr, "%s:   X->override_redirect [%d]\n", __func__, X->xreparent.override_redirect);
   fprintf(stderr, "%s: References:\n", __func__);
-  fprintf(stderr, "%s:   DefaultWindow[0]: [0x%x]\n", __func__, nxagentDefaultWindows[0]);
+  fprintf(stderr, "%s:   DefaultWindow[0]: [0x%lx]\n", __func__, nxagentDefaultWindows[0]);
   fprintf(stderr, "%s:   RootWindow(DISPLAY, 0): [0x%lx]\n", __func__, RootWindow(nxagentDisplay, 0));
   fprintf(stderr, "%s:   DefaultRootWindow(DISPLAY): [0x%lx]\n", __func__, DefaultRootWindow(nxagentDisplay));
   #endif
@@ -4065,7 +4065,7 @@ void nxagentSynchronizeExpose(void)
              ((pWin -> eventMask|wOtherEventMasks(pWin)) & ExposureMask))
       {
         #ifdef TEST
-        fprintf(stderr, "%s: Going to call miWindowExposures for window [%d] - rects [%d].\n",
+        fprintf(stderr, "%s: Going to call miWindowExposures for window [%ld] - rects [%d].\n",
                     __func__, nxagentWindow(pWin),
                         RegionNumRects(nxagentExposeQueueHead.remoteRegion));
         #endif

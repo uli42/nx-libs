@@ -152,7 +152,7 @@ int nxagentNumScreens = 0;
 Bool nxagentReportWindowIds = False;
 Bool nxagentReportPrivateWindowIds = False;
 Bool nxagentDoDirectColormaps = False;
-Window nxagentParentWindow = 0;
+XlibWindow nxagentParentWindow = 0;
 
 int nxagentLockDeferLevel = 0;
 

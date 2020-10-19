@@ -114,7 +114,7 @@ extern Bool nxagentReportPrivateWindowIds;
 #define BSPIXMAPLIMIT 128
 
 Bool nxagentExposeArrayIsInitialized = False;
-Window nxagentConfiguredSynchroWindow;
+XlibWindow nxagentConfiguredSynchroWindow;
 static int nxagentExposeSerial = 0;
 
 StoringPixmapPtr nxagentBSPixmapList[BSPIXMAPLIMIT];
@@ -126,7 +126,7 @@ StoringPixmapPtr nxagentBSPixmapList[BSPIXMAPLIMIT];
 typedef struct _WindowMatch
 {
   WindowPtr pWin;
-  Window    id;
+  XlibWindow id;
 } WindowMatchRec;
 
 Bool nxagentReconnectAllWindows(void *);
@@ -158,7 +158,7 @@ static int nxagentForceExposure(WindowPtr pWin, void * ptr);
 typedef struct
 {
   CARD32 state;
-  Window icon;
+  XlibWindow icon;
 }
 nxagentWMStateRec;
 
@@ -170,7 +170,9 @@ nxagentWMStateRec;
 static Bool nxagentCheckWindowIntegrity(WindowPtr pWin);
 #endif
 
-WindowPtr nxagentGetWindowFromID(Window id)
+#if 0
+/* currently unused */
+WindowPtr nxagentGetWindowFromID(XlibWindow id)
 {
   WindowPtr pWin = screenInfo.screens[0]->root;
 
@@ -193,6 +195,7 @@ WindowPtr nxagentGetWindowFromID(Window id)
 
   return NULL;
 }
+#endif
 
 static int nxagentFindWindowMatch(WindowPtr pWin, void * ptr)
 {
@@ -209,7 +212,7 @@ static int nxagentFindWindowMatch(WindowPtr pWin, void * ptr)
   }
 }
 
-WindowPtr nxagentWindowPtr(Window window)
+WindowPtr nxagentWindowPtr(XlibWindow window)
 {
   WindowMatchRec match = {.pWin = NullWindow, .id   = window};
 
@@ -337,7 +340,7 @@ Bool nxagentCreateWindow(WindowPtr pWin)
   #endif
 
   #ifdef TEST
-  fprintf(stderr, "nxagentCreateWindow: Creating %swindow at %p current event mask = %lX mask & CWEventMask = %ld "
+  fprintf(stderr, "nxagentCreateWindow: Creating %swindow at %p current event mask = %X mask & CWEventMask = %ld "
               "event_mask = %lX\n",
                   nxagentWindowTopLevel(pWin) ? "toplevel " : "", (void*)pWin, pWin -> eventMask,
                       mask & CWEventMask, attributes.event_mask);
@@ -391,7 +394,7 @@ Bool nxagentCreateWindow(WindowPtr pWin)
 
   if (nxagentReportPrivateWindowIds)
   {
-    fprintf(stderr, "NXAGENT_WINDOW_ID: %s_WINDOW,WID:[0x%x],INT:[0x%x]\n",
+    fprintf(stderr, "NXAGENT_WINDOW_ID: %s_WINDOW,WID:[0x%lx],INT:[0x%x]\n",
                 (pWin->drawable.id == pWin->drawable.pScreen->root->drawable.id) ? "ROOT" : "PRIVATE",
                     nxagentWindowPriv(pWin)->window, pWin->drawable.id);
   }
@@ -412,7 +415,7 @@ Bool nxagentCreateWindow(WindowPtr pWin)
   #endif
 
   #ifdef TEST
-  fprintf(stderr, "%s: Created new window with id [0x%x].\n", __func__,
+  fprintf(stderr, "%s: Created new window with id [0x%lx].\n", __func__,
               nxagentWindowPriv(pWin)->window);
   #endif
 
@@ -452,7 +455,7 @@ Bool nxagentCreateWindow(WindowPtr pWin)
     #ifdef DEBUG
     else
     {
-      fprintf(stderr, "nxagentCreateWindow: Added NX_REAL_WINDOW for Window ID [%x].\n", nxagentWindowPriv(pWin)->window);
+      fprintf(stderr, "nxagentCreateWindow: Added NX_REAL_WINDOW for Window ID [%lx].\n", nxagentWindowPriv(pWin)->window);
     }
     #endif
   }
@@ -508,7 +511,7 @@ void nxagentSetVersionProperty(WindowPtr pWin)
   #ifdef DEBUG
   else
   {
-    fprintf(stderr, "%s: Added property [%s], value [%s] for root window [%x].\n", __func__, name, NX_VERSION_CURRENT_STRING, pWin);
+    fprintf(stderr, "%s: Added property [%s], value [%s] for root window [%p].\n", __func__, name, NX_VERSION_CURRENT_STRING, (void *)pWin);
   }
   #endif
 }
@@ -781,7 +784,7 @@ void nxagentSwitchAllScreens(ScreenPtr pScreen, Bool switchOn)
     }
   }
 
-  Window w = nxagentDefaultWindows[pScreen -> myNum];
+  XlibWindow w = nxagentDefaultWindows[pScreen -> myNum];
 
   /*
    * override_redirect makes the window manager ignore the window and
@@ -1411,9 +1414,9 @@ void nxagentConfigureWindow(WindowPtr pWin, unsigned int mask)
 
     #ifdef TEST
     {
-      Window root_return;
-      Window parent_return;
-      Window *children_return = NULL;
+      XlibWindow root_return;
+      XlibWindow parent_return;
+      XlibWindow *children_return = NULL;
       unsigned int nchildren_return;
 
       Status result = XQueryTree(nxagentDisplay, DefaultRootWindow(nxagentDisplay),
@@ -2350,7 +2353,7 @@ void nxagentShapeWindow(WindowPtr pWin)
     if (wBoundingShape(pWin))
     {
       #ifdef DEBUG
-      fprintf(stderr, "nxagentShapeWindow: wBounding shape has [%ld] rects.\n",
+      fprintf(stderr, "nxagentShapeWindow: wBounding shape has [%d] rects.\n",
                   RegionNumRects(wBoundingShape(pWin)));
       #endif
 
@@ -2409,7 +2412,7 @@ void nxagentShapeWindow(WindowPtr pWin)
     if (wClipShape(pWin))
     {
       #ifdef DEBUG
-      fprintf(stderr, "nxagentShapeWindow: wClip shape has [%ld] rects.\n",
+      fprintf(stderr, "nxagentShapeWindow: wClip shape has [%d] rects.\n",
                   RegionNumRects(wClipShape(pWin)));
       #endif
 
@@ -3010,7 +3013,7 @@ static void nxagentReconnectWindow(void * param0, XID param1, void * data_buffer
 
   if (nxagentReportPrivateWindowIds)
   {
-    fprintf(stderr, "NXAGENT_WINDOW_ID: %s_WINDOW,WID:[0x%x],INT:[0x%x]\n",
+    fprintf(stderr, "NXAGENT_WINDOW_ID: %s_WINDOW,WID:[0x%lx],INT:[0x%x]\n",
                 (pWin->drawable.id == pWin->drawable.pScreen->root->drawable.id) ? "ROOT" : "PRIVATE",
                     nxagentWindowPriv(pWin)->window, pWin->drawable.id);
   }
@@ -3031,7 +3034,7 @@ static void nxagentReconnectWindow(void * param0, XID param1, void * data_buffer
   #endif
 
   #ifdef TEST
-  fprintf(stderr, "nxagentReconnectWindow: Created new window with id [0x%x].\n",
+  fprintf(stderr, "nxagentReconnectWindow: Created new window with id [0x%lx].\n",
               nxagentWindowPriv(pWin)->window);
   #endif
 

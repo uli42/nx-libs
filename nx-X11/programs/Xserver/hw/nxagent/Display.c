@@ -150,7 +150,7 @@ int nxagentRemoteNumPixmapFormats;
 Pixel nxagentBlackPixel;
 Pixel nxagentWhitePixel;
 Drawable nxagentDefaultDrawables[MAXDEPTH + 1];
-Pixmap nxagentScreenSaverPixmap;
+XlibPixmap nxagentScreenSaverPixmap;
 
 /*
  * Also used in Cursor.c. There are huge problems using GC
@@ -166,14 +166,14 @@ XlibGC nxagentBitmapGC;
  * behaviour. It is unclear what this window is used for.
  */
 
-Window nxagentConfineWindow;
+XlibWindow nxagentConfineWindow;
 #endif
 
-Pixmap nxagentIconPixmap;
-Pixmap nxagentIconShape;
+XlibPixmap nxagentIconPixmap;
+XlibPixmap nxagentIconShape;
 Bool useXpmIcon = False;
 
-Bool nxagentMakeIcon(Display *disp, Pixmap *nxIcon, Pixmap *nxMask);
+Bool nxagentMakeIcon(Display *disp, XlibPixmap *nxIcon, XlibPixmap *nxMask);
 
 
 static void nxagentInitVisuals(void);
@@ -1845,7 +1845,7 @@ FIXME: Is this needed?
   nxagentDisplay = NULL;
 }
 
-Bool nxagentMakeIcon(Display *disp, Pixmap *nxIcon, Pixmap *nxMask)
+Bool nxagentMakeIcon(Display *disp, XlibPixmap *nxIcon, XlibPixmap *nxMask)
 {
   char** agentIconData;
 

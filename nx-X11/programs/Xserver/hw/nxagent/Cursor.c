@@ -160,17 +160,17 @@ Bool nxagentRealizeCursor(ScreenPtr pScreen, CursorPtr pCursor)
 
   XChangeGC(nxagentDisplay, nxagentBitmapGC, valuemask, &values);
 
-  Pixmap source = XCreatePixmap(nxagentDisplay,
-                                nxagentDefaultWindows[pScreen->myNum],
-                                pCursor->bits->width,
-                                pCursor->bits->height,
-                                1);
+  XlibPixmap source = XCreatePixmap(nxagentDisplay,
+                                    nxagentDefaultWindows[pScreen->myNum],
+                                    pCursor->bits->width,
+                                    pCursor->bits->height,
+                                    1);
 
-  Pixmap mask = XCreatePixmap(nxagentDisplay,
-                              nxagentDefaultWindows[pScreen->myNum],
-                              pCursor->bits->width,
-                              pCursor->bits->height,
-                              1);
+  XlibPixmap mask = XCreatePixmap(nxagentDisplay,
+                                  nxagentDefaultWindows[pScreen->myNum],
+                                  pCursor->bits->width,
+                                  pCursor->bits->height,
+                                  1);
 
   XImage *image = XCreateImage(nxagentDisplay,
                                nxagentDefaultVisual(pScreen),

@@ -221,10 +221,10 @@ static int nxagentGetInstalledColormapWindows(WindowPtr pWin, void * ptr)
   return WT_WALKCHILDREN;
 }
 
-static Window *nxagentOldInstalledColormapWindows = NULL;
+static XlibWindow *nxagentOldInstalledColormapWindows = NULL;
 static int nxagentNumOldInstalledColormapWindows = 0;
 
-static Bool nxagentSameInstalledColormapWindows(Window *windows, int numWindows)
+static Bool nxagentSameInstalledColormapWindows(XlibWindow *windows, int numWindows)
 {
   if (nxagentNumOldInstalledColormapWindows != numWindows)
     return False;
@@ -236,7 +236,7 @@ static Bool nxagentSameInstalledColormapWindows(Window *windows, int numWindows)
     return False;
 
   if (memcmp(nxagentOldInstalledColormapWindows, windows,
-	   numWindows * sizeof(Window)))
+	   numWindows * sizeof(XlibWindow)))
     return False;
 
   return True;
@@ -254,7 +254,7 @@ void nxagentSetInstalledColormapWindows(ScreenPtr pScreen)
   WalkTree(pScreen, nxagentCountInstalledColormapWindows, (void *)&icws);
   if (icws.numWindows)
   {
-    icws.windows = (Window *)malloc((icws.numWindows + 1) * sizeof(Window));
+    icws.windows = (XlibWindow *)malloc((icws.numWindows + 1) * sizeof(XlibWindow));
     icws.index = 0;
     WalkTree(pScreen, nxagentGetInstalledColormapWindows, (void *)&icws);
     icws.windows[icws.numWindows] = nxagentDefaultWindows[pScreen->myNum];
@@ -273,7 +273,7 @@ void nxagentSetInstalledColormapWindows(ScreenPtr pScreen)
 
 #ifdef _XSERVER64
     {
-      Window64 *windows = (Window64 *)malloc(numWindows * sizeof(Window64));
+      XlibWindow *windows = (XlibWindow *)malloc(numWindows * sizeof(XlibWindow));
 
       for(int i = 0; i < numWindows; ++i)
 	  windows[i] = icws.windows[i];
@@ -333,19 +333,8 @@ void nxagentSetScreenSaverColormapWindow(ScreenPtr pScreen)
 {
   SAFE_free(nxagentOldInstalledColormapWindows);
 
-#ifdef _XSERVER64
-  {
-    Window64 window;
-
-    window = nxagentScreenSaverWindows[pScreen->myNum];
-    XSetWMColormapWindows(nxagentDisplay, nxagentDefaultWindows[pScreen->myNum],
-			  &window, 1);
-    nxagentScreenSaverWindows[pScreen->myNum] = window;
-  }
-#else
   XSetWMColormapWindows(nxagentDisplay, nxagentDefaultWindows[pScreen->myNum],
 			&nxagentScreenSaverWindows[pScreen->myNum], 1);
-#endif /* _XSERVER64 */
 
   nxagentOldInstalledColormapWindows = NULL;
   nxagentNumOldInstalledColormapWindows = 0;

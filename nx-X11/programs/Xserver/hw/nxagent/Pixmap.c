@@ -89,7 +89,7 @@ Bool nxagentCheckPixmapIntegrity(PixmapPtr pPixmap);
 
 struct nxagentPixmapPair
 {
-  Pixmap pixmap;
+  XlibPixmap pixmap;
   PixmapPtr pMap;
 };
 
@@ -1140,7 +1140,7 @@ void nxagentSynchronizeShmPixmap(DrawablePtr pDrawable, int xPict, int yPict,
 Bool nxagentPixmapOnShadowDisplay(PixmapPtr pMap)
 {
   static Display *shadow;
-  static Window win;
+  static XlibWindow win;
   static int init = True;
   static int showTime;
   static PixmapPtr pPixmap;
@@ -1285,7 +1285,7 @@ FIXME: If the pixmap has a different depth from the window, the
 Bool nxagentFbOnShadowDisplay(void)
 {
   static Display *shadow;
-  static Window win;
+  static XlibWindow win;
   static int init = True;
   static int showTime;
   static int prevWidth, prevHeight;

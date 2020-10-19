@@ -79,7 +79,9 @@ extern struct UserGeometry nxagentUserGeometry;
 extern Bool nxagentUserBorderWidth;
 extern int nxagentNumScreens;
 extern Bool nxagentDoDirectColormaps;
-extern Window nxagentParentWindow;
+#ifdef XlibWindow
+extern XlibWindow nxagentParentWindow;
+#endif
 extern int nxagentMaxAllowedReset;
 extern Bool nxagentResizeDesktopAtStartup;
 

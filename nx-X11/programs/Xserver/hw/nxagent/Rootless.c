@@ -95,7 +95,7 @@ WindowPtr nxagentRootlessWindow = NULL;
 #define TOP_LEVEL_TABLE_UNIT 100
 
 typedef struct {
-  Window xid;
+  XlibWindow xid;
   WindowPtr pWin;
 } TopLevelParentRec;
 
@@ -133,7 +133,7 @@ void nxagentPrintRootlessTopLevelWindowMap(void)
 #endif
 #endif
 
-void nxagentRootlessAddTopLevelWindow(WindowPtr pWin, Window w)
+void nxagentRootlessAddTopLevelWindow(WindowPtr pWin, XlibWindow w)
 {
   for (int i = 0; i < topLevelParentMap.next; i++)
   {
@@ -174,7 +174,7 @@ void nxagentRootlessAddTopLevelWindow(WindowPtr pWin, Window w)
   topLevelParentMap.next++;
 }
 
-WindowPtr nxagentRootlessTopLevelWindow(Window w)
+WindowPtr nxagentRootlessTopLevelWindow(XlibWindow w)
 {
   for (int i = 0; i < topLevelParentMap.next; i++)
   {
@@ -275,11 +275,7 @@ Bool nxagentRootlessTreesMatch(void)
 
 #endif
 
-#ifndef _XSERVER64
-void nxagentRootlessRestack(Window children[], unsigned int nchildren)
-#else
-void nxagentRootlessRestack(unsigned long children[], unsigned int nchildren)
-#endif
+void nxagentRootlessRestack(XlibWindow children[], unsigned int nchildren)
 {
   WindowPtr *toplevel = malloc(sizeof(WindowPtr) * nchildren);
 
@@ -378,7 +374,7 @@ void nxagentRootlessRestack(unsigned long children[], unsigned int nchildren)
  * Determine if window is a top-level window.
  */
 
-Window nxagentRootlessWindowParent(WindowPtr pWin)
+XlibWindow nxagentRootlessWindowParent(WindowPtr pWin)
 {
   #ifdef TEST
   fprintf(stderr, "%s: Called for window at [%p][%d] with parent [%p][%d].\n", __func__,
@@ -804,7 +800,7 @@ int nxagentExportProperty(WindowPtr pWin,
  * the agent's corresponding window. This is e.g. called on reception
  * of a property change event on the real X server.
  */
-void nxagentImportProperty(Window window,
+void nxagentImportProperty(XlibWindow window,
                            XlibAtom property,
                            XlibAtom type,
                            int format,
@@ -814,12 +810,6 @@ void nxagentImportProperty(Window window,
 {
   Bool import = False;
   Bool freeMem = False;
-
-  typedef struct {
-      CARD32 state;
-      Window icon;
-    } WMState;
-  WMState wmState;
 
   char *output = NULL;
 
@@ -942,6 +932,17 @@ void nxagentImportProperty(Window window,
      * icon}. Only the icon field has to be modified before importing
      * the property.
      */
+
+    #ifdef DEBUG
+    fprintf(stderr, "%s: sizeof(Window) [%lu]  sizeof(XlibWindow) [%lu] nitem [%lu]\n", __func__,
+                sizeof(Window), sizeof(XlibWindow), nitems);
+    #endif
+
+    typedef struct {
+        CARD32 state;
+        Window icon; /* Must be Window, not XlibWindow because this is the size delivered by compext */
+      } WMState;
+    WMState wmState;
 
     wmState = *(WMState*)buffer;
     WindowPtr pIcon = nxagentWindowPtr(wmState.icon);
@@ -1081,7 +1082,7 @@ void nxagentImportProperty(Window window,
   }
   else if (strcmp(typeS, "WINDOW") == 0)
   {
-    Window *input = (Window*) buffer;
+    XlibWindow *input = (XlibWindow*) buffer;
     Window *wind = malloc(nitems * sizeof(Window));
     WindowPtr pWindow;
 
@@ -1157,7 +1158,7 @@ void nxagentImportProperty(Window window,
  */
 
 struct nxagentPropertyRec{
-  Window window;
+  XlibWindow window;
   XlibAtom property;
   struct nxagentPropertyRec *next;
 };

@@ -49,13 +49,15 @@ typedef struct {
   Colormap colormap;
 } nxagentPrivColormap;
 
+#ifdef XlibWindow
 typedef struct {
   int numCmapIDs;
   Colormap *cmapIDs;
   int numWindows;
-  Window *windows;
+  XlibWindow *windows;
   int index;
 } nxagentInstalledColormapWindows;
+#endif
 
 #define nxagentColormapPriv(pCmap) \
   ((nxagentPrivColormap *)((pCmap)->devPriv))

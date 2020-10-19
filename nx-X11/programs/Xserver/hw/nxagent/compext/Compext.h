@@ -826,7 +826,11 @@ extern int NXCollectProperty(
 #if NeedFunctionPrototypes
     Display*            /* display */,
     unsigned int        /* resource */,
+#ifdef XlibWindow
+    XlibWindow          /* window */,
+#else
     Window              /* window */,
+#endif
 #ifdef XlibAtom
     XlibAtom            /* property */,
 #else
@@ -869,12 +873,20 @@ extern int NXCollectGrabPointer(
 #if NeedFunctionPrototypes
     Display*            /* display */,
     unsigned int        /* resource */,
+#ifdef XlibWIndow
+    XlibWindow          /* grab_window */,
+#else
     Window              /* grab_window */,
+#endif
     Bool                /* owner_events */,
     unsigned int        /* event_mask */,
     int                 /* pointer_mode */,
     int                 /* keyboard_mode */,
+#ifdef XlibWIndow
+    XlibWindow          /* confine_to */,
+#else
     Window              /* confine_to */,
+#endif
     Cursor              /* cursor */,
     Time                /* time */
 #endif
@@ -905,7 +917,11 @@ extern int NXGetCollectedInputFocus(
 #if NeedFunctionPrototypes
     Display*            /* display */,
     unsigned int        /* resource */,
+#ifdef XlibWindow
+    XlibWindow*         /* focus_return */,
+#else
     Window*             /* focus_return */,
+#endif
     int*                /* revert_to_return */
 #endif
 );

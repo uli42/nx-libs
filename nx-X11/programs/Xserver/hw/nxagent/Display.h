@@ -57,7 +57,7 @@ extern int nxagentNumPixmapFormats;
 extern Pixel nxagentBlackPixel;
 extern Pixel nxagentWhitePixel;
 extern Drawable nxagentDefaultDrawables[MAXDEPTH + 1];
-extern Pixmap nxagentScreenSaverPixmap;
+extern XlibPixmap nxagentScreenSaverPixmap;
 
 #ifdef NX_CONFINE_WINDOW
 /*
@@ -66,7 +66,7 @@ extern Pixmap nxagentScreenSaverPixmap;
  * and just skip the "constrain" stuff.
  */
 
-extern Window nxagentConfineWindow;
+extern XlibWindow nxagentConfineWindow;
 #endif
 
 /*
