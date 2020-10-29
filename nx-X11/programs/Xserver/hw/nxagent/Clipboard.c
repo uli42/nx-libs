@@ -155,8 +155,10 @@ static XlibAtom serverINSERT_SELECTION;
 static XlibAtom serverINSERT_PROPERTY;
 static XlibAtom serverSAVE_TARGETS;
 static XlibAtom serverTARGET_SIZES;
+#if 0
 static XlibAtom serverTEXT;
 static XlibAtom serverCOMPOUND_TEXT;
+#endif
 static XlibAtom serverUTF8_STRING;
 static XlibAtom serverTransFromAgentProperty;
 static Atom clientTARGETS;
@@ -168,12 +170,17 @@ static Atom clientINSERT_SELECTION;
 static Atom clientINSERT_PROPERTY;
 static Atom clientSAVE_TARGETS;
 static Atom clientTARGET_SIZES;
+#if 0
 static Atom clientTEXT;
 static Atom clientCOMPOUND_TEXT;
+#endif
 static Atom clientUTF8_STRING;
 
 static char szAgentTARGETS[] = "TARGETS";
+#if 0
 static char szAgentTEXT[] = "TEXT";
+static char szAgentCOMPOUND_TEXT[] = "COMPOUND_TEXT";
+#endif
 static char szAgentTIMESTAMP[] = "TIMESTAMP";
 static char szAgentINCR[] = "INCR";
 static char szAgentMULTIPLE[] = "MULTIPLE";
@@ -182,7 +189,6 @@ static char szAgentINSERT_SELECTION[] = "INSERT_SELECTION";
 static char szAgentINSERT_PROPERTY[] = "INSERT_PROPERTY";
 static char szAgentSAVE_TARGETS[] = "SAVE_TARGETS";
 static char szAgentTARGET_SIZES[] = "TARGET_SIZES";
-static char szAgentCOMPOUND_TEXT[] = "COMPOUND_TEXT";
 static char szAgentUTF8_STRING[] = "UTF8_STRING";
 static char szAgentNX_CUT_BUFFER_CLIENT[] = "NX_CUT_BUFFER_CLIENT";
 static char szAgentCLIPBOARD[] = "CLIPBOARD";
@@ -393,11 +399,13 @@ void nxagentDumpClipboardStat(void)
   cl = clientTIMESTAMP; sv = serverTIMESTAMP; len = (int)(WIDTH - 9 - strlen(NameForIntAtom(cl)));
   fprintf(stderr, "  TIMESTAMP                              [% 4d][%s]%*s [% 4ld][%s]\n", cl, NameForIntAtom(cl), len, "", sv, NameForRemAtom(sv));
 
+#if 0
   cl = clientTEXT; sv = serverTEXT; len = (int)(WIDTH - 9 - strlen(NameForIntAtom(cl)));
   fprintf(stderr, "  TEXT                                   [% 4d][%s]%*s [% 4ld][%s]\n", cl, NameForIntAtom(cl), len, "", sv, NameForRemAtom(sv));
 
   cl = clientCOMPOUND_TEXT; sv = serverCOMPOUND_TEXT; len = (int)(WIDTH - 9 - strlen(NameForIntAtom(cl)));
   fprintf(stderr, "  COMPOUND_TEXT                          [% 4d][%s]%*s [% 4ld][%s]\n", cl, NameForIntAtom(cl), len, "", sv, NameForRemAtom(sv));
+#endif
 
   cl = clientUTF8_STRING; sv = serverUTF8_STRING; len = (int)(WIDTH - 9 - strlen(NameForIntAtom(cl)));
   fprintf(stderr, "  UTF8_STRING                            [% 4d][%s]%*s [% 4ld][%s]\n", cl, NameForIntAtom(cl), len, "", sv, NameForRemAtom(sv));
@@ -576,6 +584,7 @@ static Bool isTextTarget(XlibAtom target)
     #endif
     return True;
   }
+#if 0
   else if (target == serverTEXT)
   {
     #ifdef DEBUG
@@ -583,17 +592,18 @@ static Bool isTextTarget(XlibAtom target)
     #endif
     return True;
   }
-  else if (target == serverUTF8_STRING)
-  {
-    #ifdef DEBUG
-    fprintf(stderr, "%s: valid target [UTF8_STRING].\n", __func__);
-    #endif
-    return True;
-  }
   else if (target == serverCOMPOUND_TEXT)
   {
     #ifdef DEBUG
     fprintf(stderr, "%s: valid target [COMPOUND_TEXT].\n", __func__);
+    #endif
+    return True;
+  }
+#endif
+  else if (target == serverUTF8_STRING)
+  {
+    #ifdef DEBUG
+    fprintf(stderr, "%s: valid target [UTF8_STRING].\n", __func__);
     #endif
     return True;
   }
@@ -869,8 +879,14 @@ void nxagentHandleSelectionRequestFromXServer(XEvent *X)
        * and in isTextTarget().
        */
 
-      XlibAtom targets[] = {XA_STRING, serverUTF8_STRING, serverTEXT, serverCOMPOUND_TEXT,
-                            serverTARGETS, serverTIMESTAMP};
+      XlibAtom targets[] = {XA_STRING,
+                            serverUTF8_STRING,
+#if 0
+                            serverTEXT,
+                            serverCOMPOUND_TEXT,
+#endif
+                            serverTARGETS,
+                            serverTIMESTAMP};
       int numTargets = sizeof(targets) / sizeof(targets[0]);
 
       #ifdef DEBUG
@@ -2431,8 +2447,10 @@ XlibAtom translateLocalToRemoteTarget(Atom local)
   XlibAtom remote;
 
   /*
-   * we only convert to either UTF8 or XA_STRING, despite accepting
-   * TEXT and COMPOUND_TEXT.
+   * we only convert to either UTF8 or XA_STRING
+#if 0
+   * despite accepting TEXT and COMPOUND_TEXT.
+#endif
    */
 
   if (local == clientUTF8_STRING)
@@ -2611,8 +2629,10 @@ Bool nxagentInitClipboard(WindowPtr pWin)
      * initSelectionOwnerData ! */
     /* FIXME: it is probably better to re-use the strings from Atoms.c here */
     clientTARGETS = MakeAtom(szAgentTARGETS, strlen(szAgentTARGETS), True);
+#if 0
     clientTEXT = MakeAtom(szAgentTEXT, strlen(szAgentTEXT), True);
     clientCOMPOUND_TEXT = MakeAtom(szAgentCOMPOUND_TEXT, strlen(szAgentCOMPOUND_TEXT), True);
+#endif
     clientUTF8_STRING = MakeAtom(szAgentUTF8_STRING, strlen(szAgentUTF8_STRING), True);
     clientTIMESTAMP = MakeAtom(szAgentTIMESTAMP, strlen(szAgentTIMESTAMP), True);
     clientINCR = MakeAtom(szAgentINCR, strlen(szAgentINCR), True);
@@ -2672,8 +2692,10 @@ Bool nxagentInitClipboard(WindowPtr pWin)
   remSelAtoms[nxagentClipboardSelection] = nxagentAtoms[10];   /* CLIPBOARD */
 
   serverTARGETS = nxagentAtoms[6];  /* TARGETS */
+#if 0
   serverTEXT = nxagentAtoms[7];  /* TEXT */
   serverCOMPOUND_TEXT = nxagentAtoms[16]; /* COMPOUND_TEXT */
+#endif
   serverUTF8_STRING = nxagentAtoms[12]; /* UTF8_STRING */
   serverTIMESTAMP = nxagentAtoms[11];   /* TIMESTAMP */
   serverINCR = nxagentAtoms[17];   /* INCR */
