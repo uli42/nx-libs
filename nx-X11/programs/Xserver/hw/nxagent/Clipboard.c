@@ -1068,7 +1068,7 @@ void nxagentHandleSelectionRequestFromXServer(XEvent *X)
 #endif
   {
     if (!(nxagentOption(Clipboard) == ClipboardServer ||
-	  nxagentOption(Clipboard) == ClipboardBoth))
+          nxagentOption(Clipboard) == ClipboardBoth))
     {
       #ifdef DEBUG
       fprintf (stderr, "%s: clipboard (partly) disabled - denying request.\n", __func__);
@@ -1132,7 +1132,7 @@ void nxagentHandleSelectionRequestFromXServer(XEvent *X)
       }
       else
       {
-	x.u.selectionRequest.target = nxagentRemoteToLocalAtom(X->xselectionrequest.target);
+        x.u.selectionRequest.target = nxagentRemoteToLocalAtom(X->xselectionrequest.target);
       }
 
       sendEventToClient(lastSelectionOwner[index].client, &x);
@@ -1147,7 +1147,7 @@ void nxagentHandleSelectionRequestFromXServer(XEvent *X)
               x.u.selectionRequest.selection, NameForIntAtom(x.u.selectionRequest.selection));
       #endif
       /* no reply to Xserver yet - we will do that once the answer of
-	 the above sendEventToClient arrives */
+         the above sendEventToClient arrives */
     }
     else
     {
@@ -2058,7 +2058,7 @@ FIXME
 
 /*
  * This is called from dix (ProcConvertSelection) if an nxagent client
- * issues a ConvertSelection request. So all the Atoms are internal
+ * issues a ConvertSelection request. So all the Atoms are internal.
  * return codes:
  * 0: let dix process the request
  * 1: don't let dix process the request
@@ -2388,9 +2388,10 @@ int nxagentConvertSelection(ClientPtr client, WindowPtr pWin, Atom selection,
   #endif
 
   UpdateCurrentTime();
-  XConvertSelection(nxagentDisplay, remSelection, remTarget, remProperty, serverWindow, CurrentTime);
-
-  /* XConvertSelection will always return (check the source!), so no need to check */
+  XConvertSelection(nxagentDisplay, remSelection, remTarget, remProperty,
+                        serverWindow, CurrentTime);
+  /* XConvertSelection will always return 1 (check the source!), so no
+     need to check */
 
   #ifdef DEBUG
   fprintf(stderr, "%s: Sent XConvertSelection\n", __func__);
@@ -2399,8 +2400,8 @@ int nxagentConvertSelection(ClientPtr client, WindowPtr pWin, Atom selection,
   return 1;
 }
 
-  /* FIXME: do we still need this special treatment? Can't we just
-     nxagentLocalToRemoteAtom() everywhere? */
+/* FIXME: do we still need this special treatment? Can't we just
+   call nxagentLocalToRemoteAtom() everywhere? */
 XlibAtom translateLocalToRemoteSelection(Atom local)
 {
   /*
@@ -2436,8 +2437,8 @@ XlibAtom translateLocalToRemoteSelection(Atom local)
   return remote;
 }
 
-  /* FIXME: do we still need this special treatment? Can't we just
-     nxagentLocalToRemoteAtom() everywhere? */
+/* FIXME: do we still need this special treatment? Can't we just
+   nxagentLocalToRemoteAtom() everywhere? */
 XlibAtom translateLocalToRemoteTarget(Atom local)
 {
   /*
