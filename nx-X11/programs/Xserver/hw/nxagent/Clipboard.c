@@ -83,10 +83,10 @@ static Atom *intSelAtoms = NULL;
 
 typedef struct _SelectionOwner
 {
-  ClientPtr client;       /* internal client */
-  Window window;          /* internal window id */
-  WindowPtr windowPtr;    /* internal window struct */
-  Time lastTimeChanged;   /* internal time */
+  ClientPtr  client;           /* internal client */
+  Window     window;           /* internal window id */
+  WindowPtr  windowPtr;        /* internal window struct */
+  Time       lastTimeChanged;  /* internal time */
 } SelectionOwner;
 
 /*
@@ -1994,12 +1994,12 @@ static void setSelectionOwnerOnXServer(Selection *pSelection)
                 nxagentClientInfoString(lastSelectionOwner[index].client),
                     nxagentClientInfoString(pSelection->client));
     fprintf(stderr, "%s: lastSelectionOwner.window [0x%x] -> [0x%x]\n", __func__,
-            lastSelectionOwner[index].window, pSelection->window);
+                lastSelectionOwner[index].window, pSelection->window);
     fprintf(stderr, "%s: lastSelectionOwner.windowPtr [%p] -> [%p] [0x%x] (serverWindow: [0x%lx])\n", __func__,
-            (void *)lastSelectionOwner[index].windowPtr, (void *)pSelection->pWin,
-            nxagentWindow(pSelection->pWin), serverWindow);
+                (void *)lastSelectionOwner[index].windowPtr, (void *)pSelection->pWin,
+                    nxagentWindow(pSelection->pWin), serverWindow);
     fprintf(stderr, "%s: lastSelectionOwner.lastTimeChanged [%u]\n", __func__,
-            lastSelectionOwner[index].lastTimeChanged);
+                lastSelectionOwner[index].lastTimeChanged);
     #endif
 
     #if defined(TEST) || defined(DEBUG)
@@ -2106,10 +2106,10 @@ int nxagentConvertSelection(ClientPtr client, WindowPtr pWin, Atom selection,
   int index = nxagentFindCurrentSelectionIndex(selection);
   if (index == NumCurrentSelections)
   {
-    #ifdef DEBUG
-    fprintf(stderr, "%s: FIXME cannot find proper index for lastClients\n", __func__);
-    #endif
-    return 0;
+     #ifdef DEBUG
+     fprintf(stderr, "%s: cannot find index for selection [%u]\n", __func__, selection);
+     #endif
+     return 0;
   }
 
   if (IS_INTERNAL_OWNER(index))
@@ -2834,17 +2834,17 @@ Bool nxagentInitClipboard(WindowPtr pWin)
          * claim the ownership. Note that we report our serverWindow as
          * owner, not the real window!
          */
-         if (IS_INTERNAL_OWNER(index) && lastSelectionOwner[index].window)
-         {
-           /* remSelAtoms have already been adjusted above */
-           XSetSelectionOwner(nxagentDisplay, remSelAtoms[index], serverWindow, CurrentTime);
-         }
-         /*
-          * FIXME: Shouldn't we reset lastServers[index].* and
-          * lastClients[index].* here? Problem is that (internal)
-          * clients might still be waiting for answers. Should reply
-          * with failure then
-          */
+        if (IS_INTERNAL_OWNER(index) && lastSelectionOwner[index].window)
+        {
+          /* remSelAtoms have already been adjusted above */
+          XSetSelectionOwner(nxagentDisplay, remSelAtoms[index], serverWindow, CurrentTime);
+        }
+        /*
+         * FIXME: Shouldn't we reset lastServers[index].* and
+         * lastClients[index].* here? Problem is that (internal)
+         * clients might still be waiting for answers. Should reply
+         * with failure then
+         */
       }
     }
   }
