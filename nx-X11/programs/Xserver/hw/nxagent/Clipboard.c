@@ -97,6 +97,19 @@ typedef struct _SelectionOwner
 
 static SelectionOwner *lastSelectionOwner = NULL;
 
+/*
+ * cache for targets the current selection owner
+ * on the real X server has to offer. We are storing the targets
+ * after they have been converted from XlibAtom to Atom.
+*/
+typedef struct _Targets
+{
+  Atom  *targets;
+  int   numTargets;
+} Targets;
+
+static Targets *targetCache = NULL;
+
 /* FIXME: can this also be stored per selection? */
 static XlibAtom serverLastRequestedSelection = -1;
 
@@ -363,6 +376,12 @@ static void printLastServerStat(int index)
   fprintf(stderr, "  lastServer[].time               (Time) [%u]\n", ls.time);
 }
 
+static void printTargetCacheStat(int index)
+{
+  fprintf(stderr, "  targetCache[].targets         (Atom *) [%p]\n", (void *)targetCache[index].targets);
+  fprintf(stderr, "  targetCache[].numTargets         (int) [%d]\n", targetCache[index].numTargets);
+}
+
 void nxagentDumpClipboardStat(void)
 {
   fprintf(stderr, "/----- Clipboard internal status -----\n");
@@ -424,6 +443,7 @@ void nxagentDumpClipboardStat(void)
     printSelectionStat(index);
     printLastClientStat(index);
     printLastServerStat(index);
+    printTargetCacheStat(index);
   }
 
   fprintf(stderr, "\\------------------------------------------------------------------------------\n");
@@ -717,6 +737,41 @@ int nxagentFindCurrentSelectionIndex(Atom sel)
   return NumCurrentSelections;
 }
 
+void cacheTargets(int index, Atom* targets, int numTargets)
+{
+  #ifdef DEBUG
+  fprintf(stderr, "%s: caching [%d] targets\n", __func__, numTargets);
+  #endif
+
+  SAFE_free(targetCache[index].targets);
+  targetCache[index].targets = targets;
+  targetCache[index].numTargets = numTargets;
+}
+
+/* this is called on init, reconnect and SelectionClear */
+void invalidateTargetCache(int index)
+{
+  #ifdef DEBUG
+  fprintf(stderr, "%s: invalidating target cache [%d]\n", __func__, index);
+  #endif
+
+  SAFE_free(targetCache[index].targets);
+  targetCache[index].numTargets = 0;
+}
+
+void invalidateTargetCaches(void)
+{
+  #ifdef DEBUG
+  fprintf(stderr, "%s: invalidating all target caches\n", __func__);
+  #endif
+
+  for (int index = 0; index < nxagentMaxSelections; index++)
+  {
+    SAFE_free(targetCache[index].targets);
+    targetCache[index].numTargets = 0;
+  }
+}
+
 /*
  * This is called from Events.c dispatch loop on reception of a
  * SelectionClear event. We receive this event if someone on the real
@@ -772,6 +827,8 @@ void nxagentHandleSelectionClearFromXServer(XEvent *X)
     clearSelectionOwnerData(index);
 
     setClientSelectionStage(SelectionStageNone, index);
+
+    invalidateTargetCache(index);
   }
 }
 
@@ -1513,6 +1570,8 @@ Bool nxagentCollectPropertyEventFromXServer(int resource)
                                    32, PropModeReplace,
                                    ulReturnItems, (unsigned char*)targets, 1);
 
+              cacheTargets(index, targets, numTargets);
+
               endTransfer(SELECTION_SUCCESS, index);
             }
           }
@@ -1923,6 +1982,12 @@ void nxagentSetSelectionCallback(CallbackListPtr *callbacks, void *data,
   }
   #endif
 
+  /*
+   * We do not know index here so for now let's invalidate the
+   * complete cache on every owner change regardless of the selection.
+   */
+  invalidateTargetCaches();
+
   if (nxagentExternalClipboardEventTrap)
   {
     #ifdef DEBUG
@@ -2035,6 +2100,13 @@ static void setSelectionOwnerOnXServer(Selection *pSelection)
     storeSelectionOwnerData(index, pSelection);
 
     setClientSelectionStage(SelectionStageNone, index);
+
+    /*
+     * this will be repeated on reception of the SelectionOwner callback
+     * but we cannot be sure if there are any intermediate requests in the queue
+     * already so better do it here, too
+     */
+    invalidateTargetCache(index);
   }
 
   /* FIXME: commented because index is invalid here! */
@@ -2223,6 +2295,42 @@ int nxagentConvertSelection(ClientPtr client, WindowPtr pWin, Atom selection,
     }
     else
     {
+      /*
+       * Shortcut: Some applications tend to post multiple
+       * SelectionRequests. Further it can happen that multiple
+       * clients are interested in clipboard content. If we already
+       * know the answer and no intermediate SelectionOwner event
+       * occured we can answer with the cached list of targets.
+       */
+
+      if (targetCache[index].targets)
+      {
+        Atom *targets = targetCache[index].targets;
+        int numTargets = targetCache[index].numTargets;
+
+        #ifdef DEBUG
+        fprintf(stderr, "%s: Sending %d cached targets:\n", __func__, numTargets);
+        for (int i = 0; i < numTargets; i++)
+        {
+          fprintf(stderr, "%s: %d %s\n", __func__, targets[i], NameForIntAtom(targets[i]));
+        }
+        #endif
+
+        ChangeWindowProperty(pWin,
+                             property,
+                             MakeAtom("ATOM", 4, 1),
+                             sizeof(Atom)*8,
+                             PropModeReplace,
+                             numTargets,
+                             targets,
+                             1);
+
+        sendSelectionNotifyEventToClient(client, time, requestor, selection,
+                                             target, property);
+
+        return 1;
+      }
+
       /*
        * do nothing - TARGETS will be handled like any other target
        * and passed on to the owner on the remote side.
@@ -2726,6 +2834,13 @@ Bool nxagentInitClipboard(WindowPtr pWin)
     {
       FatalError("nxagentInitClipboard: Failed to allocate memory for the remote selection Atoms array.\n");
     }
+
+    SAFE_free(targetCache);
+    targetCache = (Targets *) calloc(nxagentMaxSelections, sizeof(Targets));
+    if (targetCache == NULL)
+    {
+      FatalError("nxagentInitClipboard: Failed to allocate memory for target cache.\n");
+    }
   }
 
   /*
@@ -2845,6 +2960,8 @@ Bool nxagentInitClipboard(WindowPtr pWin)
          * clients might still be waiting for answers. Should reply
          * with failure then
          */
+
+        invalidateTargetCache(index);
       }
     }
   }
@@ -2857,6 +2974,7 @@ Bool nxagentInitClipboard(WindowPtr pWin)
       /* FIXME: required? move to setSelectionStage? */
       lastClients[index].reqTime = GetTimeInMillis();
       lastServers[index].requestor = None;
+      invalidateTargetCache(index);
     }
 
     clientCutProperty = MakeAtom(szAgentNX_CUT_BUFFER_CLIENT,
