@@ -1915,11 +1915,6 @@ static void resetSelectionOwnerOnXServer(void)
     return;
   }
 
-  /*
-   * Only for PRIMARY and CLIPBOARD selections.
-   */
-
-
   for (int index = 0; index < nxagentMaxSelections; index++)
   {
     XSetSelectionOwner(nxagentDisplay, remSelAtoms[index], serverWindow, CurrentTime);
@@ -1932,7 +1927,7 @@ static void resetSelectionOwnerOnXServer(void)
 
     setClientSelectionStage(SelectionStageNone, index);
 
-    /* Hmm, this is already None when reaching this */
+    /* Hmm, this is already None when reaching here */
     lastServers[index].requestor = None;
   }
 }
@@ -2074,6 +2069,7 @@ static void setSelectionOwnerOnXServer(Selection *pSelection)
        * we are in the process of communicating back and forth between
        * real X server and nxagent's clients - let's not disturb
        * FIXME: by continuing after the warning were ARE disturbing!
+       * We should cancel that communication here.
        */
       fprintf (stderr, "%s: WARNING! lastServers[%d].requestor window [0x%lx] already set.\n",
                    __func__, index, lastServers[index].requestor);
@@ -2253,7 +2249,7 @@ int nxagentConvertSelection(ClientPtr client, WindowPtr pWin, Atom selection,
   {
     /*
      * In TextClipboard mode answer with a predefined list that was used
-     * in in previous versions.
+     * in previous versions.
      */
     if (nxagentOption(TextClipboard))
     {
