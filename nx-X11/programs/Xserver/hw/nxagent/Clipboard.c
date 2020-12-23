@@ -290,11 +290,11 @@ XFixesAgentInfoRec nxagentXFixesInfo = { -1, -1, -1, False };
 extern Display *nxagentDisplay;
 
 static Bool isTextTarget(XlibAtom target);
-static void setClientSelectionStage(int stage, int index);
-static void endTransfer(Bool success, int index);
+static void setClientSelectionStage(int index, int stage);
+static void endTransfer(int index, Bool success);
 #define SELECTION_SUCCESS True
 #define SELECTION_FAULT False
-static void transferSelectionFromXServer(int resource, int index);
+static void transferSelectionFromXServer(int index, int resource);
 #if 0
 static void resetSelectionOwnerOnXServer(void);
 #endif
@@ -480,7 +480,7 @@ static void resetClientSelectionStage(int index)
   lastClients[index].resource = -1;
 }
 
-static void setClientSelectionStage(int stage, int index)
+static void setClientSelectionStage(int index, int stage)
 {
   if (stage == SelectionStageNone)
   {
@@ -691,14 +691,14 @@ void nxagentClearClipboard(ClientPtr pClient, WindowPtr pWindow)
 
       clearSelectionOwnerData(index);
 
-      setClientSelectionStage(SelectionStageNone, index);
+      setClientSelectionStage(index, SelectionStageNone);
 
       replyOutstandingRequestSelectionToXServer(index, False);
     }
 
     if (pWindow && pWindow == lastClients[index].windowPtr)
     {
-      setClientSelectionStage(SelectionStageNone, index);
+      setClientSelectionStage(index, SelectionStageNone);
     }
   }
 }
@@ -855,7 +855,7 @@ void nxagentHandleSelectionClearFromXServer(XEvent *X)
 
     clearSelectionOwnerData(index);
 
-    setClientSelectionStage(SelectionStageNone, index);
+    setClientSelectionStage(index, SelectionStageNone);
 
     invalidateTargetCache(index);
   }
@@ -1276,7 +1276,7 @@ void nxagentHandleSelectionRequestFromXServer(XEvent *X)
  * denied/failed"
  * Use SELECTION_SUCCESS and SELECTION_FAULT macros for success.
  */
-static void endTransfer(Bool success, int index)
+static void endTransfer(int index, Bool success)
 {
   if (lastClients[index].clientPtr == NULL)
   {
@@ -1306,10 +1306,10 @@ static void endTransfer(Bool success, int index)
   /*
    * Enable further requests from clients.
    */
-  setClientSelectionStage(SelectionStageNone, index);
+  setClientSelectionStage(index, SelectionStageNone);
 }
 
-static void transferSelectionFromXServer(int resource, int index)
+static void transferSelectionFromXServer(int index, int resource)
 {
   #ifdef DEBUG
   fprintf(stderr, "%s: resource [%d] lastClients[%d].clientPtr->index [%d].\n", __func__,
@@ -1323,7 +1323,7 @@ static void transferSelectionFromXServer(int resource, int index)
                  resource, nxagentClientInfoString(lastClients[index].clientPtr));
     #endif
 
-    endTransfer(SELECTION_FAULT, index);
+    endTransfer(index, SELECTION_FAULT);
 
     return;
   }
@@ -1374,12 +1374,12 @@ static void transferSelectionFromXServer(int resource, int index)
                      nxagentClientInfoString(lastClients[index].clientPtr));
         #endif
 
-        endTransfer(SELECTION_FAULT, index);
+        endTransfer(index, SELECTION_FAULT);
 
         return;
       }
 
-      setClientSelectionStage(SelectionStageWaitSize, index);
+      setClientSelectionStage(index, SelectionStageWaitSize);
 
       NXFlushDisplay(nxagentDisplay, NXFlushLink);
 
@@ -1433,12 +1433,12 @@ static void transferSelectionFromXServer(int resource, int index)
                      nxagentClientInfoString(lastClients[index].clientPtr));
         #endif
 
-        endTransfer(SELECTION_FAULT, index);
+        endTransfer(index, SELECTION_FAULT);
 
         return;
       }
 
-      setClientSelectionStage(SelectionStageWaitData, index);
+      setClientSelectionStage(index, SelectionStageWaitData);
 
       /* we've seen situations where you had to move the mouse or press a
          key to let the transfer complete. Flushing here fixed it */
@@ -1527,7 +1527,7 @@ Bool nxagentCollectPropertyEventFromXServer(int resource)
     fprintf (stderr, "%s: Failed to get reply data.\n", __func__);
     #endif
 
-    endTransfer(SELECTION_FAULT, index);
+    endTransfer(index, SELECTION_FAULT);
   }
   else if (resultFormat != 8 && resultFormat != 16 && resultFormat != 32)
   {
@@ -1535,7 +1535,7 @@ Bool nxagentCollectPropertyEventFromXServer(int resource)
     fprintf(stderr, "%s: WARNING! Invalid property format.\n", __func__);
     #endif
 
-    endTransfer(SELECTION_FAULT, index);
+    endTransfer(index, SELECTION_FAULT);
   }
   else
   {
@@ -1555,7 +1555,7 @@ Bool nxagentCollectPropertyEventFromXServer(int resource)
           fprintf (stderr, "%s: data size is [0] - aborting selection notify procedure.\n", __func__);
           #endif
 
-          endTransfer(SELECTION_FAULT, index);
+          endTransfer(index, SELECTION_FAULT);
         }
         else
         {
@@ -1567,9 +1567,9 @@ Bool nxagentCollectPropertyEventFromXServer(int resource)
            * Request the selection data now.
            */
           lastClients[index].propertySize = ulReturnBytesLeft;
-          setClientSelectionStage(SelectionStageQueryData, index);
+          setClientSelectionStage(index, SelectionStageQueryData);
 
-          transferSelectionFromXServer(resource, index);
+          transferSelectionFromXServer(index, resource);
         }
         break;
       }
@@ -1587,7 +1587,7 @@ Bool nxagentCollectPropertyEventFromXServer(int resource)
           fprintf (stderr, "%s: not all content could be retrieved - [%lu] bytes left - aborting selection notify procedure.\n", __func__, ulReturnBytesLeft);
           #endif
 
-          endTransfer(SELECTION_FAULT, index);
+          endTransfer(index, SELECTION_FAULT);
         }
         else
         {
@@ -1605,7 +1605,7 @@ Bool nxagentCollectPropertyEventFromXServer(int resource)
               #endif
 
               /* operation failed */
-              endTransfer(SELECTION_FAULT, index);
+              endTransfer(index, SELECTION_FAULT);
             }
             else
             {
@@ -1633,7 +1633,7 @@ Bool nxagentCollectPropertyEventFromXServer(int resource)
 
               cacheTargetsForInt(index, targets, numTargets);
 
-              endTransfer(SELECTION_SUCCESS, index);
+              endTransfer(index, SELECTION_SUCCESS);
             }
           }
           else
@@ -1653,7 +1653,7 @@ Bool nxagentCollectPropertyEventFromXServer(int resource)
                                         pszReturnData);
             #endif
 
-            endTransfer(SELECTION_SUCCESS, index);
+            endTransfer(index, SELECTION_SUCCESS);
           }
         }
         break;
@@ -1757,10 +1757,10 @@ void nxagentHandleSelectionNotifyFromXServer(XEvent *X)
          * tions.
          */
 
-        setClientSelectionStage(SelectionStageQueryData, index);
+        setClientSelectionStage(index, SelectionStageQueryData);
         lastClients[index].propertySize = 262144;
 
-        transferSelectionFromXServer(lastClients[index].clientPtr -> index, index);
+        transferSelectionFromXServer(index, lastClients[index].clientPtr -> index);
       }
       else if (X->xselection.property == 0)
       {
@@ -1768,7 +1768,7 @@ void nxagentHandleSelectionNotifyFromXServer(XEvent *X)
         fprintf(stderr, "%s: WARNING! Resetting selection transferral for client [%d] because of failure notification from real X server.\n", __func__,
                     CLINDEX(lastClients[index].clientPtr));
         #endif
-        endTransfer(SELECTION_FAULT, index);
+        endTransfer(index, SELECTION_FAULT);
       }
       else
       {
@@ -1776,7 +1776,7 @@ void nxagentHandleSelectionNotifyFromXServer(XEvent *X)
         fprintf(stderr, "%s: Unexpected property [%ld][%s] - reporting conversion failure.\n",
                     __func__, X->xselection.property, NameForRemAtom(X->xselection.property));
         #endif
-        endTransfer(SELECTION_FAULT, index);
+        endTransfer(index, SELECTION_FAULT);
       }
     }
     else
@@ -1786,7 +1786,7 @@ void nxagentHandleSelectionNotifyFromXServer(XEvent *X)
                   CLINDEX(lastClients[index].clientPtr));
       #endif
 
-      endTransfer(SELECTION_FAULT, index);
+      endTransfer(index, SELECTION_FAULT);
     }
   }
   else
@@ -2012,7 +2012,7 @@ static void resetSelectionOwnerOnXServer(void)
 
     clearSelectionOwnerData(index);
 
-    setClientSelectionStage(SelectionStageNone, index);
+    setClientSelectionStage(index, SelectionStageNone);
 
     /* Hmm, this is already None when reaching here */
     lastServers[index].requestor = None;
@@ -2185,7 +2185,7 @@ static void setSelectionOwnerOnXServer(Selection *pSelection)
      */
     storeSelectionOwnerData(index, pSelection);
 
-    setClientSelectionStage(SelectionStageNone, index);
+    setClientSelectionStage(index, SelectionStageNone);
 
     /*
      * this will be repeated on reception of the SelectionOwner callback
@@ -2213,7 +2213,7 @@ FIXME2: instead of XGetSelectionOwner we could check if the Xfixes
       lastSelectionOwnerWindow = pSelection->window;
       lastSelectionOwnerWindowPtr = pSelection->pWin;
 
-      setClientSelectionStage(SelectionStageNone);
+      setClientSelectionStage(index, SelectionStageNone);
 
       lastServers[index].requestor = None;
    }
@@ -2309,7 +2309,7 @@ int nxagentConvertSelection(ClientPtr client, WindowPtr pWin, Atom selection,
       #endif
 
       /* notify the waiting client of failure */
-      endTransfer(SELECTION_FAULT, index);
+      endTransfer(index, SELECTION_FAULT);
 
       /* do NOT return here but process the new request instead! */
     }
@@ -2556,7 +2556,7 @@ int nxagentConvertSelection(ClientPtr client, WindowPtr pWin, Atom selection,
     clientAccum = 0;
   }
 
-  setClientSelectionStage(SelectionStageNone, index);
+  setClientSelectionStage(index, SelectionStageNone);
 
   /*
    * store the original requestor, we need that later after
