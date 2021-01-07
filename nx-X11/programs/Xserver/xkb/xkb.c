@@ -186,7 +186,7 @@ ProcXkbUseExtension(ClientPtr client)
         swaps(&rep.serverMinor);
     }
     WriteToClient(client, SIZEOF(xkbUseExtensionReply), &rep);
-    return client->noClientException;
+    return Success;
 }
 
 /***====================================================================***/
@@ -212,7 +212,7 @@ ProcXkbSelectEvents(ClientPtr client)
         client->mapNotifyMask |= (stuff->affectMap & stuff->map);
     }
     if ((stuff->affectWhich & (~XkbMapNotifyMask)) == 0)
-        return client->noClientException;
+        return Success;
 
     masks = XkbFindClientResource((DevicePtr) dev, client);
     if (!masks) {
@@ -343,7 +343,7 @@ ProcXkbSelectEvents(ClientPtr client)
             ErrorF("Extra data (%d bytes) after SelectEvents\n", dataLeft);
             return BadLength;
         }
-        return client->noClientException;
+        return Success;
     }
     return BadAlloc;
 }
@@ -538,7 +538,7 @@ ProcXkbGetState(ClientPtr client)
         swaps(&rep.ptrBtnState);
     }
     WriteToClient(client, SIZEOF(xkbGetStateReply), &rep);
-    return client->noClientException;
+    return Success;
 }
 
 /***====================================================================***/
@@ -600,7 +600,8 @@ ProcXkbLatchLockState(ClientPtr client)
             XkbUpdateIndicators(dev, changed, TRUE, NULL, &cause);
         }
     }
-    return client->noClientException;
+
+    return Success;
 }
 
 /***====================================================================***/
@@ -674,7 +675,7 @@ ProcXkbGetControls(ClientPtr client)
         swaps(&rep.axOptions);
     }
     WriteToClient(client, SIZEOF(xkbGetControlsReply), &rep);
-    return (client->noClientException);
+    return Success;
 }
 
 int
@@ -848,7 +849,7 @@ ProcXkbSetControls(ClientPtr client)
         XkbClearAllLatchesAndLocks(dev, xkbi, TRUE, &cause);
     }
 #endif
-    return client->noClientException;
+    return Success;
 }
 
 /***====================================================================***/
@@ -1319,7 +1320,7 @@ XkbSendMap(ClientPtr client, XkbDescPtr xkb, xkbGetMapReply * rep)
     WriteToClient(client, (i = SIZEOF(xkbGetMapReply)), rep);
     WriteToClient(client, len, start);
     free((char *) start);
-    return client->noClientException;
+    return Success;
 }
 
 int
@@ -2461,7 +2462,7 @@ ProcXkbSetMap(ClientPtr client)
         XkbSendNotification(dev, &change, &cause);
 
     XkbUpdateCoreDescription(dev, FALSE);
-    return client->noClientException;
+    return Success;
  allocFailure:
     return BadAlloc;
 }
@@ -2552,7 +2553,7 @@ XkbSendCompatMap(ClientPtr client,
         WriteToClient(client, size, data);
         free((char *) data);
     }
-    return client->noClientException;
+    return Success;
 }
 
 int
@@ -2730,7 +2731,7 @@ ProcXkbSetCompatMap(ClientPtr client)
         XkbUpdateCoreDescription(dev, FALSE);
         XkbSendNotification(dev, &change, &cause);
     }
-    return client->noClientException;
+    return Success;
 }
 
 /***====================================================================***/
@@ -2766,7 +2767,7 @@ ProcXkbGetIndicatorState(ClientPtr client)
         swapl(&rep.state);
     }
     WriteToClient(client, SIZEOF(xkbGetIndicatorStateReply), &rep);
-    return client->noClientException;
+    return Success;
 }
 
 /***====================================================================***/
@@ -2843,7 +2844,7 @@ XkbSendIndicatorMap(ClientPtr client,
         WriteToClient(client, length, map);
         free((char *) map);
     }
-    return client->noClientException;
+    return Success;
 }
 
 int
@@ -2899,7 +2900,7 @@ ProcXkbSetIndicatorMap(ClientPtr client)
     xkbi = dev->key->xkbInfo;
 
     if (stuff->which == 0)
-        return client->noClientException;
+        return Success;
 
     for (nIndicators = i = 0, bit = 1; i < XkbNumIndicators; i++, bit <<= 1) {
         if (stuff->which & bit)
@@ -2952,7 +2953,7 @@ ProcXkbSetIndicatorMap(ClientPtr client)
 
     XkbSetCauseXkbReq(&cause, X_kbSetIndicatorMap, client);
     XkbApplyLedMapChanges(dev, sli, stuff->which, NULL, NULL, &cause);
-    return client->noClientException;
+    return Success;
 }
 
 /***====================================================================***/
@@ -3034,7 +3035,7 @@ ProcXkbGetNamedIndicator(ClientPtr client)
     }
 
     WriteToClient(client, SIZEOF(xkbGetNamedIndicatorReply), &rep);
-    return client->noClientException;
+    return Success;
 }
 
 int
@@ -3080,7 +3081,7 @@ ProcXkbSetNamedIndicator(ClientPtr client)
     }
     if (map == NULL) {
         if (!stuff->createMap)
-            return client->noClientException;
+            return Success;
         for (led = 0, map = NULL; (led < XkbNumIndicators) && (map == NULL);
              led++) {
             if ((sli->names) && (sli->maps) && (sli->names[led] == None) &&
@@ -3091,7 +3092,7 @@ ProcXkbSetNamedIndicator(ClientPtr client)
             }
         }
         if (map == NULL)
-            return client->noClientException;
+            return Success;
         namec |= (1 << led);
         sli->namesPresent |= ((stuff->indicator != None) ? (1 << led) : 0);
         extDevReason |= XkbXI_IndicatorNamesMask;
@@ -3129,7 +3130,8 @@ ProcXkbSetNamedIndicator(ClientPtr client)
     if ((sli->flags & XkbSLI_HasOwnState) == 0)
         kbd = (DeviceIntPtr) LookupKeyboardDevice();
     XkbFlushLedEvents(dev, kbd, sli, &ed, &changes, &cause);
-    return client->noClientException;
+
+    return Success;
 }
 
 /***====================================================================***/
@@ -3437,7 +3439,7 @@ XkbSendNames(ClientPtr client, XkbDescPtr xkb, xkbGetNamesReply * rep)
     WriteToClient(client, SIZEOF(xkbGetNamesReply), rep);
     WriteToClient(client, length, start);
     free((char *) start);
-    return client->noClientException;
+    return Success;
 }
 
 int
@@ -3886,7 +3888,7 @@ ProcXkbSetNames(ClientPtr client)
             XkbSendExtensionDeviceNotify(dev, client, &edev);
         }
     }
-    return client->noClientException;
+    return Success;
 }
 
 /***====================================================================***/
@@ -4393,7 +4395,7 @@ XkbSendGeometry(ClientPtr client,
         free((char *) start);
     if (freeGeom)
         XkbFreeGeometry(geom, XkbGeomAllMask, TRUE);
-    return client->noClientException;
+    return Success;
 }
 
 int
@@ -5011,7 +5013,7 @@ ProcXkbPerClientFlags(ClientPtr client)
         swapl(&rep.autoCtrlValues);
     }
     WriteToClient(client, SIZEOF(xkbPerClientFlagsReply), &rep);
-    return client->noClientException;
+    return Success;
 }
 
 /***====================================================================***/
@@ -5147,7 +5149,7 @@ ProcXkbListComponents(ClientPtr client)
         _XkbFree(list.pool);
         list.pool = NULL;
     }
-    return client->noClientException;
+    return Success;
 }
 
 /***====================================================================***/
@@ -5505,7 +5507,7 @@ ProcXkbGetKbdByName(ClientPtr client)
         _XkbFree(names.geometry);
         names.geometry = NULL;
     }
-    return client->noClientException;
+    return Success;
 }
 
 /***====================================================================***/
@@ -5881,7 +5883,7 @@ ProcXkbGetDeviceInfo(ClientPtr client)
         ed.unsupported = stuff->wanted & (~supported);
         XkbSendExtensionDeviceNotify(dev, client, &ed);
     }
-    return client->noClientException;
+    return Success;
 }
 
 static char *
@@ -6140,7 +6142,7 @@ ProcXkbSetDeviceInfo(ClientPtr client)
     }
     if ((stuff->change) && (ed.reason))
         XkbSendExtensionDeviceNotify(dev, client, &ed);
-    return client->noClientException;
+    return Success;
 }
 
 /***====================================================================***/
@@ -6201,7 +6203,7 @@ ProcXkbSetDebuggingFlags(ClientPtr client)
         swapl(&rep.supportedCtrls);
     }
     WriteToClient(client, SIZEOF(xkbSetDebuggingFlagsReply), &rep);
-    return client->noClientException;
+    return Success;
 }
 
 /***====================================================================***/
