@@ -2893,7 +2893,7 @@ ProcXkbGetIndicatorMap(ClientPtr client)
 int
 ProcXkbSetIndicatorMap(ClientPtr client)
 {
-    register int i, bit;
+    int i, bit;
     int nIndicators, why;
     DeviceIntPtr dev;
     XkbSrvInfoPtr xkbi;
@@ -3623,7 +3623,7 @@ ProcXkbSetNames(ClientPtr client)
         }
     }
     if (stuff->which & XkbKeyTypeNamesMask) {
-        register int i;
+        int i;
         CARD32 *old;
 
         if (stuff->nTypes < 1) {
@@ -3653,7 +3653,7 @@ ProcXkbSetNames(ClientPtr client)
         }
     }
     if (stuff->which & XkbKTLevelNamesMask) {
-        register unsigned i;
+        unsigned i;
         XkbKeyTypePtr type;
         CARD8 *width;
 
