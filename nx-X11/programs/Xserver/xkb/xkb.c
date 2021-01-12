@@ -51,7 +51,7 @@ static RESTYPE RT_XKBCLIENT;
 
 /***====================================================================***/
 
-#define	CHK_DEVICE(d,sp,lf) {\
+#define	CHK_DEVICE(d, sp, client, access_mode, lf) {\
     int why;\
     d = (DeviceIntPtr)lf((sp),&why);\
     if  (!dev) {\
@@ -60,10 +60,14 @@ static RESTYPE RT_XKBCLIENT;
     }\
 }
 
-#define	CHK_KBD_DEVICE(d,sp) 	CHK_DEVICE(d,sp,_XkbLookupKeyboard)
-#define	CHK_LED_DEVICE(d,sp) 	CHK_DEVICE(d,sp,_XkbLookupLedDevice)
-#define	CHK_BELL_DEVICE(d,sp) 	CHK_DEVICE(d,sp,_XkbLookupBellDevice)
-#define	CHK_ANY_DEVICE(d,sp) 	CHK_DEVICE(d,sp,_XkbLookupAnyDevice)
+#define	CHK_KBD_DEVICE(dev, id, client, mode) \
+    CHK_DEVICE(dev, id, client, mode, _XkbLookupKeyboard)
+#define	CHK_LED_DEVICE(dev, id, client, mode) \
+    CHK_DEVICE(dev, id, client, mode, _XkbLookupLedDevice)
+#define	CHK_BELL_DEVICE(dev, id, client, mode) \
+    CHK_DEVICE(dev, id, client, mode, _XkbLookupBellDevice)
+#define	CHK_ANY_DEVICE(dev, id, client, mode) \
+    CHK_DEVICE(dev, id, client, mode, _XkbLookupAnyDevice)
 
 #define	CHK_ATOM_ONLY2(a,ev,er) {\
 	if (((a)==None)||(!ValidAtom((a)))) {\
@@ -207,7 +211,7 @@ ProcXkbSelectEvents(ClientPtr client)
     if (!(client->xkbClientFlags & _XkbClientInitialized))
         return BadAccess;
 
-    CHK_ANY_DEVICE(dev, stuff->deviceSpec);
+    CHK_ANY_DEVICE(dev, stuff->deviceSpec, client, DixUseAccess);
 
     if (((stuff->affectWhich & XkbMapNotifyMask) != 0) && (stuff->affectMap)) {
         client->mapNotifyMask &= ~stuff->affectMap;
@@ -368,7 +372,7 @@ ProcXkbBell(ClientPtr client)
     if (!(client->xkbClientFlags & _XkbClientInitialized))
         return BadAccess;
 
-    CHK_BELL_DEVICE(dev, stuff->deviceSpec);
+    CHK_BELL_DEVICE(dev, stuff->deviceSpec, client, DixBellAccess);
     CHK_ATOM_OR_NONE(stuff->name);
 
     if ((stuff->forceSound) && (stuff->eventOnly)) {
@@ -519,7 +523,7 @@ ProcXkbGetState(ClientPtr client)
     if (!(client->xkbClientFlags & _XkbClientInitialized))
         return BadAccess;
 
-    CHK_KBD_DEVICE(dev, stuff->deviceSpec);
+    CHK_KBD_DEVICE(dev, stuff->deviceSpec, client, DixGetAttrAccess);
 
     xkb = &dev->key->xkbInfo->state;
     rep = (xkbGetStateReply) {
@@ -562,7 +566,7 @@ ProcXkbLatchLockState(ClientPtr client)
     if (!(client->xkbClientFlags & _XkbClientInitialized))
         return BadAccess;
 
-    CHK_KBD_DEVICE(dev, stuff->deviceSpec);
+    CHK_KBD_DEVICE(dev, stuff->deviceSpec, client, DixSetAttrAccess);
     CHK_MASK_MATCH(0x01, stuff->affectModLocks, stuff->modLocks);
     CHK_MASK_MATCH(0x01, stuff->affectModLatches, stuff->modLatches);
 
@@ -624,7 +628,7 @@ ProcXkbGetControls(ClientPtr client)
     if (!(client->xkbClientFlags & _XkbClientInitialized))
         return BadAccess;
 
-    CHK_KBD_DEVICE(dev, stuff->deviceSpec);
+    CHK_KBD_DEVICE(dev, stuff->deviceSpec, client, DixGetAttrAccess);
 
     xkb = dev->key->xkbInfo->desc->ctrls;
     rep = (xkbGetControlsReply) {
@@ -703,7 +707,7 @@ ProcXkbSetControls(ClientPtr client)
     if (!(client->xkbClientFlags & _XkbClientInitialized))
         return BadAccess;
 
-    CHK_KBD_DEVICE(dev, stuff->deviceSpec);
+    CHK_KBD_DEVICE(dev, stuff->deviceSpec, client, DixManageAccess);
     CHK_MASK_LEGAL(0x01, stuff->changeCtrls, XkbAllControlsMask);
 
     xkbi = dev->key->xkbInfo;
@@ -1344,7 +1348,7 @@ ProcXkbGetMap(ClientPtr client)
     if (!(client->xkbClientFlags & _XkbClientInitialized))
         return BadAccess;
 
-    CHK_KBD_DEVICE(dev, stuff->deviceSpec);
+    CHK_KBD_DEVICE(dev, stuff->deviceSpec, client, DixGetAttrAccess);
     CHK_MASK_OVERLAP(0x01, stuff->full, stuff->partial);
     CHK_MASK_LEGAL(0x02, stuff->full, XkbAllMapComponentsMask);
     CHK_MASK_LEGAL(0x03, stuff->partial, XkbAllMapComponentsMask);
@@ -2287,7 +2291,7 @@ ProcXkbSetMap(ClientPtr client)
     if (!(client->xkbClientFlags & _XkbClientInitialized))
         return BadAccess;
 
-    CHK_KBD_DEVICE(dev, stuff->deviceSpec);
+    CHK_KBD_DEVICE(dev, stuff->deviceSpec, client, DixManageAccess);
     CHK_MASK_LEGAL(0x01, stuff->present, XkbAllMapComponentsMask);
 
     XkbSetCauseXkbReq(&cause, X_kbSetMap, client);
@@ -2577,7 +2581,7 @@ ProcXkbGetCompatMap(ClientPtr client)
     if (!(client->xkbClientFlags & _XkbClientInitialized))
         return BadAccess;
 
-    CHK_KBD_DEVICE(dev, stuff->deviceSpec);
+    CHK_KBD_DEVICE(dev, stuff->deviceSpec, client, DixGetAttrAccess);
 
     xkb = dev->key->xkbInfo->desc;
     compat = xkb->compat;
@@ -2622,7 +2626,7 @@ ProcXkbSetCompatMap(ClientPtr client)
     if (!(client->xkbClientFlags & _XkbClientInitialized))
         return BadAccess;
 
-    CHK_KBD_DEVICE(dev, stuff->deviceSpec);
+    CHK_KBD_DEVICE(dev, stuff->deviceSpec, client, DixManageAccess);
 
     data = (char *) &stuff[1];
     xkbi = dev->key->xkbInfo;
@@ -2758,7 +2762,7 @@ ProcXkbGetIndicatorState(ClientPtr client)
     if (!(client->xkbClientFlags & _XkbClientInitialized))
         return BadAccess;
 
-    CHK_KBD_DEVICE(dev, stuff->deviceSpec);
+    CHK_KBD_DEVICE(dev, stuff->deviceSpec, client, DixReadAccess);
 
     sli = XkbFindSrvLedInfo(dev, XkbDfltXIClass, XkbDfltXIId,
                             XkbXI_IndicatorStateMask);
@@ -2875,7 +2879,7 @@ ProcXkbGetIndicatorMap(ClientPtr client)
     if (!(client->xkbClientFlags & _XkbClientInitialized))
         return BadAccess;
 
-    CHK_KBD_DEVICE(dev, stuff->deviceSpec);
+    CHK_KBD_DEVICE(dev, stuff->deviceSpec, client, DixGetAttrAccess);
 
     xkb = dev->key->xkbInfo->desc;
     leds = xkb->indicators;
@@ -2989,7 +2993,7 @@ ProcXkbGetNamedIndicator(ClientPtr client)
     if (!(client->xkbClientFlags & _XkbClientInitialized))
         return BadAccess;
 
-    CHK_LED_DEVICE(dev, stuff->deviceSpec);
+    CHK_LED_DEVICE(dev, stuff->deviceSpec, client, DixReadAccess);
     CHK_ATOM_ONLY(stuff->indicator);
 
     sli = XkbFindSrvLedInfo(dev, stuff->ledClass, stuff->ledID, 0);
@@ -3075,7 +3079,7 @@ ProcXkbSetNamedIndicator(ClientPtr client)
     if (!(client->xkbClientFlags & _XkbClientInitialized))
         return BadAccess;
 
-    CHK_LED_DEVICE(dev, stuff->deviceSpec);
+    CHK_LED_DEVICE(dev, stuff->deviceSpec, client, DixSetAttrAccess);
     CHK_ATOM_ONLY(stuff->indicator);
     CHK_MASK_LEGAL(0x10, stuff->whichGroups, XkbIM_UseAnyGroup);
     CHK_MASK_LEGAL(0x11, stuff->whichMods, XkbIM_UseAnyMods);
@@ -3473,7 +3477,7 @@ ProcXkbGetNames(ClientPtr client)
     if (!(client->xkbClientFlags & _XkbClientInitialized))
         return BadAccess;
 
-    CHK_KBD_DEVICE(dev, stuff->deviceSpec);
+    CHK_KBD_DEVICE(dev, stuff->deviceSpec, client, DixGetAttrAccess);
     CHK_MASK_LEGAL(0x01, stuff->which, XkbAllNamesMask);
 
     xkb = dev->key->xkbInfo->desc;
@@ -3574,7 +3578,7 @@ ProcXkbSetNames(ClientPtr client)
     if (!(client->xkbClientFlags & _XkbClientInitialized))
         return BadAccess;
 
-    CHK_KBD_DEVICE(dev, stuff->deviceSpec);
+    CHK_KBD_DEVICE(dev, stuff->deviceSpec, client, DixManageAccess);
     CHK_MASK_LEGAL(0x01, stuff->which, XkbAllNamesMask);
 
     xkb = dev->key->xkbInfo->desc;
@@ -4429,7 +4433,7 @@ ProcXkbGetGeometry(ClientPtr client)
     if (!(client->xkbClientFlags & _XkbClientInitialized))
         return BadAccess;
 
-    CHK_KBD_DEVICE(dev, stuff->deviceSpec);
+    CHK_KBD_DEVICE(dev, stuff->deviceSpec, client, DixGetAttrAccess);
     CHK_ATOM_OR_NONE(stuff->name);
 
     geom = XkbLookupNamedGeometry(dev, stuff->name, &shouldFree);
@@ -4908,7 +4912,7 @@ ProcXkbSetGeometry(ClientPtr client)
     if (!(client->xkbClientFlags & _XkbClientInitialized))
         return BadAccess;
 
-    CHK_KBD_DEVICE(dev, stuff->deviceSpec);
+    CHK_KBD_DEVICE(dev, stuff->deviceSpec, client, DixManageAccess);
     CHK_ATOM_OR_NONE(stuff->name);
 
     xkb = dev->key->xkbInfo->desc;
@@ -4971,7 +4975,7 @@ ProcXkbPerClientFlags(ClientPtr client)
     if (!(client->xkbClientFlags & _XkbClientInitialized))
         return BadAccess;
 
-    CHK_KBD_DEVICE(dev, stuff->deviceSpec);
+    CHK_KBD_DEVICE(dev, stuff->deviceSpec, client, access_mode);
     CHK_MASK_LEGAL(0x01, stuff->change, XkbPCF_AllFlagsMask);
     CHK_MASK_MATCH(0x02, stuff->change, stuff->value);
 
@@ -5110,7 +5114,7 @@ ProcXkbListComponents(ClientPtr client)
     if (!(client->xkbClientFlags & _XkbClientInitialized))
         return BadAccess;
 
-    CHK_KBD_DEVICE(dev, stuff->deviceSpec);
+    CHK_KBD_DEVICE(dev, stuff->deviceSpec, client, DixGetAttrAccess);
 
     status = Success;
     str = (unsigned char *) &stuff[1];
@@ -5197,7 +5201,7 @@ ProcXkbGetKbdByName(ClientPtr client)
     if (!(client->xkbClientFlags & _XkbClientInitialized))
         return BadAccess;
 
-    CHK_KBD_DEVICE(dev, stuff->deviceSpec);
+    CHK_KBD_DEVICE(dev, stuff->deviceSpec, client, access_mode);
 
     xkb = dev->key->xkbInfo->desc;
     status = Success;
@@ -5756,7 +5760,7 @@ ProcXkbGetDeviceInfo(ClientPtr client)
 
     wanted = stuff->wanted;
 
-    CHK_ANY_DEVICE(dev, stuff->deviceSpec);
+    CHK_ANY_DEVICE(dev, stuff->deviceSpec, client, DixGetAttrAccess);
     CHK_MASK_LEGAL(0x01, wanted, XkbXI_AllDeviceFeaturesMask);
 
     if ((!dev->button) || ((stuff->nBtns < 1) && (!stuff->allBtns)))
@@ -6078,7 +6082,7 @@ ProcXkbSetDeviceInfo(ClientPtr client)
 
     change = stuff->change;
 
-    CHK_ANY_DEVICE(dev, stuff->deviceSpec);
+    CHK_ANY_DEVICE(dev, stuff->deviceSpec, client, DixManageAccess);
     CHK_MASK_LEGAL(0x01, change,
                    (XkbXI_AllFeaturesMask & (~XkbXI_KeyboardsMask)));
 
