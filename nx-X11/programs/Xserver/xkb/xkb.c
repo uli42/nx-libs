@@ -3918,11 +3918,14 @@ ProcXkbSetNames(ClientPtr client)
 #define	XkbSizeCountedString(s)  ((s)?((((2+strlen(s))+3)/4)*4):4)
 
 static char *
-XkbWriteCountedString(char *wire, char *str, Bool swap)
+XkbWriteCountedString(char *wire, const char *str, Bool swap)
 {
     CARD16 len, *pLen, paddedLen;
 
-    len = (str ? strlen(str) : 0);
+    if (!str)
+        return wire;
+
+    len = strlen(str);
     pLen = (CARD16 *) wire;
     *pLen = len;
     if (swap) {
