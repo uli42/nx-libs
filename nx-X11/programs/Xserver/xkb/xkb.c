@@ -224,7 +224,8 @@ ProcXkbSelectEvents(ClientPtr client)
     if (!masks) {
         XID id = FakeClientID(client->index);
 
-        AddResource(id, RT_XKBCLIENT, dev);
+        if (!AddResource(id, RT_XKBCLIENT, dev))
+            return BadAlloc;
         masks = XkbAddClientResource((DevicePtr) dev, client, id);
     }
     if (masks) {
@@ -4994,7 +4995,8 @@ ProcXkbPerClientFlags(ClientPtr client)
         else if (want && (!interest)) {
             XID id = FakeClientID(client->index);
 
-            AddResource(id, RT_XKBCLIENT, dev);
+            if (!AddResource(id, RT_XKBCLIENT, dev))
+                return BadAlloc;
             interest = XkbAddClientResource((DevicePtr) dev, client, id);
             if (!interest)
                 return BadAlloc;
