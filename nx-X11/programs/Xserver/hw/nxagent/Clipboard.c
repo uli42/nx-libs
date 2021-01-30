@@ -705,7 +705,8 @@ void nxagentClearClipboard(ClientPtr pClient, WindowPtr pWindow)
 
 /*
  * Find the index of the lastSelectionOwner with the selection
- * sel. sel is an atom on the real X server.
+ * sel. sel is an atom on the real X server. If the index cannot be
+ * determined it will return -1.
  */
 int nxagentFindLastSelectionOwnerIndex(XlibAtom sel)
 {
@@ -722,12 +723,13 @@ int nxagentFindLastSelectionOwnerIndex(XlibAtom sel)
   #ifdef DEBUG
   fprintf(stderr, "%s: remote selection [%ld][%s] does not belong to any index!\n", __func__, sel, NameForRemAtom(sel));
   #endif
-  return nxagentMaxSelections;
+  return -1;
 }
 
 /*
  * Find the index of CurrentSelection with the selection
- * sel. sel is an internal atom.
+ * sel. sel is an internal atom. If the index cannot be
+ * determined it will return -1.
  */
 int nxagentFindCurrentSelectionIndex(Atom sel)
 {
@@ -744,7 +746,7 @@ int nxagentFindCurrentSelectionIndex(Atom sel)
   #ifdef DEBUG
   fprintf(stderr, "%s: selection [%d][%s] does not belong to any index!\n", __func__, sel, NameForIntAtom(sel));
   #endif
-  return NumCurrentSelections;
+  return -1;
 }
 
 void cacheTargetsForInt(int index, Atom* targets, int numTargets)
@@ -831,7 +833,7 @@ void nxagentHandleSelectionClearFromXServer(XEvent *X)
   }
 
   int index = nxagentFindLastSelectionOwnerIndex(X->xselectionclear.selection);
-  if (index < nxagentMaxSelections)
+  if (index != -1)
   {
     if (IS_INTERNAL_OWNER(index))
     {
@@ -921,7 +923,7 @@ void nxagentHandleSelectionRequestFromXServer(XEvent *X)
 
   /* the selection in this request is none we own. */
   int index = nxagentFindLastSelectionOwnerIndex(X->xselectionrequest.selection);
-  if (index == nxagentMaxSelections)
+  if (index == -1)
   {
     #ifdef DEBUG
     fprintf(stderr, "%s: not owning selection [%ld] - denying request.\n", __func__, X->xselectionrequest.selection);
@@ -1706,7 +1708,7 @@ void nxagentHandleSelectionNotifyFromXServer(XEvent *X)
 
   /* determine the selection we are talking about here */
   int index = nxagentFindLastSelectionOwnerIndex(e->selection);
-  if (index == nxagentMaxSelections)
+  if (index == -1)
   {
     #ifdef DEBUG
     fprintf (stderr, "%s: unknown selection [%ld] .\n", __func__, e->selection);
@@ -2134,7 +2136,7 @@ static void setSelectionOwnerOnXServer(Selection *pSelection)
   #endif
 
   int index = nxagentFindCurrentSelectionIndex(pSelection->selection);
-  if (index < NumCurrentSelections)
+  if (index != -1)
   {
     #ifdef DEBUG
     fprintf(stderr, "%s: lastSelectionOwner.client %s -> %s\n", __func__,
@@ -2266,7 +2268,7 @@ int nxagentConvertSelection(ClientPtr client, WindowPtr pWin, Atom selection,
   }
 
   int index = nxagentFindCurrentSelectionIndex(selection);
-  if (index == NumCurrentSelections)
+  if (index == -1)
   {
      #ifdef DEBUG
      fprintf(stderr, "%s: cannot find index for selection [%u]\n", __func__, selection);
@@ -2729,7 +2731,7 @@ int nxagentSendNotificationToSelfViaXServer(xEvent *event)
   #endif
 
   int index = nxagentFindCurrentSelectionIndex(event->u.selectionNotify.selection);
-  if (index == nxagentMaxSelections)
+  if (index == -1)
   {
     #ifdef DEBUG
     fprintf(stderr, "%s: unknown selection [%d]\n", __func__,
@@ -2813,7 +2815,7 @@ WindowPtr nxagentGetClipboardWindow(Atom property)
   }
 
   int index = nxagentFindLastSelectionOwnerIndex(serverLastRequestedSelection);
-  if (index < nxagentMaxSelections &&
+  if (index != -1 &&
           property == clientCutProperty &&
               lastSelectionOwner[index].windowPtr != NULL)
   {
