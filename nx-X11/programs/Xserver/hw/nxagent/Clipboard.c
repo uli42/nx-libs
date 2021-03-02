@@ -60,6 +60,13 @@
 #undef  DEBUG
 
 /*
+ * uncomment this to see the clipboard content in the debug output. As
+ * this can lead to information leaking it must be activated
+ *  explicitly!
+ */
+/* #define PRINT_CLIPBOARD_CONTENT_ON_DEBUG */
+
+/*
  * These are defined in the dispatcher.
  */
 
@@ -1741,12 +1748,19 @@ Bool nxagentCollectPropertyEventFromXServer(int resource)
                                  ulReturnItems, pszReturnData, 1);
 
             #ifdef DEBUG
-            fprintf(stderr, "%s: Selection property [%d][%s] changed to [\"%*.*s\"...]\n", __func__,
-                        lastClients[index].property,
-                            validateString(NameForIntAtom(lastClients[index].property)),
-                                (int)(min(20, ulReturnItems * resultFormat / 8)),
-                                    (int)(min(20, ulReturnItems * resultFormat / 8)),
-                                        pszReturnData);
+            fprintf(stderr, "%s: Selection property [%d][%s] changed to"
+                    #ifdef PRINT_CLIPBOARD_CONTENT_ON_DEBUG
+                    "[\"%*.*s\"...]"
+                    #endif
+                    "\n", __func__,
+                    lastClients[index].property,
+                    validateString(NameForIntAtom(lastClients[index].property))
+                    #ifdef PRINT_CLIPBOARD_CONTENT_ON_DEBUG
+                    ,(int)(min(20, ulReturnItems * resultFormat / 8)),
+                    (int)(min(20, ulReturnItems * resultFormat / 8)),
+                    pszReturnData
+                    #endif
+                   );
             #endif
 
             endTransfer(index, SELECTION_SUCCESS);
@@ -2005,15 +2019,22 @@ void handlePropertyTransferFromAgentToXserver(int index, XlibAtom property)
                           ulReturnItems);
           #ifdef DEBUG
           {
-            fprintf(stderr, "%s: XChangeProperty sent to window [0x%lx] for property [%ld][%s] len [%d] value [\"%*.*s\"...]\n",
+            fprintf(stderr, "%s: XChangeProperty sent to window [0x%lx] for property [%ld][%s] len [%d]"
+                    #ifdef PRINT_CLIPBOARD_CONTENT_ON_DEBUG
+		    "value [\"%*.*s\"...]"
+                    #endif
+		    "\n",
                     __func__,
                     lastServers[index].requestor,
                     lastServers[index].property,
                     NameForRemAtom(lastServers[index].property),
-                    (int)ulReturnItems * 8 / 8,
+                    (int)ulReturnItems * 8 / 8
+                    #ifdef PRINT_CLIPBOARD_CONTENT_ON_DEBUG
+                    ,(int)(min(20, ulReturnItems * 8 / 8)),
                     (int)(min(20, ulReturnItems * 8 / 8)),
-                    (int)(min(20, ulReturnItems * 8 / 8)),
-                    pszReturnData);
+                    pszReturnData
+                    #endif
+		    );
           }
           #endif
         }
