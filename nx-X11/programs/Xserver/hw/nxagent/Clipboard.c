@@ -588,11 +588,11 @@ static void sendSelectionNotifyEventToClient(ClientPtr client,
 
   #ifdef DEBUG
   if (property == None)
-    fprintf(stderr, "%s: Denying request to client %s.\n", __func__,
-                nxagentClientInfoString(client));
+    fprintf(stderr, "%s: Denying request to client %s - event time [%d].\n", __func__,
+	    nxagentClientInfoString(client), time);
   else
-    fprintf(stderr, "%s: Sending event to client %s.\n", __func__,
-                nxagentClientInfoString(client));
+    fprintf(stderr, "%s: Sending event to client %s - event time [%d].\n", __func__,
+	    nxagentClientInfoString(client), time);
   #endif
 
   sendEventToClient(client, &x);
