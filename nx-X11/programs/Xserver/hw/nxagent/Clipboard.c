@@ -1480,7 +1480,7 @@ static void transferSelectionFromXServer(int index, int resource)
       fprintf(stderr, "%s: Getting property content from remote server.\n", __func__);
       #endif
 
-      /* get next free resouce index */
+      /* get next free resource index */
       resource = NXGetCollectPropertyResource(nxagentDisplay);
 
       lastClients[index].resource = resource;
