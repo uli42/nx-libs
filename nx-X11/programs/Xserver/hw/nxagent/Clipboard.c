@@ -2069,9 +2069,9 @@ void handlePropertyTransferFromAgentToXserver(int index, XlibAtom property)
 }
 
 /*
- * this is similar to replyRequestSelectionToXServer(), but get the
+ * This is similar to replyRequestSelectionToXServer(), but get the
  * required values from a stored request instead of an XEvent
- * stucture
+ * structure.
  */
 void replyOutstandingRequestSelectionToXServer(int index, Bool success)
 {
