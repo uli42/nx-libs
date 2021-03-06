@@ -918,11 +918,11 @@ void nxagentDispatchEvents(PredicateFuncPtr predicate)
 
       case PropertyNotify:
       {
-        #ifdef TEST
+//        #ifdef TEST
         fprintf(stderr, "%s: PropertyNotify on prop %d[%s] window %lx state %d\n", __func__,
                         (int)X.xproperty.atom, validateString(XGetAtomName(nxagentDisplay, X.xproperty.atom)),
                             X.xproperty.window, X.xproperty.state);
-        #endif
+//        #endif
 
         nxagentHandlePropertyNotify(&X);
 
@@ -2311,6 +2311,7 @@ int nxagentHandleKeyPress(XEvent *X, enum HandleEventResult *result)
   return 1;
 }
 
+#define TEST
 int nxagentHandlePropertyNotify(XEvent *X)
 {
   if (nxagentOption(Rootless) && !nxagentNotifyMatchChangeProperty((XPropertyEvent *) X))
@@ -2350,6 +2351,7 @@ int nxagentHandlePropertyNotify(XEvent *X)
 
   return 1;
 }
+#undef TEST
 
 int nxagentHandleExposeEvent(XEvent *X)
 {
@@ -2570,6 +2572,7 @@ int nxagentHandleGraphicsExposeEvent(XEvent *X)
   return 1;
 }
 
+#define TEST
 int nxagentHandleClientMessageEvent(XEvent *X, enum HandleEventResult *result)
 {
   *result = doNothing;
@@ -2714,6 +2717,7 @@ int nxagentHandleClientMessageEvent(XEvent *X, enum HandleEventResult *result)
 
   return 1;
 }
+#undef TEST
 
 int nxagentHandleXkbKeyboardStateEvent(XEvent *X)
 {
@@ -2992,11 +2996,11 @@ int nxagentHandleProxyEvent(XEvent *X)
     }
     case NXCollectPropertyNotify:
     {
-      #ifdef TEST
+//      #ifdef TEST
       int resource = (int) X -> xclient.data.l[1];
 
       fprintf(stderr, "%s: NXCollectPropertyNotify received with resource [%d].\n", __func__, resource);
-      #endif
+//      #endif
 
       nxagentHandleCollectPropertyEvent(X);
 
@@ -3045,6 +3049,7 @@ int nxagentHandleProxyEvent(XEvent *X)
     }
   }
 }
+#undef TEST
 
 /*
  * In this function it is assumed that we never get a configure with

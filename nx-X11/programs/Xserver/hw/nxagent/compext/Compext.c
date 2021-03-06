@@ -73,22 +73,22 @@
 
 #define PANIC
 #define WARNING
-#undef  TEST
+#define  TEST
 #undef  TEST_DISPLAY
 #undef  TEST_IMAGE
 #undef  TEST_INPUT
 #undef  TEST_PARAMS
 #undef  TEST_POINTER
-#undef  TEST_PROPERTY
+#define  TEST_PROPERTY
 #undef  TEST_SPLIT
 #undef  TEST_UNPACK
-#undef  DEBUG
+#define  DEBUG
 #undef  DEBUG_DISPLAY
 #undef  DEBUG_IMAGE
 #undef  DEBUG_INPUT
 #undef  DEBUG_PARAMS
 #undef  DEBUG_POINTER
-#undef  DEBUG_PROPERTY
+#define  DEBUG_PROPERTY
 #undef  DEBUG_SPLIT
 #undef  DEBUG_UNPACK
 #undef  DUMP
@@ -626,6 +626,7 @@ int NXDisplayReadable(Display *dpy)
   return -1;
 }
 
+#undef DEBUG
 int NXDisplayFlushable(Display *dpy)
 {
   #ifdef DEBUG_DISPLAY
@@ -666,7 +667,6 @@ int NXDisplayCongestion(Display *dpy)
 
   #endif
 }
-
 int NXFlushDisplay(Display *dpy, int what)
 {
   if (!(dpy -> flags & XlibDisplayWriting) &&
@@ -692,6 +692,8 @@ int NXFlushDisplay(Display *dpy, int what)
 
   return NXTransFlush(dpy -> fd);
 }
+#define DEBUG
+
 
 NXDisplayErrorPredicate NXSetDisplayErrorPredicate(NXDisplayErrorPredicate predicate)
 {
@@ -3805,6 +3807,9 @@ static Bool _NXCollectPropertyHandler(Display *dpy, xReply *rep, char *buf,
 
   int async_size;
 
+  fprintf(stderr, "%s: sizeof(Atom) [%lu] sizeof(xGetPropertyReply) [%lu]\n",
+          __func__, sizeof(Atom), sizeof(xGetPropertyReply));
+
   state = (_NXCollectPropertyState *) data;
 
   if ((rep -> generic.sequenceNumber % 65536) !=
@@ -4129,6 +4134,7 @@ int NXGetCollectedProperty(Display *dpy, unsigned int resource, Atom *actual_typ
   return True;
 }
 
+#undef TEST
 static void _NXNotifyGrabPointer(Display *dpy, int resource, Bool success)
 {
   XEvent async_event;
@@ -4670,6 +4676,7 @@ int NXGetCollectedInputFocus(Display *dpy, unsigned int resource,
 
   return True;
 }
+#define TEST
 
 #ifdef DUMP
 

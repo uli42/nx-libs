@@ -56,8 +56,8 @@
 
 #define PANIC
 #define WARNING
-#undef  TEST
-#undef  DEBUG
+#define  TEST
+#define  DEBUG
 
 /*
  * uncomment this to see the clipboard content in the debug output. As
@@ -724,9 +724,9 @@ int nxagentFindLastSelectionOwnerIndex(XlibAtom sel)
   {
     if (remSelAtoms[index] == sel)
     {
-      #ifdef DEBUG
-      fprintf(stderr, "%s: remote selection [%ld][%s] belongs to index [%d]\n", __func__, sel, NameForRemAtom(sel), index);
-      #endif
+//      #ifdef DEBUG
+//      fprintf(stderr, "%s: remote selection [%ld][%s] belongs to index [%d]\n", __func__, sel, NameForRemAtom(sel), index);
+//      #endif
       return index;
     }
   }
