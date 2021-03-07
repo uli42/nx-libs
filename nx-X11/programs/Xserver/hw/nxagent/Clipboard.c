@@ -1482,7 +1482,7 @@ static void transferSelectionFromXServer(int index, int resource)
       fprintf(stderr, "%s: Getting property content from remote server.\n", __func__);
       #endif
 
-      /* get next free resource index */
+      /* get next free resource slot */
       resource = NXGetCollectPropertyResource(nxagentDisplay);
 
       lastClients[index].resource = resource;
@@ -1497,6 +1497,13 @@ static void transferSelectionFromXServer(int index, int resource)
       }
       else
       {
+        /*
+         * now initiate kind of an asynchronuos GetProperty()
+         * call. Once the property has been retreived we will
+         * receive an NXCollectPropertyNotify event which will then
+         * be handled in
+         * nxagentCollectPropertyEventFromXServer().
+         */
         result = NXCollectProperty(nxagentDisplay,
                                    resource,
                                    serverWindow,
