@@ -1644,8 +1644,9 @@ Bool nxagentCollectPropertyEventFromXServer(int resource)
   if (result == True && ulReturnBytesLeft == 0)
   {
     #ifdef DEBUG
-    /* FIXME: print property name/atom */
-    fprintf (stderr, "%s: Retrieved property data - deleting property for ICCCM conformity.\n", __func__);
+    fprintf (stderr, "%s: Retrieved property data - deleting property [%d][%s] "
+             "for ICCCM conformity.\n", __func__, serverTransToAgentProperty,
+             NameForRemAtom(serverTransToAgentProperty));
     #endif
     XDeleteProperty(nxagentDisplay, serverWindow, serverTransToAgentProperty);
   }
