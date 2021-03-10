@@ -421,7 +421,10 @@ void nxagentDumpClipboardStat(void)
   }
   fprintf(stderr, "\n");
 
-  fprintf(stderr, "  serverLastRequestedSelection           [% 4ld][%s]\n", serverLastRequestedSelection, NameForRemAtom(serverLastRequestedSelection));
+  if (serverLastRequestedSelection == -1)
+      fprintf(stderr, "  serverLastRequestedSelection           [-1](uninitialized)\n");
+  else
+      fprintf(stderr, "  serverLastRequestedSelection           [% 4ld][%s]\n", serverLastRequestedSelection, NameForRemAtom(serverLastRequestedSelection));
 
 #define WIDTH 32
   Atom cl = 0;
