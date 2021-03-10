@@ -3463,7 +3463,7 @@ static Bool _NXCollectImageHandler(Display *dpy, xReply *rep, char *buf,
           ((int)(state -> sequence) % 65536))
   {
     #ifdef TEST_IMAGE
-    fprintf(stderr, "******_NXCollectImageHandler: Unmatched sequence [%d] for opcode [%d] "
+    fprintf(stderr, "******_NXCollectImageHandler: Unmatched sequence [%d] of type [%d] "
                 "with length [%d].\n", rep -> generic.sequenceNumber, rep -> generic.type,
                     (int) rep -> generic.length << 2);
     #endif
@@ -3861,9 +3861,10 @@ static Bool _NXCollectPropertyHandler(Display *dpy, xReply *rep, char *buf,
           ((int)(state -> sequence) % 65536))
   {
     #ifdef TEST_PROPERTY
-    fprintf(stderr, "******_NXCollectPropertyHandler: Unmatched sequence [%d] for opcode [%d] "
-                "with length [%d].\n", rep -> generic.sequenceNumber, rep -> generic.type,
+    fprintf(stderr, "******_NXCollectPropertyHandler: Unmatched sequence [%d] of type [%d] "
+            "with length [%d].\n", rep -> generic.sequenceNumber, rep -> generic.type,
                     (int) rep -> generic.length << 2);
+
     #endif
 
     return False;
@@ -4234,7 +4235,7 @@ static Bool _NXCollectGrabPointerHandler(Display *dpy, xReply *rep, char *buf,
           ((int)(state -> sequence) % 65536))
   {
     #ifdef TEST_POINTER
-    fprintf(stderr, "******_NXCollectGrabPointerHandler: Unmatched sequence [%d] for opcode [%d] "
+    fprintf(stderr, "******_NXCollectGrabPointerHandler: Unmatched sequence [%d] of type [%d] "
                 "with length [%d].\n", rep -> generic.sequenceNumber, rep -> generic.type,
                     (int) rep -> generic.length << 2);
     #endif
@@ -4526,7 +4527,7 @@ static Bool _NXCollectInputFocusHandler(Display *dpy, xReply *rep, char *buf,
           ((int)(state -> sequence) % 65536))
   {
     #ifdef TEST_INPUT
-    fprintf(stderr, "******_NXCollectInputFocusHandler: Unmatched sequence [%d] for opcode [%d] "
+    fprintf(stderr, "******_NXCollectInputFocusHandler: Unmatched sequence [%d] of type [%d] "
                 "with length [%d].\n", rep -> generic.sequenceNumber, rep -> generic.type,
                     (int) rep -> generic.length << 2);
     #endif
