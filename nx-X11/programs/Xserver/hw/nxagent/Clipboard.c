@@ -1418,7 +1418,9 @@ static void transferSelectionFromXServer(int index, int resource)
     {
       int result;
 
+      #ifdef DEBUG
       printClientSelectionStage(index);
+      #endif
 
       /*
        * Don't get data yet, just get size. We skip this stage in
