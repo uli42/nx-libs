@@ -2432,6 +2432,8 @@ FIXME2: instead of XGetSelectionOwner we could check if the Xfixes
  * return codes:
  * 0: let dix process the request
  * 1: don't let dix process the request
+ * 2: return a BadAtom error to the calling client, client->errorValue will have been set accordingly
+ * 3: return a BadWindow error to the calling client
  */
 int nxagentConvertSelection(ClientPtr client, WindowPtr pWin, Atom selection,
                                 Window requestor, Atom property, Atom target, Time time)
@@ -2450,7 +2452,8 @@ int nxagentConvertSelection(ClientPtr client, WindowPtr pWin, Atom selection,
     #ifdef DEBUG
     fprintf(stderr, "%s: cannot find name for target Atom [%d] - returning\n", __func__, target);
     #endif
-    return 1;
+    client->errorValue = target;
+    return 2;
   }
 
   if (!agentClipboardInitialized)
@@ -2472,12 +2475,13 @@ int nxagentConvertSelection(ClientPtr client, WindowPtr pWin, Atom selection,
   int index = nxagentFindCurrentSelectionIndex(selection);
   if (index == -1)
   {
-     #ifdef DEBUG
-     fprintf(stderr, "%s: cannot find index for selection [%u]\n", __func__, selection);
-     #endif
-     return 0;
+    #ifdef DEBUG
+    fprintf(stderr, "%s: selection [%u] not handled by clipboard code - let dix process the request\n", __func__, selection);
+    #endif
+    return 0;
   }
 
+  printSelectionStat(index);
   if (IS_LOCAL_OWNER(index))
   {
     /*
@@ -2488,6 +2492,18 @@ int nxagentConvertSelection(ClientPtr client, WindowPtr pWin, Atom selection,
     #endif
     return 0;
   }
+  else if (IS_NO_OWNER(index))
+  {
+    /*
+     * No owner for this index
+     */
+    #ifdef DEBUG
+    fprintf(stderr, "%s: clipboard has no owner - let dix process the request\n", __func__);
+    #endif
+    return 0;
+  }
+
+  printSelectionStat(index);
 
   /*
    * If lastClients[index].windowPtr is set we are waiting for an

@@ -1049,9 +1049,12 @@ ProcGetSelectionOwner(register ClientPtr client)
     }
 }
 
-#ifndef NXAGENT_SERVER
 int
+#ifdef NXAGENT_SERVER
+xorg_ProcConvertSelection(register ClientPtr client)
+#else
 ProcConvertSelection(register ClientPtr client)
+#endif
 {
     Bool paramsOkay;
     xEvent event;
@@ -1115,7 +1118,6 @@ ProcConvertSelection(register ClientPtr client)
         return (BadAtom);
     }
 }
-#endif /* NXAGENT_SERVER */
 
 int
 ProcGrabServer(register ClientPtr client)

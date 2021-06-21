@@ -706,90 +706,39 @@ ProcQueryTree(register ClientPtr client)
 int
 ProcConvertSelection(register ClientPtr client)
 {
-    Bool paramsOkay;
-    xEvent event;
-    WindowPtr pWin;
     REQUEST(xConvertSelectionReq);
-
     REQUEST_SIZE_MATCH(xConvertSelectionReq);
-    pWin = (WindowPtr)SecurityLookupWindow(stuff->requestor, client,
+    WindowPtr pWin = (WindowPtr)SecurityLookupWindow(stuff->requestor, client,
 					   DixReadAccess);
     if (!pWin)
         return(BadWindow);
 
 #ifdef NXAGENT_CLIPBOARD
-    if (((stuff->selection == XA_PRIMARY) ||
-           (stuff->selection == MakeAtom("CLIPBOARD", 9, 0))) &&
-               nxagentOption(Clipboard) != ClipboardNone)
+    int result = nxagentConvertSelection(client, pWin, stuff->selection, stuff->requestor, stuff->property, stuff->target, stuff->time);
+    if (result == 0)
     {
-      int index = nxagentFindCurrentSelectionIndex(stuff->selection);
-      if ((index != -1) && (CurrentSelections[index].window != None))
-      {
-        if (nxagentConvertSelection(client, pWin, stuff->selection, stuff->requestor,
-                                       stuff->property, stuff->target, stuff->time))
-        {
-          return (client->noClientException);
-        }
-      }
+      /* go on, let dix process the request */
+    }
+    else if (result == 1)
+    {
+      /* request handled by nx code, do not let dix process the request */
+      return (client->noClientException);
+    }
+    else if (result == 2)
+    {
+      return BadAtom;
+    }
+    else if (result == 3)
+    {
+      return BadWindow;
+    }
+    else
+    {
+      ErrorF("Unknown return code from nxagentConvertSelection");
     }
 #endif
-
-    paramsOkay = (ValidAtom(stuff->selection) && ValidAtom(stuff->target));
-    if (stuff->property != None)
-	paramsOkay &= ValidAtom(stuff->property);
-    if (paramsOkay)
-    {
-	int i;
-
-	i = 0;
-	while ((i < NumCurrentSelections) && 
-	       CurrentSelections[i].selection != stuff->selection) i++;
-	if ((i < NumCurrentSelections) &&
-#ifdef NXAGENT_SERVER
-	    (CurrentSelections[i].window != None) && (CurrentSelections[i].client != NullClient)
-#else
-	    (CurrentSelections[i].window != None)
-#endif
-#ifdef XCSECURITY
-	    && (!client->CheckAccess ||
-		(* client->CheckAccess)(client, CurrentSelections[i].window,
-					RT_WINDOW, DixReadAccess,
-					CurrentSelections[i].pWin))
-#endif
-	    )
-	{        
-	    memset(&event, 0, sizeof(xEvent));
-	    event.u.u.type = SelectionRequest;
-	    event.u.selectionRequest.time = stuff->time;
-	    event.u.selectionRequest.owner = 
-			CurrentSelections[i].window;
-	    event.u.selectionRequest.requestor = stuff->requestor;
-	    event.u.selectionRequest.selection = stuff->selection;
-	    event.u.selectionRequest.target = stuff->target;
-	    event.u.selectionRequest.property = stuff->property;
-	    if (TryClientEvents(
-		CurrentSelections[i].client, &event, 1, NoEventMask,
-		NoEventMask /* CantBeFiltered */, NullGrab))
-		return (client->noClientException);
-	}
-	memset(&event, 0, sizeof(xEvent));
-	event.u.u.type = SelectionNotify;
-	event.u.selectionNotify.time = stuff->time;
-	event.u.selectionNotify.requestor = stuff->requestor;
-	event.u.selectionNotify.selection = stuff->selection;
-	event.u.selectionNotify.target = stuff->target;
-	event.u.selectionNotify.property = None;
-	(void) TryClientEvents(client, &event, 1, NoEventMask,
-			       NoEventMask /* CantBeFiltered */, NullGrab);
-	return (client->noClientException);
-    }
-    else 
-    {
-	client->errorValue = stuff->property;
-        return (BadAtom);
-    }
+    return xorg_ProcConvertSelection(client);
 }
-
 
 int
 ProcOpenFont(register ClientPtr client)
