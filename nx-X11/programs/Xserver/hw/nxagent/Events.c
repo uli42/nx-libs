@@ -2895,7 +2895,14 @@ int nxagentHandleXFixesSelectionNotify(XEvent *X)
      * receiving a SelectionClear event. We just need to tell a (possible) internal
      * owner that is no longer owning the selection.
      */
-    nxagentHandleSelectionClearFromXServerByAtom(xfixesEvent -> xfixesselection.selection);
+    if (xfixesEvent->xfixesselection.owner == 0)
+    {
+      nxagentHandleSelectionClearFromXServerByAtom(xfixesEvent -> xfixesselection.selection, False);
+    }
+    else
+    {
+      nxagentHandleSelectionClearFromXServerByAtom(xfixesEvent -> xfixesselection.selection, True);
+    }
   }
   else
   {

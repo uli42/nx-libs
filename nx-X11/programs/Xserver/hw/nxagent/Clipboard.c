@@ -102,7 +102,9 @@ static Atom *localSelelectionAtoms = NULL;
  * lastSelectionOwner[index].window.
  * lastSelectionOwner[index].windowPtr points to the struct that
  * contains all information about the owner window.
- * lastTimeChanged is always an local time.
+ * lastTimeChanged is always a local time.
+ * If .client is NULL the owner is outside nxagent or there is no owner.
+ * If .window is -1 this means there's no owner
  */
 typedef struct _SelectionOwner
 {
@@ -118,6 +120,10 @@ typedef struct _SelectionOwner
  */
 
 static SelectionOwner *lastSelectionOwner = NULL;
+
+#define IS_LOCAL_OWNER(lsoindex) (lastSelectionOwner[lsoindex].client != NullClient && lastSelectionOwner[lsoindex].window != -1 && lastSelectionOwner[lsoindex].window != 0)
+#define IS_REMOTE_OWNER(lsoindex) (lastSelectionOwner[lsoindex].client == NullClient && lastSelectionOwner[lsoindex].window == None)
+#define IS_NO_OWNER(lsoindex) (lastSelectionOwner[lsoindex].client == NullClient && lastSelectionOwner[lsoindex].window == -1)
 
 /*
  * Cache for targets the current selection owner
@@ -366,7 +372,7 @@ static void printSelectionStat(int index)
   fprintf(stderr, "  selection Atom                         local [%d][%s]  remote [%ld][%s]\n",
               localSelelectionAtoms[index], NameForLocalAtom(localSelelectionAtoms[index]),
                   remoteSelectionAtoms[index], NameForRemoteAtom(remoteSelectionAtoms[index]));
-  fprintf(stderr, "  owner side                             %s\n", IS_LOCAL_OWNER(index) ? "nxagent" : "real X server/none");
+  fprintf(stderr, "  owner side                             %s\n", IS_LOCAL_OWNER(index) ? "local" : IS_REMOTE_OWNER(index) ? "real X server" : "none");
   fprintf(stderr, "  lastSelectionOwner[].client            %s\n", nxagentClientInfoString(lOwner.client));
   fprintf(stderr, "  lastSelectionOwner[].window            [0x%x]\n", lOwner.window);
   if (lOwner.windowPtr)
@@ -875,7 +881,7 @@ void invalidateTargetCaches(void)
  * X server claims the selection ownership we have/had.
  * Three versions of this routine with different parameter types.
  */
-void nxagentHandleSelectionClearFromXServerByIndex(int index)
+void nxagentHandleSelectionClearFromXServerByIndex(int index, Bool new_owner)
 {
   #ifdef DEBUG
   fprintf(stderr, "%s: SelectionClear event for selection index [%u].\n", __func__, index);
@@ -921,7 +927,8 @@ void nxagentHandleSelectionClearFromXServerByIndex(int index)
      * clients asking for the owner via XGetSelectionOwner() will get
      * this for an answer.
      */
-    CurrentSelections[index].window = screenInfo.screens[0]->root->drawable.id;
+    //CurrentSelections[index].window = screenInfo.screens[0]->root->drawable.id;
+    CurrentSelections[index].window = None;
     CurrentSelections[index].client = NullClient;
 
     clearSelectionOwnerData(index);
@@ -936,15 +943,22 @@ void nxagentHandleSelectionClearFromXServerByIndex(int index)
     fprintf(stderr, "%s: selection already cleared - doing nothing.\n", __func__);
     #endif
   }
+
+  if (new_owner)
+    lastSelectionOwner[index].window = None;
+  else
+    lastSelectionOwner[index].window = -1;
+
+  printSelectionStat(index);
 }
 
-void nxagentHandleSelectionClearFromXServerByAtom(XlibAtom sel)
+void nxagentHandleSelectionClearFromXServerByAtom(XlibAtom sel, Bool new_owner)
 {
   #ifdef DEBUG
   fprintf(stderr, "---------\n%s: SelectionClear event for remote selection atom [%lu][%s].\n", __func__, sel, NameForRemoteAtom(sel));
   #endif
 
-  nxagentHandleSelectionClearFromXServerByIndex(nxagentFindRemoteSelectionIndex(sel));
+  nxagentHandleSelectionClearFromXServerByIndex(nxagentFindRemoteSelectionIndex(sel), new_owner);
 }
 
 void nxagentHandleSelectionClearFromXServer(XEvent *X)
@@ -954,7 +968,7 @@ void nxagentHandleSelectionClearFromXServer(XEvent *X)
               __func__, X->xselectionclear.selection, NameForRemoteAtom(X->xselectionclear.selection),
                   X->xselectionclear.window, X->xselectionclear.time);
   #endif
-  nxagentHandleSelectionClearFromXServerByAtom(X->xselectionclear.selection);
+  nxagentHandleSelectionClearFromXServerByAtom(X->xselectionclear.selection, False);
 }
 
 /*

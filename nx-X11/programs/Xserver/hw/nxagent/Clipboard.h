@@ -57,9 +57,9 @@ extern void nxagentClearClipboard(ClientPtr pClient, WindowPtr pWindow);
 extern int nxagentConvertSelection(ClientPtr client, WindowPtr pWin, Atom selection,
                                       Window requestor, Atom property, Atom target, Time time);
 
-extern void nxagentHandleSelectionClearFromXServerByIndex(int index);
+extern void nxagentHandleSelectionClearFromXServerByIndex(int index, Bool new_owner);
 #ifdef XEvent
-extern void nxagentHandleSelectionClearFromXServerByAtom(XlibAtom sel);
+extern void nxagentHandleSelectionClearFromXServerByAtom(XlibAtom sel, Bool new_owner);
 extern void nxagentHandleSelectionClearFromXServer(XEvent *X);
 extern void nxagentHandleSelectionRequestFromXServer(XEvent *X);
 extern void nxagentHandleSelectionNotifyFromXServer(XEvent *X);
