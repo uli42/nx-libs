@@ -737,6 +737,7 @@ ProcConvertSelection(register ClientPtr client)
       ErrorF("Unknown return code from nxagentConvertSelection");
     }
 #endif
+ FIXME: this is wrong! we lose the check for CurrentSelections[i].client != 0 but we need it!
     return xorg_ProcConvertSelection(client);
 }
 
