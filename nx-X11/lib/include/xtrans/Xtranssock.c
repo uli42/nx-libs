@@ -700,11 +700,11 @@ TRANS(SocketINETGetAddr) (XtransConnInfo ciptr)
     prmsg (3,"SocketINETGetAddr(%p)\n", (void *) ciptr);
 
 #if defined(IPv6) && defined(AF_INET6)
-	namelen = sizeof(socknamev6);
-	socknamePtr = &socknamev6;
+    namelen = sizeof(socknamev6);
+    socknamePtr = &socknamev6;
 #else
-	namelen = sizeof(socknamev4);
-	socknamePtr = &socknamev4;
+    namelen = sizeof(socknamev4);
+    socknamePtr = &socknamev4;
 #endif
 
     bzero(socknamePtr, namelen);
@@ -732,9 +732,9 @@ TRANS(SocketINETGetAddr) (XtransConnInfo ciptr)
     }
 
 #if defined(IPv6) && defined(AF_INET6)
-	ciptr->family = ((struct sockaddr *)socknamePtr)->sa_family;
+    ciptr->family = ((struct sockaddr *)socknamePtr)->sa_family;
 #else
-	ciptr->family = socknamev4.sin_family;
+    ciptr->family = socknamev4.sin_family;
 #endif
     ciptr->addrlen = namelen;
     memcpy (ciptr->addr, socknamePtr, ciptr->addrlen);
@@ -1454,10 +1454,10 @@ TRANS(SocketUNIXCreateListener) (XtransConnInfo ciptr, const char *port,
 	snprintf (tmpport, sizeof(tmpport), "%s%ld", UNIX_PATH, (long)getpid());
 	port = tmpport;
     }
-	if (set_sun_path(port, UNIX_PATH, sockname.sun_path, abstract) != 0) {
-	    prmsg (1, "SocketUNIXCreateListener: path too long\n");
-	    return TRANS_CREATE_LISTENER_FAILED;
-	}
+    if (set_sun_path(port, UNIX_PATH, sockname.sun_path, abstract) != 0) {
+	prmsg (1, "SocketUNIXCreateListener: path too long\n");
+	return TRANS_CREATE_LISTENER_FAILED;
+    }
 
 #if (defined(BSD44SOCKETS) || defined(__UNIXWARE__))
     sockname.sun_len = strlen(sockname.sun_path);
@@ -2442,12 +2442,12 @@ SocketUNIXConnectPost:
        (ciptr->peeraddr = malloc(namelen)) == NULL)
     {
         prmsg (1,
-       "SocketUNIXCreateListener: Can't allocate space for the addr\n");
+	"SocketUNIXCreateListener: Can't allocate space for the addr\n");
         return TRANS_CONNECT_FAILED;
     }
 
     if (abstract)
-        sockname.sun_path[0] = '@';
+	sockname.sun_path[0] = '@';
 
     ciptr->family = AF_UNIX;
     ciptr->addrlen = namelen;
@@ -2757,7 +2757,7 @@ TRANS(SocketRead) (XtransConnInfo ciptr, char *buf, int size)
         return size;
     }
 #else
-    return read (ciptr->fd, buf, size);
+    return read(ciptr->fd, buf, size);
 #endif /* XTRANS_SEND_FDS */
 #endif /* WIN32 */
 
@@ -2913,6 +2913,7 @@ TRANS(SocketWritev) (XtransConnInfo ciptr, struct iovec *buf, int size)
 #endif
     return WRITEV (ciptr, buf, size);
 }
+
 
 static int
 TRANS(SocketWrite) (XtransConnInfo ciptr, char *buf, int size)

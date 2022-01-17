@@ -1963,7 +1963,7 @@ TRANS(LocalReopenServer)(int type, int index, int fd, const char *port)
     case XTRANS_OPEN_COTS_SERVER:
 	stat = LOCALtrans2devtab[index].devcotsreopenserver(ciptr,fd,port);
 	break;
-   default:
+    default:
 	prmsg(1,"LocalReopenServer: Unknown Open type %d\n",
 	  type );
     }

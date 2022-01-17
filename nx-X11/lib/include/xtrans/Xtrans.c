@@ -365,7 +365,7 @@ TRANS(ParseAddress) (const char *address,
 	*protocol = NULL;
 	free (tmpptr);
 	return 0;
-	}
+    }
 
     if ((*port = strdup (_port)) == NULL)
     {
@@ -731,7 +731,7 @@ TRANS(Received) (const char * protocol)
 
 int
 TRANS(NoListen) (const char * protocol)
-	
+
 {
    Xtransport *trans;
    int i = 0, ret = 0;
@@ -990,7 +990,7 @@ TRANS(GetMyAddr) (XtransConnInfo ciptr, int *familyp, int *addrlenp,
 
 int
 TRANS(GetPeerAddr) (XtransConnInfo ciptr, int *familyp, int *addrlenp,
-                   Xtransaddr **addrp)
+		    Xtransaddr **addrp)
 
 {
     prmsg (2,"GetPeerAddr(%d)\n", ciptr->fd);
@@ -1000,10 +1000,9 @@ TRANS(GetPeerAddr) (XtransConnInfo ciptr, int *familyp, int *addrlenp,
 
     if ((*addrp = malloc (ciptr->peeraddrlen)) == NULL)
     {
-        prmsg (1,"GetPeerAddr: malloc failed\n");
-        return -1;
+	prmsg (1,"GetPeerAddr: malloc failed\n");
+	return -1;
     }
-
     memcpy(*addrp, ciptr->peeraddr, ciptr->peeraddrlen);
 
     return 0;
