@@ -342,11 +342,12 @@ TRANS(NAMEDOpenPipe)(const char *server_path)
 		prmsg(1, "NAMEDOpenPipe: Can't open %s\n", server_path);
 		return(-1);
 	    }
-	    close(fd);
-	    if (chmod(server_path, (mode_t)0666) < 0) {
-		prmsg(1, "NAMEDOpenPipe: Can't open %s\n", server_path);
+	    if (fchmod(fd, (mode_t)0666) < 0) {
+		prmsg(1, "NAMEDOpenPipe: Can't chmod %s\n", server_path);
+		close(fd);
 		return(-1);
 	    }
+	    close(fd);
 	} else {
 	    prmsg(1, "NAMEDOpenPipe: stat on %s failed\n", server_path);
 	    return(-1);
