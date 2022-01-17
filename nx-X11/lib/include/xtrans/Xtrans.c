@@ -78,7 +78,7 @@ from The Open Group.
 #define TRANS_LOCAL_PTS_INDEX		10
 #define TRANS_LOCAL_NAMED_INDEX		11
 /* 12 used to be ISC, but that's gone. */
-#define TRANS_LOCAL_SCO_INDEX		13
+/* 13 used to be SCO, but that's gone. */
 #define TRANS_SOCKET_INET6_INDEX	14
 #define TRANS_LOCAL_PIPE_INDEX		15
 
@@ -109,9 +109,6 @@ Xtransport_table Xtransports[] = {
 #ifdef __sun
     { &TRANS(PIPEFuncs),	TRANS_LOCAL_PIPE_INDEX },
 #endif /* __sun */
-#if defined(__SCO__) || defined(__UNIXWARE__)
-    { &TRANS(SCOFuncs),		TRANS_LOCAL_SCO_INDEX },
-#endif /* __SCO__ || __UNIXWARE__ */
 #endif /* LOCALCONN */
 };
 
@@ -638,7 +635,7 @@ TRANS(SetOption) (XtransConnInfo ciptr, int option, int arg)
 	    break;
 	case 1: /* Set to non-blocking mode */
 
-#if defined(O_NONBLOCK) && !defined(SCO325)
+#if defined(O_NONBLOCK)
 	    ret = fcntl (fd, F_GETFL, 0);
 	    if (ret != -1)
 		ret = fcntl (fd, F_SETFL, ret | O_NONBLOCK);
@@ -1334,7 +1331,7 @@ static int TRANS(WriteV) (XtransConnInfo ciptr, struct iovec *iov, int iovcnt)
 #endif /* WIN32 */
 
 
-#if defined(_POSIX_SOURCE) || defined(SVR4) || defined(__SVR4) || defined(__SCO__)
+#if defined(_POSIX_SOURCE) || defined(SVR4) || defined(__SVR4)
 #ifndef NEED_UTSNAME
 #define NEED_UTSNAME
 #endif
