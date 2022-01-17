@@ -427,7 +427,6 @@ TRANS(WSAStartup) (void)
 
 #include <ctype.h>
 
-#if defined(X11_t)
 static int
 is_numeric (const char *str)
 {
@@ -439,7 +438,6 @@ is_numeric (const char *str)
 
     return (1);
 }
-#endif
 
 #ifdef TRANS_SERVER
 #include <sys/types.h>
