@@ -175,10 +175,7 @@ TRANS(SelectTransport) (const char *protocol)
     return NULL;
 }
 
-#ifndef TEST_t
-static
-#endif /* TEST_t */
-int
+static int
 TRANS(ParseAddress) (const char *address,
                      char **protocol, char **host, char **port)
 

@@ -231,10 +231,6 @@ TRANS(FillAddrInfo)(XtransConnInfo ciptr,
 #if defined(ICE_t)
 #define NAMEDNODENAME	"/tmp/.ICE-pipe/"
 #endif
-#if defined(TEST_t)
-#define NAMEDNODENAME	"/tmp/.Test-unix/test"
-#define NAMEDNODENAME	"/dev/X/Ntranstest."
-#endif
 
 
 
