@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-20.04
     name: Build on ${{ matrix.distro }} ${{ matrix.arch }} with ${{ matrix.cc }}/${{ matrix.cxx }}
 
-    # Run steps on a matrix of 8 arch/distro/cc combinations
+    # Run steps on a matrix of 16 arch/distro/cc combinations
     strategy:
       fail-fast: false
       matrix:
@@ -46,6 +46,38 @@ jobs:
             cxx: g++
           - arch: armv7
             distro: ubuntu20.04
+            cc: clang
+            cxx: clang++
+          - arch: aarch64
+            distro: ubuntu22.04
+            cc: gcc
+            cxx: g++
+          - arch: aarch64
+            distro: ubuntu22.04
+            cc: clang
+            cxx: clang++
+          - arch: ppc64le
+            distro: ubuntu22.04
+            cc: gcc
+            cxx: g++
+          - arch: ppc64le
+            distro: ubuntu22.04
+            cc: clang
+            cxx: clang++
+          - arch: s390x
+            distro: ubuntu22.04
+            cc: gcc
+            cxx: g++
+          - arch: s390x
+            distro: ubuntu22.04
+            cc: clang
+            cxx: clang++
+          - arch: armv7
+            distro: ubuntu22.04
+            cc: gcc
+            cxx: g++
+          - arch: armv7
+            distro: ubuntu22.04
             cc: clang
             cxx: clang++
 
