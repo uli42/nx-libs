@@ -120,7 +120,7 @@ jobs:
                     apt-get install -q -y ${{ matrix.cc }} ${{ matrix.cxx }}
                     ;;
                   clang)
-                    apt-get install -q -y build-essential
+                    apt-get install -q -y build-essential ${{ matrix.cc }}
                     ;;
                 esac
                 ${{ matrix.cc }} --version
