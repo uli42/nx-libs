@@ -2,7 +2,7 @@ name: nx-libs CI diff archs
 
 on:
   push:
-    branches: [ 3.6.x ]
+    branches: [ 3.6.x citest2 ]
   pull_request:
     branches: [ 3.6.x ]
 
