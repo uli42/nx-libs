@@ -144,3 +144,4 @@ jobs:
 
           run: |
             make
+
