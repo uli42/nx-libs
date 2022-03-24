@@ -115,10 +115,9 @@ jobs:
               ubuntu*)
                 cat /etc/debian_version
                 apt-get update -q -y
-                apt-get install -q -y ${{ matrix.cc }} ${{ matrix.cxx }}
                 case "${{ matrix.cc }}" in
                   gcc)
-                    apt-get install -q -y g++
+                    apt-get install -q -y ${{ matrix.cc }} ${{ matrix.cxx }}
                     ;;
                   clang)
                     apt-get install -q -y build-essential
