@@ -61,7 +61,6 @@ SOFTWARE.
 
 #include "dixevents.h"
 
-#include "extnsionst.h"
 #include "extinit.h"	/* LookupDeviceIntRec */
 #include "exglobals.h"
 

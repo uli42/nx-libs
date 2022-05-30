@@ -64,7 +64,6 @@ SOFTWARE.
 #include "miscstruct.h"
 #include "region.h"
 #include "exevents.h"
-#include "extnsionst.h"
 #include "extinit.h"	/* LookupDeviceIntRec */
 #include "exglobals.h"
 #include "dixevents.h"	/* DeliverFocusedEvent */

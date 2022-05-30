@@ -57,8 +57,6 @@ SOFTWARE.
 #endif
 
 #include "inputstr.h"
-#include "gcstruct.h"	/* pointer for extnsionst.h */
-#include "extnsionst.h"	/* extension entry   */
 #include <nx-X11/extensions/XI.h>
 #include <nx-X11/extensions/XIproto.h>
 

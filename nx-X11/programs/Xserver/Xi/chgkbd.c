@@ -59,7 +59,6 @@ SOFTWARE.
 #include <nx-X11/extensions/XIproto.h>
 #include "XIstubs.h"
 #include "globals.h"
-#include "extnsionst.h"
 #include "extinit.h"	/* LookupDeviceIntRec */
 
 #include "exevents.h"

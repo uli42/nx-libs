@@ -59,7 +59,6 @@ SOFTWARE.
 #include <nx-X11/extensions/XIproto.h>
 #include "inputstr.h"	/* DeviceIntPtr      */
 #include "windowstr.h"	/* window struct     */
-#include "extnsionst.h"
 #include "extinit.h"	/* LookupDeviceIntRec */
 #include "exglobals.h"
 #include "swaprep.h"

@@ -59,7 +59,6 @@ SOFTWARE.
 #include <nx-X11/extensions/XIproto.h>
 #include "XIstubs.h"
 #include "windowstr.h"	/* window structure  */
-#include "extnsionst.h"
 #include "extinit.h"	/* LookupDeviceIntRec */
 #include "exglobals.h"
 

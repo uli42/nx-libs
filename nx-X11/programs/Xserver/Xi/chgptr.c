@@ -61,7 +61,6 @@ SOFTWARE.
 #include "windowstr.h"	/* window structure  */
 #include "scrnintstr.h"	/* screen structure  */
 
-#include "extnsionst.h"
 #include "extinit.h"	/* LookupDeviceIntRec */
 
 #include "dixevents.h"

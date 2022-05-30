@@ -59,7 +59,6 @@ SOFTWARE.
 #include "windowstr.h"	/* Window            */
 #include <nx-X11/extensions/XI.h>
 #include <nx-X11/extensions/XIproto.h>
-#include "extnsionst.h"
 #include "extinit.h"	/* LookupDeviceIntRec */
 #include "exevents.h"
 #include "exglobals.h"

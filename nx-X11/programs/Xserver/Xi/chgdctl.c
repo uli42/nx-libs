@@ -59,7 +59,6 @@ SOFTWARE.
 #include <nx-X11/extensions/XIproto.h>	/* control constants */
 #include "XIstubs.h"
 
-#include "extnsionst.h"
 #include "extinit.h"	/* LookupDeviceIntRec */
 #include "exglobals.h"
 
