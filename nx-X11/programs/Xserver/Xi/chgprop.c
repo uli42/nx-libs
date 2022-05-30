@@ -95,7 +95,7 @@ SProcXChangeDeviceDontPropagateList(ClientPtr client)
 int
 ProcXChangeDeviceDontPropagateList(ClientPtr client)
 {
-    int i;
+    int i, rc;
     WindowPtr pWin;
     struct tmask tmp[EMASKSIZE];
     OtherInputMasks *others;
@@ -119,10 +119,10 @@ ProcXChangeDeviceDontPropagateList(ClientPtr client)
 	return BadMode;
     }
 
-    if (CreateMaskFromList(client, (XEventClass *) & stuff[1],
+    if ((rc = CreateMaskFromList(client, (XEventClass *) &stuff[1],
 			   stuff->count, tmp, NULL,
-			   X_ChangeDeviceDontPropagateList) != Success)
-	return Success;
+				 X_ChangeDeviceDontPropagateList)) != Success)
+	return rc;
 
     others = wOtherInputMasks(pWin);
     if (!others && stuff->mode == DeleteFromList)
