@@ -36,7 +36,6 @@ from The Open Group.
 #include <dix-config.h>
 #endif
 
-#include <nx-X11/X.h>	/* for inputstr.h    */
 #include "inputstr.h"	/* DeviceIntPtr      */
 #include "windowstr.h"	/* window structure  */
 #include <nx-X11/extensions/XI.h>

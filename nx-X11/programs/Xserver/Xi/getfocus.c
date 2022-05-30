@@ -54,7 +54,6 @@ SOFTWARE.
 #include <dix-config.h>
 #endif
 
-#include <nx-X11/X.h>	/* for inputstr.h    */
 #include "windowstr.h"	/* focus struct      */
 #include "inputstr.h"	/* DeviceIntPtr      */
 #include <nx-X11/extensions/XI.h>

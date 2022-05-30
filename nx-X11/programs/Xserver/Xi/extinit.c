@@ -56,7 +56,6 @@ SOFTWARE.
 #include <dix-config.h>
 #endif
 
-#include <nx-X11/X.h>
 #include "inputstr.h"
 #include "gcstruct.h"	/* pointer for extnsionst.h */
 #include "extnsionst.h"	/* extension entry   */
