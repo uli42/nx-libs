@@ -57,7 +57,6 @@ SOFTWARE.
 #endif
 
 #include <nx-X11/X.h>
-#include <nx-X11/Xproto.h>
 #include <nx-X11/extensions/XI.h>
 #include <nx-X11/extensions/XIproto.h>
 #include "inputstr.h"

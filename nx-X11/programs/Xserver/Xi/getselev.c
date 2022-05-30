@@ -55,7 +55,6 @@ SOFTWARE.
 #endif
 
 #include <nx-X11/X.h>	/* for inputstr.h    */
-#include <nx-X11/Xproto.h>	/* Request macro     */
 #include <nx-X11/extensions/XI.h>
 #include <nx-X11/extensions/XIproto.h>
 #include "inputstr.h"	/* DeviceIntPtr      */

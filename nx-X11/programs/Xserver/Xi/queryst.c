@@ -37,7 +37,6 @@ from The Open Group.
 #endif
 
 #include <nx-X11/X.h>	/* for inputstr.h    */
-#include <nx-X11/Xproto.h>	/* Request macro     */
 #include "inputstr.h"	/* DeviceIntPtr      */
 #include "windowstr.h"	/* window structure  */
 #include <nx-X11/extensions/XI.h>
