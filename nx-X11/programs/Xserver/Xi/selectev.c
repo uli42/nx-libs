@@ -111,23 +111,19 @@ ProcXSelectExtensionEvent(register ClientPtr client)
     REQUEST_AT_LEAST_SIZE(xSelectExtensionEventReq);
 
     if (stuff->length != (sizeof(xSelectExtensionEventReq) >> 2) + stuff->count) {
-	SendErrorToClient(client, IReqCode, X_SelectExtensionEvent, 0,
-			  BadLength);
-	return Success;
+	return BadLength;
     }
 
     pWin = (WindowPtr) LookupWindow(stuff->window, client);
     if (!pWin) {
 	client->errorValue = stuff->window;
-	SendErrorToClient(client, IReqCode, X_SelectExtensionEvent, 0,
-			  BadWindow);
-	return Success;
+	return BadWindow;
     }
 
     if ((ret = CreateMaskFromList(client, (XEventClass *) & stuff[1],
 				  stuff->count, tmp, NULL,
 				  X_SelectExtensionEvent)) != Success)
-	return Success;
+	return ret;
 
     for (i = 0; i < EMASKSIZE; i++)
 	if (tmp[i].dev != NULL) {
@@ -135,9 +131,7 @@ ProcXSelectExtensionEvent(register ClientPtr client)
 		 SelectForWindow((DeviceIntPtr) tmp[i].dev, pWin, client,
 				 tmp[i].mask, ExtExclusiveMasks[i],
 				 ExtValidMasks[i])) != Success) {
-		SendErrorToClient(client, IReqCode, X_SelectExtensionEvent, 0,
-				  ret);
-		return Success;
+		return ret;
 	    }
 	}
 

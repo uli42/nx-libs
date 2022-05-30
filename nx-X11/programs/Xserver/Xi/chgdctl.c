@@ -107,9 +107,7 @@ ProcXChangeDeviceControl(ClientPtr client)
     len = stuff->length - (sizeof(xChangeDeviceControlReq) >> 2);
     dev = LookupDeviceIntRec(stuff->deviceid);
     if (dev == NULL) {
-	SendErrorToClient(client, IReqCode, X_ChangeDeviceControl, 0,
-			  BadDevice);
-	return Success;
+	return BadDevice;
     }
 
     rep.repType = X_Reply;
@@ -122,25 +120,18 @@ ProcXChangeDeviceControl(ClientPtr client)
 	r = (xDeviceResolutionCtl *) & stuff[1];
 	if ((len < (sizeof(xDeviceResolutionCtl) >> 2)) ||
 	    (len != (sizeof(xDeviceResolutionCtl) >> 2) + r->num_valuators)) {
-	    SendErrorToClient(client, IReqCode, X_ChangeDeviceControl,
-			      0, BadLength);
-	    return Success;
+	    return BadLength;
 	}
 	if (!dev->valuator) {
-	    SendErrorToClient(client, IReqCode, X_ChangeDeviceControl, 0,
-			      BadMatch);
-	    return Success;
+	    return BadMatch;
 	}
 	if ((dev->grab) && !SameClient(dev->grab, client)) {
 	    rep.status = AlreadyGrabbed;
-	    WriteReplyToClient(client, sizeof(xChangeDeviceControlReply), &rep);
-	    return Success;
+	    goto out;
 	}
 	resolution = (CARD32 *) (r + 1);
 	if (r->first_valuator + r->num_valuators > dev->valuator->numAxes) {
-	    SendErrorToClient(client, IReqCode, X_ChangeDeviceControl, 0,
-			      BadValue);
-	    return Success;
+	    return BadValue;
 	}
 	status = ChangeDeviceControl(client, dev, (xDeviceCtl *) r);
 	if (status == Success) {
@@ -148,26 +139,21 @@ ProcXChangeDeviceControl(ClientPtr client)
 	    for (i = 0; i < r->num_valuators; i++)
 		if (*(resolution + i) < (a + i)->min_resolution ||
 		    *(resolution + i) > (a + i)->max_resolution) {
-		    SendErrorToClient(client, IReqCode,
-				      X_ChangeDeviceControl, 0, BadValue);
-		    return Success;
+		    return BadValue;
 		}
 	    for (i = 0; i < r->num_valuators; i++)
 		(a++)->resolution = *resolution++;
 	} else if (status == DeviceBusy) {
 	    rep.status = DeviceBusy;
-	    WriteReplyToClient(client, sizeof(xChangeDeviceControlReply), &rep);
-	    return Success;
+	    goto out;
 	} else {
-	    SendErrorToClient(client, IReqCode, X_ChangeDeviceControl, 0,
-			      BadMatch);
-	    return Success;
+	    return BadMatch;
 	}
 	break;
     default:
-	SendErrorToClient(client, IReqCode, X_ChangeDeviceControl, 0, BadValue);
-	return Success;
+	return BadValue;
     }
+out:
     WriteReplyToClient(client, sizeof(xChangeDeviceControlReply), &rep);
     return Success;
 }

@@ -332,10 +332,8 @@ ProcIDispatch(register ClientPtr client)
 	return (ProcXGetDeviceControl(client));
     else if (stuff->data == X_ChangeDeviceControl)
 	return (ProcXChangeDeviceControl(client));
-    else {
-	SendErrorToClient(client, IReqCode, stuff->data, 0, BadRequest);
-    }
-    return (BadRequest);
+    else
+        return (BadRequest);
 }
 
 /*******************************************************************************
@@ -421,10 +419,8 @@ SProcIDispatch(register ClientPtr client)
 	return (SProcXGetDeviceControl(client));
     else if (stuff->data == X_ChangeDeviceControl)
 	return (SProcXChangeDeviceControl(client));
-    else {
-	SendErrorToClient(client, IReqCode, stuff->data, 0, BadRequest);
-    }
-    return (BadRequest);
+    else
+        return (BadRequest);
 }
 
 /**********************************************************************

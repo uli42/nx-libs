@@ -114,17 +114,14 @@ ProcXChangePointerDevice(register ClientPtr client)
     dev = LookupDeviceIntRec(stuff->deviceid);
     if (dev == NULL) {
 	rep.status = -1;
-	SendErrorToClient(client, IReqCode, X_ChangePointerDevice, 0,
-			  BadDevice);
-	return Success;
+	return BadDevice;
     }
 
     v = dev->valuator;
     if (v == NULL || v->numAxes < 2 ||
 	stuff->xaxis >= v->numAxes || stuff->yaxis >= v->numAxes) {
 	rep.status = -1;
-	SendErrorToClient(client, IReqCode, X_ChangePointerDevice, 0, BadMatch);
-	return Success;
+	return BadMatch;
     }
 
     if (((dev->grab) && !SameClient(dev->grab, client)) ||
@@ -138,9 +135,7 @@ ProcXChangePointerDevice(register ClientPtr client)
     else {
 	if (ChangePointerDevice(xptr, dev, stuff->xaxis, stuff->yaxis) !=
 	    Success) {
-	    SendErrorToClient(client, IReqCode, X_ChangePointerDevice, 0,
-			      BadDevice);
-	    return Success;
+	    return BadDevice;
 	}
 	if (dev->focus)
 	    DeleteFocusClassDeviceStruct(dev);

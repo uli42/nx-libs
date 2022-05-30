@@ -101,8 +101,7 @@ ProcXGetDeviceControl(ClientPtr client)
 
     dev = LookupDeviceIntRec(stuff->deviceid);
     if (dev == NULL) {
-	SendErrorToClient(client, IReqCode, X_GetDeviceControl, 0, BadDevice);
-	return Success;
+	return BadDevice;
     }
 
     rep.repType = X_Reply;
@@ -113,22 +112,18 @@ ProcXGetDeviceControl(ClientPtr client)
     switch (stuff->control) {
     case DEVICE_RESOLUTION:
 	if (!dev->valuator) {
-	    SendErrorToClient(client, IReqCode, X_GetDeviceControl, 0,
-			      BadMatch);
-	    return Success;
+	    return BadMatch;
 	}
 	total_length = sizeof(xDeviceResolutionState) +
 	    (3 * sizeof(int) * dev->valuator->numAxes);
 	break;
     default:
-	SendErrorToClient(client, IReqCode, X_GetDeviceControl, 0, BadValue);
-	return Success;
+	return BadValue;
     }
 
     buf = (char *)malloc(total_length);
     if (!buf) {
-	SendErrorToClient(client, IReqCode, X_GetDeviceControl, 0, BadAlloc);
-	return Success;
+	return BadAlloc;
     }
     savbuf = buf;
 

@@ -100,8 +100,7 @@ ProcXAllowDeviceEvents(register ClientPtr client)
 
     thisdev = LookupDeviceIntRec(stuff->deviceid);
     if (thisdev == NULL) {
-	SendErrorToClient(client, IReqCode, X_AllowDeviceEvents, 0, BadDevice);
-	return Success;
+	return BadDevice;
     }
     time = ClientTimeToServerTime(stuff->time);
 
@@ -125,9 +124,8 @@ ProcXAllowDeviceEvents(register ClientPtr client)
 	AllowSome(client, time, thisdev, THAWED_BOTH);
 	break;
     default:
-	SendErrorToClient(client, IReqCode, X_AllowDeviceEvents, 0, BadValue);
 	client->errorValue = stuff->mode;
-	return Success;
+	return BadValue;
     }
     return Success;
 }

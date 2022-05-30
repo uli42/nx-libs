@@ -99,8 +99,7 @@ ProcXUngrabDevice(register ClientPtr client)
 
     dev = LookupDeviceIntRec(stuff->deviceid);
     if (dev == NULL) {
-	SendErrorToClient(client, IReqCode, X_UngrabDevice, 0, BadDevice);
-	return Success;
+	return BadDevice;
     }
     grab = dev->grab;
 

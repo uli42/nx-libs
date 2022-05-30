@@ -100,9 +100,7 @@ ProcXSetDeviceModifierMapping(ClientPtr client)
 
     dev = LookupDeviceIntRec(stuff->deviceid);
     if (dev == NULL) {
-	SendErrorToClient(client, IReqCode, X_SetDeviceModifierMapping, 0,
-			  BadDevice);
-	return Success;
+	return BadDevice;
     }
 
     rep.repType = X_Reply;
@@ -123,8 +121,7 @@ ProcXSetDeviceModifierMapping(ClientPtr client)
 			   &rep);
     } else {
 	if (ret == -1)
-	    ret = BadValue;
-	SendErrorToClient(client, IReqCode, X_SetDeviceModifierMapping, 0, ret);
+	    return BadValue;
     }
 
     return Success;

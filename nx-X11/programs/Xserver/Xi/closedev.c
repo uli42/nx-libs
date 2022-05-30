@@ -101,8 +101,7 @@ ProcXCloseDevice(register ClientPtr client)
 
     d = LookupDeviceIntRec(stuff->deviceid);
     if (d == NULL) {
-	SendErrorToClient(client, IReqCode, X_CloseDevice, 0, BadDevice);
-	return Success;
+	return BadDevice;
     }
 
     if (d->grab && SameClient(d->grab, client))

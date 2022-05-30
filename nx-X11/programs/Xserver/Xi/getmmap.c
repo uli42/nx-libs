@@ -99,16 +99,12 @@ ProcXGetDeviceModifierMapping(ClientPtr client)
 
     dev = LookupDeviceIntRec(stuff->deviceid);
     if (dev == NULL) {
-	SendErrorToClient(client, IReqCode, X_GetDeviceModifierMapping, 0,
-			  BadDevice);
-	return Success;
+	return BadDevice;
     }
 
     kp = dev->key;
     if (kp == NULL) {
-	SendErrorToClient(client, IReqCode, X_GetDeviceModifierMapping, 0,
-			  BadMatch);
-	return Success;
+	return BadMatch;
     }
     maxkeys = kp->maxKeysPerModifier;
 

@@ -104,14 +104,12 @@ ProcXDeviceBell(register ClientPtr client)
     dev = LookupDeviceIntRec(stuff->deviceid);
     if (dev == NULL) {
 	client->errorValue = stuff->deviceid;
-	SendErrorToClient(client, IReqCode, X_DeviceBell, 0, BadDevice);
-	return Success;
+	return BadDevice;
     }
 
     if (stuff->percent < -100 || stuff->percent > 100) {
 	client->errorValue = stuff->percent;
-	SendErrorToClient(client, IReqCode, X_DeviceBell, 0, BadValue);
-	return Success;
+	return BadValue;
     }
     if (stuff->feedbackclass == KbdFeedbackClass) {
 	for (k = dev->kbdfeed; k; k = k->next)
@@ -119,8 +117,7 @@ ProcXDeviceBell(register ClientPtr client)
 		break;
 	if (!k) {
 	    client->errorValue = stuff->feedbackid;
-	    SendErrorToClient(client, IReqCode, X_DeviceBell, 0, BadValue);
-	    return Success;
+	    return BadValue;
 	}
 	base = k->ctrl.bell;
 	proc = k->BellProc;
@@ -132,8 +129,7 @@ ProcXDeviceBell(register ClientPtr client)
 		break;
 	if (!b) {
 	    client->errorValue = stuff->feedbackid;
-	    SendErrorToClient(client, IReqCode, X_DeviceBell, 0, BadValue);
-	    return Success;
+	    return BadValue;
 	}
 	base = b->ctrl.percent;
 	proc = b->BellProc;
@@ -141,8 +137,7 @@ ProcXDeviceBell(register ClientPtr client)
 	class = BellFeedbackClass;
     } else {
 	client->errorValue = stuff->feedbackclass;
-	SendErrorToClient(client, IReqCode, X_DeviceBell, 0, BadValue);
-	return Success;
+	return BadValue;
     }
     newpercent = (base * stuff->percent) / 100;
     if (stuff->percent < 0)

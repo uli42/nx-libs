@@ -112,8 +112,7 @@ ProcXGrabDevice(ClientPtr client)
     REQUEST_AT_LEAST_SIZE(xGrabDeviceReq);
 
     if (stuff->length != (sizeof(xGrabDeviceReq) >> 2) + stuff->event_count) {
-	SendErrorToClient(client, IReqCode, X_GrabDevice, 0, BadLength);
-	return Success;
+	return BadLength;
     }
 
     rep.repType = X_Reply;
@@ -123,8 +122,7 @@ ProcXGrabDevice(ClientPtr client)
 
     dev = LookupDeviceIntRec(stuff->deviceid);
     if (dev == NULL) {
-	SendErrorToClient(client, IReqCode, X_GrabDevice, 0, BadDevice);
-	return Success;
+	return BadDevice;
     }
 
     if (CreateMaskFromList(client, (XEventClass *) & stuff[1],
@@ -138,8 +136,7 @@ ProcXGrabDevice(ClientPtr client)
 		       tmp[stuff->deviceid].mask, &rep.status);
 
     if (error != Success) {
-	SendErrorToClient(client, IReqCode, X_GrabDevice, 0, error);
-	return Success;
+	return error;
     }
     WriteReplyToClient(client, sizeof(xGrabDeviceReply), &rep);
     return Success;
@@ -167,12 +164,10 @@ CreateMaskFromList(ClientPtr client, XEventClass * list, int count,
     for (i = 0; i < count; i++, list++) {
 	device = *list >> 8;
 	if (device > 255) {
-	    SendErrorToClient(client, IReqCode, req, 0, BadClass);
 	    return BadClass;
 	}
 	tdev = LookupDeviceIntRec(device);
 	if (tdev == NULL || (dev != NULL && tdev != dev)) {
-	    SendErrorToClient(client, IReqCode, req, 0, BadClass);
 	    return BadClass;
 	}
 

@@ -107,39 +107,31 @@ ProcXUngrabDeviceButton(ClientPtr client)
 
     dev = LookupDeviceIntRec(stuff->grabbed_device);
     if (dev == NULL) {
-	SendErrorToClient(client, IReqCode, X_UngrabDeviceButton, 0, BadDevice);
-	return Success;
+	return BadDevice;
     }
     if (dev->button == NULL) {
-	SendErrorToClient(client, IReqCode, X_UngrabDeviceButton, 0, BadMatch);
-	return Success;
+	return BadMatch;
     }
 
     if (stuff->modifier_device != UseXKeyboard) {
 	mdev = LookupDeviceIntRec(stuff->modifier_device);
 	if (mdev == NULL) {
-	    SendErrorToClient(client, IReqCode, X_UngrabDeviceButton, 0,
-			      BadDevice);
-	    return Success;
+	    return BadDevice;
 	}
 	if (mdev->key == NULL) {
-	    SendErrorToClient(client, IReqCode, X_UngrabDeviceButton, 0,
-			      BadMatch);
-	    return Success;
+	    return BadMatch;
 	}
     } else
 	mdev = (DeviceIntPtr) LookupKeyboardDevice();
 
     pWin = LookupWindow(stuff->grabWindow, client);
     if (!pWin) {
-	SendErrorToClient(client, IReqCode, X_UngrabDeviceButton, 0, BadWindow);
-	return Success;
+	return BadWindow;
     }
 
     if ((stuff->modifiers != AnyModifier) &&
 	(stuff->modifiers & ~AllModifiersMask)) {
-	SendErrorToClient(client, IReqCode, X_UngrabDeviceButton, 0, BadValue);
-	return Success;
+	return BadValue;
     }
 
     temporaryGrab.resource = client->clientAsMask;

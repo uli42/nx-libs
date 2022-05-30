@@ -105,8 +105,7 @@ ProcXGetFeedbackControl(ClientPtr client)
 
     dev = LookupDeviceIntRec(stuff->deviceid);
     if (dev == NULL) {
-	SendErrorToClient(client, IReqCode, X_GetFeedbackControl, 0, BadDevice);
-	return Success;
+	return BadDevice;
     }
 
     rep.repType = X_Reply;
@@ -142,14 +141,12 @@ ProcXGetFeedbackControl(ClientPtr client)
     }
 
     if (total_length == 0) {
-	SendErrorToClient(client, IReqCode, X_GetFeedbackControl, 0, BadMatch);
-	return Success;
+	return BadMatch;
     }
 
     buf = (char *)malloc(total_length);
     if (!buf) {
-	SendErrorToClient(client, IReqCode, X_GetFeedbackControl, 0, BadAlloc);
-	return Success;
+	return BadAlloc;
     }
     savbuf = buf;
 

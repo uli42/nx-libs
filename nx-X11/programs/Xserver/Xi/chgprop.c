@@ -108,24 +108,18 @@ ProcXChangeDeviceDontPropagateList(register ClientPtr client)
 
     if (stuff->length != (sizeof(xChangeDeviceDontPropagateListReq) >> 2) +
 	stuff->count) {
-	SendErrorToClient(client, IReqCode, X_ChangeDeviceDontPropagateList, 0,
-			  BadLength);
-	return Success;
+	return BadLength;
     }
 
     pWin = (WindowPtr) LookupWindow(stuff->window, client);
     if (!pWin) {
 	client->errorValue = stuff->window;
-	SendErrorToClient(client, IReqCode, X_ChangeDeviceDontPropagateList, 0,
-			  BadWindow);
-	return Success;
+	return BadWindow;
     }
 
     if (stuff->mode != AddToList && stuff->mode != DeleteFromList) {
 	client->errorValue = stuff->window;
-	SendErrorToClient(client, IReqCode, X_ChangeDeviceDontPropagateList, 0,
-			  BadMode);
-	return Success;
+	return BadMode;
     }
 
     if (CreateMaskFromList(client, (XEventClass *) & stuff[1],
@@ -147,9 +141,7 @@ ProcXChangeDeviceDontPropagateList(register ClientPtr client)
 
 	if (DeviceEventSuppressForWindow(pWin, client, tmp[i].mask, i) !=
 	    Success) {
-	    SendErrorToClient(client, IReqCode,
-			      X_ChangeDeviceDontPropagateList, 0, BadClass);
-	    return Success;
+	    return BadClass;
 	}
     }
 

@@ -115,17 +115,13 @@ ProcXChangeKeyboardDevice(register ClientPtr client)
     dev = LookupDeviceIntRec(stuff->deviceid);
     if (dev == NULL) {
 	rep.status = -1;
-	SendErrorToClient(client, IReqCode, X_ChangeKeyboardDevice, 0,
-			  BadDevice);
-	return Success;
+	return BadDevice;
     }
 
     k = dev->key;
     if (k == NULL) {
 	rep.status = -1;
-	SendErrorToClient(client, IReqCode, X_ChangeKeyboardDevice, 0,
-			  BadMatch);
-	return Success;
+	return BadMatch;
     }
 
     if (((dev->grab) && !SameClient(dev->grab, client)) ||
@@ -138,9 +134,7 @@ ProcXChangeKeyboardDevice(register ClientPtr client)
 	rep.status = GrabFrozen;
     else {
 	if (ChangeKeyboardDevice(xkbd, dev) != Success) {
-	    SendErrorToClient(client, IReqCode, X_ChangeKeyboardDevice, 0,
-			      BadDevice);
-	    return Success;
+	    return BadDevice;
 	}
 	if (!dev->focus)
 	    InitFocusClassDeviceStruct(dev);

@@ -98,8 +98,7 @@ ProcXGetDeviceFocus(ClientPtr client)
 
     dev = LookupDeviceIntRec(stuff->deviceid);
     if (dev == NULL || !dev->focus) {
-	SendErrorToClient(client, IReqCode, X_GetDeviceFocus, 0, BadDevice);
-	return Success;
+	return BadDevice;
     }
 
     rep.repType = X_Reply;

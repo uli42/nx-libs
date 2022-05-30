@@ -109,17 +109,13 @@ ProcXChangeFeedbackControl(ClientPtr client)
     len = stuff->length - (sizeof(xChangeFeedbackControlReq) >> 2);
     dev = LookupDeviceIntRec(stuff->deviceid);
     if (dev == NULL) {
-	SendErrorToClient(client, IReqCode, X_ChangeFeedbackControl, 0,
-			  BadDevice);
-	return Success;
+	return BadDevice;
     }
 
     switch (stuff->feedbackid) {
     case KbdFeedbackClass:
 	if (len != (sizeof(xKbdFeedbackCtl) >> 2)) {
-	    SendErrorToClient(client, IReqCode, X_ChangeFeedbackControl,
-			      0, BadLength);
-	    return Success;
+	    return BadLength;
 	}
 	for (k = dev->kbdfeed; k; k = k->next)
 	    if (k->ctrl.id == ((xKbdFeedbackCtl *) & stuff[1])->id) {
@@ -130,9 +126,7 @@ ProcXChangeFeedbackControl(ClientPtr client)
 	break;
     case PtrFeedbackClass:
 	if (len != (sizeof(xPtrFeedbackCtl) >> 2)) {
-	    SendErrorToClient(client, IReqCode, X_ChangeFeedbackControl,
-			      0, BadLength);
-	    return Success;
+	    return BadLength;
 	}
 	for (p = dev->ptrfeed; p; p = p->next)
 	    if (p->ctrl.id == ((xPtrFeedbackCtl *) & stuff[1])->id) {
@@ -151,9 +145,7 @@ ProcXChangeFeedbackControl(ClientPtr client)
 		swaps(&f->num_keysyms);
 	}
 	if (len != ((sizeof(xStringFeedbackCtl) >> 2) + f->num_keysyms)) {
-	    SendErrorToClient(client, IReqCode, X_ChangeFeedbackControl,
-			      0, BadLength);
-	    return Success;
+	    return BadLength;
 	}
 	for (s = dev->stringfeed; s; s = s->next)
 	    if (s->ctrl.id == ((xStringFeedbackCtl *) & stuff[1])->id) {
@@ -165,9 +157,7 @@ ProcXChangeFeedbackControl(ClientPtr client)
     }
     case IntegerFeedbackClass:
 	if (len != (sizeof(xIntegerFeedbackCtl) >> 2)) {
-	    SendErrorToClient(client, IReqCode, X_ChangeFeedbackControl,
-			      0, BadLength);
-	    return Success;
+	    return BadLength;
 	}
 	for (i = dev->intfeed; i; i = i->next)
 	    if (i->ctrl.id == ((xIntegerFeedbackCtl *) & stuff[1])->id) {
@@ -178,9 +168,7 @@ ProcXChangeFeedbackControl(ClientPtr client)
 	break;
     case LedFeedbackClass:
 	if (len != (sizeof(xLedFeedbackCtl) >> 2)) {
-	    SendErrorToClient(client, IReqCode, X_ChangeFeedbackControl,
-			      0, BadLength);
-	    return Success;
+	    return BadLength;
 	}
 	for (l = dev->leds; l; l = l->next)
 	    if (l->ctrl.id == ((xLedFeedbackCtl *) & stuff[1])->id) {
@@ -191,9 +179,7 @@ ProcXChangeFeedbackControl(ClientPtr client)
 	break;
     case BellFeedbackClass:
 	if (len != (sizeof(xBellFeedbackCtl) >> 2)) {
-	    SendErrorToClient(client, IReqCode, X_ChangeFeedbackControl,
-			      0, BadLength);
-	    return Success;
+	    return BadLength;
 	}
 	for (b = dev->bell; b; b = b->next)
 	    if (b->ctrl.id == ((xBellFeedbackCtl *) & stuff[1])->id) {
@@ -206,8 +192,7 @@ ProcXChangeFeedbackControl(ClientPtr client)
 	break;
     }
 
-    SendErrorToClient(client, IReqCode, X_ChangeFeedbackControl, 0, BadMatch);
-    return Success;
+    return BadMatch;
 }
 
 /******************************************************************************
@@ -239,9 +224,7 @@ ChangeKbdFeedback(ClientPtr client, DeviceIntPtr dev, long unsigned int mask,
 	    t = defaultKeyboardControl.click;
 	else if (t < 0 || t > 100) {
 	    client->errorValue = t;
-	    SendErrorToClient(client, IReqCode, X_ChangeFeedbackControl, 0,
-			      BadValue);
-	    return Success;
+	    return BadValue;
 	}
 	kctrl.click = t;
     }
@@ -252,9 +235,7 @@ ChangeKbdFeedback(ClientPtr client, DeviceIntPtr dev, long unsigned int mask,
 	    t = defaultKeyboardControl.bell;
 	else if (t < 0 || t > 100) {
 	    client->errorValue = t;
-	    SendErrorToClient(client, IReqCode, X_ChangeFeedbackControl, 0,
-			      BadValue);
-	    return Success;
+	    return BadValue;
 	}
 	kctrl.bell = t;
     }
@@ -265,9 +246,7 @@ ChangeKbdFeedback(ClientPtr client, DeviceIntPtr dev, long unsigned int mask,
 	    t = defaultKeyboardControl.bell_pitch;
 	else if (t < 0) {
 	    client->errorValue = t;
-	    SendErrorToClient(client, IReqCode, X_ChangeFeedbackControl, 0,
-			      BadValue);
-	    return Success;
+	    return BadValue;
 	}
 	kctrl.bell_pitch = t;
     }
@@ -278,9 +257,7 @@ ChangeKbdFeedback(ClientPtr client, DeviceIntPtr dev, long unsigned int mask,
 	    t = defaultKeyboardControl.bell_duration;
 	else if (t < 0) {
 	    client->errorValue = t;
-	    SendErrorToClient(client, IReqCode, X_ChangeFeedbackControl, 0,
-			      BadValue);
-	    return Success;
+	    return BadValue;
 	}
 	kctrl.bell_duration = t;
     }
@@ -294,14 +271,10 @@ ChangeKbdFeedback(ClientPtr client, DeviceIntPtr dev, long unsigned int mask,
 	key = (KeyCode) f->key;
 	if (key < 8 || key > 255) {
 	    client->errorValue = key;
-	    SendErrorToClient(client, IReqCode, X_ChangeFeedbackControl, 0,
-			      BadValue);
-	    return Success;
+	    return BadValue;
 	}
 	if (!(mask & DvAutoRepeatMode)) {
-	    SendErrorToClient(client, IReqCode, X_ChangeFeedbackControl, 0,
-			      BadMatch);
-	    return Success;
+	    return BadMatch;
 	}
     }
 
@@ -330,9 +303,7 @@ ChangeKbdFeedback(ClientPtr client, DeviceIntPtr dev, long unsigned int mask,
 		(defaultKeyboardControl.autoRepeats[inx] & kmask);
 	} else {
 	    client->errorValue = t;
-	    SendErrorToClient(client, IReqCode, X_ChangeFeedbackControl, 0,
-			      BadValue);
-	    return Success;
+	    return BadValue;
 	}
     }
 
@@ -369,9 +340,7 @@ ChangePtrFeedback(ClientPtr client, DeviceIntPtr dev, long unsigned int mask,
 	    pctrl.num = defaultPointerControl.num;
 	else if (accelNum < 0) {
 	    client->errorValue = accelNum;
-	    SendErrorToClient(client, IReqCode, X_ChangeFeedbackControl, 0,
-			      BadValue);
-	    return Success;
+	    return BadValue;
 	} else
 	    pctrl.num = accelNum;
     }
@@ -384,9 +353,7 @@ ChangePtrFeedback(ClientPtr client, DeviceIntPtr dev, long unsigned int mask,
 	    pctrl.den = defaultPointerControl.den;
 	else if (accelDenom <= 0) {
 	    client->errorValue = accelDenom;
-	    SendErrorToClient(client, IReqCode, X_ChangeFeedbackControl, 0,
-			      BadValue);
-	    return Success;
+	    return BadValue;
 	} else
 	    pctrl.den = accelDenom;
     }
@@ -399,9 +366,7 @@ ChangePtrFeedback(ClientPtr client, DeviceIntPtr dev, long unsigned int mask,
 	    pctrl.threshold = defaultPointerControl.threshold;
 	else if (threshold < 0) {
 	    client->errorValue = threshold;
-	    SendErrorToClient(client, IReqCode, X_ChangeFeedbackControl, 0,
-			      BadValue);
-	    return Success;
+	    return BadValue;
 	} else
 	    pctrl.threshold = threshold;
     }
@@ -453,9 +418,7 @@ ChangeStringFeedback(ClientPtr client, DeviceIntPtr dev,
     }
 
     if (f->num_keysyms > s->ctrl.max_symbols) {
-	SendErrorToClient(client, IReqCode, X_ChangeFeedbackControl, 0,
-			  BadValue);
-	return Success;
+	return BadValue;
     }
     sup_syms = s->ctrl.symbols_supported;
     for (i = 0; i < f->num_keysyms; i++) {
@@ -463,9 +426,7 @@ ChangeStringFeedback(ClientPtr client, DeviceIntPtr dev,
 	    if (*(syms + i) == *(sup_syms + j))
 		break;
 	if (j == s->ctrl.num_symbols_supported) {
-	    SendErrorToClient(client, IReqCode, X_ChangeFeedbackControl, 0,
-			      BadMatch);
-	    return Success;
+	    return BadMatch;
 	}
     }
 
@@ -503,9 +464,7 @@ ChangeBellFeedback(ClientPtr client, DeviceIntPtr dev,
 	    t = defaultKeyboardControl.bell;
 	else if (t < 0 || t > 100) {
 	    client->errorValue = t;
-	    SendErrorToClient(client, IReqCode, X_ChangeFeedbackControl, 0,
-			      BadValue);
-	    return Success;
+	    return BadValue;
 	}
 	bctrl.percent = t;
     }
@@ -516,9 +475,7 @@ ChangeBellFeedback(ClientPtr client, DeviceIntPtr dev,
 	    t = defaultKeyboardControl.bell_pitch;
 	else if (t < 0) {
 	    client->errorValue = t;
-	    SendErrorToClient(client, IReqCode, X_ChangeFeedbackControl, 0,
-			      BadValue);
-	    return Success;
+	    return BadValue;
 	}
 	bctrl.pitch = t;
     }
@@ -529,9 +486,7 @@ ChangeBellFeedback(ClientPtr client, DeviceIntPtr dev,
 	    t = defaultKeyboardControl.bell_duration;
 	else if (t < 0) {
 	    client->errorValue = t;
-	    SendErrorToClient(client, IReqCode, X_ChangeFeedbackControl, 0,
-			      BadValue);
-	    return Success;
+	    return BadValue;
 	}
 	bctrl.duration = t;
     }

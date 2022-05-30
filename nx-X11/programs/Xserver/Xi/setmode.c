@@ -102,12 +102,10 @@ ProcXSetDeviceMode(register ClientPtr client)
 
     dev = LookupDeviceIntRec(stuff->deviceid);
     if (dev == NULL) {
-	SendErrorToClient(client, IReqCode, X_SetDeviceMode, 0, BadDevice);
-	return Success;
+	return BadDevice;
     }
     if (dev->valuator == NULL) {
-	SendErrorToClient(client, IReqCode, X_SetDeviceMode, 0, BadMatch);
-	return Success;
+	return BadMatch;
     }
     if ((dev->grab) && !SameClient(dev->grab, client))
 	rep.status = AlreadyGrabbed;
@@ -117,8 +115,7 @@ ProcXSetDeviceMode(register ClientPtr client)
     if (rep.status == Success)
 	dev->valuator->mode = stuff->mode;
     else if (rep.status != AlreadyGrabbed) {
-	SendErrorToClient(client, IReqCode, X_SetDeviceMode, 0, rep.status);
-	return Success;
+	return rep.status;
     }
 
     WriteReplyToClient(client, sizeof(xSetDeviceModeReply), &rep);

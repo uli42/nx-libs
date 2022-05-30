@@ -115,9 +115,7 @@ ProcXGetSelectedExtensionEvents(register ClientPtr client)
     rep.all_clients_count = 0;
 
     if (!(pWin = LookupWindow(stuff->window, client))) {
-	SendErrorToClient(client, IReqCode, X_GetSelectedExtensionEvents, 0,
-			  BadWindow);
-	return Success;
+	return BadWindow;
     }
 
     if ((pOthers = wOtherInputMasks(pWin)) != 0) {

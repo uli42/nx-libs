@@ -107,15 +107,11 @@ ProcXGetDeviceMotionEvents(ClientPtr client)
     REQUEST_SIZE_MATCH(xGetDeviceMotionEventsReq);
     dev = LookupDeviceIntRec(stuff->deviceid);
     if (dev == NULL) {
-	SendErrorToClient(client, IReqCode, X_GetDeviceMotionEvents, 0,
-			  BadDevice);
-	return Success;
+	return BadDevice;
     }
     v = dev->valuator;
     if (v == NULL || v->numAxes == 0) {
-	SendErrorToClient(client, IReqCode, X_GetDeviceMotionEvents, 0,
-			  BadMatch);
-	return Success;
+	return BadMatch;
     }
     if (dev->valuator->motionHintWindow)
 	MaybeStopDeviceHint(dev, client);
@@ -142,9 +138,7 @@ ProcXGetDeviceMotionEvents(ClientPtr client)
 	tsize = num_events * size;
 	coords = (INT32 *) malloc(tsize);
 	if (!coords) {
-	    SendErrorToClient(client, IReqCode, X_GetDeviceMotionEvents, 0,
-			      BadAlloc);
-	    return Success;
+	    return BadAlloc;
 	}
 	rep.nEvents = (v->GetMotionProc) (dev, (xTimecoord *) coords,	/* XXX */
 					  start.milliseconds, stop.milliseconds,

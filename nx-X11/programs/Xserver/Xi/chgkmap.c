@@ -109,9 +109,7 @@ ProcXChangeDeviceKeyMapping(register ClientPtr client)
 
     dev = LookupDeviceIntRec(stuff->deviceid);
     if (dev == NULL) {
-	SendErrorToClient(client, IReqCode, X_ChangeDeviceKeyMapping, 0,
-			  BadDevice);
-	return Success;
+	return BadDevice;
     }
     len = stuff->length - (sizeof(xChangeDeviceKeyMappingReq) >> 2);
 
@@ -119,7 +117,5 @@ ProcXChangeDeviceKeyMapping(register ClientPtr client)
 			   stuff->firstKeyCode, stuff->keyCodes,
 			   stuff->keySymsPerKeyCode, (KeySym *) & stuff[1]);
 
-    if (ret != Success)
-	SendErrorToClient(client, IReqCode, X_ChangeDeviceKeyMapping, 0, ret);
-    return Success;
+    return ret;
 }

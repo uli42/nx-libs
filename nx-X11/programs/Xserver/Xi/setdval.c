@@ -103,22 +103,18 @@ ProcXSetDeviceValuators(register ClientPtr client)
 
     if (stuff->length != (sizeof(xSetDeviceValuatorsReq) >> 2) +
 	stuff->num_valuators) {
-	SendErrorToClient(client, IReqCode, X_SetDeviceValuators, 0, BadLength);
-	return Success;
+	return BadLength;
     }
     dev = LookupDeviceIntRec(stuff->deviceid);
     if (dev == NULL) {
-	SendErrorToClient(client, IReqCode, X_SetDeviceValuators, 0, BadDevice);
-	return Success;
+	return BadDevice;
     }
     if (dev->valuator == NULL) {
-	SendErrorToClient(client, IReqCode, X_SetDeviceValuators, 0, BadMatch);
-	return Success;
+	return BadMatch;
     }
 
     if (stuff->first_valuator + stuff->num_valuators > dev->valuator->numAxes) {
-	SendErrorToClient(client, IReqCode, X_SetDeviceValuators, 0, BadValue);
-	return Success;
+	return BadValue;
     }
 
     if ((dev->grab) && !SameClient(dev->grab, client))
@@ -129,8 +125,7 @@ ProcXSetDeviceValuators(register ClientPtr client)
 					stuff->num_valuators);
 
     if (rep.status != Success && rep.status != AlreadyGrabbed)
-	SendErrorToClient(client, IReqCode, X_SetDeviceValuators, 0,
-			  rep.status);
+        return rep.status;
     else
 	WriteReplyToClient(client, sizeof(xSetDeviceValuatorsReply), &rep);
 

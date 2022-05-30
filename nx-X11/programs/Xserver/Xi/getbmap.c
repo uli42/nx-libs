@@ -103,16 +103,12 @@ ProcXGetDeviceButtonMapping(register ClientPtr client)
 
     dev = LookupDeviceIntRec(stuff->deviceid);
     if (dev == NULL) {
-	SendErrorToClient(client, IReqCode, X_GetDeviceButtonMapping, 0,
-			  BadDevice);
-	return Success;
+	return BadDevice;
     }
 
     b = dev->button;
     if (b == NULL) {
-	SendErrorToClient(client, IReqCode, X_GetDeviceButtonMapping, 0,
-			  BadMatch);
-	return Success;
+	return BadMatch;
     }
     rep.nElts = b->numButtons;
     rep.length = (rep.nElts + (4 - 1)) / 4;

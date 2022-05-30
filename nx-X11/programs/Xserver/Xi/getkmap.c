@@ -99,28 +99,23 @@ ProcXGetDeviceKeyMapping(register ClientPtr client)
 
     dev = LookupDeviceIntRec(stuff->deviceid);
     if (dev == NULL) {
-	SendErrorToClient(client, IReqCode, X_GetDeviceKeyMapping, 0,
-			  BadDevice);
-	return Success;
+	return BadDevice;
     }
 
     if (dev->key == NULL) {
-	SendErrorToClient(client, IReqCode, X_GetDeviceKeyMapping, 0, BadMatch);
-	return Success;
+	return BadMatch;
     }
     k = &dev->key->curKeySyms;
 
     if ((stuff->firstKeyCode < k->minKeyCode) ||
 	(stuff->firstKeyCode > k->maxKeyCode)) {
 	client->errorValue = stuff->firstKeyCode;
-	SendErrorToClient(client, IReqCode, X_GetDeviceKeyMapping, 0, BadValue);
-	return Success;
+	return BadValue;
     }
 
     if (stuff->firstKeyCode + stuff->count > k->maxKeyCode + 1) {
 	client->errorValue = stuff->count;
-	SendErrorToClient(client, IReqCode, X_GetDeviceKeyMapping, 0, BadValue);
-	return Success;
+	return BadValue;
     }
 
     rep.repType = X_Reply;

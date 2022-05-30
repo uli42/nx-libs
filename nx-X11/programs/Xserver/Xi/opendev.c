@@ -105,8 +105,7 @@ ProcXOpenDevice(register ClientPtr client)
 
     if (stuff->deviceid == inputInfo.pointer->id ||
 	stuff->deviceid == inputInfo.keyboard->id) {
-	SendErrorToClient(client, IReqCode, X_OpenDevice, 0, BadDevice);
-	return Success;
+	return BadDevice;
     }
 
     if ((dev = LookupDeviceIntRec(stuff->deviceid)) == NULL) {	/* not open */
@@ -114,16 +113,14 @@ ProcXOpenDevice(register ClientPtr client)
 	    if (dev->id == stuff->deviceid)
 		break;
 	if (dev == NULL) {
-	    SendErrorToClient(client, IReqCode, X_OpenDevice, 0, BadDevice);
-	    return Success;
+	    return BadDevice;
 	}
 	enableit = TRUE;
     }
 
     OpenInputDevice(dev, client, &status);
     if (status != Success) {
-	SendErrorToClient(client, IReqCode, X_OpenDevice, 0, status);
-	return Success;
+	return status;
     }
     if (enableit && dev->inited && dev->startup)
 	(void)EnableDevice(dev);

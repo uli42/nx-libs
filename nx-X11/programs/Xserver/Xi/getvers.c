@@ -99,9 +99,7 @@ ProcXGetExtensionVersion(register ClientPtr client)
 
     if (stuff->length != (sizeof(xGetExtensionVersionReq) +
 			  stuff->nbytes + 3) >> 2) {
-	SendErrorToClient(client, IReqCode, X_GetExtensionVersion, 0,
-			  BadLength);
-	return Success;
+	return BadLength;
     }
 
     memset(&rep, 0, sizeof(xGetExtensionVersionReply));

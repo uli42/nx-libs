@@ -114,9 +114,7 @@ ProcXGetDeviceDontPropagateList(register ClientPtr client)
     pWin = (WindowPtr) LookupWindow(stuff->window, client);
     if (!pWin) {
 	client->errorValue = stuff->window;
-	SendErrorToClient(client, IReqCode, X_GetDeviceDontPropagateList, 0,
-			  BadWindow);
-	return Success;
+	return BadWindow;
     }
 
     if ((others = wOtherInputMasks(pWin)) != 0) {

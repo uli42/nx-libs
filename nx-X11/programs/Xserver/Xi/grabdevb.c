@@ -110,26 +110,20 @@ ProcXGrabDeviceButton(ClientPtr client)
 
     if (stuff->length !=
 	(sizeof(xGrabDeviceButtonReq) >> 2) + stuff->event_count) {
-	SendErrorToClient(client, IReqCode, X_GrabDeviceButton, 0, BadLength);
-	return Success;
+	return BadLength;
     }
 
     dev = LookupDeviceIntRec(stuff->grabbed_device);
     if (dev == NULL) {
-	SendErrorToClient(client, IReqCode, X_GrabDeviceButton, 0, BadDevice);
-	return Success;
+	return BadDevice;
     }
     if (stuff->modifier_device != UseXKeyboard) {
 	mdev = LookupDeviceIntRec(stuff->modifier_device);
 	if (mdev == NULL) {
-	    SendErrorToClient(client, IReqCode, X_GrabDeviceButton, 0,
-			      BadDevice);
-	    return Success;
+	    return BadDevice;
 	}
 	if (mdev->key == NULL) {
-	    SendErrorToClient(client, IReqCode, X_GrabDeviceButton, 0,
-			      BadMatch);
-	    return Success;
+	    return BadMatch;
 	}
     } else
 	mdev = (DeviceIntPtr) LookupKeyboardDevice();
@@ -145,7 +139,5 @@ ProcXGrabDeviceButton(ClientPtr client)
 		     stuff->button, stuff->grabWindow, stuff->ownerEvents,
 		     (Cursor) 0, (Window) 0, tmp[stuff->grabbed_device].mask);
 
-    if (ret != Success)
-	SendErrorToClient(client, IReqCode, X_GrabDeviceButton, 0, ret);
-    return (Success);
+    return ret;
 }

@@ -96,8 +96,7 @@ ProcXQueryDeviceState(register ClientPtr client)
 
     dev = LookupDeviceIntRec(stuff->deviceid);
     if (dev == NULL) {
-	SendErrorToClient(client, IReqCode, X_QueryDeviceState, 0, BadDevice);
-	return Success;
+	return BadDevice;
     }
 
     v = dev->valuator;
@@ -122,8 +121,7 @@ ProcXQueryDeviceState(register ClientPtr client)
     }
     buf = (char *)malloc(total_length);
     if (!buf) {
-	SendErrorToClient(client, IReqCode, X_QueryDeviceState, 0, BadAlloc);
-	return Success;
+	return BadAlloc;
     }
     savbuf = buf;
 

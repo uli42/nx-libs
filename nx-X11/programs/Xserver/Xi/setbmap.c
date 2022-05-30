@@ -101,9 +101,7 @@ ProcXSetDeviceButtonMapping(register ClientPtr client)
 
     if (stuff->length != (sizeof(xSetDeviceButtonMappingReq) +
 			  stuff->map_length + 3) >> 2) {
-	SendErrorToClient(client, IReqCode, X_SetDeviceButtonMapping, 0,
-			  BadLength);
-	return Success;
+	return BadLength;
     }
 
     rep.repType = X_Reply;
@@ -114,16 +112,13 @@ ProcXSetDeviceButtonMapping(register ClientPtr client)
 
     dev = LookupDeviceIntRec(stuff->deviceid);
     if (dev == NULL) {
-	SendErrorToClient(client, IReqCode, X_SetDeviceButtonMapping, 0,
-			  BadDevice);
-	return Success;
+	return BadDevice;
     }
 
     ret = SetButtonMapping(client, dev, stuff->map_length, (BYTE *) & stuff[1]);
 
     if (ret == BadValue || ret == BadMatch) {
-	SendErrorToClient(client, IReqCode, X_SetDeviceButtonMapping, 0, ret);
-	return Success;
+	return ret;
     } else {
 	rep.status = ret;
 	WriteReplyToClient(client, sizeof(xSetDeviceButtonMappingReply), &rep);

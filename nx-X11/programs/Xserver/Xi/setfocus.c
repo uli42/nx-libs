@@ -103,14 +103,11 @@ ProcXSetDeviceFocus(register ClientPtr client)
 
     dev = LookupDeviceIntRec(stuff->device);
     if (dev == NULL || !dev->focus) {
-	SendErrorToClient(client, IReqCode, X_SetDeviceFocus, 0, BadDevice);
-	return Success;
+	return BadDevice;
     }
 
     ret = SetInputFocus(client, dev, stuff->focus, stuff->revertTo,
 			stuff->time, TRUE);
-    if (ret != Success)
-	SendErrorToClient(client, IReqCode, X_SetDeviceFocus, 0, ret);
 
-    return Success;
+    return ret;
 }

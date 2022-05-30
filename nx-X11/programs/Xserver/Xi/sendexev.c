@@ -131,14 +131,12 @@ ProcXSendExtensionEvent(register ClientPtr client)
 
     if (stuff->length != (sizeof(xSendExtensionEventReq) >> 2) + stuff->count +
 	(stuff->num_events * (sizeof(xEvent) >> 2))) {
-	SendErrorToClient(client, IReqCode, X_SendExtensionEvent, 0, BadLength);
-	return Success;
+	return BadLength;
     }
 
     dev = LookupDeviceIntRec(stuff->deviceid);
     if (dev == NULL) {
-	SendErrorToClient(client, IReqCode, X_SendExtensionEvent, 0, BadDevice);
-	return Success;
+	return BadDevice;
     }
 
     /*
@@ -156,8 +154,7 @@ ProcXSendExtensionEvent(register ClientPtr client)
     if (!((EXTENSION_EVENT_BASE <= first->u.u.type) &&
 	  (first->u.u.type < lastEvent))) {
 	client->errorValue = first->u.u.type;
-	SendErrorToClient(client, IReqCode, X_SendExtensionEvent, 0, BadValue);
-	return Success;
+	return BadValue;
     }
 
     list = (XEventClass *) (first + stuff->num_events);
@@ -169,8 +166,5 @@ ProcXSendExtensionEvent(register ClientPtr client)
 		     stuff->propagate, (xEvent *) & stuff[1],
 		     tmp[stuff->deviceid].mask, stuff->num_events));
 
-    if (ret != Success)
-	SendErrorToClient(client, IReqCode, X_SendExtensionEvent, 0, ret);
-
-    return Success;
+    return ret;
 }
