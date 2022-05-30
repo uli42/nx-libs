@@ -247,7 +247,7 @@ OpenInputDevice(DeviceIntPtr dev, ClientPtr client, int *status)
  */
 
 int
-SetDeviceMode(register ClientPtr client, DeviceIntPtr dev, int mode)
+SetDeviceMode(ClientPtr client, DeviceIntPtr dev, int mode)
 {
     return BadMatch;
 }
@@ -265,7 +265,7 @@ SetDeviceMode(register ClientPtr client, DeviceIntPtr dev, int mode)
  */
 
 int
-SetDeviceValuators(register ClientPtr client, DeviceIntPtr dev,
+SetDeviceValuators(ClientPtr client, DeviceIntPtr dev,
 		   int *valuators, int first_valuator, int num_valuators)
 {
     return BadMatch;
@@ -280,7 +280,7 @@ SetDeviceValuators(register ClientPtr client, DeviceIntPtr dev,
  */
 
 int
-ChangeDeviceControl(register ClientPtr client, DeviceIntPtr dev,
+ChangeDeviceControl(ClientPtr client, DeviceIntPtr dev,
 		    xDeviceCtl * control)
 {
     switch (control->control) {

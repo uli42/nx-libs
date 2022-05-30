@@ -79,7 +79,7 @@ extern Mask ExtValidMasks[];
  */
 
 int
-SProcXSelectExtensionEvent(register ClientPtr client)
+SProcXSelectExtensionEvent(ClientPtr client)
 {
     REQUEST(xSelectExtensionEventReq);
     swaps(&stuff->length);
@@ -100,7 +100,7 @@ SProcXSelectExtensionEvent(register ClientPtr client)
  */
 
 int
-ProcXSelectExtensionEvent(register ClientPtr client)
+ProcXSelectExtensionEvent(ClientPtr client)
 {
     int ret;
     int i;
