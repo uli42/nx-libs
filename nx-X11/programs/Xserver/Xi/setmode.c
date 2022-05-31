@@ -54,14 +54,10 @@ SOFTWARE.
 #include <dix-config.h>
 #endif
 
-#include <nx-X11/X.h>	/* for inputstr.h    */
-#include <nx-X11/Xproto.h>	/* Request macro     */
 #include "inputstr.h"	/* DeviceIntPtr      */
 #include <nx-X11/extensions/XI.h>
 #include <nx-X11/extensions/XIproto.h>
 #include "XIstubs.h"
-#include "extnsionst.h"
-#include "extinit.h"	/* LookupDeviceIntRec */
 #include "exglobals.h"
 
 #include "setmode.h"
@@ -91,6 +87,7 @@ ProcXSetDeviceMode(ClientPtr client)
 {
     DeviceIntPtr dev;
     xSetDeviceModeReply rep;
+    int rc;
 
     REQUEST(xSetDeviceModeReq);
     REQUEST_SIZE_MATCH(xSetDeviceModeReq);
@@ -100,15 +97,11 @@ ProcXSetDeviceMode(ClientPtr client)
     rep.length = 0;
     rep.sequenceNumber = client->sequence;
 
-    dev = LookupDeviceIntRec(stuff->deviceid);
-    if (dev == NULL) {
-	SendErrorToClient(client, IReqCode, X_SetDeviceMode, 0, BadDevice);
-	return Success;
-    }
-    if (dev->valuator == NULL) {
-	SendErrorToClient(client, IReqCode, X_SetDeviceMode, 0, BadMatch);
-	return Success;
-    }
+    rc = dixLookupDevice(&dev, stuff->deviceid, client, DixSetAttrAccess);
+    if (rc != Success)
+	return rc;
+    if (dev->valuator == NULL)
+	return BadMatch;
     if ((dev->grab) && !SameClient(dev->grab, client))
 	rep.status = AlreadyGrabbed;
     else
@@ -116,10 +109,8 @@ ProcXSetDeviceMode(ClientPtr client)
 
     if (rep.status == Success)
 	dev->valuator->mode = stuff->mode;
-    else if (rep.status != AlreadyGrabbed) {
-	SendErrorToClient(client, IReqCode, X_SetDeviceMode, 0, rep.status);
-	return Success;
-    }
+    else if (rep.status != AlreadyGrabbed)
+	return rep.status;
 
     WriteReplyToClient(client, sizeof(xSetDeviceModeReply), &rep);
     return Success;

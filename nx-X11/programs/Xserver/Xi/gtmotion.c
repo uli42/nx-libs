@@ -54,13 +54,9 @@ SOFTWARE.
 #include <dix-config.h>
 #endif
 
-#include <nx-X11/X.h>	/* for inputstr.h    */
-#include <nx-X11/Xproto.h>	/* Request macro     */
 #include "inputstr.h"	/* DeviceIntPtr      */
 #include <nx-X11/extensions/XI.h>
 #include <nx-X11/extensions/XIproto.h>
-#include "extnsionst.h"
-#include "extinit.h"	/* LookupDeviceIntRec */
 #include "exevents.h"
 #include "exglobals.h"
 
@@ -95,7 +91,7 @@ ProcXGetDeviceMotionEvents(ClientPtr client)
     INT32 *coords = NULL, *bufptr;
     xGetDeviceMotionEventsReply rep;
     unsigned long i;
-    int num_events, axes, size = 0, tsize;
+    int rc, num_events, axes, size = 0, tsize;
     unsigned long nEvents;
     DeviceIntPtr dev;
     TimeStamp start, stop;
@@ -105,18 +101,12 @@ ProcXGetDeviceMotionEvents(ClientPtr client)
     REQUEST(xGetDeviceMotionEventsReq);
 
     REQUEST_SIZE_MATCH(xGetDeviceMotionEventsReq);
-    dev = LookupDeviceIntRec(stuff->deviceid);
-    if (dev == NULL) {
-	SendErrorToClient(client, IReqCode, X_GetDeviceMotionEvents, 0,
-			  BadDevice);
-	return Success;
-    }
+    rc = dixLookupDevice(&dev, stuff->deviceid, client, DixReadAccess);
+    if (rc != Success)
+	return rc;
     v = dev->valuator;
-    if (v == NULL || v->numAxes == 0) {
-	SendErrorToClient(client, IReqCode, X_GetDeviceMotionEvents, 0,
-			  BadMatch);
-	return Success;
-    }
+    if (v == NULL || v->numAxes == 0)
+	return BadMatch;
     if (dev->valuator->motionHintWindow)
 	MaybeStopDeviceHint(dev, client);
     axes = v->numAxes;
@@ -141,11 +131,8 @@ ProcXGetDeviceMotionEvents(ClientPtr client)
 	size = sizeof(Time) + (axes * sizeof(INT32));
 	tsize = num_events * size;
 	coords = (INT32 *) malloc(tsize);
-	if (!coords) {
-	    SendErrorToClient(client, IReqCode, X_GetDeviceMotionEvents, 0,
-			      BadAlloc);
-	    return Success;
-	}
+	if (!coords)
+	    return BadAlloc;
 	rep.nEvents = (v->GetMotionProc) (dev, (xTimecoord *) coords,	/* XXX */
 					  start.milliseconds, stop.milliseconds,
 					  (ScreenPtr) NULL);

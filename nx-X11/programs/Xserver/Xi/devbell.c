@@ -54,13 +54,9 @@ SOFTWARE.
 #include <dix-config.h>
 #endif
 
-#include <nx-X11/X.h>	/* for inputstr.h    */
-#include <nx-X11/Xproto.h>	/* Request macro     */
 #include "inputstr.h"	/* DeviceIntPtr      */
 #include <nx-X11/extensions/XI.h>
 #include <nx-X11/extensions/XIproto.h>
-#include "extnsionst.h"
-#include "extinit.h"	/* LookupDeviceIntRec */
 #include "exglobals.h"
 
 #include "devbell.h"
@@ -92,7 +88,7 @@ ProcXDeviceBell(ClientPtr client)
     DeviceIntPtr dev;
     KbdFeedbackPtr k;
     BellFeedbackPtr b;
-    int base;
+    int rc, base;
     int newpercent;
     CARD8 class;
     void * ctrl;
@@ -101,17 +97,15 @@ ProcXDeviceBell(ClientPtr client)
     REQUEST(xDeviceBellReq);
     REQUEST_SIZE_MATCH(xDeviceBellReq);
 
-    dev = LookupDeviceIntRec(stuff->deviceid);
-    if (dev == NULL) {
+    rc = dixLookupDevice(&dev, stuff->deviceid, client, DixBellAccess);
+    if (rc != Success) {
 	client->errorValue = stuff->deviceid;
-	SendErrorToClient(client, IReqCode, X_DeviceBell, 0, BadDevice);
-	return Success;
+	return rc;
     }
 
     if (stuff->percent < -100 || stuff->percent > 100) {
 	client->errorValue = stuff->percent;
-	SendErrorToClient(client, IReqCode, X_DeviceBell, 0, BadValue);
-	return Success;
+	return BadValue;
     }
     if (stuff->feedbackclass == KbdFeedbackClass) {
 	for (k = dev->kbdfeed; k; k = k->next)
@@ -119,8 +113,7 @@ ProcXDeviceBell(ClientPtr client)
 		break;
 	if (!k) {
 	    client->errorValue = stuff->feedbackid;
-	    SendErrorToClient(client, IReqCode, X_DeviceBell, 0, BadValue);
-	    return Success;
+	    return BadValue;
 	}
 	base = k->ctrl.bell;
 	proc = k->BellProc;
@@ -132,8 +125,7 @@ ProcXDeviceBell(ClientPtr client)
 		break;
 	if (!b) {
 	    client->errorValue = stuff->feedbackid;
-	    SendErrorToClient(client, IReqCode, X_DeviceBell, 0, BadValue);
-	    return Success;
+	    return BadValue;
 	}
 	base = b->ctrl.percent;
 	proc = b->BellProc;
@@ -141,8 +133,7 @@ ProcXDeviceBell(ClientPtr client)
 	class = BellFeedbackClass;
     } else {
 	client->errorValue = stuff->feedbackclass;
-	SendErrorToClient(client, IReqCode, X_DeviceBell, 0, BadValue);
-	return Success;
+	return BadValue;
     }
     newpercent = (base * stuff->percent) / 100;
     if (stuff->percent < 0)

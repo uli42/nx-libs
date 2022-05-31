@@ -54,14 +54,10 @@ SOFTWARE.
 #include <dix-config.h>
 #endif
 
-#include <nx-X11/X.h>	/* for inputstr.h    */
-#include <nx-X11/Xproto.h>	/* Request macro     */
 #include "windowstr.h"	/* focus struct      */
 #include "inputstr.h"	/* DeviceIntPtr      */
 #include <nx-X11/extensions/XI.h>
 #include <nx-X11/extensions/XIproto.h>
-#include "extnsionst.h"
-#include "extinit.h"	/* LookupDeviceIntRec */
 #include "exglobals.h"
 
 #include "getfocus.h"
@@ -92,15 +88,16 @@ ProcXGetDeviceFocus(ClientPtr client)
     DeviceIntPtr dev;
     FocusClassPtr focus;
     xGetDeviceFocusReply rep;
+    int rc;
 
     REQUEST(xGetDeviceFocusReq);
     REQUEST_SIZE_MATCH(xGetDeviceFocusReq);
 
-    dev = LookupDeviceIntRec(stuff->deviceid);
-    if (dev == NULL || !dev->focus) {
-	SendErrorToClient(client, IReqCode, X_GetDeviceFocus, 0, BadDevice);
-	return Success;
-    }
+    rc = dixLookupDevice(&dev, stuff->deviceid, client, DixGetFocusAccess);
+    if (rc != Success)
+	return rc;
+    if (!dev->focus)
+	return BadDevice;
 
     rep.repType = X_Reply;
     rep.RepType = X_GetDeviceFocus;

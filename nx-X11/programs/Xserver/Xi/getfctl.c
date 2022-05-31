@@ -54,13 +54,9 @@ SOFTWARE.
 #include <dix-config.h>
 #endif
 
-#include <nx-X11/X.h>	/* for inputstr.h    */
-#include <nx-X11/Xproto.h>	/* Request macro     */
 #include "inputstr.h"	/* DeviceIntPtr      */
 #include <nx-X11/extensions/XI.h>
 #include <nx-X11/extensions/XIproto.h>
-#include "extnsionst.h"
-#include "extinit.h"	/* LookupDeviceIntRec */
 #include "exglobals.h"
 
 #include "getfctl.h"
@@ -281,7 +277,7 @@ SRepXGetFeedbackControl(ClientPtr client, int size,
 int
 ProcXGetFeedbackControl(ClientPtr client)
 {
-    int total_length = 0;
+    int rc, total_length = 0;
     char *buf, *savbuf;
     DeviceIntPtr dev;
     KbdFeedbackPtr k;
@@ -295,11 +291,9 @@ ProcXGetFeedbackControl(ClientPtr client)
     REQUEST(xGetFeedbackControlReq);
     REQUEST_SIZE_MATCH(xGetFeedbackControlReq);
 
-    dev = LookupDeviceIntRec(stuff->deviceid);
-    if (dev == NULL) {
-	SendErrorToClient(client, IReqCode, X_GetFeedbackControl, 0, BadDevice);
-	return Success;
-    }
+    rc = dixLookupDevice(&dev, stuff->deviceid, client, DixGetAttrAccess);
+    if (rc != Success)
+	return rc;
 
     rep.repType = X_Reply;
     rep.RepType = X_GetFeedbackControl;
@@ -333,16 +327,12 @@ ProcXGetFeedbackControl(ClientPtr client)
 	total_length += sizeof(xBellFeedbackState);
     }
 
-    if (total_length == 0) {
-	SendErrorToClient(client, IReqCode, X_GetFeedbackControl, 0, BadMatch);
-	return Success;
-    }
+    if (total_length == 0)
+	return BadMatch;
 
     buf = (char *)malloc(total_length);
-    if (!buf) {
-	SendErrorToClient(client, IReqCode, X_GetFeedbackControl, 0, BadAlloc);
-	return Success;
-    }
+    if (!buf)
+	return BadAlloc;
     savbuf = buf;
 
     for (k = dev->kbdfeed; k; k = k->next)

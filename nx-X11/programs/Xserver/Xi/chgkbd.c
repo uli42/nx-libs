@@ -54,15 +54,11 @@ SOFTWARE.
 #include <dix-config.h>
 #endif
 
-#include <nx-X11/X.h>	/* for inputstr.h    */
-#include <nx-X11/Xproto.h>	/* Request macro     */
 #include "inputstr.h"	/* DeviceIntPtr      */
 #include <nx-X11/extensions/XI.h>
 #include <nx-X11/extensions/XIproto.h>
 #include "XIstubs.h"
 #include "globals.h"
-#include "extnsionst.h"
-#include "extinit.h"	/* LookupDeviceIntRec */
 
 #include "exevents.h"
 #include "exglobals.h"
@@ -98,7 +94,5 @@ ProcXChangeKeyboardDevice(ClientPtr client)
     /*REQUEST(xChangeKeyboardDeviceReq);*/
     REQUEST_SIZE_MATCH(xChangeKeyboardDeviceReq);
 
-    SendErrorToClient(client, IReqCode, X_ChangeKeyboardDevice, 0,
-                      BadDevice);
-    return Success;
+    return BadDevice;
 }

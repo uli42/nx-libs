@@ -64,6 +64,7 @@ SOFTWARE.
 #include <nx-X11/extensions/XI.h>
 #include <nx-X11/extensions/XIproto.h>
 #include "XIstubs.h"
+#include "xace.h"
 
 /***********************************************************************
  *
@@ -152,6 +153,7 @@ AddOtherInputDevices(void)
 void
 OpenInputDevice(DeviceIntPtr dev, ClientPtr client, int *status)
 {
+    *status = XaceHook(XACE_DEVICE_ACCESS, client, dev, DixReadAccess);
 }
 
 /****************************************************************************

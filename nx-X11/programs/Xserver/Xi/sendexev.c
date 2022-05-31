@@ -55,14 +55,11 @@ SOFTWARE.
 #include <dix-config.h>
 #endif
 
-#include <nx-X11/X.h>	/* for inputstr.h    */
-#include <nx-X11/Xproto.h>	/* Request macro     */
 #include "inputstr.h"	/* DeviceIntPtr      */
 #include "windowstr.h"	/* Window            */
+#include "extnsionst.h" /* EventSwapPtr      */
 #include <nx-X11/extensions/XI.h>
 #include <nx-X11/extensions/XIproto.h>
-#include "extnsionst.h"
-#include "extinit.h"	/* LookupDeviceIntRec */
 #include "exevents.h"
 #include "exglobals.h"
 
@@ -130,47 +127,29 @@ ProcXSendExtensionEvent(ClientPtr client)
     REQUEST_AT_LEAST_SIZE(xSendExtensionEventReq);
 
     if (stuff->length != (sizeof(xSendExtensionEventReq) >> 2) + stuff->count +
-	(stuff->num_events * (sizeof(xEvent) >> 2))) {
-	SendErrorToClient(client, IReqCode, X_SendExtensionEvent, 0, BadLength);
-	return Success;
-    }
+	(stuff->num_events * (sizeof(xEvent) >> 2)))
+	return BadLength;
 
-    dev = LookupDeviceIntRec(stuff->deviceid);
-    if (dev == NULL) {
-	SendErrorToClient(client, IReqCode, X_SendExtensionEvent, 0, BadDevice);
-	return Success;
-    }
-
-    /*
-       the previous code here returned the unitialized variable ret,
-       so using Success we have defined returncode at least. FIXME:
-       Upstream works different here, we must check this!
-    */
-    if (stuff->num_events == 0)
-        /* return ret; */
-        return Success;
+    ret = dixLookupDevice(&dev, stuff->deviceid, client, DixWriteAccess);
+    if (ret != Success)
+	return ret;
 
     /* The client's event type must be one defined by an extension. */
 
     first = ((xEvent *) & stuff[1]);
     if (!((EXTENSION_EVENT_BASE <= first->u.u.type) &&
-	  (first->u.u.type < lastEvent))) {
+	  (first->u.u.type < lastEvent)))
 	client->errorValue = first->u.u.type;
-	SendErrorToClient(client, IReqCode, X_SendExtensionEvent, 0, BadValue);
-	return Success;
-    }
+	return BadValue;
 
     list = (XEventClass *) (first + stuff->num_events);
     if ((ret = CreateMaskFromList(client, list, stuff->count, tmp, dev,
 				  X_SendExtensionEvent)) != Success)
-	return Success;
+	return ret;
 
     ret = (SendEvent(client, dev, stuff->destination,
 		     stuff->propagate, (xEvent *) & stuff[1],
 		     tmp[stuff->deviceid].mask, stuff->num_events));
 
-    if (ret != Success)
-	SendErrorToClient(client, IReqCode, X_SendExtensionEvent, 0, ret);
-
-    return Success;
+    return ret;
 }

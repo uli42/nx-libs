@@ -56,8 +56,6 @@ SOFTWARE.
 #include <dix-config.h>
 #endif
 
-#include <nx-X11/X.h>
-#include <nx-X11/Xproto.h>
 #include "inputstr.h"
 #include "gcstruct.h"	/* pointer for extnsionst.h */
 #include "extnsionst.h"	/* extension entry   */
@@ -289,9 +287,7 @@ ProcIDispatch(ClientPtr client)
 	return (ProcXGetDeviceControl(client));
     else if (stuff->data == X_ChangeDeviceControl)
 	return (ProcXChangeDeviceControl(client));
-    else {
-	SendErrorToClient(client, IReqCode, stuff->data, 0, BadRequest);
-    }
+
     return (BadRequest);
 }
 
@@ -378,9 +374,7 @@ SProcIDispatch(ClientPtr client)
 	return (SProcXGetDeviceControl(client));
     else if (stuff->data == X_ChangeDeviceControl)
 	return (SProcXChangeDeviceControl(client));
-    else {
-	SendErrorToClient(client, IReqCode, stuff->data, 0, BadRequest);
-    }
+
     return (BadRequest);
 }
 
@@ -848,29 +842,6 @@ MakeDeviceTypeAtoms(void)
 	    MakeAtom(dev_type[i].name, strlen(dev_type[i].name), 1);
 }
 
-/**************************************************************************
- * Return a DeviceIntPtr corresponding to a specified device id.
- *
- */
-
-DeviceIntPtr
-LookupDeviceIntRec(CARD8 id)
-{
-    DeviceIntPtr dev;
-
-    for (dev = inputInfo.devices; dev; dev = dev->next) {
-	if (dev->id == id)
-	    return dev;
-    }
-
-    for (dev = inputInfo.off_devices; dev; dev = dev->next) {
-	if (dev->id == id)
-	    return dev;
-    }
-
-    return NULL;
-}
-
 /*****************************************************************************
  *
  *	SEventIDispatch
@@ -951,6 +922,7 @@ XInputExtensionInit(void)
 	AllExtensionVersions[IReqCode - 128] = thisversion;
 	MakeDeviceTypeAtoms();
 	RT_INPUTCLIENT = CreateNewResourceType((DeleteType) InputClientGone);
+	RegisterResourceName(RT_INPUTCLIENT, "INPUTCLIENT");
 	FixExtensionEvents(extEntry);
 	ReplySwapVector[IReqCode] = (ReplySwapPtr) SReplyIDispatch;
 	EventSwapVector[DeviceValuator] = SEventIDispatch;

@@ -54,15 +54,11 @@ SOFTWARE.
 #include <dix-config.h>
 #endif
 
-#include <nx-X11/X.h>	/* for inputstr.h    */
-#include <nx-X11/Xproto.h>	/* Request macro     */
 #include "inputstr.h"	/* DeviceIntPtr      */
 #include <nx-X11/extensions/XI.h>
 #include <nx-X11/extensions/XIproto.h>
 #include "XIstubs.h"
 #include "windowstr.h"	/* window structure  */
-#include "extnsionst.h"
-#include "extinit.h"	/* LookupDeviceIntRec */
 #include "exglobals.h"
 
 #include "opendev.h"
@@ -103,28 +99,23 @@ ProcXOpenDevice(ClientPtr client)
     REQUEST_SIZE_MATCH(xOpenDeviceReq);
 
     if (stuff->deviceid == inputInfo.pointer->id ||
-	stuff->deviceid == inputInfo.keyboard->id) {
-	SendErrorToClient(client, IReqCode, X_OpenDevice, 0, BadDevice);
-	return Success;
-    }
+	stuff->deviceid == inputInfo.keyboard->id)
+	return BadDevice;
 
-    if ((dev = LookupDeviceIntRec(stuff->deviceid)) == NULL) {	/* not open */
+    status = dixLookupDevice(&dev, stuff->deviceid, client, DixUseAccess);
+    if (status == BadDevice) {  /* not open */
 	for (dev = inputInfo.off_devices; dev; dev = dev->next)
 	    if (dev->id == stuff->deviceid)
 		break;
-	if (dev == NULL) {
-	    SendErrorToClient(client, IReqCode, X_OpenDevice, 0, BadDevice);
-	    return Success;
-	}
-    }
+	if (dev == NULL)
+	    return BadDevice;
+    } else if (status != Success)
+	return status;
 
     OpenInputDevice(dev, client, &status);
-    if (status != Success) {
-	SendErrorToClient(client, IReqCode, X_OpenDevice, 0, status);
-	return Success;
-    }
+    if (status != Success)
+	return status;
 
-    memset(&rep, 0, sizeof(xOpenDeviceReply));
     rep.repType = X_Reply;
     rep.RepType = X_OpenDevice;
     rep.sequenceNumber = client->sequence;
@@ -158,7 +149,7 @@ ProcXOpenDevice(ClientPtr client)
     rep.length = (j * sizeof(xInputClassInfo) + 3) >> 2;
     rep.num_classes = j;
     WriteReplyToClient(client, sizeof(xOpenDeviceReply), &rep);
-    WriteToClient(client, j * sizeof(xInputClassInfo), evbase);
+    WriteToClient(client, j * sizeof(xInputClassInfo), (char *)evbase);
     return (Success);
 }
 

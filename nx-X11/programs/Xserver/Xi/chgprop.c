@@ -54,14 +54,10 @@ SOFTWARE.
 #include <dix-config.h>
 #endif
 
-#include <nx-X11/X.h>	/* for inputstr.h    */
-#include <nx-X11/Xproto.h>	/* Request macro     */
 #include "inputstr.h"	/* DeviceIntPtr      */
 #include "windowstr.h"
 #include <nx-X11/extensions/XI.h>
 #include <nx-X11/extensions/XIproto.h>
-#include "extnsionst.h"
-#include "extinit.h"	/* LookupDeviceIntRec */
 
 #include "exevents.h"
 #include "exglobals.h"
@@ -98,7 +94,7 @@ SProcXChangeDeviceDontPropagateList(ClientPtr client)
 int
 ProcXChangeDeviceDontPropagateList(ClientPtr client)
 {
-    int i;
+    int i, rc;
     WindowPtr pWin;
     struct tmask tmp[EMASKSIZE];
     OtherInputMasks *others;
@@ -107,31 +103,22 @@ ProcXChangeDeviceDontPropagateList(ClientPtr client)
     REQUEST_AT_LEAST_SIZE(xChangeDeviceDontPropagateListReq);
 
     if (stuff->length != (sizeof(xChangeDeviceDontPropagateListReq) >> 2) +
-	stuff->count) {
-	SendErrorToClient(client, IReqCode, X_ChangeDeviceDontPropagateList, 0,
-			  BadLength);
-	return Success;
-    }
+	stuff->count)
+	return BadLength;
 
-    pWin = (WindowPtr) LookupWindow(stuff->window, client);
-    if (!pWin) {
-	client->errorValue = stuff->window;
-	SendErrorToClient(client, IReqCode, X_ChangeDeviceDontPropagateList, 0,
-			  BadWindow);
-	return Success;
-    }
+    rc = dixLookupWindow(&pWin, stuff->window, client, DixSetAttrAccess);
+    if (rc != Success)
+	return rc;
 
     if (stuff->mode != AddToList && stuff->mode != DeleteFromList) {
 	client->errorValue = stuff->window;
-	SendErrorToClient(client, IReqCode, X_ChangeDeviceDontPropagateList, 0,
-			  BadMode);
-	return Success;
+	return BadMode;
     }
 
-    if (CreateMaskFromList(client, (XEventClass *) & stuff[1],
+    if ((rc = CreateMaskFromList(client, (XEventClass *) & stuff[1],
 			   stuff->count, tmp, NULL,
-			   X_ChangeDeviceDontPropagateList) != Success)
-	return Success;
+				 X_ChangeDeviceDontPropagateList)) != Success)
+	return rc;
 
     others = wOtherInputMasks(pWin);
     if (!others && stuff->mode == DeleteFromList)
@@ -146,11 +133,8 @@ ProcXChangeDeviceDontPropagateList(ClientPtr client)
 	    tmp[i].mask |= others->dontPropagateMask[i];
 
 	if (DeviceEventSuppressForWindow(pWin, client, tmp[i].mask, i) !=
-	    Success) {
-	    SendErrorToClient(client, IReqCode,
-			      X_ChangeDeviceDontPropagateList, 0, BadClass);
-	    return Success;
-	}
+	    Success)
+	    return BadClass;
     }
 
     return Success;

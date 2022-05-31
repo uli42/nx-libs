@@ -54,14 +54,10 @@ SOFTWARE.
 #include <dix-config.h>
 #endif
 
-#include <nx-X11/X.h>	/* for inputstr.h    */
-#include <nx-X11/Xproto.h>	/* Request macro     */
 #include "inputstr.h"	/* DeviceIntPtr      */
 #include <nx-X11/extensions/XI.h>
 #include <nx-X11/extensions/XIproto.h>
 
-#include "extnsionst.h"
-#include "extinit.h"	/* LookupDeviceIntRec */
 #include "exglobals.h"
 
 #include "allowev.h"
@@ -94,15 +90,14 @@ ProcXAllowDeviceEvents(ClientPtr client)
 {
     TimeStamp time;
     DeviceIntPtr thisdev;
+    int rc;
 
     REQUEST(xAllowDeviceEventsReq);
     REQUEST_SIZE_MATCH(xAllowDeviceEventsReq);
 
-    thisdev = LookupDeviceIntRec(stuff->deviceid);
-    if (thisdev == NULL) {
-	SendErrorToClient(client, IReqCode, X_AllowDeviceEvents, 0, BadDevice);
-	return Success;
-    }
+    rc = dixLookupDevice(&thisdev, stuff->deviceid, client, DixGetAttrAccess);
+    if (rc != Success)
+	return rc;
     time = ClientTimeToServerTime(stuff->time);
 
     switch (stuff->mode) {
@@ -125,9 +120,8 @@ ProcXAllowDeviceEvents(ClientPtr client)
 	AllowSome(client, time, thisdev, THAWED_BOTH);
 	break;
     default:
-	SendErrorToClient(client, IReqCode, X_AllowDeviceEvents, 0, BadValue);
 	client->errorValue = stuff->mode;
-	return Success;
+	return BadValue;
     }
     return Success;
 }

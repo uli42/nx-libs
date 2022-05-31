@@ -54,14 +54,10 @@ SOFTWARE.
 #include <dix-config.h>
 #endif
 
-#include <nx-X11/X.h>	/* for inputstr.h    */
-#include <nx-X11/Xproto.h>	/* Request macro     */
 #include <nx-X11/extensions/XI.h>
 #include <nx-X11/extensions/XIproto.h>
 #include "inputstr.h"	/* DeviceIntPtr      */
 #include "windowstr.h"	/* window struct     */
-#include "extnsionst.h"
-#include "extinit.h"	/* LookupDeviceIntRec */
 #include "exglobals.h"
 #include "swaprep.h"
 
@@ -94,8 +90,7 @@ SProcXGetSelectedExtensionEvents(ClientPtr client)
 int
 ProcXGetSelectedExtensionEvents(ClientPtr client)
 {
-    int i;
-    int total_length = 0;
+    int i, rc, total_length = 0;
     xGetSelectedExtensionEventsReply rep;
     WindowPtr pWin;
     XEventClass *buf = NULL;
@@ -114,11 +109,9 @@ ProcXGetSelectedExtensionEvents(ClientPtr client)
     rep.this_client_count = 0;
     rep.all_clients_count = 0;
 
-    if (!(pWin = LookupWindow(stuff->window, client))) {
-	SendErrorToClient(client, IReqCode, X_GetSelectedExtensionEvents, 0,
-			  BadWindow);
-	return Success;
-    }
+    rc = dixLookupWindow(&pWin, stuff->window, client, DixGetAttrAccess);
+    if (rc != Success)
+	return rc;
 
     if ((pOthers = wOtherInputMasks(pWin)) != 0) {
 	for (others = pOthers->inputClients; others; others = others->next)
