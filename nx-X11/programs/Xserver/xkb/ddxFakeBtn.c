@@ -45,7 +45,7 @@ xEvent	ev;
 int	x,y;
 DevicePtr ptr;
 
-    if ((ptr = LookupPointerDevice())==NULL)
+    if ((ptr = (DevicePtr)inputInfo.pointer)==NULL)
 	return;
     GetSpritePosition(&x,&y);
     ev.u.u.type = event;

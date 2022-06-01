@@ -45,7 +45,6 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #include "inputstr.h"
 #include "opaque.h"
 #include "property.h"
-#include "scrnintstr.h"
 #include <xkbsrv.h>
 #include "xkbgeom.h"
 #include <nx-X11/extensions/XKMformat.h>
@@ -71,7 +70,7 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
 typedef struct	_SrvXkmInfo {
 	DeviceIntPtr	dev;
 	FILE *		file;
-	XkbFileInfo	xkbinfo;
+	XkbDescPtr	xkb;
 } SrvXkmInfo;
 
 
@@ -108,7 +107,6 @@ typedef struct	_SrvXkmInfo {
 char	*		XkbBaseDirectory=	XKB_BASE_DIRECTORY;
 char	*		XkbBinDirectory=	XKB_BIN_DIRECTORY;
 static int	 	XkbWantAccessX=		0;	
-static XkbFileInfo *	_XkbInitFileInfo=	NULL;
 
 static Bool		rulesDefined=		False;
 static char *		XkbRulesFile=		NULL;
@@ -121,6 +119,8 @@ static char *		XkbModelUsed=	NULL;
 static char *		XkbLayoutUsed=	NULL;
 static char *		XkbVariantUsed=	NULL;
 static char *		XkbOptionsUsed=	NULL;
+
+static XkbDescPtr       xkb_cached_map = NULL;
 
 Bool		noXkbExtension=		XKB_DFLT_DISABLED;
 static Bool		XkbWantRulesProp=	XKB_DFLT_RULES_PROP;
@@ -204,8 +204,8 @@ char *			pval;
 	ErrorF("Internal Error! bad size (%d!=%d) for _XKB_RULES_NAMES\n",
 								out,len);
     }
-    ChangeWindowProperty(screenInfo.screens[0]->root,name,XA_STRING,8,PropModeReplace,
-							len,pval,True);
+    dixChangeWindowProperty(serverClient, screenInfo.screens[0]->root, name, XA_STRING, 8,
+			    PropModeReplace, len, pval, True);
     free(pval);
     return True;
 }
@@ -286,10 +286,11 @@ XkbSetRulesDflts(char *rulesFile,char *model,char *layout,
 #include "xkbDflts.h"
 
 static Bool
-XkbInitKeyTypes(XkbDescPtr xkb,SrvXkmInfo *file)
+XkbInitKeyTypes(XkbDescPtr xkb)
 {
-    if (file->xkbinfo.defined&XkmTypesMask)
+    if (xkb->defined & XkmTypesMask)
 	return True;
+
     initTypeNames(NULL);
     if (XkbAllocClientMap(xkb,XkbKeyTypesMask,num_dflt_types)!=Success)
 	return False;
@@ -302,7 +303,7 @@ XkbInitKeyTypes(XkbDescPtr xkb,SrvXkmInfo *file)
 }
 
 static void
-XkbInitRadioGroups(XkbSrvInfoPtr xkbi,SrvXkmInfo *file)
+XkbInitRadioGroups(XkbSrvInfoPtr xkbi)
 {
     xkbi->nRadioGroups = 0;
     xkbi->radioGroups = NULL;
@@ -311,13 +312,14 @@ XkbInitRadioGroups(XkbSrvInfoPtr xkbi,SrvXkmInfo *file)
 
 
 static Status
-XkbInitCompatStructs(XkbDescPtr xkb,SrvXkmInfo *file)
+XkbInitCompatStructs(XkbDescPtr xkb)
 {
 register int 	i;
 XkbCompatMapPtr	compat;
 
-    if (file->xkbinfo.defined&XkmCompatMapMask)
-	return Success;
+    if (xkb->defined & XkmCompatMapMask)
+        return True;
+
     if (XkbAllocCompatMap(xkb,XkbAllCompatMask,num_dfltSI)!=Success)
 	return BadAlloc;
     compat = xkb->compat;
@@ -338,17 +340,17 @@ XkbCompatMapPtr	compat;
 }
 
 static void
-XkbInitSemantics(XkbDescPtr xkb,SrvXkmInfo *file)
+XkbInitSemantics(XkbDescPtr xkb)
 {
-    XkbInitKeyTypes(xkb,file);
-    XkbInitCompatStructs(xkb,file);
+    XkbInitKeyTypes(xkb);
+    XkbInitCompatStructs(xkb);
     return;
 }
 
 /***====================================================================***/
 
 static Status
-XkbInitNames(XkbSrvInfoPtr xkbi,SrvXkmInfo *file)
+XkbInitNames(XkbSrvInfoPtr xkbi)
 {
 XkbDescPtr	xkb;
 XkbNamesPtr	names;
@@ -366,7 +368,7 @@ Atom		unknown;
     if (names->symbols==None)		names->symbols= unknown;
     if (names->types==None)		names->types= unknown;
     if (names->compat==None)		names->compat= unknown;
-    if ((file->xkbinfo.defined&XkmVirtualModsMask)==0) {
+    if (!(xkb->defined & XkmVirtualModsMask)) {
 	if (names->vmods[vmod_NumLock]==None)
 	    names->vmods[vmod_NumLock]= CREATE_ATOM("NumLock");
 	if (names->vmods[vmod_Alt]==None)
@@ -375,8 +377,8 @@ Atom		unknown;
 	    names->vmods[vmod_AltGr]= CREATE_ATOM("ModeSwitch");
     }
 
-    if (((file->xkbinfo.defined&XkmIndicatorsMask)==0)||
-	((file->xkbinfo.defined&XkmGeometryMask)==0)) {
+    if (!(xkb->defined & XkmIndicatorsMask) ||
+        !(xkb->defined & XkmGeometryMask)) {
 	initIndicatorNames(NULL,xkb);
 	if (names->indicators[LED_CAPS-1]==None)
 	    names->indicators[LED_CAPS-1] = CREATE_ATOM("Caps Lock");
@@ -389,14 +391,16 @@ Atom		unknown;
 	    names->indicators[LED_COMPOSE-1] = CREATE_ATOM("Compose");
 #endif
     }
+
     if (xkb->geom!=NULL)
 	 names->geometry= xkb->geom->name;
     else names->geometry= unknown;
+
     return Success;
 }
 
 static Status
-XkbInitIndicatorMap(XkbSrvInfoPtr xkbi,SrvXkmInfo *file)
+XkbInitIndicatorMap(XkbSrvInfoPtr xkbi)
 {
 XkbDescPtr		xkb;
 XkbIndicatorPtr		map;
@@ -405,7 +409,8 @@ XkbSrvLedInfoPtr	sli;
     xkb= xkbi->desc;
     if (XkbAllocIndicatorMaps(xkb)!=Success)
 	return BadAlloc;
-    if ((file->xkbinfo.defined&XkmIndicatorsMask)==0) {
+
+    if (!(xkb->defined & XkmIndicatorsMask)) {
 	map= xkb->indicators;
 	map->phys_indicators = PHYS_LEDS;
 	map->maps[LED_CAPS-1].flags= XkbIM_NoExplicit;
@@ -419,21 +424,21 @@ XkbSrvLedInfoPtr	sli;
 	map->maps[LED_NUM-1].mods.real_mods= 0;
 	map->maps[LED_NUM-1].mods.vmods= vmod_NumLockMask;
 
-/* Metro Link */
 	map->maps[LED_SCROLL-1].flags= XkbIM_NoExplicit;
 	map->maps[LED_SCROLL-1].which_mods= XkbIM_UseLocked;
 	map->maps[LED_SCROLL-1].mods.mask= Mod3Mask;
 	map->maps[LED_SCROLL-1].mods.real_mods= Mod3Mask;
-/* Metro Link */
     }
+
     sli= XkbFindSrvLedInfo(xkbi->device,XkbDfltXIClass,XkbDfltXIId,0);
     if (sli)
 	XkbCheckIndicatorMaps(xkbi->device,sli,XkbAllIndicatorsMask);
+
     return Success;
 }
 
 static Status
-XkbInitControls(DeviceIntPtr pXDev,XkbSrvInfoPtr xkbi,SrvXkmInfo *file)
+XkbInitControls(DeviceIntPtr pXDev,XkbSrvInfoPtr xkbi)
 {
 XkbDescPtr	xkb;
 XkbControlsPtr	ctrls;
@@ -443,7 +448,7 @@ XkbControlsPtr	ctrls;
     if (XkbAllocControls(xkb,XkbAllControlsMask)!=Success)
 	FatalError("Couldn't allocate keyboard controls\n");
     ctrls= xkb->ctrls;
-    if ((file->xkbinfo.defined&XkmSymbolsMask)==0)
+    if (!(xkb->defined & XkmSymbolsMask))
 	ctrls->num_groups = 1;
     ctrls->groups_wrap = XkbSetGroupInfo(1,XkbWrapIntoRange,0);
     ctrls->internal.mask = 0;
@@ -467,21 +472,17 @@ XkbInitDevice(DeviceIntPtr pXDev)
 int			i;
 XkbSrvInfoPtr		xkbi;
 XkbChangesRec		changes;
-SrvXkmInfo		file;
 unsigned		check;
 XkbEventCauseRec	cause;
 
-    file.dev= pXDev;
-    file.file=NULL;
-    bzero(&file.xkbinfo,sizeof(XkbFileInfo));
     bzero(&changes,sizeof(XkbChangesRec));
     pXDev->key->xkbInfo= xkbi= _XkbTypedCalloc(1,XkbSrvInfoRec);
     if ( xkbi ) {
 	XkbDescPtr	xkb;
-	if ((_XkbInitFileInfo!=NULL)&&(_XkbInitFileInfo->xkb!=NULL)) {
-	    file.xkbinfo= *_XkbInitFileInfo;
-	    xkbi->desc= _XkbInitFileInfo->xkb;
-	    _XkbInitFileInfo= NULL;
+
+        if (xkb_cached_map) {
+            xkbi->desc = xkb_cached_map;
+            xkb_cached_map = NULL;
 	}
 	else {
 	    xkbi->desc= XkbAllocKeyboard();
@@ -512,30 +513,32 @@ XkbEventCauseRec	cause;
 	xkbi->dfltPtrDelta=1;
 	xkbi->device = pXDev;
 
-	file.xkbinfo.xkb= xkb;
-	XkbInitSemantics(xkb,&file);
-	XkbInitNames(xkbi,&file);
-	XkbInitRadioGroups(xkbi,&file);
+	XkbInitSemantics(xkb);
+	XkbInitNames(xkbi);
+	XkbInitRadioGroups(xkbi);
 
 	/* 12/31/94 (ef) -- XXX! Should check if state loaded from file */
 	bzero(&xkbi->state,sizeof(XkbStateRec));
 
-	XkbInitControls(pXDev,xkbi,&file);
+	XkbInitControls(pXDev,xkbi);
 
-	if (file.xkbinfo.defined&XkmSymbolsMask)
-	   memcpy(pXDev->key->modifierMap,xkb->map->modmap,xkb->max_key_code+1);
+        if (xkb->defined & XkmSymbolsMask)
+            memcpy(pXDev->key->modifierMap, xkb->map->modmap,
+                   xkb->max_key_code + 1);
 	else
-	   memcpy(xkb->map->modmap,pXDev->key->modifierMap,xkb->max_key_code+1);
+            memcpy(xkb->map->modmap, pXDev->key->modifierMap,
+                   xkb->max_key_code + 1);
 
-	XkbInitIndicatorMap(xkbi,&file);
+	XkbInitIndicatorMap(xkbi);
 
-	if (!(file.xkbinfo.defined&XkmSymbolsMask)) {
-	    XkbUpdateKeyTypesFromCore(pXDev,xkb->min_key_code,XkbNumKeys(xkb),
-								&changes);
-	}
-	else {
+	XkbDDXInitDevice(pXDev);
+
+        if (xkb->defined & XkmSymbolsMask)
 	    XkbUpdateCoreDescription(pXDev,True);
-	}
+        else
+            XkbUpdateKeyTypesFromCore(pXDev, xkb->min_key_code,
+                                      XkbNumKeys(xkb), &changes);
+
 	XkbSetCauseUnknown(&cause);
 	XkbUpdateActions(pXDev,xkb->min_key_code, XkbNumKeys(xkb),&changes,
 								&check,&cause);
@@ -547,8 +550,6 @@ XkbEventCauseRec	cause;
 	pXDev->key->curKeySyms.minKeyCode = xkb->min_key_code;
 	pXDev->key->curKeySyms.maxKeyCode = xkb->max_key_code;
     }
-    if (file.file!=NULL)
-	fclose(file.file);
     return;
 }
 
@@ -572,12 +573,12 @@ XkbInitKeyboardDeviceStruct(
         DeviceIntPtr /*device*/,
         KeybdCtrl * /*ctrl*/))
 {
-XkbFileInfo		finfo;
 KeySymsRec		tmpSyms,*pSyms;
 CARD8			tmpMods[XkbMaxLegalKeyCode+1],*pMods;
 char			name[PATH_MAX],*rules;
 Bool			ok=False;
 XkbRF_VarDefsRec	defs;
+XkbDescPtr              xkb;
 
     if ((dev->key!=NULL)||(dev->kbdfeed!=NULL))
 	return False;
@@ -592,7 +593,7 @@ XkbRF_VarDefsRec	defs;
      * generation. Eventually they will be freed at the end of this
      * function.
      */
-    if (names->keymap) names->keymap = Xstrdup(names->keymap);
+    names->keymap = NULL;
     if (names->keycodes) names->keycodes = Xstrdup(names->keycodes);
     if (names->types) names->types = Xstrdup(names->types);
     if (names->compat) names->compat = Xstrdup(names->compat);
@@ -603,11 +604,6 @@ XkbRF_VarDefsRec	defs;
 	XkbComponentNamesRec	rNames;
 	bzero(&rNames,sizeof(XkbComponentNamesRec));
 	if (XkbDDXNamesFromRules(dev,rules,&defs,&rNames)) {
-	    if (rNames.keymap) {
-		if (!names->keymap)
-		    names->keymap = rNames.keymap;
-		else _XkbFree(rNames.keymap);
-	    }
 	    if (rNames.keycodes) {
 		if (!names->keycodes)
 		    names->keycodes =  rNames.keycodes;
@@ -638,22 +634,12 @@ XkbRF_VarDefsRec	defs;
 	}
     }
 
-    if (names->keymap) {
-        XkbComponentNamesRec	tmpNames;
-	bzero(&tmpNames,sizeof(XkbComponentNamesRec));
-	tmpNames.keymap = names->keymap;
-        ok = (Bool) XkbDDXLoadKeymapByNames(dev,&tmpNames,XkmAllIndicesMask,0,
-					    &finfo,name,PATH_MAX);
-    }
-    if (!(ok && (finfo.xkb!=NULL)))
         ok = (Bool) XkbDDXLoadKeymapByNames(dev,names,XkmAllIndicesMask,0,
-					    &finfo,name,PATH_MAX);
+                                        &xkb,name,PATH_MAX);
 
-    if (ok && (finfo.xkb!=NULL)) {
-	XkbDescPtr	xkb;
+    if (ok && (xkb!=NULL)) {
 	KeyCode		minKC,maxKC;
 
-	xkb= finfo.xkb;
 	minKC= xkb->min_key_code;
 	maxKC= xkb->max_key_code;
 	if (XkbIsLegalKeycode(minKC)&&XkbIsLegalKeycode(maxKC)&&(minKC<=maxKC)&&
@@ -683,20 +669,20 @@ XkbRF_VarDefsRec	defs;
 		pMods= tmpMods;
 	    }
 	}
-	_XkbInitFileInfo= &finfo;
+        /* Store the map here so we can pick it back up in XkbInitDevice.
+         * Sigh. */
+        xkb_cached_map = xkb;
     }
     else {
 	LogMessage(X_WARNING, "Couldn't load XKB keymap, falling back to pre-XKB keymap\n");
     }
     ok= InitKeyboardDeviceStruct((DevicePtr)dev,pSyms,pMods,bellProc,ctrlProc);
-    _XkbInitFileInfo= NULL;
+    xkb_cached_map = NULL;
     if ((pSyms==&tmpSyms)&&(pSyms->map!=NULL)) {
 	_XkbFree(pSyms->map);
 	pSyms->map= NULL;
     }
 
-    if (names->keymap) _XkbFree(names->keymap);
-    names->keymap = NULL;
     if (names->keycodes) _XkbFree(names->keycodes);
     names->keycodes = NULL;
     if (names->types) _XkbFree(names->types);

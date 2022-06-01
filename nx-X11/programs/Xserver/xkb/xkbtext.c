@@ -67,19 +67,18 @@ char *rtrn;
 /***====================================================================***/
 
 char *
-XkbAtomText(Display *dpy,Atom atm,unsigned format)
+XkbAtomText(Atom atm,unsigned format)
 {
-const char	*atmstr;
 char	*rtrn,*tmp;
 
-    atmstr= NameForAtom(atm);
-    if (atmstr!=NULL) {
+    tmp= XkbAtomGetString(atm);
+    if (tmp!=NULL) {
 	int	len;
-	len= strlen(atmstr)+1;
+	len= strlen(tmp)+1;
 	if (len>BUFFER_SIZE)
 	    len= BUFFER_SIZE-2;
 	rtrn= tbGetBuffer(len);
-	strncpy(rtrn,atmstr,len);
+	strncpy(rtrn,tmp,len);
 	rtrn[len]= '\0';
     }
     else {
@@ -100,12 +99,11 @@ char	*rtrn,*tmp;
 /***====================================================================***/
 
 char *
-XkbVModIndexText(Display *dpy,XkbDescPtr xkb,unsigned ndx,unsigned format)
+XkbVModIndexText(XkbDescPtr xkb,unsigned ndx,unsigned format)
 {
 register int len;
 register Atom *vmodNames;
-char *rtrn;
-const char *tmp;
+char *rtrn,*tmp;
 char  numBuf[20];
 
     if (xkb && xkb->names)
@@ -116,11 +114,9 @@ char  numBuf[20];
     if (ndx>=XkbNumVirtualMods)
 	 tmp= "illegal";
     else if (vmodNames&&(vmodNames[ndx]!=None))
-        tmp= NameForAtom(vmodNames[ndx]);
-    if (tmp==NULL) {
-	sprintf(numBuf,"%d",ndx);
-	tmp = numBuf;
-    }
+	 tmp= XkbAtomGetString(vmodNames[ndx]);
+    if (tmp==NULL)
+	sprintf(tmp=numBuf,"%d",ndx);
 
     len= strlen(tmp)+1;
     if (format==XkbCFile)
@@ -137,8 +133,7 @@ char  numBuf[20];
 }
 
 char *
-XkbVModMaskText(	Display *	dpy,
-			XkbDescPtr	xkb,
+XkbVModMaskText(        XkbDescPtr	xkb,
 			unsigned	modMask,
 			unsigned	mask,
 			unsigned	format)
@@ -165,7 +160,7 @@ char *str,buf[BUFFER_SIZE];
 	char *tmp;
 	for (i=0,bit=1;i<XkbNumVirtualMods;i++,bit<<=1) {
 	    if (mask&bit) {
-		tmp= XkbVModIndexText(dpy,xkb,i,format);
+		tmp= XkbVModIndexText(xkb,i,format);
 		len= strlen(tmp)+1+(str==buf?0:1);
 		if (format==XkbCFile)
 		    len+= 4;
@@ -669,13 +664,13 @@ register int len;
 
 /*ARGSUSED*/
 static Bool
-CopyNoActionArgs(Display *dpy,XkbDescPtr xkb,XkbAction *action,char *buf,int*sz)
+CopyNoActionArgs(XkbDescPtr xkb,XkbAction *action,char *buf,int*sz)
 {
     return True;
 }
 
 static Bool
-CopyModActionArgs(Display *dpy,XkbDescPtr xkb,XkbAction *action,char *buf,
+CopyModActionArgs(XkbDescPtr xkb,XkbAction *action,char *buf,
 								int* sz)
 {
 XkbModAction *	act;
@@ -688,7 +683,7 @@ unsigned	tmp;
 	  TryCopyStr(buf,"modMapMods",sz);
     else if (act->real_mods || tmp) {
 	 TryCopyStr(buf,
-		     XkbVModMaskText(dpy,xkb,act->real_mods,tmp,XkbXKBFile),
+		     XkbVModMaskText(xkb,act->real_mods,tmp,XkbXKBFile),
 		     sz);
     }
     else TryCopyStr(buf,"none",sz);
@@ -703,7 +698,7 @@ unsigned	tmp;
 
 /*ARGSUSED*/
 static Bool
-CopyGroupActionArgs(Display *dpy,XkbDescPtr xkb,XkbAction *action,char *buf,
+CopyGroupActionArgs(XkbDescPtr xkb,XkbAction *action,char *buf,
 								int *sz)
 {
 XkbGroupAction *	act;
@@ -728,7 +723,7 @@ char			tbuf[32];
 
 /*ARGSUSED*/
 static Bool
-CopyMovePtrArgs(Display *dpy,XkbDescPtr xkb,XkbAction *action,char *buf,int *sz)
+CopyMovePtrArgs(XkbDescPtr xkb,XkbAction *action,char *buf,int *sz)
 {
 XkbPtrAction *	act;
 int		x,y;
@@ -753,7 +748,7 @@ char		tbuf[32];
 
 /*ARGSUSED*/
 static Bool
-CopyPtrBtnArgs(Display *dpy,XkbDescPtr xkb,XkbAction *action,char *buf,int *sz)
+CopyPtrBtnArgs(XkbDescPtr xkb,XkbAction *action,char *buf,int *sz)
 {
 XkbPtrBtnAction *	act;
 char			tbuf[32];
@@ -787,7 +782,7 @@ char			tbuf[32];
 
 /*ARGSUSED*/
 static Bool
-CopySetPtrDfltArgs(Display *dpy,XkbDescPtr xkb,XkbAction *action,char *buf,
+CopySetPtrDfltArgs(XkbDescPtr xkb,XkbAction *action,char *buf,
 								int *sz)
 {
 XkbPtrDfltAction *	act;
@@ -805,7 +800,7 @@ char			tbuf[32];
 }
 
 static Bool
-CopyISOLockArgs(Display *dpy,XkbDescPtr xkb,XkbAction *action,char *buf,int *sz)
+CopyISOLockArgs(XkbDescPtr xkb,XkbAction *action,char *buf,int *sz)
 {
 XkbISOAction *	act;
 char		tbuf[64];
@@ -833,7 +828,7 @@ char		tbuf[64];
 		    TryCopyStr(buf,"+",sz);
 	    }
 	    if (tmp)
-		TryCopyStr(buf,XkbVModMaskText(dpy,xkb,0,tmp,XkbXKBFile),sz);
+		TryCopyStr(buf,XkbVModMaskText(xkb,0,tmp,XkbXKBFile),sz);
 	}
 	else TryCopyStr(buf,"none",sz);
     }
@@ -867,7 +862,7 @@ char		tbuf[64];
 
 /*ARGSUSED*/
 static Bool
-CopySwitchScreenArgs(Display *dpy,XkbDescPtr xkb,XkbAction *action,char *buf,
+CopySwitchScreenArgs(XkbDescPtr xkb,XkbAction *action,char *buf,
 								int *sz)
 {
 XkbSwitchScreenAction *	act;
@@ -886,7 +881,7 @@ char			tbuf[32];
 
 /*ARGSUSED*/
 static Bool
-CopySetLockControlsArgs(Display *dpy,XkbDescPtr xkb,XkbAction *action,
+CopySetLockControlsArgs(XkbDescPtr xkb,XkbAction *action,
 							char *buf,int *sz)
 {
 XkbCtrlsAction *	act;
@@ -973,7 +968,7 @@ char			tbuf[32];
 
 /*ARGSUSED*/
 static Bool
-CopyActionMessageArgs(Display *dpy,XkbDescPtr xkb,XkbAction *action,char *buf,
+CopyActionMessageArgs(XkbDescPtr xkb,XkbAction *action,char *buf,
 								int *sz)
 {
 XkbMessageAction *	act;
@@ -1000,7 +995,7 @@ char			tbuf[32];
 }
 
 static Bool
-CopyRedirectKeyArgs(Display *dpy,XkbDescPtr xkb,XkbAction *action,char *buf,
+CopyRedirectKeyArgs(XkbDescPtr xkb,XkbAction *action,char *buf,
 								int *sz)
 {
 XkbRedirectKeyAction *	act;
@@ -1024,19 +1019,19 @@ unsigned		vmods,vmods_mask;
 	return True;
     if ((act->mods_mask==XkbAllModifiersMask)&&
 	(vmods_mask==XkbAllVirtualModsMask)) {
-	tmp= XkbVModMaskText(dpy,xkb,act->mods,vmods,XkbXKBFile);
+	tmp= XkbVModMaskText(xkb,act->mods,vmods,XkbXKBFile);
 	TryCopyStr(buf,",mods=",sz);
 	TryCopyStr(buf,tmp,sz);
     }
     else {
 	if ((act->mods_mask&act->mods)||(vmods_mask&vmods)) {
-	    tmp= XkbVModMaskText(dpy,xkb,act->mods_mask&act->mods,
+	    tmp= XkbVModMaskText(xkb,act->mods_mask&act->mods,
 					 vmods_mask&vmods,XkbXKBFile);
 	    TryCopyStr(buf,",mods= ",sz);
 	    TryCopyStr(buf,tmp,sz);
 	}
 	if ((act->mods_mask&(~act->mods))||(vmods_mask&(~vmods))) {
-	    tmp= XkbVModMaskText(dpy,xkb,act->mods_mask&(~act->mods),
+	    tmp= XkbVModMaskText(xkb,act->mods_mask&(~act->mods),
 					 vmods_mask&(~vmods),XkbXKBFile);
 	    TryCopyStr(buf,",clearMods= ",sz);
 	    TryCopyStr(buf,tmp,sz);
@@ -1047,7 +1042,7 @@ unsigned		vmods,vmods_mask;
 
 /*ARGSUSED*/
 static Bool
-CopyDeviceBtnArgs(Display *dpy,XkbDescPtr xkb,XkbAction *action,char *buf,
+CopyDeviceBtnArgs(XkbDescPtr xkb,XkbAction *action,char *buf,
 								int *sz)
 {
 XkbDeviceBtnAction *	act;
@@ -1080,7 +1075,7 @@ char			tbuf[32];
 
 /*ARGSUSED*/
 static Bool
-CopyOtherArgs(Display *dpy,XkbDescPtr xkb,XkbAction *action,char *buf,int *sz)
+CopyOtherArgs(XkbDescPtr xkb,XkbAction *action,char *buf,int *sz)
 {
 XkbAnyAction *	act;
 char		tbuf[32];
@@ -1098,7 +1093,6 @@ char		tbuf[32];
 }
 
 typedef	Bool	(*actionCopy)(
-	Display *	/* dpy */,
 	XkbDescPtr 	/* xkb */,
 	XkbAction *	/* action */,
 	char *		/* buf */,
@@ -1130,7 +1124,7 @@ static actionCopy	copyActionArgs[XkbSA_NumActions] = {
 #define	ACTION_SZ	256
 
 char *
-XkbActionText(Display *dpy,XkbDescPtr xkb,XkbAction *action,unsigned format)
+XkbActionText(XkbDescPtr xkb,XkbAction *action,unsigned format)
 {
 char	buf[ACTION_SZ],*tmp;
 int	sz;
@@ -1147,8 +1141,8 @@ int	sz;
 	sprintf(buf,"%s(",XkbActionTypeText(action->type,XkbXKBFile));
 	sz= ACTION_SZ-strlen(buf)+2; /* room for close paren and NULL */
 	if (action->type<(unsigned)XkbSA_NumActions)
-	     (*copyActionArgs[action->type])(dpy,xkb,action,buf,&sz);
-	else CopyOtherArgs(dpy,xkb,action,buf,&sz);
+	     (*copyActionArgs[action->type])(xkb,action,buf,&sz);
+	else CopyOtherArgs(xkb,action,buf,&sz);
 	TryCopyStr(buf,")",&sz);
     }
     tmp= tbGetBuffer(strlen(buf)+1);
@@ -1177,6 +1171,7 @@ char	buf[256],*tmp;
 	}
 	else if (type==XkbKB_RadioGroup) {
 	    int 	g;
+	    char	*tmp;
 	    g= ((behavior->data)&(~XkbKB_RGAllowNone))+1;
 	    if (XkbKB_RGAllowNone&behavior->data) {
 		sprintf(buf,"allowNone,");

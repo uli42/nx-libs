@@ -35,7 +35,7 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #include <nx-X11/keysym.h>
 #include "misc.h"
 #include "inputstr.h"
-#include <xkbsrv.h>
+#include "xkbsrv.h"
 
 #include <nx-X11/extensions/XI.h>
 #include <nx-X11/extensions/XIproto.h>
@@ -70,7 +70,7 @@ Bool	xkbCares,isBtn;
 	if ((!isBtn)||((dev->button)&&(dev->button->xkb_acts))) {
 	   DeviceIntPtr	kbd;
 	   if (dev->key)	kbd= dev;
-	   else		kbd= (DeviceIntPtr)LookupKeyboardDevice();
+	   else		kbd= inputInfo.keyboard;
 	   XkbHandleActions(dev,kbd,xE,count);
 	   return;
 	}

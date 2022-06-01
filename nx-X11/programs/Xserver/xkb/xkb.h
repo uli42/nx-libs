@@ -1,3 +1,6 @@
+#ifndef _XKB_H
+#define _XKB_H
+
 extern int ProcXkbUseExtension(ClientPtr client);
 extern int ProcXkbSelectEvents(ClientPtr client);
 extern int ProcXkbBell(ClientPtr client);
@@ -33,3 +36,5 @@ extern Bool XkbCopyKeymap(
     XkbDescPtr              src,
     XkbDescPtr              dst,
     Bool                    sendNotifies);
+
+#endif

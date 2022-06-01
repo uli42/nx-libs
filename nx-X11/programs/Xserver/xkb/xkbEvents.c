@@ -801,7 +801,7 @@ Bool
 XkbFilterEvents(ClientPtr pClient,int nEvents,xEvent *xE)
 {
 int	i, button_mask;
-DeviceIntPtr pXDev = (DeviceIntPtr)LookupKeyboardDevice();
+DeviceIntPtr pXDev = inputInfo.keyboard;
 XkbSrvInfoPtr	xkbi;
 
     xkbi= pXDev->key->xkbInfo;
@@ -874,13 +874,14 @@ XkbSrvInfoPtr	xkbi;
 		((xE[i].u.u.type==KeyPress)||(xE[i].u.u.type==KeyRelease)||
                  (xE[i].u.u.type==DeviceKeyPress)||
                  (xE[i].u.u.type == DeviceKeyRelease))) {
+		XkbStatePtr s= &xkbi->state;
 		DebugF("XKbFilterWriteEvents (non-XKB):\n");
-		DebugF("event= 0x%04x\n",xE[0].u.keyButtonPointer.state);
-		DebugF("lookup= 0x%02x, grab= 0x%02x\n",xkbi->state.lookup_mods,
-							xkbi->state.grab_mods);
+		DebugF("event= 0x%04x\n",xE[i].u.keyButtonPointer.state);
+		DebugF("lookup= 0x%02x, grab= 0x%02x\n",s->lookup_mods,
+							s->grab_mods);
 		DebugF("compat lookup= 0x%02x, grab= 0x%02x\n",
-							xkbi->state.compat_lookup_mods,
-							xkbi->state.compat_grab_mods);
+							s->compat_lookup_mods,
+							s->compat_grab_mods);
 	    }
 	    if ( (type>=KeyPress)&&(type<=MotionNotify) ) {
 		CARD16	old,new;
@@ -915,9 +916,7 @@ XkbSrvInfoPtr	xkbi;
 	    } else if (type == DeviceButtonPress &&
                     ((((deviceKeyButtonPointer*)&xE[i])->state >> 7) & button_mask) == button_mask &&
                     (xkbi->lockedPtrButtons & button_mask) == button_mask) {
-#ifdef DEBUG
-		ErrorF("Faking release of button %d\n", ((deviceKeyButtonPointer*)&xE[i])->state);
-#endif
+		DebugF("Faking release of button %d\n", ((deviceKeyButtonPointer*)&xE[i])->state);
 		XkbDDXFakePointerButton(DeviceButtonRelease, ((deviceKeyButtonPointer*)&xE[i])->state);
             }
 	}

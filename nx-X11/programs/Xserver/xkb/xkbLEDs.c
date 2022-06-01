@@ -241,7 +241,7 @@ unsigned			oldState;
 
     if (dev->key && dev->key->xkbInfo)
 	 kbd= dev;
-    else kbd= (DeviceIntPtr)LookupKeyboardDevice();
+    else kbd= inputInfo.keyboard;
 
     state= &kbd->key->xkbInfo->state;
     ctrls= kbd->key->xkbInfo->desc->ctrls;
@@ -446,7 +446,7 @@ XkbIndicatorMapPtr	map;
 XkbDescPtr		xkb;
 
     if ((sli->flags&XkbSLI_HasOwnState)==0)
-	dev= (DeviceIntPtr)LookupKeyboardDevice();
+	dev= inputInfo.keyboard;
 
     sli->usesBase&=	 ~which;
     sli->usesLatched&=	 ~which;
@@ -638,9 +638,11 @@ XkbSrvLedInfoPtr	sli;
 
     /* optimization to check for most common case */
     if (((class==XkbDfltXIClass)&&(id==XkbDfltXIId))&&(dev->kbdfeed)) {
+	XkbSrvLedInfoPtr	sli;
+	sli= dev->kbdfeed->xkb_sli;
 	if (dev->kbdfeed->xkb_sli==NULL) {
-	    dev->kbdfeed->xkb_sli=
-	        XkbAllocSrvLedInfo(dev,dev->kbdfeed,NULL,needed_parts);
+	    sli= XkbAllocSrvLedInfo(dev,dev->kbdfeed,NULL,needed_parts);
+	    dev->kbdfeed->xkb_sli= sli;
 	}
 	return dev->kbdfeed->xkb_sli;
     }
@@ -731,7 +733,7 @@ xkbExtensionDeviceNotify	my_ed;
 	return;
     if (dev->key && dev->key->xkbInfo)
 	 kbd= dev;
-    else kbd= (DeviceIntPtr)LookupKeyboardDevice();
+    else kbd= inputInfo.keyboard;
 
     if (ed==NULL) {
 	ed= &my_ed;
@@ -808,7 +810,7 @@ xkbExtensionDeviceNotify	my_ed;
 	return;
     if (dev->key && dev->key->xkbInfo)
 	 kbd= dev;
-    else kbd= (DeviceIntPtr)LookupKeyboardDevice();
+    else kbd= inputInfo.keyboard;
 
     if (ed==NULL) {
 	ed= &my_ed;
@@ -869,7 +871,7 @@ Bool				kb_changed;
 	return;
     if (dev->key && dev->key->xkbInfo)
 	 kbd= dev;
-    else kbd= (DeviceIntPtr)LookupKeyboardDevice();
+    else kbd= inputInfo.keyboard;
     xkbi= kbd->key->xkbInfo;
 
     if (changes==NULL) {

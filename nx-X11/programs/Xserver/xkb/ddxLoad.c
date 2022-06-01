@@ -32,15 +32,8 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #include <xkb-config.h>
 #endif
 
-#include <errno.h>
 #include <stdio.h>
 #include <ctype.h>
-
-/* stat() */
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-
 #include <nx-X11/X.h>
 #include <nx-X11/Xos.h>
 #include <nx-X11/Xproto.h>
@@ -74,183 +67,24 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #define	POST_ERROR_MSG1 "\"Errors from xkbcomp are not fatal to the X server\""
 #define	POST_ERROR_MSG2 "\"End of messages from xkbcomp\""
 
-#if defined(WIN32)
-#define PATHSEPARATOR "\\"
-#else
 #define PATHSEPARATOR "/"
-#endif
 
-#ifdef WIN32
-
-#include <nx-X11/Xwindows.h>
-const char* 
-Win32TempDir()
-{
-    static char buffer[PATH_MAX];
-    if (GetTempPath(sizeof(buffer), buffer))
-    {
-        int len;
-        buffer[sizeof(buffer)-1] = 0;
-        len = strlen(buffer);
-        if (len > 0)
-            if (buffer[len-1] == '\\')
-                buffer[len-1] = 0;
-        return buffer;
-    }
-    if (getenv("TEMP") != NULL)
-        return getenv("TEMP");
-    else if (getenv("TMP") != NULL)
-        return getenv("TEMP");
-    else
-        return "/tmp";
-}
-
-int 
-Win32System(const char *cmdline)
-{
-    STARTUPINFO si;
-    PROCESS_INFORMATION pi;
-    DWORD dwExitCode;
-    char *cmd = xstrdup(cmdline);
-
-    ZeroMemory( &si, sizeof(si) );
-    si.cb = sizeof(si);
-    ZeroMemory( &pi, sizeof(pi) );
-
-    if (!CreateProcess(NULL, cmd, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) 
-    {
-	LPVOID buffer;
-	if (!FormatMessage( 
-		    FORMAT_MESSAGE_ALLOCATE_BUFFER | 
-		    FORMAT_MESSAGE_FROM_SYSTEM | 
-		    FORMAT_MESSAGE_IGNORE_INSERTS,
-		    NULL,
-		    GetLastError(),
-		    MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-		    (LPTSTR) &buffer,
-		    0,
-		    NULL ))
-	{
-	    ErrorF("Starting '%s' failed!\n", cmdline); 
-	}
-	else
-	{
-	    ErrorF("Starting '%s' failed: %s", cmdline, (char *)buffer); 
-	    LocalFree(buffer);
-	}
-
-	free(cmd);
-	return -1;
-    }
-    /* Wait until child process exits. */
-    WaitForSingleObject( pi.hProcess, INFINITE );
-
-    GetExitCodeProcess( pi.hProcess, &dwExitCode);
-    
-    /* Close process and thread handles. */
-    CloseHandle( pi.hProcess );
-    CloseHandle( pi.hThread );
-    free(cmd);
-
-    return dwExitCode;
-}
-#undef System
-#define System(x) Win32System(x)
-#endif
 
 static void
 OutputDirectory(
     char* outdir,
     size_t size)
 {
-#ifndef WIN32
     if (getuid() == 0 && (strlen(XKM_OUTPUT_DIR) < size))
     {
 	/* if server running as root it *may* be able to write */
 	/* FIXME: check whether directory is writable at all */
 	(void) strcpy (outdir, XKM_OUTPUT_DIR);
     } else
-#else
-    if (strlen(Win32TempDir()) + 1 < size)
-    {
-	(void) strcpy(outdir, Win32TempDir());
-	(void) strcat(outdir, "\\");
-    } else 
-#endif
     if (strlen("/tmp/") < size)
     {
 	(void) strcpy (outdir, "/tmp/");
     }
-}
-
-static Bool
-XkbDDXCompileNamedKeymap(	XkbDescPtr		xkb,
-				XkbComponentNamesPtr	names,
-				char *			nameRtrn,
-				int			nameRtrnLen)
-{
-char 	*cmd = NULL,file[PATH_MAX],xkm_output_dir[PATH_MAX],*map,*outFile;
-
-    if (names->keymap==NULL)
-	return False;
-    strncpy(file,names->keymap,PATH_MAX); file[PATH_MAX-1]= '\0';
-    if ((map= strrchr(file,'('))!=NULL) {
-	char *tmp;
-	if ((tmp= strrchr(map,')'))!=NULL) {
-	    *map++= '\0';
-	    *tmp= '\0';
-	}
-	else {
-	    map= NULL;
-	}
-    }
-    if ((outFile= strrchr(file,'/'))!=NULL)
-	 outFile= Xstrdup(&outFile[1]);
-    else outFile= Xstrdup(file);
-    XkbEnsureSafeMapName(outFile);
-    OutputDirectory(xkm_output_dir, sizeof(xkm_output_dir));
-
-    if (XkbBaseDirectory!=NULL) {
-        char *xkbbasedir = XkbBaseDirectory;
-        char *xkbbindir = XkbBinDirectory;
-
-	if (asprintf(&cmd,"\"%s" PATHSEPARATOR "xkbcomp\" -w %d \"-R%s\" -xkm %s%s -em1 %s -emp %s -eml %s keymap/%s \"%s%s.xkm\"",
-		xkbbindir,
-		((xkbDebugFlags<2)?1:((xkbDebugFlags>10)?10:(int)xkbDebugFlags)),
-		xkbbasedir,(map?"-m ":""),(map?map:""),
-		PRE_ERROR_MSG,ERROR_PREFIX,POST_ERROR_MSG1,file,
-		xkm_output_dir,outFile) == -1)
-            cmd = NULL;
-    }
-    else {
-	if (asprintf(&cmd, "xkbcomp -w %d -xkm %s%s -em1 %s -emp %s -eml %s keymap/%s \"%s%s.xkm\"",
-		((xkbDebugFlags<2)?1:((xkbDebugFlags>10)?10:(int)xkbDebugFlags)),
-		(map?"-m ":""),(map?map:""),
-		PRE_ERROR_MSG,ERROR_PREFIX,POST_ERROR_MSG1,file,
-		xkm_output_dir,outFile) == -1)
-            cmd = NULL;
-    }
-    if (xkbDebugFlags) {
-	DebugF("XkbDDXCompileNamedKeymap compiling keymap using:\n");
-	DebugF("    \"cmd\"\n");
-    }
-    if (System(cmd)==0) {
-	if (nameRtrn) {
-	    strncpy(nameRtrn,outFile,nameRtrnLen);
-	    nameRtrn[nameRtrnLen-1]= '\0';
-	}
-	if (outFile!=NULL)
-	    _XkbFree(outFile);
-        if (cmd!=NULL)
-            free(cmd);
-	return True;
-    } 
-    DebugF("Error compiling keymap (%s)\n",names->keymap);
-    if (outFile!=NULL)
-	_XkbFree(outFile);
-    if (cmd!=NULL)
-        free(cmd);
-    return False;
 }
 
 static Bool
@@ -264,9 +98,6 @@ XkbDDXCompileKeymapByNames(	XkbDescPtr		xkb,
 FILE *	out;
 char	*buf = NULL, keymap[PATH_MAX],xkm_output_dir[PATH_MAX];
 
-#ifdef WIN32
-char tmpname[PATH_MAX];
-#endif    
     if ((names->keymap==NULL)||(names->keymap[0]=='\0')) {
 	sprintf(keymap,"server-%s",display);
     }
@@ -280,20 +111,8 @@ char tmpname[PATH_MAX];
 
     XkbEnsureSafeMapName(keymap);
     OutputDirectory(xkm_output_dir, sizeof(xkm_output_dir));
-#ifdef WIN32
-    strcpy(tmpname, Win32TempDir());
-    strcat(tmpname, "\\xkb_XXXXXX");
-    (void) mktemp(tmpname);
-#endif
-
     if (XkbBaseDirectory!=NULL) {
-#ifndef WIN32
         char *xkmfile = "-";
-#else
-        /* WIN32 has no popen. The input must be stored in a file which is used as input
-           for xkbcomp. xkbcomp does not read from stdin. */
-        char *xkmfile = tmpname;
-#endif
         char *xkbbasedir = XkbBaseDirectory;
         char *xkbbindir = XkbBinDirectory;
         
@@ -307,11 +126,7 @@ char tmpname[PATH_MAX];
             buf = NULL;
     }
     else {
-#ifndef WIN32
         char *xkmfile = "-";
-#else
-        char *xkmfile = tmpname;
-#endif
 	if (asprintf(&buf,
 		"xkbcomp -w %d -xkm \"%s\" -em1 %s -emp %s -eml %s \"%s%s.xkm\"",
 		((xkbDebugFlags<2)?1:((xkbDebugFlags>10)?10:(int)xkbDebugFlags)),
@@ -321,42 +136,17 @@ char tmpname[PATH_MAX];
             buf = NULL;
     }
     
-    #ifdef TEST
-    if (buf != NULL)
-        fprintf(stderr, "XkbDDXCompileKeymapByNames: "
-                    "Executing command [%s].\n", buf);
-    else
-        fprintf(stderr, "XkbDDXCompileKeymapByNames: "
-                    "Callin Popen() with null command.\n");
-    #endif
-
-#ifndef WIN32
     out= Popen(buf,"w");
-#else
-    out= fopen(tmpname, "w");
-#endif
     
     if (out!=NULL) {
 #ifdef DEBUG
     if (xkbDebugFlags) {
        ErrorF("XkbDDXCompileKeymapByNames compiling keymap:\n");
-       XkbWriteXKBKeymapForNames(stderr,names,NULL,xkb,want,need);
+       XkbWriteXKBKeymapForNames(stderr,names,xkb,want,need);
     }
 #endif
-	XkbWriteXKBKeymapForNames(out,names,NULL,xkb,want,need);
-#ifndef WIN32
-#ifdef __sun
-        if (Pclose(out) != 0)
-        {
-            ErrorF("Warning: Spurious failure reported in Pclose() running 'xkbcomp'.\n");
-        }
-        if (1)
-#else
+	XkbWriteXKBKeymapForNames(out,names,xkb,want,need);
 	if (Pclose(out)==0)
-#endif
-#else
-	if (fclose(out)==0 && System(buf) >= 0)
-#endif
 	{
 	    if (xkbDebugFlags)
 	        DebugF("xkb executes: %s\n",buf);
@@ -370,17 +160,9 @@ char tmpname[PATH_MAX];
 	}
 	else
 	    LogMessage(X_ERROR, "Error compiling keymap (%s)\n", keymap);
-#ifdef WIN32
-        /* remove the temporary file */
-        unlink(tmpname);
-#endif
     }
     else {
-#ifndef WIN32
 	LogMessage(X_ERROR, "XKB: Could not invoke xkbcomp\n");
-#else
-	LogMessage(X_ERROR, "Could not open file %s\n", tmpname);
-#endif
     }
     if (nameRtrn)
 	nameRtrn[0]= '\0';
@@ -399,9 +181,6 @@ FILE *	file;
     if (mapName!=NULL) {
 	OutputDirectory(xkm_output_dir, sizeof(xkm_output_dir));
 	if ((XkbBaseDirectory!=NULL)&&(xkm_output_dir[0]!='/')
-#ifdef WIN32
-                &&(!isalpha(xkm_output_dir[0]) || xkm_output_dir[1]!=':')
-#endif
                 ) {
 	     if (snprintf(buf, PATH_MAX, "%s/%s%s.xkm", XkbBaseDirectory,
                            xkm_output_dir, mapName) >= PATH_MAX)
@@ -430,7 +209,7 @@ XkbDDXLoadKeymapByNames(	DeviceIntPtr		keybd,
 				XkbComponentNamesPtr	names,
 				unsigned		want,
 				unsigned		need,
-				XkbFileInfo *		finfoRtrn,
+				XkbDescPtr *		xkbRtrn,
 				char *			nameRtrn,
 				int 			nameRtrnLen)
 {
@@ -439,29 +218,17 @@ FILE	*	file;
 char		fileName[PATH_MAX];
 unsigned	missing;
 
-    bzero(finfoRtrn,sizeof(XkbFileInfo));
+    *xkbRtrn = NULL;
     if ((keybd==NULL)||(keybd->key==NULL)||(keybd->key->xkbInfo==NULL))
 	 xkb= NULL;
     else xkb= keybd->key->xkbInfo->desc;
     if ((names->keycodes==NULL)&&(names->types==NULL)&&
 	(names->compat==NULL)&&(names->symbols==NULL)&&
 	(names->geometry==NULL)) {
-	if (names->keymap==NULL) {
-	    bzero(finfoRtrn,sizeof(XkbFileInfo));
-	    if (xkb && XkbDetermineFileType(finfoRtrn,XkbXKMFile,NULL) &&
-	   				((finfoRtrn->defined&need)==need) ) {
-		finfoRtrn->xkb= xkb;
-		nameRtrn[0]= '\0';
-		return finfoRtrn->defined;
-	    }
+        LogMessage(X_ERROR, "XKB: No components provided for device %s\n",
+                   keybd->name ? keybd->name : "(unnamed keyboard)");
 	    return 0;
 	}
-	else if (!XkbDDXCompileNamedKeymap(xkb,names,nameRtrn,nameRtrnLen)) {
-            LogMessage(X_ERROR, "Couldn't compile keymap file %s\n",
-                       names->keymap);
-	    return 0;
-	}
-    }
     else if (!XkbDDXCompileKeymapByNames(xkb,names,want,need,
                                          nameRtrn,nameRtrnLen)){
 	LogMessage(X_ERROR, "XKB: Couldn't compile keymap\n");
@@ -472,15 +239,15 @@ unsigned	missing;
 	LogMessage(X_ERROR, "Couldn't open compiled keymap file %s\n",fileName);
 	return 0;
     }
-    missing= XkmReadFile(file,need,want,finfoRtrn);
-    if (finfoRtrn->xkb==NULL) {
+    missing= XkmReadFile(file,need,want,xkbRtrn);
+    if (*xkbRtrn==NULL) {
 	LogMessage(X_ERROR, "Error loading keymap %s\n",fileName);
 	fclose(file);
 	(void) unlink (fileName);
 	return 0;
     }
     else {
-	DebugF("XKB: Loaded %s, defined=0x%x\n",fileName,finfoRtrn->defined);
+	DebugF("Loaded XKB keymap %s, defined=0x%x\n",fileName,(*xkbRtrn)->defined);
     }
     fclose(file);
     (void) unlink (fileName);

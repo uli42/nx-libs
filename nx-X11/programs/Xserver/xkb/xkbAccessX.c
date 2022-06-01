@@ -35,9 +35,7 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #include <nx-X11/keysym.h>
 #include "inputstr.h"
 #include <xkbsrv.h>
-#if !defined(WIN32)
 #include <sys/time.h>
-#endif
 
 int	XkbDfltRepeatDelay=	660;
 int	XkbDfltRepeatInterval=	40;
@@ -130,7 +128,9 @@ xEvent		xE;
 	DebugF("AXKE: Key %d %s\n",keyCode,(xE.u.u.type==KeyPress?"down":"up"));
     }
 
-    if (!_XkbIsPressEvent(type) && isRepeat)
+    if (_XkbIsPressEvent(type))
+	XkbDDXKeyClick(keybd,keyCode,TRUE);
+    else if (isRepeat)
 	XkbLastRepeatEvent=	(void *)&xE;
     XkbProcessKeyboardEvent(&xE,keybd,1L);
     XkbLastRepeatEvent= NULL;
@@ -346,7 +346,9 @@ XkbControlsPtr	ctrls;
 	XkbSendAccessXNotify(keybd,&ev);
 	if (XkbAX_NeedFeedback(ctrls,XkbAX_SKAcceptFBMask))
 	    XkbDDXAccessXBeep(keybd,_BEEP_SLOW_ACCEPT,XkbSlowKeysMask);
-	AccessXKeyboardEvent(keybd,KeyPress,xkbi->slowKey,False);
+	AccessXKeyboardEvent(keybd,
+                (keybd == inputInfo.keyboard) ?  KeyPress : DeviceKeyPress,
+                xkbi->slowKey,False);
 	/* check for magic sequences */
 	if ((ctrls->enabled_ctrls&XkbAccessXKeysMask) &&
 	    ((sym[0]==XK_Shift_R)||(sym[0]==XK_Shift_L)))
@@ -524,9 +526,7 @@ KeySym *	sym = XkbKeySymsPtr(xkbi->desc,key);
 	if ((keybd->kbdfeed->ctrl.autoRepeat) &&
 		((ctrls->enabled_ctrls&(XkbSlowKeysMask|XkbRepeatKeysMask))==
 							XkbRepeatKeysMask)) {
-
-	    if (BitIsOn(keybd->kbdfeed->ctrl.autoRepeats,key))
-	    {
+	    if (BitIsOn(keybd->kbdfeed->ctrl.autoRepeats,key)) {
 		if (xkbDebugFlags&0x10)
 		    DebugF("Starting software autorepeat...\n");
 		xkbi->repeatKey = key;
@@ -606,7 +606,7 @@ Bool		ignoreKeyEvent = FALSE;
 	ev.keycode= key;
 	ev.slowKeysDelay= ctrls->slow_keys_delay;
 	ev.debounceDelay= ctrls->debounce_delay;
-	if (BitIsOn(keybd->key->down,key) || (xkbi->mouseKey == key)) {
+	if (BitIsOn(keybd->key->down,key) | (xkbi->mouseKey == key)) {
 	    ev.detail= XkbAXN_SKRelease;
 	    beep_type= _BEEP_SLOW_RELEASE;
 	}
@@ -686,7 +686,7 @@ ProcessPointerEvent(	register xEvent  *	xE,
 			register DeviceIntPtr	mouse, 
 			int		        count)
 {
-DeviceIntPtr	dev = (DeviceIntPtr)LookupKeyboardDevice();
+DeviceIntPtr	dev = inputInfo.keyboard;
 XkbSrvInfoPtr	xkbi = dev->key->xkbInfo;
 unsigned 	changed = 0;
 ProcessInputProc backupproc;
