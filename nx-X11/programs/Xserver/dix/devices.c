@@ -64,16 +64,12 @@ SOFTWARE.
 #ifdef XKB
 #include "xkbsrv.h"
 #endif
-#ifdef XCSECURITY
-#define _SECURITY_SERVER
-#include <nx-X11/extensions/security.h>
-#endif
+#include "privates.h"
+#include "xace.h"
 
 #include "dispatch.h"
 #include "swaprep.h"
 #include "dixevents.h"
-
-extern void XkbFreePrivates(DeviceIntPtr device);
 
 #include <nx-X11/extensions/XI.h>
 #include <nx-X11/extensions/XIproto.h>
@@ -84,8 +80,7 @@ extern void XkbFreePrivates(DeviceIntPtr device);
  * This file handles input device-related stuff.
  */
 
-int CoreDevicePrivatesIndex = 0;
-static int CoreDevicePrivatesGeneration = -1;
+DevPrivateKey CoreDevicePrivateKey = &CoreDevicePrivateKey;
 
 /**
  * Create a new input device and init it to sane values. The device is added
@@ -119,7 +114,6 @@ AddInputDevice(DeviceProc deviceProc, Bool autoStart)
     dev->name = (char *)NULL;
     dev->type = 0;
     dev->id = devid;
-    inputInfo.numDevices++;
     dev->public.on = FALSE;
     dev->public.processInputProc = (ProcessInputProc)NoopDDA;
     dev->public.realInputProc = (ProcessInputProc)NoopDDA;
@@ -150,12 +144,20 @@ AddInputDevice(DeviceProc deviceProc, Bool autoStart)
     dev->xkb_interest = NULL;
 #endif
     dev->config_info = NULL;
-    dev->nPrivates = 0;
     dev->devPrivates = NULL;
     dev->unwrapProc = NULL;
     dev->coreEvents = TRUE;
     dev->inited = FALSE;
     dev->enabled = FALSE;
+
+    /*  security creation/labeling check
+     */
+    if (XaceHook(XACE_DEVICE_ACCESS, serverClient, dev, DixCreateAccess)) {
+	free(dev);
+	return NULL;
+    }
+
+    inputInfo.numDevices++;
 
     for (prev = &inputInfo.off_devices; *prev; prev = &(*prev)->next)
         ;
@@ -362,7 +364,7 @@ CoreKeyboardProc(DeviceIntPtr pDev, int what)
             XkbFreePrivates(pDev);
         }
 #endif
-        pDev->devPrivates[CoreDevicePrivatesIndex].ptr = NULL;
+	dixSetPrivate(&pDev->devPrivates, CoreDevicePrivateKey, NULL);
         break;
 
     default:
@@ -405,7 +407,7 @@ CorePointerProc(DeviceIntPtr pDev, int what)
             XkbFreePrivates(pDev);
         }
 #endif
-        pDev->devPrivates[CoreDevicePrivatesIndex].ptr = NULL;
+	dixSetPrivate(&pDev->devPrivates, CoreDevicePrivateKey, NULL);
         break;
 
     default:
@@ -426,11 +428,6 @@ InitCoreDevices(void)
 {
     DeviceIntPtr dev;
 
-    if (CoreDevicePrivatesGeneration != serverGeneration) {
-        CoreDevicePrivatesIndex = AllocateDevicePrivateIndex();
-        CoreDevicePrivatesGeneration = serverGeneration;
-    }
-
     if (!inputInfo.keyboard) {
         dev = AddInputDevice(CoreKeyboardProc, TRUE);
         if (!dev)
@@ -448,9 +445,7 @@ InitCoreDevices(void)
         dev->ActivateGrab = ActivateKeyboardGrab;
         dev->DeactivateGrab = DeactivateKeyboardGrab;
         dev->coreEvents = FALSE;
-        if (!AllocateDevicePrivate(dev, CoreDevicePrivatesIndex))
-            FatalError("Couldn't allocate keyboard devPrivates\n");
-        dev->devPrivates[CoreDevicePrivatesIndex].ptr = NULL;
+        (void)ActivateDevice(dev);
         inputInfo.keyboard = dev;
     }
 
@@ -471,9 +466,7 @@ InitCoreDevices(void)
         dev->ActivateGrab = ActivatePointerGrab;
         dev->DeactivateGrab = DeactivatePointerGrab;
         dev->coreEvents = FALSE;
-        if (!AllocateDevicePrivate(dev, CoreDevicePrivatesIndex))
-            FatalError("Couldn't allocate void * devPrivates\n");
-        dev->devPrivates[CoreDevicePrivatesIndex].ptr = NULL;
+        (void)ActivateDevice(dev);
         inputInfo.pointer = dev;
     }
 }
@@ -550,8 +543,7 @@ CloseDevice(DeviceIntPtr dev)
 
     free(dev->name);
 
-    if (dev->key)
-    {
+    if (dev->key) {
 #ifdef XKB
 	if (dev->key->xkbInfo)
 	    XkbFreeInfo(dev->key->xkbInfo);
@@ -560,6 +552,7 @@ CloseDevice(DeviceIntPtr dev)
 	free(dev->key->curKeySyms.map);
 	free(dev->key->modifierKeyMap);
 	free(dev->key);
+        dev->key = NULL;
     }
 
     if (dev->valuator) {
@@ -627,11 +620,12 @@ CloseDevice(DeviceIntPtr dev)
     }
 
 #ifdef XKB
-    XkbFreePrivates(dev);
+    while (dev->xkb_interest)
+	XkbRemoveResourceClient((DevicePtr)dev,dev->xkb_interest->resource);
 #endif
 
-    free(dev->devPrivates);
     free(dev->sync.event);
+    dixFreePrivates(dev->devPrivates);
     free(dev);
 }
 
@@ -647,12 +641,12 @@ CloseDownDevices(void)
     for (dev = inputInfo.devices; dev; dev = next)
     {
 	next = dev->next;
-	CloseDevice(dev);
+        DeleteInputDeviceRequest(dev);
     }
     for (dev = inputInfo.off_devices; dev; dev = next)
     {
 	next = dev->next;
-	CloseDevice(dev);
+        DeleteInputDeviceRequest(dev);
     }
     inputInfo.devices = NULL;
     inputInfo.off_devices = NULL;
@@ -745,32 +739,28 @@ RegisterKeyboardDevice(DeviceIntPtr device)
     RegisterOtherDevice(device);
 }
 
-DevicePtr
-LookupKeyboardDevice(void)
-{
-    return inputInfo.keyboard ? &inputInfo.keyboard->public : NULL;
-}
-
-DevicePtr
-LookupPointerDevice(void)
-{
-    return inputInfo.pointer ? &inputInfo.pointer->public : NULL;
-}
-
-DevicePtr
-LookupDevice(int id)
+int
+dixLookupDevice(DeviceIntPtr *pDev, int id, ClientPtr client, Mask access_mode)
 {
     DeviceIntPtr dev;
+    int rc;
+    *pDev = NULL;
 
     for (dev=inputInfo.devices; dev; dev=dev->next) {
         if (dev->id == (CARD8)id)
-            return (DevicePtr)dev;
+            goto found;
     }
     for (dev=inputInfo.off_devices; dev; dev=dev->next) {
         if (dev->id == (CARD8)id)
-            return (DevicePtr)dev;
+	    goto found;
     }
-    return NULL;
+    return BadDevice;
+
+found:
+    rc = XaceHook(XACE_DEVICE_ACCESS, client, dev, access_mode);
+    if (rc == Success)
+	*pDev = dev;
+    return rc;
 }
 
 void
@@ -1015,7 +1005,7 @@ InitFocusClassDeviceStruct(DeviceIntPtr dev)
 {
     FocusClassPtr focc;
 
-    focc = (FocusClassPtr)calloc(1, sizeof(FocusClassRec));
+    focc = (FocusClassPtr)malloc(sizeof(FocusClassRec));
     if (!focc)
 	return FALSE;
     focc->win = PointerRootWin;
@@ -1034,7 +1024,7 @@ InitKbdFeedbackClassDeviceStruct(DeviceIntPtr dev, BellProcPtr bellProc,
 {
     KbdFeedbackPtr feedc;
 
-    feedc = (KbdFeedbackPtr)calloc(1, sizeof(KbdFeedbackClassRec));
+    feedc = (KbdFeedbackPtr)malloc(sizeof(KbdFeedbackClassRec));
     if (!feedc)
 	return FALSE;
     feedc->BellProc = bellProc;
@@ -1061,7 +1051,7 @@ InitPtrFeedbackClassDeviceStruct(DeviceIntPtr dev, PtrCtrlProcPtr controlProc)
 {
     PtrFeedbackPtr feedc;
 
-    feedc = (PtrFeedbackPtr)calloc(1, sizeof(PtrFeedbackClassRec));
+    feedc = (PtrFeedbackPtr)malloc(sizeof(PtrFeedbackClassRec));
     if (!feedc)
 	return FALSE;
     feedc->CtrlProc = controlProc;
@@ -1122,7 +1112,7 @@ InitStringFeedbackClassDeviceStruct (
     for (i=0; i<num_symbols_supported; i++)
 	*(feedc->ctrl.symbols_supported+i) = *symbols++;
     for (i=0; i<max_symbols; i++)
-	*(feedc->ctrl.symbols_displayed+i) = (KeySym) 0;
+	*(feedc->ctrl.symbols_displayed+i) = (KeySym) NULL;
     feedc->ctrl.id = 0;
     if ( (feedc->next = dev->stringfeed) )
 	feedc->ctrl.id = dev->stringfeed->ctrl.id + 1;
@@ -1309,10 +1299,10 @@ AllModifierKeysAreUp(dev, map1, per1, map2, per2)
 
 static int
 DoSetModifierMapping(ClientPtr client, KeyCode *inputMap,
-                     int numKeyPerModifier)
+                     int numKeyPerModifier, xSetModifierMappingReply *rep)
 {
     DeviceIntPtr pDev = NULL;
-    int i = 0, inputMapLen = numKeyPerModifier * 8;
+    int rc, i = 0, inputMapLen = numKeyPerModifier * 8;
 
     for (pDev = inputInfo.devices; pDev; pDev = pDev->next) {
         if ((pDev->coreEvents || pDev == inputInfo.keyboard) && pDev->key) {
@@ -1327,10 +1317,9 @@ DoSetModifierMapping(ClientPtr client, KeyCode *inputMap,
                 }
             }
 
-#ifdef XCSECURITY
-            if (!SecurityCheckDeviceAccess(client, pDev, TRUE))
-                return BadAccess;
-#endif
+	    rc = XaceHook(XACE_DEVICE_ACCESS, client, pDev, DixManageAccess);
+	    if (rc != Success)
+		return rc;
 
             /* None of the modifiers (old or new) may be down while we change
              * the map. */
@@ -1340,7 +1329,8 @@ DoSetModifierMapping(ClientPtr client, KeyCode *inputMap,
                 !AllModifierKeysAreUp(pDev, inputMap, numKeyPerModifier,
                                       pDev->key->modifierKeyMap,
                                       pDev->key->maxKeysPerModifier)) {
-                return MappingBusy;
+		rep->success = MappingBusy;
+                return Success;
             }
         }
     }
@@ -1377,6 +1367,7 @@ DoSetModifierMapping(ClientPtr client, KeyCode *inputMap,
         }
     }
 
+    rep->success = Success;
     return Success;
 }
 
@@ -1385,8 +1376,8 @@ ProcSetModifierMapping(ClientPtr client)
 {
     xSetModifierMappingReply rep = {0};
     DeviceIntPtr dev;
+    int rc;
     REQUEST(xSetModifierMappingReq);
-
     REQUEST_AT_LEAST_SIZE(xSetModifierMappingReq);
 
     if (client->req_len != ((stuff->numKeyPerModifier << 1) +
@@ -1397,8 +1388,10 @@ ProcSetModifierMapping(ClientPtr client)
     rep.length = 0;
     rep.sequenceNumber = client->sequence;
 
-    rep.success = DoSetModifierMapping(client, (KeyCode *)&stuff[1],
-                                       stuff->numKeyPerModifier);
+    rc = DoSetModifierMapping(client, (KeyCode *)&stuff[1],
+			      stuff->numKeyPerModifier, &rep);
+    if (rc != Success)
+	return rc;
 
     SendMappingNotify(MappingModifier, 0, 0, client);
     for (dev = inputInfo.devices; dev; dev = dev->next)
@@ -1413,8 +1406,14 @@ ProcGetModifierMapping(ClientPtr client)
 {
     xGetModifierMappingReply rep = {0};
     KeyClassPtr keyc = inputInfo.keyboard->key;
-
+    int rc;
     REQUEST_SIZE_MATCH(xReq);
+
+    rc = XaceHook(XACE_DEVICE_ACCESS, client, inputInfo.keyboard,
+		  DixGetAttrAccess);
+    if (rc != Success)
+	return rc;
+
     rep.type = X_Reply;
     rep.numKeyPerModifier = keyc->maxKeysPerModifier;
     rep.sequenceNumber = client->sequence;
@@ -1437,6 +1436,7 @@ ProcChangeKeyboardMapping(ClientPtr client)
     KeySymsRec keysyms;
     KeySymsPtr curKeySyms = &inputInfo.keyboard->key->curKeySyms;
     DeviceIntPtr pDev = NULL;
+    int rc;
     REQUEST_AT_LEAST_SIZE(xChangeKeyboardMappingReq);
 
     len = client->req_len - (sizeof(xChangeKeyboardMappingReq) >> 2);
@@ -1457,10 +1457,9 @@ ProcChangeKeyboardMapping(ClientPtr client)
 
     for (pDev = inputInfo.devices; pDev; pDev = pDev->next) {
         if ((pDev->coreEvents || pDev == inputInfo.keyboard) && pDev->key) {
-#ifdef XCSECURITY
-            if (!SecurityCheckDeviceAccess(client, pDev, TRUE))
-                return BadAccess;
-#endif
+            rc = XaceHook(XACE_DEVICE_ACCESS, client, pDev, DixManageAccess);
+	    if (rc != Success)
+                return rc;
         }
     }
 
@@ -1485,13 +1484,21 @@ ProcChangeKeyboardMapping(ClientPtr client)
 }
 
 static int
-DoSetPointerMapping(DeviceIntPtr device, BYTE *map, int n)
+DoSetPointerMapping(ClientPtr client, DeviceIntPtr device, BYTE *map, int n)
 {
-    int i = 0;
+    int rc, i = 0;
     DeviceIntPtr dev = NULL;
 
     if (!device || !device->button)
         return BadDevice;
+
+    for (dev = inputInfo.devices; dev; dev = dev->next) {
+        if ((dev->coreEvents || dev == inputInfo.pointer) && dev->button) {
+	    rc = XaceHook(XACE_DEVICE_ACCESS, client, dev, DixManageAccess);
+	    if (rc != Success)
+		return rc;
+	}
+    }
 
     for (dev = inputInfo.devices; dev; dev = dev->next) {
         if ((dev->coreEvents || dev == inputInfo.pointer) && dev->button) {
@@ -1517,12 +1524,12 @@ DoSetPointerMapping(DeviceIntPtr device, BYTE *map, int n)
 int
 ProcSetPointerMapping(ClientPtr client)
 {
-    REQUEST(xSetPointerMappingReq);
     BYTE *map;
     int ret;
-    xSetPointerMappingReply rep = {0};
-
+    xSetPointerMappingReply rep;
+    REQUEST(xSetPointerMappingReq);
     REQUEST_AT_LEAST_SIZE(xSetPointerMappingReq);
+
     if (client->req_len != (sizeof(xSetPointerMappingReq)+stuff->nElts+3) >> 2)
 	return BadLength;
     rep.type = X_Reply;
@@ -1540,7 +1547,7 @@ ProcSetPointerMapping(ClientPtr client)
     if (BadDeviceMap(&map[0], (int)stuff->nElts, 1, 255, &client->errorValue))
 	return BadValue;
 
-    ret = DoSetPointerMapping(inputInfo.pointer, map, stuff->nElts);
+    ret = DoSetPointerMapping(client, inputInfo.pointer, map, stuff->nElts);
     if (ret != Success) {
         rep.success = ret;
         WriteReplyToClient(client, sizeof(xSetPointerMappingReply), &rep);
@@ -1557,10 +1564,15 @@ int
 ProcGetKeyboardMapping(ClientPtr client)
 {
     xGetKeyboardMappingReply rep = {0};
-    REQUEST(xGetKeyboardMappingReq);
     KeySymsPtr curKeySyms = &inputInfo.keyboard->key->curKeySyms;
-
+    int rc;
+    REQUEST(xGetKeyboardMappingReq);
     REQUEST_SIZE_MATCH(xGetKeyboardMappingReq);
+
+    rc = XaceHook(XACE_DEVICE_ACCESS, client, inputInfo.keyboard,
+		  DixGetAttrAccess);
+    if (rc != Success)
+	return rc;
 
     if ((stuff->firstKeyCode < curKeySyms->minKeyCode) ||
         (stuff->firstKeyCode > curKeySyms->maxKeyCode)) {
@@ -1592,20 +1604,22 @@ ProcGetKeyboardMapping(ClientPtr client)
 int
 ProcGetPointerMapping(ClientPtr client)
 {
-    int nElts;
     xGetPointerMappingReply rep = {0};
-
     ButtonClassPtr butc = inputInfo.pointer->button;
-
-    nElts = (butc) ? butc->numButtons : 0;
+    int rc;
     REQUEST_SIZE_MATCH(xReq);
+
+    rc = XaceHook(XACE_DEVICE_ACCESS, client, inputInfo.pointer,
+		  DixGetAttrAccess);
+    if (rc != Success)
+	return rc;
+
     rep.type = X_Reply;
-    rep.nElts = nElts;
     rep.sequenceNumber = client->sequence;
-    rep.length = ((unsigned)nElts + (4-1))/4;
+    rep.nElts = butc->numButtons;
+    rep.length = ((unsigned)rep.nElts + (4-1))/4;
     WriteReplyToClient(client, sizeof(xGetPointerMappingReply), &rep);
-    if (butc)
-        WriteToClient(client, nElts, &butc->map[1]);
+    WriteToClient(client, (int)rep.nElts, &butc->map[1]);
     return Success;
 }
 
@@ -1818,10 +1832,9 @@ ProcChangeKeyboardControl (ClientPtr client)
     for (pDev = inputInfo.devices; pDev; pDev = pDev->next) {
         if ((pDev->coreEvents || pDev == inputInfo.keyboard) &&
             pDev->kbdfeed && pDev->kbdfeed->CtrlProc) {
-#ifdef XCSECURITY
-            if (!SecurityCheckDeviceAccess(client, pDev, TRUE))
-                return BadAccess;
-#endif
+            ret = XaceHook(XACE_DEVICE_ACCESS, client, pDev, DixManageAccess);
+	    if (ret != Success)
+                return ret;
         }
     }
 
@@ -1840,11 +1853,16 @@ ProcChangeKeyboardControl (ClientPtr client)
 int
 ProcGetKeyboardControl (ClientPtr client)
 {
-    int i;
+    int rc, i;
     KeybdCtrl *ctrl = &inputInfo.keyboard->kbdfeed->ctrl;
     xGetKeyboardControlReply rep = {0};
-
     REQUEST_SIZE_MATCH(xReq);
+
+    rc = XaceHook(XACE_DEVICE_ACCESS, client, inputInfo.keyboard,
+		  DixGetAttrAccess);
+    if (rc != Success)
+	return rc;
+
     rep.type = X_Reply;
     rep.length = 5;
     rep.sequenceNumber = client->sequence;
@@ -1866,6 +1884,7 @@ ProcBell(ClientPtr client)
     DeviceIntPtr keybd = inputInfo.keyboard;
     int base = keybd->kbdfeed->ctrl.bell;
     int newpercent;
+    int rc;
     REQUEST(xBellReq);
     REQUEST_SIZE_MATCH(xBellReq);
 
@@ -1886,6 +1905,10 @@ ProcBell(ClientPtr client)
     for (keybd = inputInfo.devices; keybd; keybd = keybd->next) {
         if ((keybd->coreEvents || keybd == inputInfo.keyboard) &&
             keybd->kbdfeed && keybd->kbdfeed->BellProc) {
+
+	    rc = XaceHook(XACE_DEVICE_ACCESS, client, keybd, DixBellAccess);
+	    if (rc != Success)
+		return rc;
 #ifdef XKB
             if (!noXkbExtension)
                 XkbHandleBell(FALSE, FALSE, keybd, newpercent,
@@ -1905,8 +1928,8 @@ ProcChangePointerControl(ClientPtr client)
 {
     DeviceIntPtr mouse = inputInfo.pointer;
     PtrCtrl ctrl;		/* might get BadValue part way through */
+    int rc;
     REQUEST(xChangePointerControlReq);
-
     REQUEST_SIZE_MATCH(xChangePointerControlReq);
 
     if (!mouse->ptrfeed->CtrlProc)
@@ -1957,6 +1980,14 @@ ProcChangePointerControl(ClientPtr client)
         }
     }
 
+    for (mouse = inputInfo.devices; mouse; mouse = mouse->next) {
+        if ((mouse->coreEvents || mouse == inputInfo.pointer) &&
+            mouse->ptrfeed && mouse->ptrfeed->CtrlProc) {
+	    rc = XaceHook(XACE_DEVICE_ACCESS, client, mouse, DixManageAccess);
+	    if (rc != Success)
+		return rc;
+	}
+    }
 
     for (mouse = inputInfo.devices; mouse; mouse = mouse->next) {
         if ((mouse->coreEvents || mouse == inputInfo.pointer) &&
@@ -1974,8 +2005,14 @@ ProcGetPointerControl(ClientPtr client)
 {
     PtrCtrl *ctrl = &inputInfo.pointer->ptrfeed->ctrl;
     xGetPointerControlReply rep = {0};
-
+    int rc;
     REQUEST_SIZE_MATCH(xReq);
+
+    rc = XaceHook(XACE_DEVICE_ACCESS, client, inputInfo.pointer,
+		  DixGetAttrAccess);
+    if (rc != Success)
+	return rc;
+
     rep.type = X_Reply;
     rep.length = 0;
     rep.sequenceNumber = client->sequence;
@@ -2008,16 +2045,20 @@ ProcGetMotionEvents(ClientPtr client)
     WindowPtr pWin;
     xTimecoord * coords = (xTimecoord *) NULL;
     xGetMotionEventsReply rep = {0};
-    int i, count, xmin, xmax, ymin, ymax;
+    int i, count, xmin, xmax, ymin, ymax, rc;
     unsigned long nEvents;
     DeviceIntPtr mouse = inputInfo.pointer;
     TimeStamp start, stop;
     REQUEST(xGetMotionEventsReq);
-
     REQUEST_SIZE_MATCH(xGetMotionEventsReq);
-    pWin = SecurityLookupWindow(stuff->window, client, TRUE);
-    if (!pWin)
-	return BadWindow;
+
+    rc = dixLookupWindow(&pWin, stuff->window, client, DixGetAttrAccess);
+    if (rc != Success)
+	return rc;
+    rc = XaceHook(XACE_DEVICE_ACCESS, client, mouse, DixReadAccess);
+    if (rc != Success)
+	return rc;
+
     if (mouse->valuator->motionHintWindow)
 	MaybeStopHint(mouse, client);
     rep.type = X_Reply;
@@ -2073,22 +2114,22 @@ int
 ProcQueryKeymap(ClientPtr client)
 {
     xQueryKeymapReply rep = {0};
-    int i;
+    int rc, i;
     CARD8 *down = inputInfo.keyboard->key->down;
 
     REQUEST_SIZE_MATCH(xReq);
     rep.type = X_Reply;
     rep.sequenceNumber = client->sequence;
     rep.length = 2;
-#ifdef XCSECURITY
-    if (!SecurityCheckDeviceAccess(client, inputInfo.keyboard, TRUE))
-    {
-	bzero((char *)&rep.map[0], 32);
-    }
-    else
-#endif
+
+    rc = XaceHook(XACE_DEVICE_ACCESS, client, inputInfo.keyboard,
+		  DixReadAccess);
+    if (rc != Success)
+	return rc;
+
 	for (i = 0; i<32; i++)
 	    rep.map[i] = down[i];
+
     WriteReplyToClient(client, sizeof(xQueryKeymapReply), &rep);
     return Success;
 }

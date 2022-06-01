@@ -62,9 +62,10 @@ SOFTWARE.
 #include "scrnintstr.h"
 #include "resource.h"
 #include "windowstr.h"
+#include "privates.h"
+#include "xace.h"
 
 extern XID clientErrorValue;
-extern int colormapPrivateCount;
 
 static Pixel FindBestPixel(
     EntryPtr /*pentFirst*/,
@@ -385,31 +386,25 @@ CreateColormap (Colormap mid, ScreenPtr pScreen, VisualPtr pVisual,
 	    pmap->numPixelsBlue[client] = size;
 	}
     }
+    pmap->devPrivates = NULL;
+    pmap->flags |= BeingCreated;
+
     if (!AddResource(mid, RT_COLORMAP, (void *)pmap))
 	return (BadAlloc);
+
+    /*
+     * Security creation/labeling check
+     */
+    i = XaceHook(XACE_RESOURCE_ACCESS, clients[client], mid, RT_COLORMAP,
+		 pmap, RT_NONE, NULL, DixCreateAccess);
+    if (i != Success) {
+	    FreeResource (mid, RT_NONE);
+	return i;
+    }
+
     /* If the device wants a chance to initialize the colormap in any way,
      * this is it.  In specific, if this is a Static colormap, this is the
      * time to fill in the colormap's values */
-    pmap->flags |= BeingCreated;
-
-
-    /*
-     * Allocate the array of devPrivate's for this colormap.
-     */
-
-    if (colormapPrivateCount == 0)
-	pmap->devPrivates = NULL;
-    else
-    {
-	pmap->devPrivates = (DevUnion *) calloc (
-	    sizeof(DevUnion), colormapPrivateCount);
-	if (!pmap->devPrivates)
-	{
-	    FreeResource (mid, RT_NONE);
-	    return BadAlloc;
-	}
-    }
-
     if (!(*pScreen->CreateColormap)(pmap))
     {
 	FreeResource (mid, RT_NONE);
@@ -473,9 +468,7 @@ FreeColormap (void * value, XID mid)
         }
     }
 
-    if (pmap->devPrivates)
-	free(pmap->devPrivates);
-
+    dixFreePrivates(pmap->devPrivates);
     free(pmap);
     return(Success);
 }
@@ -1012,6 +1005,7 @@ FakeAllocColor (ColormapPtr pmap, xColorItem *item)
     switch (class) {
     case GrayScale:
     case PseudoColor:
+	temp = 0;
 	item->pixel = 0;
 	if (FindColor(pmap, pmap->red, entries, &rgb, &temp, PSEUDOMAP,
 		      -1, AllComp) == Success) {
@@ -2315,6 +2309,7 @@ FreeCo (ColormapPtr pmap, int client, int color, int npixIn, Pixel *ppixIn, Pixe
 	break;
     }
 
+
     /* zap all pixels which match */
     while (1)
     {
@@ -2694,72 +2689,4 @@ IsMapInstalled(Colormap map, WindowPtr pWin)
     }
     free(pmaps);
     return (found);
-}
-
-struct colormap_lookup_data {
-    ScreenPtr pScreen;
-    VisualPtr visuals;
-};
-
-static void
-_colormap_find_resource(void *value, XID id, void *cdata)
-{
-    struct colormap_lookup_data *cmap_data = cdata;
-    VisualPtr visuals = cmap_data->visuals;
-    ScreenPtr pScreen = cmap_data->pScreen;
-    ColormapPtr cmap = value;
-    int j;
-
-    if (pScreen != cmap->pScreen)
-        return;
-
-    j = cmap->pVisual - pScreen->visuals;
-    cmap->pVisual = &visuals[j];
-}
-
-/* something has realloced the visuals, instead of breaking
-   ABI fix it up here - glx and compsite did this wrong */
-Bool
-ResizeVisualArray(ScreenPtr pScreen, int new_visual_count, DepthPtr depth)
-{
-    struct colormap_lookup_data cdata;
-    int numVisuals;
-    VisualPtr visuals;
-    XID *vids, vid;
-    int first_new_vid, first_new_visual, i;
-
-    first_new_vid = depth->numVids;
-    first_new_visual = pScreen->numVisuals;
-
-    vids = reallocarray(depth->vids, depth->numVids + new_visual_count,
-                        sizeof(XID));
-    if (!vids)
-        return FALSE;
-
-    /* its realloced now no going back if we fail the next one */
-    depth->vids = vids;
-
-    numVisuals = pScreen->numVisuals + new_visual_count;
-    visuals = reallocarray(pScreen->visuals, numVisuals, sizeof(VisualRec));
-    if (!visuals) {
-        return FALSE;
-    }
-
-    cdata.visuals = visuals;
-    cdata.pScreen = pScreen;
-    FindClientResourcesByType(serverClient, RT_COLORMAP,
-                              _colormap_find_resource, &cdata);
-
-    pScreen->visuals = visuals;
-
-    for (i = 0; i < new_visual_count; i++) {
-        vid = FakeClientID(0);
-        pScreen->visuals[first_new_visual + i].vid = vid;
-        vids[first_new_vid + i] = vid;
-    }
-
-    depth->numVids += new_visual_count;
-    pScreen->numVisuals += new_visual_count;
-
-    return TRUE;
 }

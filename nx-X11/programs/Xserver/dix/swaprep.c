@@ -74,7 +74,6 @@ void
 Swap32Write(ClientPtr pClient, int size, CARD32 *pbuf)
 {
     int i;
-
     size >>= 2;
     for(i = 0; i < size; i++)
     /* brackets are mandatory here, because "swapl" macro expands
@@ -386,7 +385,6 @@ SwapFont(xQueryFontReply *pr, Bool hasGlyphs)
     xCharInfo *	pxci;
     unsigned	nchars, nprops;
     char	*pby;
-
     swaps(&pr->sequenceNumber);
     swapl(&pr->length);
     nchars = pr->nCharInfos;

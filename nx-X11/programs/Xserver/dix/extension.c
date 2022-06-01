@@ -57,10 +57,9 @@ SOFTWARE.
 #include "gcstruct.h"
 #include "scrnintstr.h"
 #include "dispatch.h"
-#ifdef XCSECURITY
-#define _SECURITY_SERVER
-#include <nx-X11/extensions/security.h>
-#endif
+#include "privates.h"
+#include "registry.h"
+#include "xace.h"
 
 #define EXTENSION_BASE  128
 #define EXTENSION_EVENT_BASE  64
@@ -73,39 +72,6 @@ int lastEvent = EXTENSION_EVENT_BASE;
 static int lastError = FirstExtensionError;
 static unsigned int NumExtensions = 0;
 
-extern int extensionPrivateLen;
-extern unsigned *extensionPrivateSizes;
-extern unsigned totalExtensionSize;
-
-static void
-InitExtensionPrivates(ExtensionEntry *ext)
-{
-    char *ptr;
-    DevUnion *ppriv;
-    unsigned *sizes;
-    unsigned size;
-    int i;
-
-    if (totalExtensionSize == sizeof(ExtensionEntry))
-	ppriv = (DevUnion *)NULL;
-    else
-	ppriv = (DevUnion *)(ext + 1);
-
-    ext->devPrivates = ppriv;
-    sizes = extensionPrivateSizes;
-    ptr = (char *)(ppriv + extensionPrivateLen);
-    for (i = extensionPrivateLen; --i >= 0; ppriv++, sizes++)
-    {
-	if ( (size = *sizes) )
-	{
-	    ppriv->ptr = (void *)ptr;
-	    ptr += size;
-	}
-	else
-	    ppriv->ptr = (void *)NULL;
-    }
-}
-
 ExtensionEntry *
 AddExtension(char *name, int NumEvents, int NumErrors,
 	     int (*MainProc)(ClientPtr c1),
@@ -116,20 +82,20 @@ AddExtension(char *name, int NumEvents, int NumErrors,
     int i;
     ExtensionEntry *ext, **newexts;
 
-    if (!MainProc || !SwappedMainProc || !MinorOpcodeProc)
+    if (!MainProc || !SwappedMainProc || !CloseDownProc || !MinorOpcodeProc)
         return((ExtensionEntry *) NULL);
     if ((lastEvent + NumEvents > LAST_EVENT) ||
 	        (unsigned)(lastError + NumErrors > LAST_ERROR))
         return((ExtensionEntry *) NULL);
 
-    ext = (ExtensionEntry *) malloc(totalExtensionSize);
+    ext = (ExtensionEntry *) malloc(sizeof(ExtensionEntry));
     if (!ext)
 	return((ExtensionEntry *) NULL);
     bzero(ext, totalExtensionSize);
-    InitExtensionPrivates(ext);
     ext->name = (char *)malloc(strlen(name) + 1);
     ext->num_aliases = 0;
     ext->aliases = (char **)NULL;
+    ext->devPrivates = NULL;
     if (!ext->name)
     {
 	free(ext);
@@ -176,10 +142,8 @@ AddExtension(char *name, int NumEvents, int NumErrors,
         ext->errorBase = 0;
         ext->errorLast = 0;
     }
-#ifdef XCSECURITY
-    ext->secure = FALSE;
-#endif
 
+    RegisterExtensionNames(ext);
     return(ext);
 }
 
@@ -188,6 +152,8 @@ Bool AddExtensionAlias(char *alias, ExtensionEntry *ext)
     char *name;
     char **aliases;
 
+    if (!ext)
+        return FALSE ;
     aliases = (char **)realloc(ext->aliases,
 				(ext->num_aliases + 1) * sizeof(char *));
     if (!aliases)
@@ -253,29 +219,6 @@ GetExtensionEntry(int major)
     return extensions[major];
 }
 
-void
-DeclareExtensionSecurity(char *extname, Bool secure)
-{
-#ifdef XCSECURITY
-    int i = FindExtension(extname, strlen(extname));
-    if (i >= 0)
-    {
-	int majorop = extensions[i]->base;
-	extensions[i]->secure = secure;
-	if (secure)
-	{
-	    UntrustedProcVector[majorop] = ProcVector[majorop];
-	    SwappedUntrustedProcVector[majorop] = SwappedProcVector[majorop];
-	}
-	else
-	{
-	    UntrustedProcVector[majorop]	= ProcBadRequest;
-	    SwappedUntrustedProcVector[majorop] = ProcBadRequest;
-	}
-    }
-#endif
-}
-
 unsigned short
 StandardMinorOpcode(ClientPtr client)
 {
@@ -297,19 +240,19 @@ MinorOpcodeOfRequest(ClientPtr client)
 }
 
 void
-CloseDownExtensions()
+CloseDownExtensions(void)
 {
     int i,j;
 
     for (i = NumExtensions - 1; i >= 0; i--)
     {
-	if (extensions[i]->CloseDown)
 	    (* extensions[i]->CloseDown)(extensions[i]);
 	NumExtensions = i;
 	free(extensions[i]->name);
 	for (j = extensions[i]->num_aliases; --j >= 0;)
 	    free(extensions[i]->aliases[j]);
 	free(extensions[i]->aliases);
+	dixFreePrivates(extensions[i]->devPrivates);
 	free(extensions[i]);
     }
     free(extensions);
@@ -338,13 +281,7 @@ ProcQueryExtension(ClientPtr client)
     else
     {
 	i = FindExtension((char *)&stuff[1], stuff->nbytes);
-        if (i < 0
-#ifdef XCSECURITY
-	    /* don't show insecure extensions to untrusted clients */
-	    || (client->trustLevel == XSecurityClientUntrusted &&
-		!extensions[i]->secure)
-#endif
-	    )
+        if (i < 0 || XaceHook(XACE_EXT_ACCESS, client, extensions[i]))
             reply.present = xFalse;
         else
         {
@@ -380,12 +317,10 @@ ProcListExtensions(ClientPtr client)
 
         for (i=0;  i<NumExtensions; i++)
 	{
-#ifdef XCSECURITY
-	    /* don't show insecure extensions to untrusted clients */
-	    if (client->trustLevel == XSecurityClientUntrusted &&
-		!extensions[i]->secure)
+	    /* call callbacks to find out whether to show extension */
+	    if (XaceHook(XACE_EXT_ACCESS, client, extensions[i]) != Success)
 		continue;
-#endif
+
 	    total_length += strlen(extensions[i]->name) + 1;
 	    reply.nExtensions += 1 + extensions[i]->num_aliases;
 	    for (j = extensions[i]->num_aliases; --j >= 0;)
@@ -398,11 +333,9 @@ ProcListExtensions(ClientPtr client)
         for (i=0;  i<NumExtensions; i++)
         {
 	    int len;
-#ifdef XCSECURITY
-	    if (client->trustLevel == XSecurityClientUntrusted &&
-		!extensions[i]->secure)
+	    if (XaceHook(XACE_EXT_ACCESS, client, extensions[i]) != Success)
 		continue;
-#endif
+
             *bufptr++ = len = strlen(extensions[i]->name);
 	    memmove(bufptr, extensions[i]->name,  len);
 	    bufptr += len;
@@ -422,17 +355,3 @@ ProcListExtensions(ClientPtr client)
     }
     return(client->noClientException);
 }
-
-#ifdef XSERVER_DTRACE
-void LoadExtensionNames(char **RequestNames) {
-    int i;
-
-    for (i=0; i<NumExtensions; i++) {
-	int r = extensions[i]->base;
-
-	if (RequestNames[r] == NULL) {
-	    RequestNames[r] = strdup(extensions[i]->name);
-	}
-    }
-}
-#endif

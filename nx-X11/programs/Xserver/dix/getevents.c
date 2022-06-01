@@ -1,6 +1,6 @@
 /*
- * Copyright Â© 2006 Nokia Corporation
- * Copyright Â© 2006-2007 Daniel Stone
+ * Copyright © 2006 Nokia Corporation
+ * Copyright © 2006-2007 Daniel Stone
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -43,6 +43,7 @@
 #include "mipointer.h"
 
 #ifdef XKB
+#include <xkbproto.h>
 #include <xkbsrv.h>
 extern Bool XkbCopyKeymap(XkbDescPtr src, XkbDescPtr dst, Bool sendNotifies);
 #endif
@@ -56,6 +57,7 @@ extern Bool XkbCopyKeymap(XkbDescPtr src, XkbDescPtr dst, Bool sendNotifies);
 #include <nx-X11/extensions/XIproto.h>
 #include "exglobals.h"
 #include "exevents.h"
+#include "exglobals.h"
 #include "extnsionst.h"
 
 
@@ -203,11 +205,13 @@ updateMotionHistory(DeviceIntPtr pDev, CARD32 ms, int first_valuator,
  *
  * Should be used in DIX as:
  * xEvent *events = calloc(sizeof(xEvent), GetMaximumEventsNum());
+ *
+ * This MUST be absolutely constant, from init until exit.
  */
 int
 GetMaximumEventsNum(void) {
     /* Two base events -- core and device, plus valuator events.  Multiply
-     * by two if we're doing key repeats. */
+     * by two if we're doing non-XKB key repeats. */
     int ret = 2 + MAX_VALUATOR_EVENTS;
 
 #ifdef XKB
@@ -302,9 +306,8 @@ clipAxis(DeviceIntPtr pDev, int axisNum, int *val)
 {
     AxisInfoPtr axes = pDev->valuator->axes + axisNum;
 
-    /* Don't clip if min_value and max_value are the same, or if an invalid
-       range is specified. */
-    if(axes->min_value < axes->max_value) {
+    /* No clipping if the value-range <= 0 */
+    if(axes->min_value < axes->min_value) {
         if (*val < axes->min_value)
             *val = axes->min_value;
         if (*val > axes->max_value)
@@ -403,8 +406,11 @@ GetKeyboardValuatorEvents(xEvent *events, DeviceIntPtr pDev, int type,
     int numEvents = 0;
     CARD32 ms = 0;
     KeySym *map = pDev->key->curKeySyms.map;
-    KeySym sym = map[key_code * pDev->key->curKeySyms.mapWidth];
+    KeySym sym;
     deviceKeyButtonPointer *kbp = NULL;
+
+    sym = map[(key_code - pDev->key->curKeySyms.minKeyCode)
+              * pDev->key->curKeySyms.mapWidth];
 
     if (!events)
         return 0;
@@ -716,7 +722,7 @@ GetPointerEvents(xEvent *events, DeviceIntPtr pDev, int type, int buttons,
 
     updateMotionHistory(pDev, ms, first_valuator, num_valuators, valuators);
 
-    /* for some reason inputInfo.void * does not have coreEvents set */
+    /* for some reason inputInfo.pointer does not have coreEvents set */
     if (coreOnly || pDev->coreEvents) {
         events->u.u.type = type;
         events->u.keyButtonPointer.time = ms;
@@ -834,7 +840,8 @@ SwitchCoreKeyboard(DeviceIntPtr pDev)
     KeyClassPtr ckeyc = inputInfo.keyboard->key;
     int i = 0;
 
-    if (inputInfo.keyboard->devPrivates[CoreDevicePrivatesIndex].ptr != pDev) {
+    if (pDev != dixLookupPrivate(&inputInfo.keyboard->devPrivates,
+				 CoreDevicePrivateKey)) {
         memcpy(ckeyc->modifierMap, pDev->key->modifierMap, MAP_LENGTH);
         if (ckeyc->modifierKeyMap)
             free(ckeyc->modifierKeyMap);
@@ -878,7 +885,8 @@ SwitchCoreKeyboard(DeviceIntPtr pDev)
                           (ckeyc->curKeySyms.maxKeyCode -
                            ckeyc->curKeySyms.minKeyCode),
                           serverClient);
-        inputInfo.keyboard->devPrivates[CoreDevicePrivatesIndex].ptr = pDev;
+	dixSetPrivate(&inputInfo.keyboard->devPrivates, CoreDevicePrivateKey,
+		      pDev);
     }
 }
 
@@ -892,8 +900,10 @@ SwitchCoreKeyboard(DeviceIntPtr pDev)
 void
 SwitchCorePointer(DeviceIntPtr pDev)
 {
-    if (inputInfo.pointer->devPrivates[CoreDevicePrivatesIndex].ptr != pDev)
-        inputInfo.pointer->devPrivates[CoreDevicePrivatesIndex].ptr = pDev;
+    if (pDev != dixLookupPrivate(&inputInfo.pointer->devPrivates,
+				 CoreDevicePrivateKey))
+	dixSetPrivate(&inputInfo.pointer->devPrivates,
+		      CoreDevicePrivateKey, pDev);
 }
 
 

@@ -109,51 +109,14 @@ PixmapPtr
 AllocatePixmap(ScreenPtr pScreen, int pixDataSize)
 {
     PixmapPtr pPixmap;
-#ifdef PIXPRIV
-    char *ptr;
-    DevUnion *ppriv;
-    unsigned *sizes;
-    unsigned size;
-    int i;
 
     if (pScreen->totalPixmapSize > ((size_t)-1) - pixDataSize)
 	return NullPixmap;
 
-    /*
-     * FIXME: Allocate 4 bytes at the end of each pixmap. This
-     * is a quick workaround intended to fix a problem reported
-     * by Valgrind due to fbBlt() writing just after the end of
-     * the pixmap buffer. This may be a RENDER bug.
-     * This is not included in xorg upstream!
-     */
-
-    pPixmap = (PixmapPtr)calloc(1, pScreen->totalPixmapSize + pixDataSize + 4);
+    pPixmap = (PixmapPtr)malloc(pScreen->totalPixmapSize + pixDataSize);
     if (!pPixmap)
 	return NullPixmap;
-    ppriv = (DevUnion *)(pPixmap + 1);
-    pPixmap->devPrivates = ppriv;
-    sizes = pScreen->PixmapPrivateSizes;
-    ptr = (char *)(ppriv + pScreen->PixmapPrivateLen);
-    for (i = pScreen->PixmapPrivateLen; --i >= 0; ppriv++, sizes++)
-    {
-        if ((size = *sizes) != 0)
-        {
-	    ppriv->ptr = (void *)ptr;
-	    ptr += size;
-        }
-        else
-	    ppriv->ptr = (void *)NULL;
-    }
-#else
-    pPixmap = (PixmapPtr)calloc(1, sizeof(PixmapRec) + pixDataSize);
-#endif
 
-#ifdef _XSERVER64
-    if (pPixmap) {
-	pPixmap->drawable.pad0 = 0;
-	pPixmap->drawable.pad1 = 0;
-    }
-#endif
-
+    pPixmap->devPrivates = NULL;
     return pPixmap;
 }

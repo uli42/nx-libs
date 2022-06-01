@@ -30,426 +30,285 @@ from The Open Group.
 #include <dix-config.h>
 #endif
 
-#include <nx-X11/X.h>
-#include "scrnintstr.h"
-#include "misc.h"
-#include "os.h"
+#include <stddef.h>
 #include "windowstr.h"
 #include "resource.h"
-#include "dixstruct.h"
+#include "privates.h"
 #include "gcstruct.h"
+#include "cursorstr.h"
 #include "colormapst.h"
-#include "servermd.h"
-#include "site.h"
 #include "inputstr.h"
-#include "extnsionst.h"
 
-/*
- *  See the Wrappers and devPrivates section in "Definition of the
- *  Porting Layer for the X v11 Sample Server" (doc/Server/ddx.tbl.ms)
- *  for information on how to use devPrivates.
- */
+struct _Private {
+    DevPrivateKey      key;
+    void *            value;
+    struct _Private    *next;
+};
 
-/*
- *  extension private machinery
- */
+typedef struct _PrivateDesc {
+    DevPrivateKey key;
+    unsigned size;
+    CallbackListPtr initfuncs;
+    CallbackListPtr deletefuncs;
+    struct _PrivateDesc *next;
+} PrivateDescRec;
 
-static int  extensionPrivateCount;
-int extensionPrivateLen;
-unsigned *extensionPrivateSizes;
-unsigned totalExtensionSize;
+/* list of all allocated privates */
+static PrivateDescRec *items = NULL;
 
-void
-ResetExtensionPrivates(void)
+static _X_INLINE PrivateDescRec *
+findItem(const DevPrivateKey key)
 {
-    extensionPrivateCount = 0;
-    extensionPrivateLen = 0;
-    free(extensionPrivateSizes);
-    extensionPrivateSizes = (unsigned *)NULL;
-    totalExtensionSize =
-	((sizeof(ExtensionEntry) + sizeof(long) - 1) / sizeof(long)) * sizeof(long);
-}
-
-int
-AllocateExtensionPrivateIndex(void)
-{
-    return extensionPrivateCount++;
-}
-
-Bool
-AllocateExtensionPrivate(int index2, unsigned amount)
-{
-    unsigned oldamount;
-
-    /* Round up sizes for proper alignment */
-    amount = ((amount + (sizeof(long) - 1)) / sizeof(long)) * sizeof(long);
-
-    if (index2 >= extensionPrivateLen)
-    {
-	unsigned *nsizes;
-	nsizes = (unsigned *)realloc(extensionPrivateSizes,
-				      (index2 + 1) * sizeof(unsigned));
-	if (!nsizes)
-	    return FALSE;
-	while (extensionPrivateLen <= index2)
-	{
-	    nsizes[extensionPrivateLen++] = 0;
-	    totalExtensionSize += sizeof(DevUnion);
-	}
-	extensionPrivateSizes = nsizes;
+    PrivateDescRec *item = items;
+    while (item) {
+	if (item->key == key)
+	    return item;
+	item = item->next;
     }
-    oldamount = extensionPrivateSizes[index2];
-    if (amount > oldamount)
-    {
-	extensionPrivateSizes[index2] = amount;
-	totalExtensionSize += (amount - oldamount);
+    return NULL;
+}
+
+/*
+ * Request pre-allocated space.
+ */
+int
+dixRequestPrivate(const DevPrivateKey key, unsigned size)
+{
+    PrivateDescRec *item = findItem(key);
+    if (item) {
+	if (size > item->size)
+	    item->size = size;
+    } else {
+	item = (PrivateDescRec *)malloc(sizeof(PrivateDescRec));
+	if (!item)
+	    return FALSE;
+	memset(item, 0, sizeof(PrivateDescRec));
+
+	/* add privates descriptor */
+	item->key = key;
+	item->size = size;
+	item->next = items;
+	items = item;
     }
     return TRUE;
 }
 
 /*
- *  client private machinery
+ * Allocate a private and attach it to an existing object.
  */
-
-static int  clientPrivateCount;
-int clientPrivateLen;
-unsigned *clientPrivateSizes;
-unsigned totalClientSize;
-
-void
-ResetClientPrivates(void)
+void * *
+dixAllocatePrivate(PrivateRec **privates, const DevPrivateKey key)
 {
-    clientPrivateCount = 0;
-    clientPrivateLen = 0;
-    free(clientPrivateSizes);
-    clientPrivateSizes = (unsigned *)NULL;
-    totalClientSize =
-	((sizeof(ClientRec) + sizeof(long) - 1) / sizeof(long)) * sizeof(long);
+    PrivateDescRec *item = findItem(key);
+    PrivateRec *ptr;
+    unsigned size = sizeof(PrivateRec);
+    
+    if (item)
+	size += item->size;
+
+    ptr = (PrivateRec *)calloc(size, 1);
+    if (!ptr)
+	return NULL;
+    ptr->key = key;
+    ptr->value = (size > sizeof(PrivateRec)) ? (ptr + 1) : NULL;
+    ptr->next = *privates;
+    *privates = ptr;
+
+    /* call any init funcs and return */
+    if (item) {
+	PrivateCallbackRec calldata = { key, &ptr->value };
+	CallCallbacks(&item->initfuncs, &calldata);
 }
+    return &ptr->value;
+}
+
+/*
+ * Look up a private pointer.
+ */
+pointer
+dixLookupPrivate(PrivateRec **privates, const DevPrivateKey key)
+{
+    PrivateRec *rec = *privates;
+    void * *ptr;
+
+    while (rec) {
+	if (rec->key == key)
+	    return rec->value;
+	rec = rec->next;
+	}
+
+    ptr = dixAllocatePrivate(privates, key);
+    return ptr ? *ptr : NULL;
+}
+
+/*
+ * Look up the address of a private pointer.
+ */
+void * *
+dixLookupPrivateAddr(PrivateRec **privates, const DevPrivateKey key)
+{
+    PrivateRec *rec = *privates;
+
+    while (rec) {
+	if (rec->key == key)
+	    return &rec->value;
+	rec = rec->next;
+    }
+
+    return dixAllocatePrivate(privates, key);
+}
+
+/*
+ * Set a private pointer.
+ */
+int
+dixSetPrivate(PrivateRec **privates, const DevPrivateKey key, void * val)
+{
+    PrivateRec *rec;
+
+ top:
+    rec = *privates;
+    while (rec) {
+	if (rec->key == key) {
+	    rec->value = val;
+	    return TRUE;
+    }
+	rec = rec->next;
+}
+
+    if (!dixAllocatePrivate(privates, key))
+	return FALSE;
+    goto top;
+}
+
+/*
+ * Called to free privates at object deletion time.
+ */
+void
+dixFreePrivates(PrivateRec *privates)
+{
+    PrivateRec *ptr, *next;
+    PrivateDescRec *item;
+    PrivateCallbackRec calldata;
+
+    /* first pass calls the delete callbacks */
+    for (ptr = privates; ptr; ptr = ptr->next) {
+	item = findItem(ptr->key);
+	if (item) {
+	    calldata.key = ptr->key;
+	    calldata.value = &ptr->value;
+	    CallCallbacks(&item->deletefuncs, &calldata);
+}
+}
+
+    /* second pass frees the memory */
+    ptr = privates;
+    while (ptr) {
+	next = ptr->next;
+	free(ptr);
+	ptr = next;
+    }
+}
+
+/*
+ * Callback registration
+ */
+int
+dixRegisterPrivateInitFunc(const DevPrivateKey key,
+			   CallbackProcPtr callback, void * data)
+{
+    PrivateDescRec *item = findItem(key);
+    if (!item) {
+	if (!dixRequestPrivate(key, 0))
+	    return FALSE;
+	item = findItem(key);
+	}
+    return AddCallback(&item->initfuncs, callback, data);
+    }
 
 int
-AllocateClientPrivateIndex(void)
-{
-    return clientPrivateCount++;
+dixRegisterPrivateDeleteFunc(const DevPrivateKey key,
+			     CallbackProcPtr callback, void * data)
+    {
+    PrivateDescRec *item = findItem(key);
+    if (!item) {
+	if (!dixRequestPrivate(key, 0))
+	    return FALSE;
+	item = findItem(key);
+    }
+    return AddCallback(&item->deletefuncs, callback, data);
 }
 
-Bool
-AllocateClientPrivate(int index2, unsigned amount)
+/* Table of devPrivates offsets */
+static const int offsetDefaults[] = {
+    -1,					/* RT_NONE */
+    offsetof(WindowRec, devPrivates),	/* RT_WINDOW */
+    offsetof(PixmapRec, devPrivates),	/* RT_PIXMAP */
+    offsetof(GC, devPrivates),		/* RT_GC */
+    -1,		    			/* RT_FONT */
+    offsetof(CursorRec, devPrivates),	/* RT_CURSOR */
+    offsetof(ColormapRec, devPrivates),	/* RT_COLORMAP */
+    -1,			  		/* RT_CMAPENTRY */
+    -1,					/* RT_OTHERCLIENT */
+    -1					/* RT_PASSIVEGRAB */
+};
+    
+static int *offsets = NULL;
+static int offsetsSize = 0;
+
+/*
+ * Specify where the devPrivates field is located in a structure type
+ */
+int
+dixRegisterPrivateOffset(RESTYPE type, int offset)
 {
-    unsigned oldamount;
+    type = type & TypeMask;
 
-    /* Round up sizes for proper alignment */
-    amount = ((amount + (sizeof(long) - 1)) / sizeof(long)) * sizeof(long);
-
-    if (index2 >= clientPrivateLen)
-    {
-	unsigned *nsizes;
-	nsizes = (unsigned *)realloc(clientPrivateSizes,
-				      (index2 + 1) * sizeof(unsigned));
-	if (!nsizes)
+    /* resize offsets table if necessary */
+    while (type >= offsetsSize) {
+	unsigned i = offsetsSize * 2 * sizeof(int);
+	offsets = (int *)realloc(offsets, i);
+	if (!offsets) {
+	    offsetsSize = 0;
 	    return FALSE;
-	while (clientPrivateLen <= index2)
-	{
-	    nsizes[clientPrivateLen++] = 0;
-	    totalClientSize += sizeof(DevUnion);
-	}
-	clientPrivateSizes = nsizes;
     }
-    oldamount = clientPrivateSizes[index2];
-    if (amount > oldamount)
-    {
-	clientPrivateSizes[index2] = amount;
-	totalClientSize += (amount - oldamount);
-    }
+	for (i=offsetsSize; i < 2*offsetsSize; i++)
+	    offsets[i] = -1;
+	offsetsSize *= 2;
+}
+
+    offsets[type] = offset;
     return TRUE;
 }
 
-/*
- *  screen private machinery
- */
-
-int  screenPrivateCount;
-
-void
-ResetScreenPrivates(void)
-{
-    screenPrivateCount = 0;
-}
-
-/* this can be called after some screens have been created,
- * so we have to worry about resizing existing devPrivates
- */
 int
-AllocateScreenPrivateIndex(void)
+dixLookupPrivateOffset(RESTYPE type)
 {
-    int		idx;
-    int		i;
-    ScreenPtr	pScreen;
-    DevUnion	*nprivs;
-
-    idx = screenPrivateCount++;
-    for (i = 0; i < screenInfo.numScreens; i++)
-    {
-	pScreen = screenInfo.screens[i];
-	nprivs = (DevUnion *)realloc(pScreen->devPrivates,
-				      screenPrivateCount * sizeof(DevUnion));
-	if (!nprivs)
-	{
-	    screenPrivateCount--;
-	    return -1;
+    type = type & TypeMask;
+    assert(type < offsetsSize);
+    return offsets[type];
 	}
-	/* Zero the new private */
-	bzero(&nprivs[idx], sizeof(DevUnion));
-	pScreen->devPrivates = nprivs;
-    }
-    return idx;
-}
-
-
-/*
- *  window private machinery
- */
-
-static int  windowPrivateCount;
-
-void
-ResetWindowPrivates(void)
-{
-    windowPrivateCount = 0;
-}
-
-int
-AllocateWindowPrivateIndex(void)
-{
-    return windowPrivateCount++;
-}
-
-Bool
-AllocateWindowPrivate(ScreenPtr pScreen, int index2, unsigned amount)
-{
-    unsigned oldamount;
-
-    /* Round up sizes for proper alignment */
-    amount = ((amount + (sizeof(long) - 1)) / sizeof(long)) * sizeof(long);
-
-    if (index2 >= pScreen->WindowPrivateLen)
-    {
-	unsigned *nsizes;
-	nsizes = (unsigned *)realloc(pScreen->WindowPrivateSizes,
-				      (index2 + 1) * sizeof(unsigned));
-	if (!nsizes)
-	    return FALSE;
-	while (pScreen->WindowPrivateLen <= index2)
-	{
-	    nsizes[pScreen->WindowPrivateLen++] = 0;
-	    pScreen->totalWindowSize += sizeof(DevUnion);
-	}
-	pScreen->WindowPrivateSizes = nsizes;
-    }
-    oldamount = pScreen->WindowPrivateSizes[index2];
-    if (amount > oldamount)
-    {
-	pScreen->WindowPrivateSizes[index2] = amount;
-	pScreen->totalWindowSize += (amount - oldamount);
-    }
-    return TRUE;
-}
-
-
-/*
- *  gc private machinery
- */
-
-static int  gcPrivateCount;
-
-void
-ResetGCPrivates(void)
-{
-    gcPrivateCount = 0;
-}
-
-int
-AllocateGCPrivateIndex(void)
-{
-    return gcPrivateCount++;
-}
-
-Bool
-AllocateGCPrivate(ScreenPtr pScreen, int index2, unsigned amount)
-{
-    unsigned oldamount;
-
-    /* Round up sizes for proper alignment */
-    amount = ((amount + (sizeof(long) - 1)) / sizeof(long)) * sizeof(long);
-
-    if (index2 >= pScreen->GCPrivateLen)
-    {
-	unsigned *nsizes;
-	nsizes = (unsigned *)realloc(pScreen->GCPrivateSizes,
-				      (index2 + 1) * sizeof(unsigned));
-	if (!nsizes)
-	    return FALSE;
-	while (pScreen->GCPrivateLen <= index2)
-	{
-	    nsizes[pScreen->GCPrivateLen++] = 0;
-	    pScreen->totalGCSize += sizeof(DevUnion);
-	}
-	pScreen->GCPrivateSizes = nsizes;
-    }
-    oldamount = pScreen->GCPrivateSizes[index2];
-    if (amount > oldamount)
-    {
-	pScreen->GCPrivateSizes[index2] = amount;
-	pScreen->totalGCSize += (amount - oldamount);
-    }
-    return TRUE;
-}
-
-
-/*
- *  pixmap private machinery
- */
-#ifdef PIXPRIV
-static int  pixmapPrivateCount;
-
-void
-ResetPixmapPrivates(void)
-{
-    pixmapPrivateCount = 0;
-}
-
-int
-AllocatePixmapPrivateIndex(void)
-{
-    return pixmapPrivateCount++;
-}
-
-Bool
-AllocatePixmapPrivate(ScreenPtr pScreen, int index2, unsigned amount)
-{
-    unsigned oldamount;
-
-    /* Round up sizes for proper alignment */
-    amount = ((amount + (sizeof(long) - 1)) / sizeof(long)) * sizeof(long);
-
-    if (index2 >= pScreen->PixmapPrivateLen)
-    {
-	unsigned *nsizes;
-	nsizes = (unsigned *)realloc(pScreen->PixmapPrivateSizes,
-				      (index2 + 1) * sizeof(unsigned));
-	if (!nsizes)
-	    return FALSE;
-	while (pScreen->PixmapPrivateLen <= index2)
-	{
-	    nsizes[pScreen->PixmapPrivateLen++] = 0;
-	    pScreen->totalPixmapSize += sizeof(DevUnion);
-	}
-	pScreen->PixmapPrivateSizes = nsizes;
-    }
-    oldamount = pScreen->PixmapPrivateSizes[index2];
-    if (amount > oldamount)
-    {
-	pScreen->PixmapPrivateSizes[index2] = amount;
-	pScreen->totalPixmapSize += (amount - oldamount);
-    }
-    pScreen->totalPixmapSize = BitmapBytePad(pScreen->totalPixmapSize * 8);
-    return TRUE;
-}
-#endif
-
-/*
- *  colormap private machinery
- */
-
-int  colormapPrivateCount;
-
-void
-ResetColormapPrivates(void)
-{
-    colormapPrivateCount = 0;
-}
-
-
-int
-AllocateColormapPrivateIndex (InitCmapPrivFunc initPrivFunc)
-{
-    int		index;
-    int		i;
-    ColormapPtr	pColormap;
-    DevUnion	*privs;
-
-    index = colormapPrivateCount++;
-
-    for (i = 0; i < screenInfo.numScreens; i++)
-    {
-	/*
-	 * AllocateColormapPrivateIndex may be called after the
-	 * default colormap has been created on each screen!
-	 *
-	 * We must resize the devPrivates array for the default
-	 * colormap on each screen, making room for this new private.
-	 * We also call the initialization function 'initPrivFunc' on
-	 * the new private allocated for each default colormap.
-	 */
-
-	ScreenPtr pScreen = screenInfo.screens[i];
-
-	pColormap = (ColormapPtr) LookupIDByType (
-	    pScreen->defColormap, RT_COLORMAP);
-
-	if (pColormap)
-	{
-	    privs = (DevUnion *) realloc (pColormap->devPrivates,
-		colormapPrivateCount * sizeof(DevUnion));
-	    if (!privs) {
-		colormapPrivateCount--;
-		return -1;
-	    }
-	    bzero(&privs[index], sizeof(DevUnion));
-	    pColormap->devPrivates = privs;
-	    if (!(*initPrivFunc)(pColormap,index))
-	    {
-		colormapPrivateCount--;
-		return -1;
-	    }
-	}
-    }
-
-    return index;
-}
-
-/*
- *  device private machinery
- */
-
-static int devicePrivateIndex = 0;
 
 int
 AllocateDevicePrivateIndex(void)
 {
-    return devicePrivateIndex++;
-}
+    PrivateDescRec *next;
 
-Bool
-AllocateDevicePrivate(DeviceIntPtr device, int index)
-{
-    if (device->nPrivates < ++index) {
-	DevUnion *nprivs = (DevUnion *) realloc(device->devPrivates,
-						 index * sizeof(DevUnion));
-	if (!nprivs)
-	    return FALSE;
-	device->devPrivates = nprivs;
-	bzero(&nprivs[device->nPrivates], sizeof(DevUnion)
-	      * (index - device->nPrivates));
-	device->nPrivates = index;
-	return TRUE;
-    } else {
-	return TRUE;
+    /* reset internal structures */
+    while (items) {
+	next = items->next;
+	DeleteCallbackList(&items->initfuncs);
+	DeleteCallbackList(&items->deletefuncs);
+	free(items);
+	items = next;
     }
-}
-
-void
-ResetDevicePrivateIndex(void)
-{
-    devicePrivateIndex = 0;
+    if (offsets)
+	free(offsets);
+    offsetsSize = sizeof(offsetDefaults);
+    offsets = (int *)malloc(offsetsSize);
+    offsetsSize /= sizeof(int);
+    if (!offsets)
+	    return FALSE;
+    memcpy(offsets, offsetDefaults, sizeof(offsetDefaults));
+	return TRUE;
 }

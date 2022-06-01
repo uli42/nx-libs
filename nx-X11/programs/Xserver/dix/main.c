@@ -105,7 +105,8 @@ Equipment Corporation.
 #include "site.h"
 #include "dixfont.h"
 #include "extnsionst.h"
-#include "client.h"
+#include "privates.h"
+#include "registry.h"
 #ifdef PANORAMIX
 #include "panoramiXsrv.h"
 #else
@@ -119,18 +120,15 @@ Equipment Corporation.
 #include "dpmsproc.h"
 #endif
 
-extern int InitClientPrivates(ClientPtr client);
-
 extern void Dispatch(void);
 
+char *ConnectionInfo;
 xConnSetupPrefix connSetupPrefix;
 
 extern FontPtr defaultFont;
 
 extern void InitProcVectors(void);
 extern Bool CreateGCperDepthArray(void);
-
-extern void FreeScreen(ScreenPtr pScreen);
 
 #ifndef PANORAMIX
 static
@@ -140,8 +138,6 @@ Bool CreateConnectionBlock(void);
 PaddingInfo PixmapWidthPaddingInfo[33];
 
 int connBlockScreenStart;
-
-static int restart = 0;
 
 void
 NotImplemented(xEvent *from, xEvent *to)
@@ -163,10 +159,93 @@ ReplyNotSwappd(
     FatalError("Not implemented");
 }
 
+/*
+ * This array encodes the answer to the question "what is the log base 2
+ * of the number of pixels that fit in a scanline pad unit?"
+ * Note that ~0 is an invalid entry (mostly for the benefit of the reader).
+ */
+static int answer[6][4] = {
+	/* pad   pad   pad     pad*/
+	/*  8     16    32    64 */
+
+	{   3,     4,    5 ,   6 },	/* 1 bit per pixel */
+	{   1,     2,    3 ,   4 },	/* 4 bits per pixel */
+	{   0,     1,    2 ,   3 },	/* 8 bits per pixel */
+	{   ~0,    0,    1 ,   2 },	/* 16 bits per pixel */
+	{   ~0,    ~0,   0 ,   1 },	/* 24 bits per pixel */
+	{   ~0,    ~0,   0 ,   1 }	/* 32 bits per pixel */
+};
+
+/*
+ * This array gives the answer to the question "what is the first index for
+ * the answer array above given the number of bits per pixel?"
+ * Note that ~0 is an invalid entry (mostly for the benefit of the reader).
+ */
+static int indexForBitsPerPixel[ 33 ] = {
+	~0, 0, ~0, ~0,	/* 1 bit per pixel */
+	1, ~0, ~0, ~0,	/* 4 bits per pixel */
+	2, ~0, ~0, ~0,	/* 8 bits per pixel */
+	~0,~0, ~0, ~0,
+	3, ~0, ~0, ~0,	/* 16 bits per pixel */
+	~0,~0, ~0, ~0,
+	4, ~0, ~0, ~0,	/* 24 bits per pixel */
+	~0,~0, ~0, ~0,
+	5		/* 32 bits per pixel */
+};
+
+/*
+ * This array gives the bytesperPixel value for cases where the number
+ * of bits per pixel is a multiple of 8 but not a power of 2.
+ */
+static int answerBytesPerPixel[ 33 ] = {
+	~0, 0, ~0, ~0,	/* 1 bit per pixel */
+	0, ~0, ~0, ~0,	/* 4 bits per pixel */
+	0, ~0, ~0, ~0,	/* 8 bits per pixel */
+	~0,~0, ~0, ~0,
+	0, ~0, ~0, ~0,	/* 16 bits per pixel */
+	~0,~0, ~0, ~0,
+	3, ~0, ~0, ~0,	/* 24 bits per pixel */
+	~0,~0, ~0, ~0,
+	0		/* 32 bits per pixel */
+};
+
+/*
+ * This array gives the answer to the question "what is the second index for
+ * the answer array above given the number of bits per scanline pad unit?"
+ * Note that ~0 is an invalid entry (mostly for the benefit of the reader).
+ */
+static int indexForScanlinePad[ 65 ] = {
+	~0, ~0, ~0, ~0,
+	~0, ~0, ~0, ~0,
+	 0, ~0, ~0, ~0,	/* 8 bits per scanline pad unit */
+	~0, ~0, ~0, ~0,
+	 1, ~0, ~0, ~0,	/* 16 bits per scanline pad unit */
+	~0, ~0, ~0, ~0,
+	~0, ~0, ~0, ~0,
+	~0, ~0, ~0, ~0,
+	 2, ~0, ~0, ~0,	/* 32 bits per scanline pad unit */
+	~0, ~0, ~0, ~0,
+	~0, ~0, ~0, ~0,
+	~0, ~0, ~0, ~0,
+	~0, ~0, ~0, ~0,
+	~0, ~0, ~0, ~0,
+	~0, ~0, ~0, ~0,
+	~0, ~0, ~0, ~0,
+	 3		/* 64 bits per scanline pad unit */
+};
+
+#ifndef MIN
+#define MIN(a,b) (((a) < (b)) ? (a) : (b))
+#endif
+
+#ifdef __APPLE__
+void DarwinHandleGUI(int argc, char **argv, char **envp);
+#endif
+
 int
 main(int argc, char *argv[], char *envp[])
 {
-    int	i;
+    int		i, j, k, error;
     char	*xauthfile;
     HWEventQueueType	alwaysCheckForInput[2];
 
@@ -175,19 +254,12 @@ main(int argc, char *argv[], char *envp[])
     InitGlobals();
     InitRegions();
 
+#ifdef XQUARTZ
     /* Quartz support on Mac OS X requires that the Cocoa event loop be in
      * the main thread. This allows the X server main to be called again
      * from another thread. */
-#if defined(__DARWIN__) && defined(DARWIN_WITH_QUARTZ)
     DarwinHandleGUI(argc, argv, envp);
 #endif
-
-    /* Notice if we're restarted.  Probably this is because we jumped through
-     * an uninitialized pointer */
-    if (restart)
-	FatalError("server restarted. Jumped through uninitialized pointer?\n");
-    else
-	restart = 1;
 
     CheckUserParameters(argc, argv, envp);
 
@@ -255,34 +327,40 @@ main(int argc, char *argv[], char *envp[])
 	SetInputCheck(&alwaysCheckForInput[0], &alwaysCheckForInput[1]);
 	screenInfo.arraySize = MAXSCREENS;
 	screenInfo.numScreens = 0;
+	screenInfo.numVideoScreens = -1;
+
+	/*
+	 * Just in case the ddx doesnt supply a format for depth 1 (like qvss).
+	 */
+	j = indexForBitsPerPixel[ 1 ];
+	k = indexForScanlinePad[ BITMAP_SCANLINE_PAD ];
+	PixmapWidthPaddingInfo[1].padRoundUp = BITMAP_SCANLINE_PAD-1;
+	PixmapWidthPaddingInfo[1].padPixelsLog2 = answer[j][k];
+ 	j = indexForBitsPerPixel[8]; /* bits per byte */
+ 	PixmapWidthPaddingInfo[1].padBytesLog2 = answer[j][k];
+	PixmapWidthPaddingInfo[1].bitsPerPixel = 1;
 
 	InitAtoms();
 	InitEvents();
+	InitSelections();
 #ifdef HAS_XFONT2
 	xfont2_init_glyph_caching();
 #else
 	InitGlyphCaching();
 #endif /* of HAS_XFONT2 */
-	ResetExtensionPrivates();
-	ResetClientPrivates();
-	ResetScreenPrivates();
-	ResetWindowPrivates();
-	ResetGCPrivates();
-#ifdef PIXPRIV
-	ResetPixmapPrivates();
-#endif
-	ResetColormapPrivates();
-	ResetDevicePrivateIndex();
-	InitFonts();
+	if (!dixResetPrivates())
+	    FatalError("couldn't init private data storage");
+	dixResetRegistry();
+	ResetFontPrivateIndex();
 	InitCallbackManager();
 	InitVisualWrap();
 	InitOutput(&screenInfo, argc, argv);
 
 	if (screenInfo.numScreens < 1)
 	    FatalError("no screens found");
+	if (screenInfo.numVideoScreens < 0)
+	    screenInfo.numVideoScreens = screenInfo.numScreens;
 	InitExtensions(argc, argv);
-	if (!InitClientPrivates(serverClient))
-	    FatalError("failed to allocate serverClient devprivates");
 	for (i = 0; i < screenInfo.numScreens; i++)
 	{
 	    ScreenPtr pScreen = screenInfo.screens[i];
@@ -304,9 +382,11 @@ main(int argc, char *argv[], char *envp[])
 	    FatalError("failed to initialize core devices");
 	ReserveClientIds(serverClient);
 
-	if (loadableFonts) {
-	    SetFontPath(serverClient, 0, (unsigned char *)defaultFontPath);
-	} else {
+	InitFonts();
+	if (loadableFonts)
+	    SetFontPath(serverClient, 0, (unsigned char *)defaultFontPath,
+			&error);
+        else {
 	    if (SetDefaultFontPath(defaultFontPath) != Success)
 		ErrorF("failed to set default font path '%s'\n",
 			defaultFontPath);
@@ -338,7 +418,7 @@ main(int argc, char *argv[], char *envp[])
 	for (i = 0; i < screenInfo.numScreens; i++)
 	    InitRootWindow(screenInfo.screens[i]->root);
 	DefineInitialRootWindow(screenInfo.screens[0]->root);
-	SaveScreens(SCREEN_SAVER_FORCER, ScreenSaverReset);
+	dixSaveScreens(serverClient, SCREEN_SAVER_FORCER, ScreenSaverReset);
 
 #ifdef PANORAMIX
 	if (!noPanoramiXExtension) {
@@ -359,7 +439,7 @@ main(int argc, char *argv[], char *envp[])
 
 	/* Now free up whatever must be freed */
 	if (screenIsSaved == SCREEN_SAVER_ON)
-	    SaveScreens(SCREEN_SAVER_OFF, ScreenSaverReset);
+	    dixSaveScreens(serverClient, SCREEN_SAVER_OFF, ScreenSaverReset);
 	FreeScreenSaverTimer();
 	CloseDownExtensions();
 
@@ -378,13 +458,14 @@ main(int argc, char *argv[], char *envp[])
 	for (i = 0; i < screenInfo.numScreens; i++)
 	   screenInfo.screens[i]->root = NullWindow;
 	CloseDownDevices();
+
 	for (i = screenInfo.numScreens - 1; i >= 0; i--)
 	{
 	    FreeScratchPixmapsForScreen(i);
 	    FreeGCperDepth(i);
 	    FreeDefaultStipple(i);
-	    (* screenInfo.screens[i]->CloseScreen)(screenInfo.screens[i]);
-	    FreeScreen(screenInfo.screens[i]);
+	    (* screenInfo.screens[i]->CloseScreen)(i, screenInfo.screens[i]);
+	    dixFreePrivates(screenInfo.screens[i]->devPrivates);
 	    screenInfo.numScreens = i;
 	}
   	CloseDownEvents();
@@ -393,7 +474,7 @@ main(int argc, char *argv[], char *envp[])
 	FreeAuditTimer();
 
 	ReleaseClientIds(serverClient);
-	free(serverClient->devPrivates);
+	dixFreePrivates(serverClient->devPrivates);
 	serverClient->devPrivates = NULL;
 
 	if (dispatchException & DE_TERMINATE)
@@ -449,6 +530,7 @@ CreateConnectionBlock(void)
         sizesofar = 0;
     char *pBuf;
 
+    
    /* Leave off the ridBase and ridMask, these must be sent with
       connection */
 
@@ -574,4 +656,98 @@ CreateConnectionBlock(void)
     connSetupPrefix.majorVersion = X_PROTOCOL;
     connSetupPrefix.minorVersion = X_PROTOCOL_REVISION;
     return TRUE;
+}
+
+/*
+	grow the array of screenRecs if necessary.
+	call the device-supplied initialization procedure 
+with its screen number, a void * to its ScreenRec, argc, and argv.
+	return the number of successfully installed screens.
+
+*/
+
+int
+AddScreen(
+    Bool	(* pfnInit)(
+	int /*index*/,
+	ScreenPtr /*pScreen*/,
+	int /*argc*/,
+	char ** /*argv*/
+		),
+    int argc,
+    char **argv)
+{
+
+    int i;
+    int scanlinepad, format, depth, bitsPerPixel, j, k;
+    ScreenPtr pScreen;
+
+    i = screenInfo.numScreens;
+    if (i == MAXSCREENS)
+	return -1;
+
+    pScreen = (ScreenPtr) calloc(1, sizeof(ScreenRec));
+    if (!pScreen)
+	return -1;
+
+    pScreen->devPrivates = NULL;
+    pScreen->myNum = i;
+    pScreen->totalPixmapSize = BitmapBytePad(sizeof(PixmapRec)*8);
+    pScreen->ClipNotify = 0;	/* for R4 ddx compatibility */
+    pScreen->CreateScreenResources = 0;
+    
+    /*
+     * This loop gets run once for every Screen that gets added,
+     * but thats ok.  If the ddx layer initializes the formats
+     * one at a time calling AddScreen() after each, then each
+     * iteration will make it a little more accurate.  Worst case
+     * we do this loop N * numPixmapFormats where N is # of screens.
+     * Anyway, this must be called after InitOutput and before the
+     * screen init routine is called.
+     */
+    for (format=0; format<screenInfo.numPixmapFormats; format++)
+    {
+ 	depth = screenInfo.formats[format].depth;
+ 	bitsPerPixel = screenInfo.formats[format].bitsPerPixel;
+  	scanlinepad = screenInfo.formats[format].scanlinePad;
+ 	j = indexForBitsPerPixel[ bitsPerPixel ];
+  	k = indexForScanlinePad[ scanlinepad ];
+ 	PixmapWidthPaddingInfo[ depth ].padPixelsLog2 = answer[j][k];
+ 	PixmapWidthPaddingInfo[ depth ].padRoundUp =
+ 	    (scanlinepad/bitsPerPixel) - 1;
+ 	j = indexForBitsPerPixel[ 8 ]; /* bits per byte */
+ 	PixmapWidthPaddingInfo[ depth ].padBytesLog2 = answer[j][k];
+	PixmapWidthPaddingInfo[ depth ].bitsPerPixel = bitsPerPixel;
+	if (answerBytesPerPixel[bitsPerPixel])
+	{
+	    PixmapWidthPaddingInfo[ depth ].notPower2 = 1;
+	    PixmapWidthPaddingInfo[ depth ].bytesPerPixel =
+		answerBytesPerPixel[bitsPerPixel];
+	}
+	else
+	{
+	    PixmapWidthPaddingInfo[ depth ].notPower2 = 0;
+	}
+    }
+  
+    /* This is where screen specific stuff gets initialized.  Load the
+       screen structure, call the hardware, whatever.
+       This is also where the default colormap should be allocated and
+       also pixel values for blackPixel, whitePixel, and the cursor
+       Note that InitScreen is NOT allowed to modify argc, argv, or
+       any of the strings pointed to by argv.  They may be passed to
+       multiple screens. 
+    */ 
+    pScreen->rgf = ~0L;  /* there are no scratch GCs yet*/
+    screenInfo.screens[i]->root = NullWindow;
+    screenInfo.screens[i] = pScreen;
+    screenInfo.numScreens++;
+    if (!(*pfnInit)(i, pScreen, argc, argv))
+    {
+	dixFreePrivates(pScreen->devPrivates);
+	free(pScreen);
+	screenInfo.numScreens--;
+	return -1;
+    }
+    return i;
 }

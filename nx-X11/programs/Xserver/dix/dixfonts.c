@@ -59,7 +59,6 @@ Equipment Corporation.
 #include "resource.h"
 #include "dixstruct.h"
 #include "cursorstr.h"
-#include "list.h"
 #include "misc.h"
 #include "opaque.h"
 #include "dixfontstr.h"
@@ -67,6 +66,8 @@ Equipment Corporation.
 #ifdef HAS_XFONT2
 # include <X11/fonts/libxfont2.h>
 #endif /* HAS_XFONT2 */
+#include "dixfont.h"
+#include "xace.h"
 
 #ifdef DEBUG
 #include	<stdio.h>
@@ -170,11 +171,6 @@ QueueFontWakeup(FontPathElementPtr fpe)
 
     for (i = 0; i < num_slept_fpes; i++) {
 	if (slept_fpes[i] == fpe) {
-
-#ifdef DEBUG
-	    fprintf(stderr, "re-queueing fpe wakeup\n");
-#endif
-
 	    return;
 	}
     }
@@ -741,7 +737,7 @@ doListFontsAndAliases(ClientPtr client, LFclosurePtr c)
 		    return TRUE;
 		}
 		if (err == FontNameAlias) {
-		    free(resolved);
+		    if (resolved) free(resolved);
 		    resolved = (char *) malloc(resolvedlen + 1);
 		    if (resolved)
 			memmove(resolved, tmpname, resolvedlen + 1);
@@ -807,6 +803,7 @@ doListFontsAndAliases(ClientPtr client, LFclosurePtr c)
 		{
 		    c->saved = c->current;
 		    c->haveSaved = TRUE;
+		    if (c->savedName)
 		    free(c->savedName);
 		    c->savedName = (char *)malloc(namelen + 1);
 		    if (c->savedName)
@@ -903,14 +900,14 @@ bail:
     for (i = 0; i < c->num_fpes; i++)
 	FreeFPE(c->fpe_list[i]);
     free(c->fpe_list);
-    free(c->savedName);
+    if (c->savedName) free(c->savedName);
 #ifdef HAS_XFONT2
     xfont2_free_font_names(names);
 #else
     FreeFontNames(names);
 #endif /* HAS_XFONT2 */
     free(c);
-    free(resolved);
+    if (resolved) free(resolved);
     return TRUE;
 }
 
@@ -929,6 +926,10 @@ ListFonts(ClientPtr client, unsigned char *pattern, unsigned length,
      */
     if (length > XLFDMAXFONTNAMELEN)
 	return BadAlloc;
+
+    i = XaceHook(XACE_SERVER_ACCESS, client, DixGetAttrAccess);
+    if (i != Success)
+	return i;
 
     if (!(c = (LFclosurePtr) calloc(1, sizeof *c)))
 	return BadAlloc;
@@ -1090,6 +1091,7 @@ doListFontsWithInfo(ClientPtr client, LFWIclosurePtr c)
 		c->saved = c->current;
 		c->haveSaved = TRUE;
 		c->savedNumFonts = numFonts;
+		if (c->savedName)
 		free(c->savedName);
 		c->savedName = (char *)malloc(namelen + 1);
 		if (c->savedName)
@@ -1201,7 +1203,7 @@ bail:
 	FreeFPE(c->fpe_list[i]);
     free(c->reply);
     free(c->fpe_list);
-    free(c->savedName);
+    if (c->savedName) free(c->savedName);
     free(c);
     return TRUE;
 }
@@ -1222,6 +1224,10 @@ StartListFontsWithInfo(ClientPtr client, int length, unsigned char *pattern,
      */
     if (length > XLFDMAXFONTNAMELEN)
 	return BadAlloc;
+
+    i = XaceHook(XACE_SERVER_ACCESS, client, DixGetAttrAccess);
+    if (i != Success)
+	return i;
 
     if (!(c = (LFWIclosurePtr) malloc(sizeof *c)))
 	goto badAlloc;
@@ -1785,9 +1791,6 @@ FreeFontPath(FontPathElementPtr *list, int n, Bool force)
 		    found++;
 	    }
 	    if (list[i]->refcount != found) {
-		ErrorF("FreeFontPath: FPE \"%.*s\" refcount is %d, should be %d; fixing.\n",
-		       list[i]->name_length, list[i]->name,
-		       list[i]->refcount, found);
 		list[i]->refcount = found; /* ensure it will get freed */
 	    }
 	}
@@ -1809,6 +1812,7 @@ find_existing_fpe(FontPathElementPtr *list, int num, unsigned char *name, int le
     }
     return (FontPathElementPtr) 0;
 }
+
 
 static int
 SetFontPathElements(int npaths, unsigned char *paths, int *bad, Bool persist)
@@ -1942,10 +1946,13 @@ bail:
     return FontToXError(err);
 }
 
+/* XXX -- do we need to pass error down to each renderer? */
 int
 SetFontPath(ClientPtr client, int npaths, unsigned char *paths)
 {
-    int   err = Success;
+    int err = XaceHook(XACE_SERVER_ACCESS, client, DixManageAccess);
+    if (err != Success)
+	return err;
 
     if (npaths == 0) {
 	if (SetDefaultFontPath(defaultFontPath) != Success)
@@ -2031,27 +2038,28 @@ SetDefaultFontPath(char *path)
     return err;
 }
 
-unsigned char *
-GetFontPath(int *count, int *length)
+int
+GetFontPath(ClientPtr client, int *count, int *length, unsigned char **result)
 {
     int			i;
     unsigned char       *c;
     int			len;
     FontPathElementPtr	fpe;
 
+    i = XaceHook(XACE_SERVER_ACCESS, client, DixGetAttrAccess);
+    if (i != Success)
+	return i;
+
     len = 0;
     for (i = 0; i < num_fpes; i++) {
 	fpe = font_path_elements[i];
 	len += fpe->name_length + 1;
     }
-    c = realloc(font_path_string, len);
-    if (c == NULL) {
-	free(font_path_string);
-	font_path_string = NULL;
-	return NULL;
-    }
+    font_path_string = (unsigned char *) realloc(font_path_string, len);
+    if (!font_path_string)
+	return BadAlloc;
 
-    font_path_string = c;
+    c = font_path_string;
     *length = 0;
     for (i = 0; i < num_fpes; i++) {
 	fpe = font_path_elements[i];
@@ -2061,7 +2069,8 @@ GetFontPath(int *count, int *length)
 	c += fpe->name_length;
     }
     *count = num_fpes;
-    return font_path_string;
+    *result = font_path_string;
+    return Success;
 }
 
 int
