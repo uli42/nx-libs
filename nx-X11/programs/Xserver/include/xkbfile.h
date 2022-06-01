@@ -28,6 +28,9 @@
 
  ********************************************************/
 
+#ifndef _XKBFILE_H_
+#define	_XKBFILE_H_ 1
+
 /***====================================================================***/
 
 #define	XkbXKMFile	0
@@ -38,15 +41,9 @@
 #define	XkbMapDefined		(1<<0)
 #define	XkbStateDefined		(1<<1)
 
-typedef struct _XkbFileInfo {
-    unsigned		type;
-    unsigned		defined;
-    XkbDescPtr	 	xkb;
-} XkbFileInfo,*XkbFileInfoPtr;
-
 typedef void	(*XkbFileAddOnFunc)(
     FILE *		/* file */,
-    XkbFileInfo *	/* result */,
+    XkbDescPtr  	/* result */,
     Bool		/* topLevel */,
     Bool		/* showImplicit */,
     int			/* fileSection */,
@@ -83,9 +80,9 @@ typedef void	(*XkbFileAddOnFunc)(
 #define	_XkbErrXReqFailure		25
 #define	_XkbErrBadImplementation	26
 
-extern const char *	_XkbErrMessages[];
+extern char *		_XkbErrMessages[];
 extern unsigned		_XkbErrCode;
-extern const char *	_XkbErrLocation;
+extern char *		_XkbErrLocation;
 extern unsigned		_XkbErrData;
 
 /***====================================================================***/
@@ -97,7 +94,6 @@ extern	char *	XkbIndentText(
 );
 
 extern	char *	XkbAtomText(
-    Display *	/* dpy */,
     Atom 	/* atm */,
     unsigned	/* format */
 );
@@ -130,14 +126,12 @@ XkbModMaskText(
 );
 
 extern char *	XkbVModIndexText(
-    Display *	/* dpy */,
     XkbDescPtr	/* xkb */,
     unsigned	/* ndx */,
     unsigned	/* format */
 );
 
 extern	char *	XkbVModMaskText(
-    Display *	/* dpy */,
     XkbDescPtr	/* xkb */,
     unsigned	/* modMask */,
     unsigned	/* mask */,
@@ -190,7 +184,6 @@ extern char *	XkbActionTypeText(
 );
 
 extern char *	XkbActionText(
-    Display *	/* dpy */,
     XkbDescPtr	/* xkb */,
     XkbAction *	/* action */,
     unsigned	/* format */
@@ -233,31 +226,12 @@ extern	Bool	XkbLookupGroupAndLevel(
 
 /***====================================================================***/
 
-extern	char *	XkbAtomGetString(
-    Display *	/* dpy */,
-    Atom 	/* atm */
-);
-
 extern	Atom	XkbInternAtom(
-    Display *	/* dpy */,
     char *      /* name */,
     Bool	/* onlyIfExists */
 );
 
-extern	Status	XkbChangeKbdDisplay(
-    Display *		/* newDpy */,
-    XkbFileInfo *	/* result */
-);
-
-extern	Atom	XkbChangeAtomDisplay(
-    Display *	/* oldDpy */,
-    Display *	/* newDpy */,
-    Atom	/* atm */
-);
-
-extern	void	XkbInitAtoms(
-    Display *	/* dpy */
-);
+extern	void	XkbInitAtoms(void);
 
 /***====================================================================***/
 
@@ -301,12 +275,6 @@ extern	unsigned	XkbConvertXkbComponents(
     unsigned 		/* orig */
 );
 
-extern	Bool	XkbDetermineFileType(
-    XkbFileInfo *	/* xkb */,
-    int			/* format */,
-    int *		/* opts_missing */
-);
-
 extern	Bool	XkbNameMatchesPattern(
     char *		/* name */,
     char *		/* pattern */
@@ -316,7 +284,7 @@ extern	Bool	XkbNameMatchesPattern(
 
 extern	Bool	XkbWriteXKBKeycodes(
     FILE *		/* file */,
-    XkbFileInfo *	/* result */,
+    XkbDescPtr          /* result */,
     Bool		/* topLevel */,
     Bool		/* showImplicit */,
     XkbFileAddOnFunc	/* addOn */,
@@ -325,7 +293,7 @@ extern	Bool	XkbWriteXKBKeycodes(
 
 extern	Bool	XkbWriteXKBKeyTypes(
     FILE *		/* file */,
-    XkbFileInfo *	/* result */,
+    XkbDescPtr  	/* result */,
     Bool		/* topLevel */,
     Bool		/* showImplicit */,
     XkbFileAddOnFunc	/* addOn */,
@@ -334,7 +302,7 @@ extern	Bool	XkbWriteXKBKeyTypes(
 
 extern	Bool	XkbWriteXKBCompatMap(
     FILE *		/* file */,
-    XkbFileInfo *	/* result */,
+    XkbDescPtr	/* result */,
     Bool		/* topLevel */,
     Bool		/* showImplicit */,
     XkbFileAddOnFunc	/* addOn */,
@@ -343,7 +311,7 @@ extern	Bool	XkbWriteXKBCompatMap(
 
 extern	Bool	XkbWriteXKBSymbols(
     FILE *		/* file */,
-    XkbFileInfo *	/* result */,
+    XkbDescPtr	/* result */,
     Bool		/* topLevel */,
     Bool		/* showImplicit */,
     XkbFileAddOnFunc	/* addOn */,
@@ -352,7 +320,7 @@ extern	Bool	XkbWriteXKBSymbols(
 
 extern	Bool	XkbWriteXKBGeometry(
     FILE *		/* file */,
-    XkbFileInfo *	/* result */,
+    XkbDescPtr	/* result */,
     Bool		/* topLevel */,
     Bool		/* showImplicit */,
     XkbFileAddOnFunc	/* addOn */,
@@ -361,7 +329,7 @@ extern	Bool	XkbWriteXKBGeometry(
 
 extern	Bool	XkbWriteXKBSemantics(
     FILE *		/* file */,
-    XkbFileInfo *	/* result */,
+    XkbDescPtr	/* result */,
     Bool		/* topLevel */,
     Bool		/* showImplicit */,
     XkbFileAddOnFunc	/* addOn */,
@@ -370,7 +338,7 @@ extern	Bool	XkbWriteXKBSemantics(
 
 extern	Bool	XkbWriteXKBLayout(
     FILE *		/* file */,
-    XkbFileInfo *	/* result */,
+    XkbDescPtr	/* result */,
     Bool		/* topLevel */,
     Bool		/* showImplicit */,
     XkbFileAddOnFunc	/* addOn */,
@@ -379,7 +347,7 @@ extern	Bool	XkbWriteXKBLayout(
 
 extern	Bool	XkbWriteXKBKeymap(
     FILE *		/* file */,
-    XkbFileInfo *	/* result */,
+    XkbDescPtr	/* result */,
     Bool		/* topLevel */,
     Bool		/* showImplicit */,
     XkbFileAddOnFunc	/* addOn */,
@@ -388,7 +356,7 @@ extern	Bool	XkbWriteXKBKeymap(
 
 extern	Bool	XkbWriteXKBFile(
     FILE *		/* file */,
-    XkbFileInfo *	/* result */,
+    XkbDescPtr	/* result */,
     Bool		/* showImplicit */,
     XkbFileAddOnFunc	/* addOn */,
     void *		/* priv */
@@ -397,16 +365,16 @@ extern	Bool	XkbWriteXKBFile(
 extern	Bool	XkbWriteCFile(
     FILE *		/* file */,
     char *		/* name */,
-    XkbFileInfo *	/* info */
+    XkbDescPtr	/* info */
 );
 
 extern	Bool	XkbWriteXKMFile(
     FILE *		/* file */,
-    XkbFileInfo *	/* result */
+    XkbDescPtr	/* result */
 );
 
 extern	Bool	XkbWriteToServer(
-    XkbFileInfo *	/* result */
+    XkbDescPtr	/* result */
 );
 
 extern	void	XkbEnsureSafeMapName(
@@ -416,15 +384,13 @@ extern	void	XkbEnsureSafeMapName(
 extern	Bool	XkbWriteXKBKeymapForNames(
     FILE *			/* file */,
     XkbComponentNamesPtr	/* names */,
-    Display *			/* dpy */,
     XkbDescPtr			/* xkb */,
     unsigned			/* want */,
     unsigned			/* need */
 );
 
 extern	Status	XkbMergeFile(
-    XkbDescPtr			/* xkb */,
-    XkbFileInfo			/* finfo */
+    XkbDescPtr			/* xkb */
 );
 
 /***====================================================================***/
@@ -433,18 +399,11 @@ extern Bool	XkmProbe(
     FILE *		/* file */
 );
 
-extern unsigned XkbReadFromServer(
-    Display *		/* dpy */,
-    unsigned		/* need */,
-    unsigned		/* want */,
-    XkbFileInfo *	/* result */
-);
-
 extern unsigned	XkmReadFile(
     FILE *		/* file */,
     unsigned		/* need */,
     unsigned		/* want */,
-    XkbFileInfo *	/* result */
+    XkbDescPtr	        * /* result */
 );
 
 #ifdef _XKMFORMAT_H_
@@ -465,7 +424,7 @@ extern xkmSectionInfo *XkmFindTOCEntry(
 extern Bool	XkmReadFileSection(
     FILE *              /* file */,
     xkmSectionInfo *    /* toc */,
-    XkbFileInfo *       /* result */,
+    XkbDescPtr       /* result */,
     unsigned *          /* loaded_rtrn */
 );
 

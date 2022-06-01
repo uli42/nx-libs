@@ -52,7 +52,7 @@ SOFTWARE.
  * server executable.
  */
 #ifndef VENDOR_STRING
-#define VENDOR_STRING "The X.Org Group"
+#define VENDOR_STRING "The X.Org Foundation"
 #endif
 
 /*
@@ -65,10 +65,11 @@ SOFTWARE.
 #endif
 
 /*
- * The following constant is provided solely as a last line of defense.  The
- * normal build ALWAYS overrides it using a special rule given in
- * server/dix/Imakefile.  If you want to change this constant, you should set
- * the DefaultFontPath configuration parameter.
+ * The following constants are provided solely as a last line of defense.  The
+ * normal build ALWAYS overrides them using a special rule given in
+ * server/dix/Imakefile.  If you want to change either of these constants, 
+ * you should set the DefaultFontPath or DefaultRGBDatabase configuration 
+ * parameters.
  * DO NOT CHANGE THESE VALUES OR THE DIX IMAKEFILE!
  */
 #ifndef COMPILEDDEFAULTFONTPATH

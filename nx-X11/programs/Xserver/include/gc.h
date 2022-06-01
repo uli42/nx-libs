@@ -63,7 +63,6 @@ SOFTWARE.
 #undef _XTYPEDEF_POINTER
 
 #include <nx-X11/Xdefs.h>	/* for Bool */
-
 #include <nx-X11/Xproto.h>
 #include "screenint.h"	/* for ScreenPtr */
 #include "pixmap.h"	/* for DrawablePtr */
@@ -129,7 +128,9 @@ extern GCPtr CreateGC(
     DrawablePtr /*pDrawable*/,
     BITS32 /*mask*/,
     XID* /*pval*/,
-    int* /*pStatus*/);
+    int* /*pStatus*/,
+    XID /*gcid*/,
+    ClientPtr /*client*/);
 
 extern int CopyGC(
     GCPtr/*pgcSrc*/,
@@ -139,11 +140,6 @@ extern int CopyGC(
 extern int FreeGC(
     void * /*pGC*/,
     XID /*gid*/);
-
-extern void SetGCMask(
-    GCPtr /*pGC*/,
-    Mask /*selectMask*/,
-    Mask /*newDataMask*/);
 
 extern GCPtr CreateScratchGC(
     ScreenPtr /*pScreen*/,

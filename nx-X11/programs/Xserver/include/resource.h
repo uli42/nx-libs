@@ -48,6 +48,7 @@ SOFTWARE.
 #ifndef RESOURCE_H
 #define RESOURCE_H 1
 #include "misc.h"
+#include "dixaccess.h"
 
 /*****************************************************************
  * STUFF FOR RESOURCES 
@@ -119,6 +120,19 @@ typedef unsigned long RESTYPE;
 #define INVALID	(0)
 
 #define BAD_RESOURCE 0xe0000000
+
+/* Resource state callback */
+extern CallbackListPtr ResourceStateCallback;
+
+typedef enum {ResourceStateAdding,
+	      ResourceStateFreeing} ResourceState;
+
+typedef struct {
+    ResourceState state;
+    XID id;
+    RESTYPE type;
+    void * value;
+} ResourceStateInfoRec;
 
 typedef int (*DeleteType)(
     void * /*value*/,
@@ -198,56 +212,18 @@ extern Bool LegalNewID(
     XID /*id*/,
     ClientPtr /*client*/);
 
-extern void * LookupIDByType(
-    XID /*id*/,
-    RESTYPE /*rtype*/);
-
-extern void * LookupIDByClass(
-    XID /*id*/,
-    RESTYPE /*classes*/);
-
 extern void * LookupClientResourceComplex(
     ClientPtr client,
     RESTYPE type,
     FindComplexResType func,
     void * cdata);
 
-/* These are the access modes that can be passed in the last parameter
- * to SecurityLookupIDByType/Class.  The Security extension doesn't
- * currently make much use of these; they're mainly provided as an
- * example of what you might need for discretionary access control.
- * You can or these values together to indicate multiple modes
- * simultaneously.
- */
-
-#define DixUnknownAccess	0	/* don't know intentions */
-#define DixReadAccess	(1<<0)	/* inspecting the object */
-#define DixWriteAccess	(1<<1)	/* changing the object */
-#define DixDestroyAccess	(1<<2)	/* destroying the object */
-
-#ifdef XCSECURITY
-
-extern void * SecurityLookupIDByType(
-    ClientPtr /*client*/,
-    XID /*id*/,
-    RESTYPE /*rtype*/,
-    Mask /*access_mode*/);
-
-extern void * SecurityLookupIDByClass(
-    ClientPtr /*client*/,
-    XID /*id*/,
-    RESTYPE /*classes*/,
-    Mask /*access_mode*/);
-
-#else /* not XCSECURITY */
-
-#define SecurityLookupIDByType(client, id, rtype, access_mode) \
-        LookupIDByType(id, rtype)
-
-#define SecurityLookupIDByClass(client, id, classes, access_mode) \
-        LookupIDByClass(id, classes)
-
-#endif /* XCSECURITY */
+extern int dixLookupResource(
+    void * *result,
+    XID id,
+    RESTYPE rtype,
+    ClientPtr client,
+    Mask access_mode);
 
 extern void GetXIDRange(
     int /*client*/,
@@ -263,10 +239,34 @@ extern unsigned int GetXIDList(
 extern RESTYPE lastResourceType;
 extern RESTYPE TypeMask;
 
-#ifdef XResExtension
-extern Atom *ResourceNames;
-void RegisterResourceName(RESTYPE type, char* name);
-#endif
+/*
+ * These are deprecated compatibility functions and will be removed soon!
+ * Please use the noted replacements instead.
+ */
+
+/* replaced by dixLookupResource */
+extern void * SecurityLookupIDByType(
+    ClientPtr client,
+    XID id,
+    RESTYPE rtype,
+    Mask access_mode);
+
+/* replaced by dixLookupResource */
+extern void * SecurityLookupIDByClass(
+    ClientPtr client,
+    XID id,
+    RESTYPE classes,
+    Mask access_mode);
+
+/* replaced by dixLookupResource */
+extern void * LookupIDByType(
+    XID id,
+    RESTYPE rtype);
+
+/* replaced by dixLookupResource */
+extern void * LookupIDByClass(
+    XID id,
+    RESTYPE classes);
 
 #endif /* RESOURCE_H */
 

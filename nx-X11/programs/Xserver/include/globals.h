@@ -42,10 +42,6 @@ extern Bool DPMSCapableFlag;
 #endif
 
 #ifdef PANORAMIX
-extern Bool PanoramiXMapped;
-extern Bool PanoramiXVisibilityNotifySent;
-extern Bool PanoramiXWindowExposureSent;
-extern Bool PanoramiXOneExposeRequest;
 extern Bool PanoramiXExtensionDisabledHack;
 #endif
 
@@ -137,6 +133,16 @@ extern Bool noXInputExtension;
 
 #ifdef XIDLE
 extern Bool noXIdleExtension;
+#endif
+
+#ifdef XSELINUX
+extern Bool noSELinuxExtension;
+
+#define SELINUX_MODE_DEFAULT    0
+#define SELINUX_MODE_DISABLED   1
+#define SELINUX_MODE_PERMISSIVE 2
+#define SELINUX_MODE_ENFORCING  3
+extern int selinuxEnforcingState;
 #endif
 
 #ifdef XV

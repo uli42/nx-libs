@@ -55,6 +55,7 @@ SOFTWARE.
 #include "property.h"
 #include "resource.h"	/* for ROOT_WINDOW_ID_BASE */
 #include "dix.h"
+#include "privates.h"
 #include "miscstruct.h"
 #include <nx-X11/Xprotostr.h>
 #include "opaque.h"
@@ -123,6 +124,7 @@ typedef struct _WindowOpt {
 
 typedef struct _Window {
     DrawableRec		drawable;
+    PrivateRec		*devPrivates;
     WindowPtr		parent;		/* ancestor chain */
     WindowPtr		nextSib;	/* next lower sibling */
     WindowPtr		prevSib;	/* next higher sibling */
@@ -156,16 +158,8 @@ typedef struct _Window {
     unsigned		viewable:1;	/* realized && InputOutput */
     unsigned		dontPropagate:3;/* index into DontPropagateMasks */
     unsigned		forcedBS:1;	/* system-supplied backingStore */
-#ifdef NEED_DBE_BUF_BITS
-#define DBE_FRONT_BUFFER 1
-#define DBE_BACK_BUFFER  0
-    unsigned		dstBuffer:1;	/* destination buffer for rendering */
-    unsigned		srcBuffer:1;	/* source buffer for rendering */
-#endif
-#ifdef COMPOSITE
-    unsigned		redirectDraw:2;	/* rendering is redirected from here */
-#endif
-    DevUnion		*devPrivates;
+    unsigned		redirectDraw:2;	/* COMPOSITE rendering redirect */
+    unsigned		forcedBG:1;	/* must have an opaque background */
 } WindowRec;
 
 /*
@@ -251,5 +245,6 @@ extern ScreenSaverStuffRec savedScreenInfo[MAXSCREENS];
 
 extern int numSaveUndersViewable;
 extern int deltaSaveUndersViewable;
+
 
 #endif /* WINDOWSTRUCT_H */

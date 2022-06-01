@@ -53,6 +53,7 @@ SOFTWARE.
 #include "screenint.h"
 #include "extension.h"
 #include "gc.h"
+#include "privates.h"
 
 typedef struct _ExtensionEntry {
     int index;
@@ -69,10 +70,7 @@ typedef struct _ExtensionEntry {
     void * extPrivate;
     unsigned short (* MinorOpcode)(	/* called for errors */
 	ClientPtr /* client */);
-#ifdef XCSECURITY
-    Bool secure;		/* extension visible to untrusted clients? */
-#endif
-    DevUnion *devPrivates;
+    PrivateRec *devPrivates;
 } ExtensionEntry;
 
 /* 
@@ -88,31 +86,10 @@ extern void NotImplemented (	/* FIXME: this may move to another file... */
 	xEvent *,
 	xEvent *);
 
-typedef void (* ExtensionLookupProc)(
-#ifdef EXTENSION_PROC_ARGS
-    EXTENSION_PROC_ARGS
-#else
-    /* args no longer indeterminate */
-    char *name,
-    GCPtr pGC
-#endif
-);
-
-typedef struct _ProcEntry {
-    char *name;
-    ExtensionLookupProc proc;
-} ProcEntryRec, *ProcEntryPtr;
-
-typedef struct _ScreenProcEntry {
-    int num;
-    ProcEntryPtr procList;
-} ScreenProcEntry;
-
 #define    SetGCVector(pGC, VectorElement, NewRoutineAddress, Atom)    \
     pGC->VectorElement = NewRoutineAddress;
 
 #define    GetGCValue(pGC, GCElement)    (pGC->GCElement)
-
 
 extern ExtensionEntry *AddExtension(
     char* /*name*/,
@@ -130,24 +107,6 @@ extern Bool AddExtensionAlias(
 
 extern ExtensionEntry *CheckExtension(const char *extname);
 extern ExtensionEntry *GetExtensionEntry(int major);
-
-extern ExtensionLookupProc LookupProc(
-    char* /*name*/,
-    GCPtr /*pGC*/);
-
-extern Bool RegisterProc(
-    char* /*name*/,
-    GCPtr /*pGC*/,
-    ExtensionLookupProc /*proc*/);
-
-extern Bool RegisterScreenProc(
-    char* /*name*/,
-    ScreenPtr /*pScreen*/,
-    ExtensionLookupProc /*proc*/);
-
-extern void DeclareExtensionSecurity(
-    char * /*extname*/,
-    Bool /*secure*/);
 
 #endif /* EXTENSIONSTRUCT_H */
 

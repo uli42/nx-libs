@@ -30,12 +30,17 @@ SOFTWARE.
 #include "cursor.h"
 #include "gc.h"
 #include "pixmap.h"
+#include "privates.h"
 #include <nx-X11/Xmd.h>
 
 /*
  * 	direct-mapped hash table, used by resource manager to store
  *      translation from client ids to server addresses.
  */
+
+#ifdef DEBUG
+#define MAX_REQUEST_LOG 100
+#endif
 
 extern CallbackListPtr ClientStateCallback;
 
@@ -91,7 +96,6 @@ typedef struct _Client {
     void        *requestBuffer;
     void        *osPrivate;	/* for OS layer, including scheduler */
     Bool        swapped;
-    Bool        local;
     ReplySwapPtr pSwapReplyFunc;
     XID         errorValue;
     int         sequence;
@@ -108,7 +112,7 @@ typedef struct _Client {
     Bool	big_requests;		/* supports large requests */
     int		priority;
     ClientState clientState;
-    DevUnion	*devPrivates;
+    PrivateRec	*devPrivates;
 #ifdef XKB
     unsigned short	xkbClientFlags;
     unsigned short	mapNotifyMask;
@@ -117,28 +121,23 @@ typedef struct _Client {
     KeyCode		minKC,maxKC;
 #endif
 
-    unsigned long replyBytesRemaining;
-#ifdef XCSECURITY
-    XID		authId;
-    unsigned int trustLevel;
-    void * (* CheckAccess)(
-	    ClientPtr /*pClient*/,
-	    XID /*id*/,
-	    RESTYPE /*classes*/,
-	    Mask /*access_mode*/,
-	    void * /*resourceval*/);
+#ifdef DEBUG
+    unsigned char requestLog[MAX_REQUEST_LOG];
+    int         requestLogIndex;
 #endif
+    unsigned long replyBytesRemaining;
     struct _FontResolution * (*fontResFunc) (    /* no need for font.h */
 		ClientPtr	/* pClient */,
 		int *		/* num */);
+#ifdef SMART_SCHEDULE
     int	    smart_priority;
     long    smart_start_tick;
     long    smart_stop_tick;
     long    smart_check_tick;
-
-    ClientIdPtr  clientIds;
+#endif
 }           ClientRec;
 
+#ifdef SMART_SCHEDULE
 /*
  * Scheduling interface
  */
@@ -146,19 +145,15 @@ extern long SmartScheduleTime;
 extern long SmartScheduleInterval;
 extern long SmartScheduleSlice;
 extern long SmartScheduleMaxSlice;
-#ifdef HAVE_SETITIMER
-#if HAVE_SETITIMER
-extern Bool SmartScheduleSignalEnable;
-#else
-#define SmartScheduleSignalEnable FALSE
-#endif
-#endif
+extern Bool SmartScheduleDisable;
 extern void SmartScheduleStartTimer(void);
 extern void SmartScheduleStopTimer(void);
 #define SMART_MAX_PRIORITY  (20)
 #define SMART_MIN_PRIORITY  (-20)
 
-extern void SmartScheduleInit(void);
+extern Bool SmartScheduleInit(void);
+
+#endif
 
 /* This prototype is used pervasively in Xext, dix */
 #define DISPATCH_PROC(func) int func(ClientPtr /* client */)
@@ -190,7 +185,6 @@ typedef struct _CallbackRec {
 } CallbackRec, *CallbackPtr;
 
 typedef struct _CallbackList {
-  CallbackFuncsRec funcs;
   int inCallback;
   Bool deleted;
   int numDeleted;

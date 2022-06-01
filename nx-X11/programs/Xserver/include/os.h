@@ -70,21 +70,23 @@ typedef void *	FID;
 typedef struct _FontPathRec *FontPathPtr;
 typedef struct _NewClientRec *NewClientPtr;
 
-#ifndef xnfalloc
+#ifndef malloc
 #define xnfalloc(size) XNFalloc((unsigned long)(size))
 #define xnfcalloc(_num, _size) XNFcalloc((unsigned long)(_num)*(unsigned long)(_size))
 #define xnfrealloc(ptr, size) XNFrealloc((void *)(ptr), (unsigned long)(size))
 
+#define malloc(size) Xalloc((unsigned long)(size))
+#define calloc(_num, _size) calloc(1, (unsigned long)(_num)*(unsigned long)(_size))
+#define realloc(ptr, size) Xrealloc((void *)(ptr), (unsigned long)(size))
+#define free(ptr) Xfree((void *)(ptr))
 #define xstrdup(s) Xstrdup(s)
 #define xnfstrdup(s) XNFstrdup(s)
 
 #define xallocarray(num, size) reallocarray(NULL, (num), (size))
 #endif
 
-#ifdef __SCO__
 #include <stdio.h>
-#endif
-#include <string.h>
+#include <stdarg.h>
 
 /* have to put $(SIGNAL_DEFINES) in DEFINES in Imakefile to get this right */
 #ifdef SIGNALRETURNSINT
@@ -93,6 +95,7 @@ typedef struct _NewClientRec *NewClientPtr;
 #define SIGVAL void
 #endif
 
+extern Bool OsDelayInitColors;
 extern void (*OsVendorVErrorFProc)(const char *, va_list args);
 
 extern int WaitForSomething(
@@ -137,24 +140,32 @@ extern char *ClientAuthorized(
     unsigned int /*string_n*/,
     char* /*auth_string*/);
 
+extern Bool EstablishNewConnections(
+    ClientPtr /*clientUnused*/,
+    void * /*closure*/);
+
 extern void CheckConnections(void);
 
 extern void CloseDownConnection(ClientPtr /*client*/);
 
 typedef void (*NotifyFdProcPtr)(int fd, int ready, void *data);
+extern void AddGeneralSocket(int /*fd*/);
 
 #define X_NOTIFY_NONE   0
 #define X_NOTIFY_READ   1
 #define X_NOTIFY_WRITE  2
+extern void RemoveGeneralSocket(int /*fd*/);
 
 extern Bool SetNotifyFd(int fd, NotifyFdProcPtr notify_fd, int mask, void *data);
+extern void AddEnabledDevice(int /*fd*/);
 
 static inline void RemoveNotifyFd(int fd)
 {
     (void) SetNotifyFd(fd, NULL, X_NOTIFY_NONE, NULL);
 }
+extern void RemoveEnabledDevice(int /*fd*/);
 
-extern void OnlyListenToOneClient(ClientPtr /*client*/);
+extern int OnlyListenToOneClient(ClientPtr /*client*/);
 
 extern void ListenToAllClients(void);
 
@@ -202,11 +213,6 @@ extern void TimerFree(OsTimerPtr /* pTimer */);
 extern void SetScreenSaverTimer(void);
 extern void FreeScreenSaverTimer(void);
 
-#ifdef DPMSExtension
-extern void SetDPMSTimers(void);
-extern void FreeDPMSTimers(void);
-#endif
-
 extern SIGVAL AutoResetServer(int /*sig*/);
 
 extern SIGVAL GiveUp(int /*sig*/);
@@ -222,6 +228,14 @@ extern int set_font_authorizations(
     int * /*authlen */, 
     void * /* client */);
 
+#ifndef _HAVE_XALLOC_DECLS
+#define _HAVE_XALLOC_DECLS
+extern void * Xalloc(unsigned long /*amount*/);
+extern void * calloc(1, unsigned long /*amount*/);
+extern void * Xrealloc(void * /*ptr*/, unsigned long /*amount*/);
+extern void Xfree(void * /*ptr*/);
+#endif
+
 extern void * XNFalloc(unsigned long /*amount*/);
 extern void * XNFcalloc(unsigned long /*amount*/);
 extern void * XNFrealloc(void * /*ptr*/, unsigned long /*amount*/);
@@ -230,6 +244,10 @@ extern void OsInitAllocator(void);
 
 extern char *Xstrdup(const char *s);
 extern char *XNFstrdup(const char *s);
+extern char *Xprintf(const char *fmt, ...);
+extern char *Xvprintf(const char *fmt, va_list va);
+extern char *XNFprintf(const char *fmt, ...);
+extern char *XNFvprintf(const char *fmt, va_list va);
 
 /* Include new X*asprintf API */
 #include "Xprintf.h"
@@ -273,19 +291,11 @@ void OsBlockSignals (void);
 
 void OsReleaseSignals (void);
 
-#if !defined(WIN32)
 extern int System(char *);
 extern void * Popen(char *, char *);
 extern int Pclose(void *);
 extern void * Fopen(char *, char *);
 extern int Fclose(void *);
-#else
-#define System(a) system(a)
-#define Popen(a,b) popen(a,b)
-#define Pclose(a) pclose(a)
-#define Fopen(a,b) fopen(a,b)
-#define Fclose(a) fclose(a)
-#endif
 
 extern void CheckUserParameters(int argc, char **argv, char **envp);
 extern void CheckUserAuthorization(void);
@@ -319,6 +329,8 @@ extern int GetHosts(
 typedef struct sockaddr * sockaddrPtr;
 
 extern int InvalidHost(sockaddrPtr /*saddr*/, int /*len*/, ClientPtr client);
+
+extern int LocalClient(ClientPtr /* client */);
 
 extern int LocalClientCred(ClientPtr, int *, int *);
 
@@ -364,12 +376,6 @@ extern void InitAuthorization(char * /*filename*/);
 /* extern int LoadAuthorization(void); */
 
 extern void RegisterAuthorizations(void);
-
-extern XID AuthorizationToID (
-	unsigned short	name_length,
-	char		*name,
-	unsigned short	data_length,
-	char		*data);
 
 extern int AuthorizationFromID (
 	XID 		id,
@@ -418,14 +424,6 @@ extern void ddxInitGlobals(void);
 extern int ddxProcessArgument(int /*argc*/, char * /*argv*/ [], int /*i*/);
 
 extern void ddxUseMsg(void);
-
-/*
- *  idiom processing stuff
- */
-
-extern xReqPtr PeekNextRequest(xReqPtr req, ClientPtr client, Bool readmore);
-
-extern void SkipRequests(xReqPtr req, ClientPtr client, int numskipped);
 
 /* int ReqLen(xReq *req, ClientPtr client)
  * Given a pointer to a *complete* request, return its length in bytes.
@@ -525,7 +523,6 @@ typedef enum {
 #endif
 
 extern const char *LogInit(const char *fname, const char *backup);
-extern void LogSetDisplay(void);
 extern void LogClose(void);
 extern Bool LogSetParameter(LogParameter param, int value);
 extern void LogVWrite(int verb, const char *f, va_list args);
@@ -546,21 +543,15 @@ __attribute((noreturn))
 #endif
 ;
 
-extern void VErrorF(const char *f, va_list args);
-extern void ErrorF(const char *f, ...) _printf_attribute(1,2);
-extern void Error(char *str);
-extern void LogPrintMarkers(void);
-
-#if defined(NEED_SNPRINTF)
-extern int snprintf(char *str, size_t size, const char *format, ...)
-	_printf_attribute(3,4);
-extern int vsnprintf(char *str, size_t size, const char *format, va_list ap);
-#endif
-
 #ifdef DEBUG
 #define DebugF ErrorF
 #else
 #define DebugF(...)             /* */
 #endif
+
+extern void VErrorF(const char *f, va_list args);
+extern void ErrorF(const char *f, ...) _printf_attribute(1,2);
+extern void Error(char *str);
+extern void LogPrintMarkers(void);
 
 #endif /* OS_H */

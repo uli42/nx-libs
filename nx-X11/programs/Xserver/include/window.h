@@ -83,9 +83,6 @@ extern int WalkTree(
     VisitWindowProcPtr /*func*/,
     void * /*data*/);
 
-extern WindowPtr AllocateWindow(
-    ScreenPtr /*pScreen*/);
-
 extern Bool CreateRootWindow(
     ScreenPtr /*pScreen*/);
 
@@ -119,7 +116,7 @@ extern int DeleteWindow(
     void * /*pWin*/,
     XID /*wid*/);
 
-extern void DestroySubwindows(
+extern int DestroySubwindows(
     WindowPtr /*pWin*/,
     ClientPtr /*client*/);
 
@@ -207,9 +204,14 @@ extern RegionPtr NotClippedByChildren(
 extern void SendVisibilityNotify(
     WindowPtr /*pWin*/);
 
-extern void SaveScreens(
-    int /*on*/,
-    int /*mode*/);
+extern int dixSaveScreens(
+    ClientPtr client,
+    int on,
+    int mode);
+
+extern int SaveScreens(
+    int on,
+    int mode);
 
 extern WindowPtr FindWindowWithOptional(
     WindowPtr /*w*/);

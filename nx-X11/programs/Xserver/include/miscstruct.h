@@ -48,11 +48,9 @@ SOFTWARE.
 #ifndef MISCSTRUCT_H
 #define MISCSTRUCT_H 1
 
-#include <pixman.h>
-
 #include "misc.h"
 #include <nx-X11/Xprotostr.h>
-#include "gc.h"
+#include <pixman.h>
 
 typedef xPoint DDXPointRec;
 
@@ -62,17 +60,7 @@ typedef union _DevUnion {
     void *		ptr;
     long		val;
     unsigned long	uval;
-    RegionPtr   	(*fptr)(
-        DrawablePtr         /* pSrcDrawable */,
-        DrawablePtr         /* pDstDrawable */,
-        GCPtr               /* pGC */,
-        int                 /* srcx */,
-        int                 /* srcy */,
-        int                 /* width */,
-        int                 /* height */,
-        int                 /* dstx */,
-        int                 /* dsty */,
-        unsigned long       /* bitPlane */);
+    void *		(*fptr)(void);
 } DevUnion;
 
 #endif /* MISCSTRUCT_H */

@@ -52,7 +52,7 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #define	XkbChangeKeycodeRange		SrvXkbChangeKeycodeRange
 #define	XkbApplyVirtualModChanges	SrvXkbApplyVirtualModChanges
 
-#include <nx-X11/extensions/XKBproto.h>
+#include <xkbproto.h>
 #include "xkbstr.h"
 #include "inputstr.h"
 
@@ -123,8 +123,6 @@ typedef struct	_XkbEventCause {
 #define	_BEEP_LED_OFF		13
 #define	_BEEP_LED_CHANGE	14
 #define	_BEEP_BOUNCE_REJECT	15
-
-struct _XkbSrvInfo; /* definition see below */
 
 typedef struct _XkbFilter {
 	CARD16			  keycode;
@@ -275,15 +273,13 @@ typedef struct
 	device->public.realInputProc = oldprocs->realInputProc; \
 	device->unwrapProc = oldprocs->unwrapProc;
 
-extern int xkbDevicePrivateIndex;
-#define XKBDEVICEINFO(dev) ((xkbDeviceInfoPtr) (dev)->devPrivates[xkbDevicePrivateIndex].ptr)
+extern DevPrivateKey xkbDevicePrivateKey;
+#define XKBDEVICEINFO(dev) ((xkbDeviceInfoPtr)dixLookupPrivate(&(dev)->devPrivates, xkbDevicePrivateKey))
 
 extern void xkbUnwrapProc(DeviceIntPtr, DeviceHandleProc, pointer);
-extern void XkbFreePrivates(DeviceIntPtr);
 
 /***====================================================================***/
 
-extern void XkbFreePrivates(DeviceIntPtr);
 
 /***====================================================================***/
 
@@ -296,10 +292,10 @@ extern void XkbFreePrivates(DeviceIntPtr);
 extern int	XkbReqCode;
 extern int	XkbEventBase;
 extern int	XkbDisableLockActions;
+extern int	XkbKeyboardErrorCode;
 extern char *	XkbBaseDirectory;
 extern char *	XkbBinDirectory;
-extern int	_XkbClientMajor;
-extern int	_XkbClientMinor;
+extern char *	XkbInitialMap;
 extern unsigned	int XkbXIUnsupported;
 
 extern Bool	noXkbExtension;
@@ -308,20 +304,17 @@ extern void *	XkbLastRepeatEvent;
 
 extern CARD32	xkbDebugFlags;
 
-
 #define	_XkbAlloc(s)		malloc((s))
-#define	_XkbCalloc(n,s)		calloc((n), (s))
-#define	_XkbRealloc(o,s)	realloc((o),(s))
+#define	_XkbCalloc(n,s)		calloc(1, (n)*(s))
+#define	_XkbRealloc(o,s)	Xrealloc((o),(s))
 #define	_XkbTypedAlloc(t)	((t *)malloc(sizeof(t)))
-#define	_XkbTypedCalloc(n,t)	((t *)calloc((n), sizeof(t)))
+#define	_XkbTypedCalloc(n,t)	((t *)calloc(1, (n)*sizeof(t)))
 #define	_XkbTypedRealloc(o,n,t) \
-	((o)?(t *)realloc((o),(n)*sizeof(t)):_XkbTypedCalloc(n,t))
+	((o)?(t *)Xrealloc((o),(n)*sizeof(t)):_XkbTypedCalloc(n,t))
 #define	_XkbClearElems(a,f,l,t)	bzero(&(a)[f],((l)-(f)+1)*sizeof(t))
-#define	_XkbFree(p)		free(p)
+#define	_XkbFree(p)		Xfree(p)
 
-
-#define	_XkbLibError(c,l,d) \
-	{ _XkbErrCode= (c); _XkbErrLocation= (l); _XkbErrData= (d); }
+#define	_XkbLibError(c,l,d) /* Epoch fail */
 #define	_XkbErrCode2(a,b) ((XID)((((unsigned int)(a))<<24)|((b)&0xffffff)))
 #define	_XkbErrCode3(a,b,c)	_XkbErrCode2(a,(((unsigned int)(b))<<16)|(c))
 #define	_XkbErrCode4(a,b,c,d) _XkbErrCode3(a,b,((((unsigned int)(c))<<8)|(d)))
@@ -330,13 +323,8 @@ extern	int	DeviceKeyPress,DeviceKeyRelease,DeviceMotionNotify;
 extern	int	DeviceButtonPress,DeviceButtonRelease;
 extern	int	DeviceEnterNotify,DeviceLeaveNotify;
 
-#ifdef XINPUT
 #define	_XkbIsPressEvent(t)	(((t)==KeyPress)||((t)==DeviceKeyPress))
 #define	_XkbIsReleaseEvent(t)	(((t)==KeyRelease)||((t)==DeviceKeyRelease))
-#else
-#define	_XkbIsPressEvent(t)	((t)==KeyPress)
-#define	_XkbIsReleaseEvent(t)	((t)==KeyRelease)
-#endif
 
 #define	_XkbCoreKeycodeInRange(c,k)	(((k)>=(c)->curKeySyms.minKeyCode)&&\
 					 ((k)<=(c)->curKeySyms.maxKeyCode))
@@ -348,20 +336,10 @@ extern	int	DeviceEnterNotify,DeviceLeaveNotify;
 #define	IsKeypadKey(s)		XkbKSIsKeypad(s)
 
 #define	Status		int
-#define	XPointer	void *
-#define	Display		struct _XDisplay
 
 #ifndef True
-#define	True	1
-#define	False	0
-#endif
-
-#ifndef PATH_MAX
-#ifdef MAXPATHLEN
-#define	PATH_MAX MAXPATHLEN
-#else
-#define	PATH_MAX 1024
-#endif
+#define	True	TRUE
+#define	False	FALSE
 #endif
 
 _XFUNCPROTOBEGIN
@@ -390,29 +368,44 @@ extern	void XkbFreeNames(
 	Bool			/* freeMap */
 );
 
-extern DeviceIntPtr _XkbLookupAnyDevice(
-    int			/* id */,
-    int *		/* why_rtrn */
+extern int _XkbLookupAnyDevice(
+    DeviceIntPtr *pDev,
+    int id,
+    ClientPtr client,
+    Mask access_mode,
+    int *xkb_err
 );
 
-extern DeviceIntPtr _XkbLookupKeyboard(
-    int			/* id */,
-    int *		/* why_rtrn */
+extern int _XkbLookupKeyboard(
+    DeviceIntPtr *pDev,
+    int id,
+    ClientPtr client,
+    Mask access_mode,
+    int *xkb_err
 );
 
-extern DeviceIntPtr _XkbLookupBellDevice(
-    int			/* id */,
-    int *		/* why_rtrn */
+extern int _XkbLookupBellDevice(
+    DeviceIntPtr *pDev,
+    int id,
+    ClientPtr client,
+    Mask access_mode,
+    int *xkb_err
 );
 
-extern DeviceIntPtr _XkbLookupLedDevice(
-    int			/* id */,
-    int *		/* why_rtrn */
+extern int _XkbLookupLedDevice(
+    DeviceIntPtr *pDev,
+    int id,
+    ClientPtr client,
+    Mask access_mode,
+    int *xkb_err
 );
 
-extern DeviceIntPtr _XkbLookupButtonDevice(
-    int			/* id */,
-    int *		/* why_rtrn */
+extern int _XkbLookupButtonDevice(
+    DeviceIntPtr *pDev,
+    int id,
+    ClientPtr client,
+    Mask access_mode,
+    int *xkb_err
 );
 
 extern	XkbDescPtr XkbAllocKeyboard(
@@ -732,12 +725,6 @@ extern void XkbProcessKeyboardEvent(
     int 			/* count */
 );
 
-extern void XkbProcessOtherEvent(
-    struct _xEvent * 		/* xE */,
-    DeviceIntPtr		/* keybd */,
-    int 			/* count */
-);
-
 extern void XkbHandleActions(
     DeviceIntPtr		/* dev */,
     DeviceIntPtr		/* kbd */,
@@ -779,29 +766,6 @@ extern void AccessXComputeCurveFactor(
     XkbControlsPtr	/* ctrls */
 );
 
-extern	XkbDeviceLedInfoPtr	XkbAddDeviceLedInfo(
-	XkbDeviceInfoPtr	/* devi */,
-	unsigned int		/* ledClass */,
-	unsigned int		/* ledId */
-);
-
-extern	XkbDeviceInfoPtr	XkbAllocDeviceInfo(
-	unsigned int		/* deviceSpec */,
-	unsigned int		/* nButtons */,
-	unsigned int		/* szLeds */
-);
-
-extern	void XkbFreeDeviceInfo(
-	XkbDeviceInfoPtr	/* devi */,
-	unsigned int		/* which */,
-	Bool			/* freeDevI */
-);
-
-extern Status XkbResizeDeviceButtonActions(
-	XkbDeviceInfoPtr        /* devi */,
-	unsigned int            /* newTotal */
-);
-
 extern	XkbInterestPtr XkbFindClientResource(
        DevicePtr	/* inDev */,
        ClientPtr	/* client */
@@ -811,11 +775,6 @@ extern	XkbInterestPtr XkbAddClientResource(
        DevicePtr	/* inDev */,
        ClientPtr	/* client */,
        XID		/* id */
-);
-
-extern	int XkbRemoveClient(
-       DevicePtr	/* inDev */,
-       ClientPtr	/* client */
 );
 
 extern	int XkbRemoveResourceClient(
@@ -955,6 +914,10 @@ extern XkbGeometryPtr XkbLookupNamedGeometry(
 	Bool *			/* shouldFree */
 );
 
+extern char *	Xstrdup(
+	char *			/* str */
+);
+
 extern void	XkbConvertCase(
 	KeySym 			/* sym */,
 	KeySym *		/* lower */,
@@ -989,20 +952,6 @@ extern Status XkbChangeTypesOfKey(
 	XkbMapChangesPtr	/* changes */
 );
 
-extern XkbKeyTypePtr XkbAddKeyType(
-	XkbDescPtr		/* xkb */,
-	Atom			/* name */,
-	int			/* map_count */,
-	Bool			/* want_preserve */,
-	int			/* num_lvls */
-);
-
-extern Status XkbInitCanonicalKeyTypes(
-	XkbDescPtr		/* xkb */,
-	unsigned int		/* which */,
-	int			/* keypadVMod */
-);
-
 extern int XkbKeyTypesForCoreSymbols(
 	XkbDescPtr		/* xkb */,
 	int			/* map_width */,
@@ -1018,15 +967,6 @@ extern Bool XkbApplyCompatMapToKey(
 	XkbChangesPtr		/* changes */
 );
 
-extern Bool XkbUpdateMapFromCore(
-	XkbDescPtr		/* xkb */,
-	KeyCode			/* first_key */,
-	int			/* num_keys */,
-	int			/* map_width */,
-	KeySym *		/* core_keysyms */,
-	XkbChangesPtr		/* changes */
-);
-
 extern Bool XkbApplyVirtualModChanges(
 	XkbDescPtr		/* xkb */,
 	unsigned int		/* changed */,
@@ -1038,10 +978,9 @@ extern void XkbSendNewKeyboardNotify(
 	xkbNewKeyboardNotify *	/* pNKN */
 );
 
-
-#include <nx-X11/extensions/XKMformat.h>
 #include "xkbfile.h"
-#include "xkbrules.h"
+#include <nx-X11/extensions/XKMformat.h>
+#include <xkbrules.h>
 
 #define	_XkbListKeymaps		0
 #define	_XkbListKeycodes	1
@@ -1074,7 +1013,7 @@ extern	unsigned int XkbDDXLoadKeymapByNames(
 	XkbComponentNamesPtr	/* names */,
 	unsigned int		/* want */,
 	unsigned int		/* need */,
-	XkbFileInfoPtr		/* finfoRtrn */,
+	XkbDescPtr *		/* finfoRtrn */,
 	char *			/* keymapNameRtrn */,
 	int 			/* keymapNameRtrnLen */
 );
@@ -1087,15 +1026,8 @@ extern	Bool XkbDDXNamesFromRules(
 );
 
 extern	Bool XkbDDXApplyConfig(
-	XPointer	/* cfg_in */,
+	void *	/* cfg_in */,
 	XkbSrvInfoPtr	/* xkbi */
-);
-
-extern XPointer XkbDDXPreloadConfig(
-	char **			/* rulesFileRtrn */,
-	XkbRF_VarDefsPtr	/* defs */,
-	XkbComponentNamesPtr	/* names */,
-	DeviceIntPtr		/* dev */
 );
 
 extern	int _XkbStrCaseCmp(
@@ -1103,10 +1035,8 @@ extern	int _XkbStrCaseCmp(
 	char *			/* str2 */
 );
 
-
-
 _XFUNCPROTOEND
 
+#define	XkbAtomGetString(s)	NameForAtom(s)
+
 #endif /* _XKBSRV_H_ */
-
-

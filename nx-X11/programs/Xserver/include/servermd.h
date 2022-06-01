@@ -173,9 +173,6 @@ SOFTWARE.
 #define GETLEFTBITS_ALIGNMENT   1
 
 /* XXX Should this be for Lynx only? */
-#ifdef Lynx
-#define BITMAP_SCANLINE_UNIT	8
-#endif
 
 #define LARGE_INSTRUCTION_CACHE
 #define FAST_CONSTANT_OFFSET_MODE
@@ -243,24 +240,10 @@ SOFTWARE.
 #endif /* sun && !(i386 && SVR4) */
 
 
-#if defined(AIXV3)
-
-#define IMAGE_BYTE_ORDER        MSBFirst        /* Values for the RISC/6000 */
-#define BITMAP_BIT_ORDER        MSBFirst
-#define GLYPHPADBYTES           4
-#define GETLEFTBITS_ALIGNMENT   1
-
-#define LARGE_INSTRUCTION_CACHE
-#define FAST_CONSTANT_OFFSET_MODE
-#define PLENTIFUL_REGISTERS
-#define AVOID_MEMORY_READ
-
-#define FAST_MEMCPY
-#endif /* AIXV3 */
 
 #if defined(ibm032) || defined (ibm)
 
-#ifdef i386
+#ifdef __i386__
 # define IMAGE_BYTE_ORDER	LSBFirst	/* Value for PS/2 only */
 #else
 # define IMAGE_BYTE_ORDER	MSBFirst        /* Values for the RT only*/
@@ -270,7 +253,7 @@ SOFTWARE.
 #define GETLEFTBITS_ALIGNMENT	4
 /* ibm pcc doesn't understand pragmas. */
 
-#ifdef i386
+#ifdef __i386__
 #define BITMAP_SCANLINE_UNIT	8
 #endif
 
@@ -393,7 +376,7 @@ SOFTWARE.
 
 #endif /* ia64 */
 
-#if defined(__amd64__) || defined(amd64) || defined(__amd64)
+#if defined(__amd64__) || defined(amd64) || defined(__amd64) || defined(__x86_64__)
 # define IMAGE_BYTE_ORDER	LSBFirst
 
 # if defined(XF86MONOVGA) || defined(XF86VGA16) || defined(XF86MONO)
@@ -444,10 +427,9 @@ SOFTWARE.
 
 #endif /* luna */
 
-#if	(defined(SVR4) && defined(i386)) || \
+#if	(defined(SVR4) && (defined(__i386__) || (defined(__i386)))) ||	\
 	defined(__alpha__) || defined(__alpha) || \
-	defined(__i386__) || defined(__i386) || \
-	defined(__QNX__) || \
+	defined(__i386__) || defined(__QNX__) || \
 	defined(__s390x__) || defined(__s390__)
   
 #ifndef IMAGE_BYTE_ORDER
@@ -493,18 +475,6 @@ SOFTWARE.
 
 #endif /* linux/m68k */
 
-#ifdef sgi
-
-#define IMAGE_BYTE_ORDER	MSBFirst
-#define BITMAP_BIT_ORDER	MSBFirst
-#define GLYPHPADBYTES		4
-#define GETLEFTBITS_ALIGNMENT	1
-#define AVOID_MEMORY_READ
-#define FAST_CONSTANT_OFFSET_MODE
-#define LARGE_INSTRUCTION_CACHE
-#define PLENTIFUL_REGISTERS
-
-#endif
 
 /* linux on the Compaq Itsy */
 #if defined(linux) && defined(__arm__)
@@ -523,7 +493,7 @@ SOFTWARE.
 #endif /* linux/s390 */ 
 
 /* size of buffer to use with GetImage, measured in bytes. There's obviously
- * a trade-off between the amount of stack (or whatever ALLOCATE_LOCAL gives
+ * a trade-off between the amount of stack (or whatever malloc gives
  * you) used and the number of times the ddx routine has to be called.
  */
 #ifndef IMAGE_BUFSIZE

@@ -96,18 +96,13 @@ extern unsigned long serverGeneration;
 
 #include <nx-X11/Xdefs.h>
 
-#ifndef NULL
 #include <stddef.h>
-#endif
 
 #ifndef MAXSCREENS
 #define MAXSCREENS	16
 #endif
 #define MAXCLIENTS	256
-#define MAXDITS		1
-#define MAXEXTENSIONS	128
 #define MAXFORMATS	8
-#define MAXVISUALS_PER_SCREEN 50
 
 typedef unsigned long PIXEL;
 typedef unsigned long ATOM;
@@ -125,7 +120,7 @@ typedef struct _CallbackList *CallbackListPtr; /* also in dix.h */
 
 typedef struct _xReq *xReqPtr;
 
-#include "os.h" 	/* for ALLOCATE_LOCAL and DEALLOCATE_LOCAL */
+#include "os.h" 	/* for malloc and free */
 #include <nx-X11/Xfuncs.h> /* for bcopy, bzero, and bcmp */
 
 #define NullBox ((BoxPtr)0)

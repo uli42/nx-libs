@@ -56,6 +56,7 @@ SOFTWARE.
 #include "validate.h"
 #include <nx-X11/Xproto.h>
 #include "dix.h"
+#include "privates.h"
 
 typedef struct _PixmapFormat {
     unsigned char	depth;
@@ -89,6 +90,7 @@ typedef struct _Depth {
  */
 
 typedef    Bool (* CloseScreenProcPtr)(
+	int /*index*/,
 	ScreenPtr /*pScreen*/);
 
 typedef    void (* QueryBestSizeProcPtr)(
@@ -326,106 +328,8 @@ typedef    void (* ResolveColorProcPtr)(
 	unsigned short* /*pblue*/,
 	VisualPtr /*pVisual*/);
 
-#ifdef NEED_SCREEN_REGIONS
-
-typedef    RegionPtr (* RegionCreateProcPtr)(
-	BoxPtr /*rect*/,
-	int /*size*/);
-
-typedef    void (* RegionInitProcPtr)(
-	RegionPtr /*pReg*/,
-	BoxPtr /*rect*/,
-	int /*size*/);
-
-typedef    Bool (* RegionCopyProcPtr)(
-	RegionPtr /*dst*/,
-	RegionPtr /*src*/);
-
-typedef    void (* RegionDestroyProcPtr)(
-	RegionPtr /*pReg*/);
-
-typedef    void (* RegionUninitProcPtr)(
-	RegionPtr /*pReg*/);
-
-typedef    Bool (* IntersectProcPtr)(
-	RegionPtr /*newReg*/,
-	RegionPtr /*reg1*/,
-	RegionPtr /*reg2*/);
-
-typedef    Bool (* UnionProcPtr)(
-	RegionPtr /*newReg*/,
-	RegionPtr /*reg1*/,
-	RegionPtr /*reg2*/);
-
-typedef    Bool (* SubtractProcPtr)(
-	RegionPtr /*regD*/,
-	RegionPtr /*regM*/,
-	RegionPtr /*regS*/);
-
-typedef    Bool (* InverseProcPtr)(
-	RegionPtr /*newReg*/,
-	RegionPtr /*reg1*/,
-	BoxPtr /*invRect*/);
-
-typedef    void (* RegionResetProcPtr)(
-	RegionPtr /*pReg*/,
-	BoxPtr /*pBox*/);
-
-typedef    void (* TranslateRegionProcPtr)(
-	RegionPtr /*pReg*/,
-	int /*x*/,
-	int /*y*/);
-
-typedef    int (* RectInProcPtr)(
-	RegionPtr /*region*/,
-	BoxPtr /*prect*/);
-
-typedef    Bool (* PointInRegionProcPtr)(
-	RegionPtr /*pReg*/,
-	int /*x*/,
-	int /*y*/,
-	BoxPtr /*box*/);
-
-typedef    Bool (* RegionNotEmptyProcPtr)(
-	RegionPtr /*pReg*/);
-
-typedef    Bool (* RegionEqualProcPtr)(
-	RegionPtr /*pReg1*/,
-	RegionPtr /*pReg2*/);
-
-typedef    Bool (* RegionBrokenProcPtr)(
-	RegionPtr /*pReg*/);
-
-typedef    Bool (* RegionBreakProcPtr)(
-	RegionPtr /*pReg*/);
-
-typedef    void (* RegionEmptyProcPtr)(
-	RegionPtr /*pReg*/);
-
-typedef    BoxPtr (* RegionExtentsProcPtr)(
-	RegionPtr /*pReg*/);
-
-typedef    Bool (* RegionAppendProcPtr)(
-	RegionPtr /*dstrgn*/,
-	RegionPtr /*rgn*/);
-
-typedef    Bool (* RegionValidateProcPtr)(
-	RegionPtr /*badreg*/,
-	Bool* /*pOverlap*/);
-
-#endif /* NEED_SCREEN_REGIONS */
-
 typedef    RegionPtr (* BitmapToRegionProcPtr)(
 	PixmapPtr /*pPix*/);
-
-#ifdef NEED_SCREEN_REGIONS
-
-typedef    RegionPtr (* RectsToRegionProcPtr)(
-	int /*nrects*/,
-	xRectangle* /*prect*/,
-	int /*ctype*/);
-
-#endif /* NEED_SCREEN_REGIONS */
 
 typedef    void (* SendGraphicsExposeProcPtr)(
 	ClientPtr /*client*/,
@@ -565,13 +469,6 @@ typedef struct _Screen {
     void *		devPrivate;
     short       	numVisuals;
     VisualPtr		visuals;
-    WindowPtr		root;
-    int			WindowPrivateLen;
-    unsigned		*WindowPrivateSizes;
-    unsigned		totalWindowSize;
-    int			GCPrivateLen;
-    unsigned		*GCPrivateSizes;
-    unsigned		totalGCSize;
 
     /* Random screen procedures */
 
@@ -594,8 +491,8 @@ typedef struct _Screen {
     ValidateTreeProcPtr		ValidateTree;
     PostValidateTreeProcPtr	PostValidateTree;
     WindowExposuresProcPtr	WindowExposures;
-    PaintWindowBackgroundProcPtr PaintWindowBackground;
-    PaintWindowBorderProcPtr	PaintWindowBorder;
+    PaintWindowBackgroundProcPtr PaintWindowBackground; /** unused */
+    PaintWindowBorderProcPtr	PaintWindowBorder; /** unused */
     CopyWindowProcPtr		CopyWindow;
     ClearToBackgroundProcPtr	ClearToBackground;
     ClipNotifyProcPtr		ClipNotify;
@@ -652,33 +549,7 @@ typedef struct _Screen {
 
     /* Region procedures */
 
-#ifdef NEED_SCREEN_REGIONS
-    RegionCreateProcPtr		RegionCreate;
-    RegionInitProcPtr		RegionInit;
-    RegionCopyProcPtr		RegionCopy;
-    RegionDestroyProcPtr	RegionDestroy;
-    RegionUninitProcPtr		RegionUninit;
-    IntersectProcPtr		Intersect;
-    UnionProcPtr		Union;
-    SubtractProcPtr		Subtract;
-    InverseProcPtr		Inverse;
-    RegionResetProcPtr		RegionReset;
-    TranslateRegionProcPtr	TranslateRegion;
-    RectInProcPtr		RectIn;
-    PointInRegionProcPtr	PointInRegion;
-    RegionNotEmptyProcPtr	RegionNotEmpty;
-    RegionEqualProcPtr		RegionEqual;
-    RegionBrokenProcPtr		RegionBroken;
-    RegionBreakProcPtr		RegionBreak;
-    RegionEmptyProcPtr		RegionEmpty;
-    RegionExtentsProcPtr	RegionExtents;
-    RegionAppendProcPtr		RegionAppend;
-    RegionValidateProcPtr	RegionValidate;
-#endif /* NEED_SCREEN_REGIONS */
     BitmapToRegionProcPtr	BitmapToRegion;
-#ifdef NEED_SCREEN_REGIONS
-    RectsToRegionProcPtr	RectsToRegion;
-#endif /* NEED_SCREEN_REGIONS */
     SendGraphicsExposeProcPtr	SendGraphicsExpose;
 
     /* os layer procedures */
@@ -690,7 +561,7 @@ typedef struct _Screen {
     void * wakeupData;
 
     /* anybody can get a piece of this array */
-    DevUnion	*devPrivates;
+    PrivateRec	*devPrivates;
 
     CreateScreenResourcesProcPtr CreateScreenResources;
     ModifyPixmapHeaderProcPtr	ModifyPixmapHeader;
@@ -702,11 +573,7 @@ typedef struct _Screen {
 
     PixmapPtr pScratchPixmap;		/* scratch pixmap "pool" */
 
-#ifdef PIXPRIV
-    int			PixmapPrivateLen;
-    unsigned int		*PixmapPrivateSizes;
     unsigned int		totalPixmapSize;
-#endif
 
     MarkWindowProcPtr		MarkWindow;
     MarkOverlappedWindowsProcPtr MarkOverlappedWindows;

@@ -110,12 +110,15 @@ extern int ImageText(ClientPtr /*client*/,
 
 extern int SetFontPath(ClientPtr /*client*/,
 		       int /*npaths*/,
-		       unsigned char * /*paths*/);
+		       unsigned char * /*paths*/,
+		       int * /*error*/);
 
 extern int SetDefaultFontPath(char * /*path*/);
 
-extern unsigned char *GetFontPath(int * /*count*/,
-				  int * /*length*/);
+extern int GetFontPath(ClientPtr client,
+		       int *count,
+		       int *length,
+		       unsigned char **result);
 
 extern int LoadGlyphs(ClientPtr /*client*/,
 		      FontPtr /*pfont*/,
