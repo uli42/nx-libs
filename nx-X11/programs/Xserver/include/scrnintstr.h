@@ -469,6 +469,7 @@ typedef struct _Screen {
     void *		devPrivate;
     short       	numVisuals;
     VisualPtr		visuals;
+    WindowPtr           root;
 
     /* Random screen procedures */
 
