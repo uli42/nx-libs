@@ -1,7 +1,3 @@
-
-#ifndef _XKBFILE_H_
-#define	_XKBFILE_H_ 1
-
 /************************************************************
  Copyright (c) 1994 by Silicon Graphics Computer Systems, Inc.
 

@@ -52,7 +52,8 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #define	XkbChangeKeycodeRange		SrvXkbChangeKeycodeRange
 #define	XkbApplyVirtualModChanges	SrvXkbApplyVirtualModChanges
 
-#include <xkbproto.h>
+#include "nx-X11/extensions/XKBproto.h"
+#include "nx-X11/extensions/XKB.h"
 #include "xkbstr.h"
 #include "inputstr.h"
 
@@ -915,7 +916,7 @@ extern XkbGeometryPtr XkbLookupNamedGeometry(
 );
 
 extern char *	Xstrdup(
-	char *			/* str */
+	const char *		/* str */
 );
 
 extern void	XkbConvertCase(
