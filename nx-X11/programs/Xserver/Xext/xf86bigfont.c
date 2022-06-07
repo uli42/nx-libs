@@ -92,10 +92,6 @@ static DISPATCH_PROC(SProcXF86BigfontDispatch);
 static DISPATCH_PROC(SProcXF86BigfontQueryVersion);
 static DISPATCH_PROC(SProcXF86BigfontQueryFont);
 
-#if 0
-static unsigned char XF86BigfontReqCode;
-#endif
-
 #ifdef HAS_SHM
 
 /* A random signature, transmitted to the clients so they can verify that the
@@ -153,18 +149,6 @@ CheckForShmSyscall(void)
 void
 XFree86BigfontExtensionInit()
 {
-#if 0
-    ExtensionEntry* extEntry;
-
-    if ((extEntry = AddExtension(XF86BIGFONTNAME,
-				 XF86BigfontNumberEvents,
-				 XF86BigfontNumberErrors,
-				 ProcXF86BigfontDispatch,
-				 SProcXF86BigfontDispatch,
-				 XF86BigfontResetProc,
-				 StandardMinorOpcode))) {
-	XF86BigfontReqCode = (unsigned char) extEntry->base;
-#else
     if (AddExtension(XF86BIGFONTNAME,
 		     XF86BigfontNumberEvents,
 		     XF86BigfontNumberErrors,
@@ -172,7 +156,6 @@ XFree86BigfontExtensionInit()
 		     SProcXF86BigfontDispatch,
 		     XF86BigfontResetProc,
 		     StandardMinorOpcode)) {
-#endif
 #ifdef HAS_SHM
 #ifdef MUST_CHECK_FOR_SHM_SYSCALL
 	/*
@@ -261,15 +244,15 @@ shmalloc(
     size = (size + pagesize-1) & -pagesize;
     shmid = shmget(IPC_PRIVATE, size, S_IWUSR | S_IRUSR | S_IRGRP | S_IROTH);
     if (shmid == -1) {
-	ErrorF(XF86BIGFONTNAME " extension: shmget() failed, size = %u, errno = %d\n",
-	       size, errno);
+	ErrorF(XF86BIGFONTNAME " extension: shmget() failed, size = %u, %s\n",
+	       size, strerror(errno));
 	free(pDesc);
 	return (ShmDescPtr) NULL;
     }
 
     if ((addr = shmat(shmid, 0, 0)) == (char *)-1) {
-	ErrorF(XF86BIGFONTNAME " extension: shmat() failed, size = %u, errno = %d\n",
-	       size, errno);
+	ErrorF(XF86BIGFONTNAME " extension: shmat() failed, size = %u, %s\n",
+	       size, strerror(errno));
 	shmctl(shmid, IPC_RMID, (void *) 0);
 	free(pDesc);
 	return (ShmDescPtr) NULL;
@@ -451,11 +434,10 @@ ProcXF86BigfontQueryFont(
 #endif
     client->errorValue = stuff->id;		/* EITHER font or gc */
     pFont = (FontPtr)SecurityLookupIDByType(client, stuff->id, RT_FONT,
-					    DixReadAccess);
+					    DixGetAttrAccess);
     if (!pFont) {
-	/* can't use VERIFY_GC because it might return BadGC */
 	GC *pGC = (GC *) SecurityLookupIDByType(client, stuff->id, RT_GC,
-						DixReadAccess);
+						DixGetAttrAccess);
         if (!pGC) {
 	    client->errorValue = stuff->id;
             return BadFont;    /* procotol spec says only error is BadFont */

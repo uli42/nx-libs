@@ -82,7 +82,7 @@ void XaceHookAuditEnd(ClientPtr ptr, int result)
  */
 int XaceHook(int hook, ...)
 {
-    pointer calldata;	/* data passed to callback */
+    void * calldata;	/* data passed to callback */
     int *prv = NULL;	/* points to return value from callback */
     va_list ap;		/* argument list */
     va_start(ap, hook);
@@ -261,12 +261,12 @@ XaceCensorImage(client, pVisibleRegion, widthBytesLine, pDraw, x, y, w, h,
     imageBox.y1 = y;
     imageBox.x2 = x + w;
     imageBox.y2 = y + h;
-    REGION_INIT(pScreen, &imageRegion, &imageBox, 1);
-    REGION_NULL(pScreen, &censorRegion);
+    RegionInit(&imageRegion, &imageBox, 1);
+    RegionNull(&censorRegion);
 
     /* censorRegion = imageRegion - visibleRegion */
-    REGION_SUBTRACT(pScreen, &censorRegion, &imageRegion, pVisibleRegion);
-    nRects = REGION_NUM_RECTS(&censorRegion);
+    RegionSubtract(&censorRegion, &imageRegion, pVisibleRegion);
+    nRects = RegionNumRects(&censorRegion);
     if (nRects > 0)
     { /* we have something to censor */
 	GCPtr pScratchGC = NULL;
@@ -280,13 +280,13 @@ XaceCensorImage(client, pVisibleRegion, widthBytesLine, pDraw, x, y, w, h,
 
 	/* convert region to list-of-rectangles for PolyFillRect */
 
-	pRects = (xRectangle *)xalloc(nRects * sizeof(xRectangle));
+	pRects = (xRectangle *)malloc(nRects * sizeof(xRectangle));
 	if (!pRects)
 	{
 	    failed = TRUE;
 	    goto failSafe;
 	}
-	for (pBox = REGION_RECTS(&censorRegion), i = 0;
+	for (pBox = RegionRects(&censorRegion), i = 0;
 	     i < nRects;
 	     i++, pBox++)
 	{
@@ -306,7 +306,7 @@ XaceCensorImage(client, pVisibleRegion, widthBytesLine, pDraw, x, y, w, h,
 
 	pPix = GetScratchPixmapHeader(pDraw->pScreen, w, h,
 		    depth, bitsPerPixel,
-		    widthBytesLine, (pointer)pBuf);
+		    widthBytesLine, (void *)pBuf);
 	if (!pPix)
 	{
 	    failed = TRUE;
@@ -332,10 +332,10 @@ XaceCensorImage(client, pVisibleRegion, widthBytesLine, pDraw, x, y, w, h,
 	     */
 	    bzero(pBuf, (int)(widthBytesLine * h));
 	}
-	if (pRects)     xfree(pRects);
+	if (pRects)     free(pRects);
 	if (pScratchGC) FreeScratchGC(pScratchGC);
 	if (pPix)       FreeScratchPixmapHeader(pPix);
     }
-    REGION_UNINIT(pScreen, &imageRegion);
-    REGION_UNINIT(pScreen, &censorRegion);
+    RegionUninit(&imageRegion);
+    RegionUninit(&censorRegion);
 } /* XaceCensorImage */

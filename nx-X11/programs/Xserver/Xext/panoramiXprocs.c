@@ -158,7 +158,7 @@ int PanoramiXCreateWindow(ClientPtr client)
 	if (cmap)
 	    *((CARD32 *) &stuff[1] + cmap_offset) = cmap->info[j].id;
 	if ( orig_visual != CopyFromParent ) 
-	    stuff->visual = PanoramiXVisualTable[(orig_visual*MAXSCREENS) + j];
+	    stuff->visual = PanoramiXTranslateVisualID(j, orig_visual);
         result = (*SavedProcVector[X_CreateWindow])(client);
         if(result != Success) break;
     }
@@ -529,10 +529,14 @@ int PanoramiXGetGeometry(ClientPtr client)
 {
     xGetGeometryReply 	 rep;
     DrawablePtr pDraw;
+    int rc;
     REQUEST(xResourceReq);
 
     REQUEST_SIZE_MATCH(xResourceReq);
-    VERIFY_GEOMETRABLE (pDraw, stuff->id, client);
+    rc = dixLookupDrawable(&pDraw, stuff->id, client, M_ANY, DixGetAttrAccess);
+    if (rc != Success)
+	return rc;
+
     rep.type = X_Reply;
     rep.length = 0;
     rep.sequenceNumber = client->sequence;
@@ -571,19 +575,17 @@ int PanoramiXTranslateCoords(ClientPtr client)
 {
     INT16 x, y;
     REQUEST(xTranslateCoordsReq);
-
+    int rc;
     WindowPtr pWin, pDst;
     xTranslateCoordsReply rep;
 
     REQUEST_SIZE_MATCH(xTranslateCoordsReq);
-    pWin = (WindowPtr)SecurityLookupWindow(stuff->srcWid, client,
-					   DixReadAccess);
-    if (!pWin)
-        return(BadWindow);
-    pDst = (WindowPtr)SecurityLookupWindow(stuff->dstWid, client,
-					   DixReadAccess);
-    if (!pDst)
-        return(BadWindow);
+    rc = dixLookupWindow(&pWin, stuff->srcWid, client, DixReadAccess);
+    if (rc != Success)
+        return rc;
+    rc = dixLookupWindow(&pDst, stuff->dstWid, client, DixReadAccess);
+    if (rc != Success)
+        return rc;
     rep.type = X_Reply;
     rep.length = 0;
     rep.sequenceNumber = client->sequence;
@@ -1026,10 +1028,14 @@ int PanoramiXCopyArea(ClientPtr client)
 	DrawablePtr pDst;
 	GCPtr pGC;
         char *data;
-	int pitch;
+	int pitch, rc;
 
-	FOR_NSCREENS(j)
-	    VERIFY_DRAWABLE(drawables[j], src->info[j].id, client);
+	FOR_NSCREENS(j) {
+	    rc = dixLookupDrawable(drawables+j, src->info[j].id, client, 0,
+				   DixGetAttrAccess);
+	    if (rc != Success)
+		return rc;
+	}
 
 	pitch = PixmapBytePad(stuff->width, drawables[0]->depth); 
 	if(!(data = calloc(1, stuff->height * pitch)))
@@ -1041,8 +1047,7 @@ int PanoramiXCopyArea(ClientPtr client)
 
 	FOR_NSCREENS_BACKWARD(j) {
 	    stuff->gc = gc->info[j].id;
-	    VALIDATE_DRAWABLE_AND_GC(dst->info[j].id, pDst, pGC, client);
-
+	    VALIDATE_DRAWABLE_AND_GC(dst->info[j].id, pDst, DixWriteAccess);
 	    if(drawables[0]->depth != pDst->depth) {
 		client->errorValue = stuff->dstDrawable;
 		free(data);
@@ -1063,6 +1068,7 @@ int PanoramiXCopyArea(ClientPtr client)
 	DrawablePtr pDst = NULL, pSrc = NULL;
 	GCPtr pGC = NULL;
 	RegionPtr pRgn[MAXSCREENS];
+	int rc;
 
 	FOR_NSCREENS_BACKWARD(j) {
 	    stuff->dstDrawable = dst->info[j].id;
@@ -1077,10 +1083,14 @@ int PanoramiXCopyArea(ClientPtr client)
 		stuff->dstY = dsty - panoramiXdataPtr[j].y;
 	    }
 
-	    VALIDATE_DRAWABLE_AND_GC(stuff->dstDrawable, pDst, pGC, client); 
+	    VALIDATE_DRAWABLE_AND_GC(stuff->dstDrawable, pDst, DixWriteAccess);
+
 	    if (stuff->dstDrawable != stuff->srcDrawable) {
-		SECURITY_VERIFY_DRAWABLE(pSrc, stuff->srcDrawable, client,
+		rc = dixLookupDrawable(&pSrc, stuff->srcDrawable, client, 0,
 				       DixReadAccess);
+		if (rc != Success)
+		    return rc;
+
 		if ((pDst->pScreen != pSrc->pScreen) ||
 		    (pDst->depth != pSrc->depth)) {
 			client->errorValue = stuff->dstDrawable;
@@ -1131,7 +1141,7 @@ int PanoramiXCopyArea(ClientPtr client)
 
 int PanoramiXCopyPlane(ClientPtr client)
 {
-    int			j, srcx, srcy, dstx, dsty;
+    int			j, srcx, srcy, dstx, dsty, rc;
     PanoramiXRes	*gc, *src, *dst;
     Bool		srcIsRoot = FALSE;
     Bool		dstIsRoot = FALSE;
@@ -1183,10 +1193,13 @@ int PanoramiXCopyPlane(ClientPtr client)
 	    stuff->dstY = dsty - panoramiXdataPtr[j].y;
 	}
 
-	VALIDATE_DRAWABLE_AND_GC(stuff->dstDrawable, pdstDraw, pGC, client);
+	VALIDATE_DRAWABLE_AND_GC(stuff->dstDrawable, pdstDraw, DixWriteAccess);
 	if (stuff->dstDrawable != stuff->srcDrawable) {
-	    SECURITY_VERIFY_DRAWABLE(psrcDraw, stuff->srcDrawable, client,
+	    rc = dixLookupDrawable(&psrcDraw, stuff->srcDrawable, client, 0,
 				   DixReadAccess);
+	    if (rc != Success)
+		return rc;
+
             if (pdstDraw->pScreen != psrcDraw->pScreen) {
 		client->errorValue = stuff->dstDrawable;
 		return (BadMatch);
@@ -1752,7 +1765,7 @@ int PanoramiXGetImage(ClientPtr client)
     xGetImageReply	xgi;
     Bool		isRoot;
     char		*pBuf;
-    int         	i, x, y, w, h, format;
+    int         	i, x, y, w, h, format, rc;
     Mask		plane = 0, planemask;
     int			linesDone, nlines, linesPerBuf;
     long		widthBytesLine, length;
@@ -1773,7 +1786,10 @@ int PanoramiXGetImage(ClientPtr client)
     if(draw->type == XRT_PIXMAP)
 	return (*SavedProcVector[X_GetImage])(client);
 
-    VERIFY_DRAWABLE(pDraw, stuff->drawable, client);
+    rc = dixLookupDrawable(&pDraw, stuff->drawable, client, 0,
+			   DixReadAccess);
+    if (rc != Success)
+	return rc;
 
     if(!((WindowPtr)pDraw)->realized)
 	return(BadMatch);
@@ -1807,8 +1823,12 @@ int PanoramiXGetImage(ClientPtr client)
     }
 
     drawables[0] = pDraw;
-    for(i = 1; i < PanoramiXNumScreens; i++)
-	VERIFY_DRAWABLE(drawables[i], draw->info[i].id, client);
+    for(i = 1; i < PanoramiXNumScreens; i++) {
+	rc = dixLookupDrawable(drawables+i, draw->info[i].id, client, 0,
+			       DixGetAttrAccess);
+	if (rc != Success)
+	    return rc;
+    }
 
     xgi.visual = wVisual (((WindowPtr) pDraw));
     xgi.type = X_Reply;
@@ -2065,9 +2085,6 @@ int PanoramiXCreateColormap(ClientPtr client)
 		client, stuff->window, XRT_WINDOW, DixReadAccess)))
 	return BadWindow;    
 
-    if(!stuff->visual || (stuff->visual > 255)) 
-	return BadValue;
-
     if(!(newCmap = (PanoramiXRes *) malloc(sizeof(PanoramiXRes))))
         return BadAlloc;
 
@@ -2080,7 +2097,7 @@ int PanoramiXCreateColormap(ClientPtr client)
     FOR_NSCREENS_BACKWARD(j){
 	stuff->mid = newCmap->info[j].id;
 	stuff->window = win->info[j].id;
-	stuff->visual = PanoramiXVisualTable[(orig_visual * MAXSCREENS) + j];
+	stuff->visual = PanoramiXTranslateVisualID(j, orig_visual);
 	result = (* SavedProcVector[X_CreateColormap])(client);
 	if(result != Success) break;
     }

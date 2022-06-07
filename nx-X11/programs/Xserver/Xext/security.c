@@ -1,28 +1,3 @@
-/**************************************************************************/
-/*                                                                        */
-/* Copyright (c) 2001, 2011 NoMachine (http://www.nomachine.com)          */
-/* Copyright (c) 2008-2014 Oleksandr Shneyder <o.shneyder@phoca-gmbh.de>  */
-/* Copyright (c) 2011-2016 Mike Gabriel <mike.gabriel@das-netzwerkteam.de>*/
-/* Copyright (c) 2014-2016 Mihai Moldovan <ionic@ionic.de>                */
-/* Copyright (c) 2014-2016 Ulrich Sibiller <uli42@gmx.de>                 */
-/* Copyright (c) 2015-2016 Qindel Group (http://www.qindel.com)           */
-/*                                                                        */
-/* nx-X11, NX protocol compression and NX extensions to this software     */
-/* are copyright of the aforementioned persons and companies.             */
-/*                                                                        */
-/* Redistribution and use of the present software is allowed according    */
-/* to terms specified in the file LICENSE which comes in the source       */
-/* distribution.                                                          */
-/*                                                                        */
-/* All rights reserved.                                                   */
-/*                                                                        */
-/* NOTE: This software has received contributions from various other      */
-/* contributors, only the core maintainers and supporters are listed as   */
-/* copyright holders. Please contact us, if you feel you should be listed */
-/* as copyright holder, as well.                                          */
-/*                                                                        */
-/**************************************************************************/
-
 /*
 
 Copyright 1996, 1998  The Open Group
@@ -53,70 +28,59 @@ in this Software without prior written authorization from The Open Group.
 #include <dix-config.h>
 #endif
 
-#include "dixstruct.h"
-#include "extnsionst.h"
-#include "windowstr.h"
-#include "inputstr.h"
 #include "scrnintstr.h"
-#include "gcstruct.h"
-#include "colormapst.h"
+#include "inputstr.h"
+#include "windowstr.h"
 #include "propertyst.h"
 #include "protocol-versions.h"
+#include "colormapst.h"
+#include "privates.h"
+#include "registry.h"
+#include "xacestr.h"
 #include "securitysrv.h"
 #include <nx-X11/extensions/securstr.h>
-#include <assert.h>
-#include <stdarg.h>
-#include <stdio.h>  /* for file reading operations */
-#include <nx-X11/Xatom.h>  /* for XA_STRING */
 
-#ifndef DEFAULTPOLICYFILE
-# define DEFAULTPOLICYFILE NULL
-#endif
-
-#if defined(WIN32) || defined(__CYGWIN__)
-#include <nx-X11/Xos.h>
-#undef index
-#endif
-
+/* Extension stuff */
 static int SecurityErrorBase;  /* first Security error number */
 static int SecurityEventBase;  /* first Security event number */
-static int securityClientPrivateIndex;
-static int securityExtnsnPrivateIndex;
-
-/* this is what we store as client security state */
-typedef struct {
-    unsigned int trustLevel;
-    XID authId;
-} SecurityClientStateRec;
-
-#define STATEVAL(extnsn) \
-    ((extnsn)->devPrivates[securityExtnsnPrivateIndex].val)
-#define STATEPTR(client) \
-    ((client)->devPrivates[securityClientPrivateIndex].ptr)
-#define TRUSTLEVEL(client) \
-    (((SecurityClientStateRec*)STATEPTR(client))->trustLevel)
-#define AUTHID(client) \
-    (((SecurityClientStateRec*)STATEPTR(client))->authId)
-
-CallbackListPtr SecurityValidateGroupCallback = NULL;  /* see security.h */
 
 RESTYPE SecurityAuthorizationResType; /* resource type for authorizations */
-
 static RESTYPE RTEventClient;
 
-/* Proc vectors for untrusted clients, swapped and unswapped versions.
- * These are the same as the normal proc vectors except that extensions
- * that haven't declared themselves secure will have ProcBadRequest plugged
- * in for their major opcode dispatcher.  This prevents untrusted clients
- * from guessing extension major opcodes and using the extension even though
- * the extension can't be listed or queried.
+static CallbackListPtr SecurityValidateGroupCallback = NULL;
+
+/* Private state record */
+static DevPrivateKey stateKey = &stateKey;
+
+/* This is what we store as client security state */
+typedef struct {
+    int haveState;
+    unsigned int trustLevel;
+    XID authId;
+} SecurityStateRec;
+
+/* Extensions that untrusted clients shouldn't have access to */
+static char *SecurityUntrustedExtensions[] = {
+    "RandR",
+    "SECURITY",
+    "XFree86-DGA",
+    NULL
+};
+
+/*
+ * Access modes that untrusted clients are allowed on trusted objects.
  */
-int (*UntrustedProcVector[256])(
-    ClientPtr /*client*/
-);
-int (*SwappedUntrustedProcVector[256])(
-    ClientPtr /*client*/
-);
+static const Mask SecurityResourceMask =
+    DixGetAttrAccess | DixReceiveAccess | DixListPropAccess |
+    DixGetPropAccess | DixListAccess;
+static const Mask SecurityRootWindowExtraMask =
+    DixReceiveAccess | DixSendAccess | DixAddAccess | DixRemoveAccess;
+static const Mask SecurityDeviceMask =
+    DixGetAttrAccess | DixReceiveAccess | DixGetFocusAccess |
+    DixGrabAccess | DixSetAttrAccess | DixUseAccess;
+static const Mask SecurityServerMask = DixGetAttrAccess | DixGrabAccess;
+static const Mask SecurityClientMask = DixGetAttrAccess;
+
 
 /* SecurityAudit
  *
@@ -130,7 +94,7 @@ int (*SwappedUntrustedProcVector[256])(
  *	Writes the message to the log file if security logging is on.
  */
 
-void
+static void
 SecurityAudit(char *format, ...)
 {
     va_list args;
@@ -141,6 +105,51 @@ SecurityAudit(char *format, ...)
     VAuditF(format, args);
     va_end(args);
 } /* SecurityAudit */
+
+/*
+ * Performs a Security permission check.
+ */
+static int
+SecurityDoCheck(SecurityStateRec *subj, SecurityStateRec *obj,
+		Mask requested, Mask allowed)
+{
+    if (!subj->haveState || !obj->haveState)
+	return Success;
+    if (subj->trustLevel == XSecurityClientTrusted)
+	return Success;
+    if (obj->trustLevel != XSecurityClientTrusted)
+	return Success;
+    if ((requested | allowed) == allowed)
+	return Success;
+
+    return BadAccess;
+}
+
+/*
+ * Labels initial server objects.
+ */
+static void
+SecurityLabelInitial(void)
+{
+    SecurityStateRec *state;
+
+    /* Do the serverClient */
+    state = dixLookupPrivate(&serverClient->devPrivates, stateKey);
+    state->trustLevel = XSecurityClientTrusted;
+    state->haveState = TRUE;
+}
+
+/*
+ * Looks up a request name
+ */
+static _X_INLINE const char *
+SecurityLookupRequestName(ClientPtr client)
+{
+    int major = ((xReq *)client->requestBuffer)->reqType;
+    int minor = MinorOpcodeOfRequest(client);
+    return LookupRequestName(major, minor);
+}
+
 
 #define rClient(obj) (clients[CLIENT_ID((obj)->resource)])
 
@@ -186,18 +195,26 @@ SecurityDeleteAuthorization(
     while ((pEventClient = pAuth->eventClients))
     {
 	/* send revocation event event */
+	ClientPtr client = rClient(pEventClient);
+
+	if (!client->clientGone)
+	{
 	xSecurityAuthorizationRevokedEvent are;
 	are.type = SecurityEventBase + XSecurityAuthorizationRevoked;
+	    are.sequenceNumber = client->sequence;
 	are.authId = pAuth->id;
-	WriteEventsToClient(rClient(pEventClient), 1, (xEvent *)&are);
+	    WriteEventsToClient(client, 1, (xEvent *)&are);
+	}
 	FreeResource(pEventClient->resource, RT_NONE);
     }
 
     /* kill all clients using this auth */
 
     for (i = 1; i<currentMaxClients; i++)
-    {
-	if (clients[i] && (clients[i]->authId == pAuth->id))
+	if (clients[i]) {
+	    SecurityStateRec *state;
+	    state = dixLookupPrivate(&clients[i]->devPrivates, stateKey);
+	    if (state->haveState && state->authId == pAuth->id)
 	    CloseDownClient(clients[i]);
     }
 
@@ -348,18 +365,12 @@ ProcSecurityQueryVersion(
     /* REQUEST(xSecurityQueryVersionReq); */
     xSecurityQueryVersionReply 	rep;
 
-    /* paranoia: this "can't happen" because this extension is hidden
-     * from untrusted clients, but just in case...
-     */
-    if (client->trustLevel != XSecurityClientTrusted)
-	return BadRequest;
-
     REQUEST_SIZE_MATCH(xSecurityQueryVersionReq);
     rep.type        	= X_Reply;
     rep.sequenceNumber 	= client->sequence;
     rep.length         	= 0;
-    rep.majorVersion  	= SERVER_SECURITY_MAJOR_VERSION;
-    rep.minorVersion  	= SERVER_SECURITY_MINOR_VERSION;
+    rep.majorVersion  	= SECURITY_MAJOR_VERSION;
+    rep.minorVersion  	= SECURITY_MINOR_VERSION;
     if(client->swapped)
     {
 	swaps(&rep.sequenceNumber);
@@ -367,7 +378,7 @@ ProcSecurityQueryVersion(
 	swaps(&rep.minorVersion);
     }
     WriteToClient(client, SIZEOF(xSecurityQueryVersionReply),
-			&rep);
+			(char *)&rep);
     return (client->noClientException);
 } /* ProcSecurityQueryVersion */
 
@@ -432,12 +443,6 @@ ProcSecurityGenerateAuthorization(
     unsigned int authdata_len;  /* # bytes of generated auth data */
     char *pAuthdata;		/* generated auth data */
     Mask eventMask;		/* what events on this auth does client want */
-
-    /* paranoia: this "can't happen" because this extension is hidden
-     * from untrusted clients, but just in case...
-     */
-    if (client->trustLevel != XSecurityClientTrusted)
-	return BadRequest;
 
     /* check request length */
 
@@ -586,7 +591,7 @@ ProcSecurityGenerateAuthorization(
     }
 
     WriteToClient(client, SIZEOF(xSecurityGenerateAuthorizationReply),
-		  &rep);
+		  (char *)&rep);
     WriteToClient(client, authdata_len, pAuthdata);
 
     SecurityAudit("client %d generated authorization %d trust %d timeout %d group %d events %d\n",
@@ -614,12 +619,6 @@ ProcSecurityRevokeAuthorization(
 {
     REQUEST(xSecurityRevokeAuthorizationReq);
     SecurityAuthorizationPtr pAuth;
-
-    /* paranoia: this "can't happen" because this extension is hidden
-     * from untrusted clients, but just in case...
-     */
-    if (client->trustLevel != XSecurityClientTrusted)
-	return BadRequest;
 
     REQUEST_SIZE_MATCH(xSecurityRevokeAuthorizationReq);
 
@@ -735,59 +734,6 @@ SwapSecurityAuthorizationRevokedEvent(
     cpswapl(from->authId, to->authId);
 }
 
-/* SecurityDetermineEventPropogationLimits
- *
- * This is a helper function for SecurityCheckDeviceAccess.
- *
- * Arguments:
- *	dev is the device for which the starting and stopping windows for
- *	event propogation should be determined.
- *	The values pointed to by ppWin and ppStopWin are not used.
- *
- * Returns:
- *	ppWin is filled in with a pointer to the window at which event
- *	propogation for the given device should start given the current
- *	state of the server (pointer position, window layout, etc.)
- *	ppStopWin is filled in with the window at which event propogation
- *	should stop; events should not go to ppStopWin.
- *
- * Side Effects: none.
- */
-
-static void
-SecurityDetermineEventPropogationLimits(
-    DeviceIntPtr dev,
-    WindowPtr *ppWin,
-    WindowPtr *ppStopWin)
-{
-    WindowPtr pFocusWin = dev->focus ? dev->focus->win : NoneWin;
-
-    if (pFocusWin == NoneWin)
-    { /* no focus -- events don't go anywhere */
-	*ppWin = *ppStopWin = NULL;
-	return;
-    }
-
-    if (pFocusWin == PointerRootWin)
-    { /* focus follows the pointer */
-	*ppWin = GetSpriteWindow();
-	*ppStopWin = NULL; /* propogate all the way to the root */
-    }
-    else
-    { /* a real window is set for the focus */
-	WindowPtr pSpriteWin = GetSpriteWindow();
-	*ppStopWin = pFocusWin->parent; /* don't go past the focus window */
-
-	/* if the pointer is in a subwindow of the focus window, start
-	 * at that subwindow, else start at the focus window itself
-	 */
-	if (IsParent(pFocusWin, pSpriteWin))
-	     *ppWin = pSpriteWin;
-	else *ppWin = pFocusWin;
-    }
-} /* SecurityDetermineEventPropogationLimits */
-
-
 /* SecurityCheckDeviceAccess
  *
  * Arguments:
@@ -804,160 +750,30 @@ SecurityDetermineEventPropogationLimits(
  *	An audit message is generated if access is denied.
  */
 
-Bool
-SecurityCheckDeviceAccess(client, dev, fromRequest)
-    ClientPtr client;
-    DeviceIntPtr dev;
-    Bool fromRequest;
-{
-    WindowPtr pWin, pStopWin;
-    Bool untrusted_got_event;
-    Bool found_event_window;
-    Mask eventmask;
-    int reqtype = 0;
-
-    /* trusted clients always allowed to do anything */
-    if (client->trustLevel == XSecurityClientTrusted)
-	return TRUE;
-
-    /* device security other than keyboard is not implemented yet */
-    if (dev != inputInfo.keyboard)
-	return TRUE;
-
-    /* some untrusted client wants access */
-
-    if (fromRequest)
+static void
+SecurityDevice(CallbackListPtr *pcbl, void * unused, void * calldata)
     {
-	reqtype = ((xReq *)client->requestBuffer)->reqType;
-	switch (reqtype)
-	{
-	    /* never allow these */
-	    case X_ChangeKeyboardMapping:
-	    case X_ChangeKeyboardControl:
-	    case X_SetModifierMapping:
-		SecurityAudit("client %d attempted request %d\n",
-			      client->index, reqtype);
-		return FALSE;
-	    default:
-		break;
-	}
-    }
+    XaceDeviceAccessRec *rec = calldata;
+    SecurityStateRec *subj, *obj;
+    Mask requested = rec->access_mode;
+    Mask allowed = SecurityDeviceMask;
 
-    untrusted_got_event = FALSE;
-    found_event_window = FALSE;
+    subj = dixLookupPrivate(&rec->client->devPrivates, stateKey);
+    obj = dixLookupPrivate(&serverClient->devPrivates, stateKey);
 
-    if (dev->grab)
-    {
-	untrusted_got_event =
-	    ((rClient(dev->grab))->trustLevel != XSecurityClientTrusted);
-    }
-    else
-    {
-	SecurityDetermineEventPropogationLimits(dev, &pWin, &pStopWin);
+    if (rec->dev != inputInfo.keyboard)
+	/* this extension only supports the core keyboard */
+	allowed = requested;
 
-	eventmask = KeyPressMask | KeyReleaseMask;
-	while ( (pWin != pStopWin) && !found_event_window)
-	{
-	    OtherClients *other;
-
-	    if (pWin->eventMask & eventmask)
-	    {
-		found_event_window = TRUE;
-		client = wClient(pWin);
-		if (client->trustLevel != XSecurityClientTrusted)
-		{
-		    untrusted_got_event = TRUE;
-		}
-	    }
-	    if (wOtherEventMasks(pWin) & eventmask)
-	    {
-		found_event_window = TRUE;
-		for (other = wOtherClients(pWin); other; other = other->next)
-		{
-		    if (other->mask & eventmask)
-		    {
-			client = rClient(other);
-			if (client->trustLevel != XSecurityClientTrusted)
-			{
-			    untrusted_got_event = TRUE;
-			    break;
-			}
-		    }
-		}
-	    }
-	    if (wDontPropagateMask(pWin) & eventmask)
-		break;
-	    pWin = pWin->parent;
-	} /* while propogating the event */
-    }
-
-    /* allow access by untrusted clients only if an event would have gone 
-     * to an untrusted client
-     */
-    
-    if (!untrusted_got_event)
-    {
-	char *devname = dev->name;
-	if (!devname) devname = "unnamed";
-	if (fromRequest)
-	    SecurityAudit("client %d attempted request %d device %d (%s)\n",
-			  client->index, reqtype, dev->id, devname);
-	else
-	    SecurityAudit("client %d attempted to access device %d (%s)\n",
-			  client->index, dev->id, devname);
-    }
-    return untrusted_got_event;
-} /* SecurityCheckDeviceAccess */
-
-
-
-/* SecurityAuditResourceIDAccess
- *
- * Arguments:
- *	client is the client doing the resource access.
- *	id is the resource id.
- *
- * Returns: NULL
- *
- * Side Effects:
- *	An audit message is generated with details of the denied
- *	resource access.
- */
-
-static void *
-SecurityAuditResourceIDAccess(
-    ClientPtr client,
-    XID id)
-{
-    int cid = CLIENT_ID(id);
-    int reqtype = ((xReq *)client->requestBuffer)->reqType;
-    switch (reqtype)
-    {
-	case X_ChangeProperty:
-	case X_DeleteProperty:
-	case X_GetProperty:
-	{
-	    xChangePropertyReq *req =
-		(xChangePropertyReq *)client->requestBuffer;
-	    int propertyatom = req->property;
-	    const char *propertyname = NameForAtom(propertyatom);
-
-	    SecurityAudit("client %d attempted request %d with window 0x%x property %s of client %d\n",
-		   client->index, reqtype, id, propertyname, cid);
-	    break;
-	}
-	default:
-	{
-	    SecurityAudit("client %d attempted request %d with resource 0x%x of client %d\n",
-		   client->index, reqtype, id, cid);
-	    break;
+    if (SecurityDoCheck(subj, obj, requested, allowed) != Success) {
+	SecurityAudit("Security denied client %d keyboard access on request "
+		      "%s\n", rec->client->index,
+		      SecurityLookupRequestName(rec->client));
+	rec->status = BadAccess;
 	}   
     }
-    return NULL;
-} /* SecurityAuditResourceIDAccess */
 
-
-/* SecurityCheckResourceIDAccess
+/* SecurityResource
  *
  * This function gets plugged into client->CheckAccess and is called from
  * SecurityLookupIDByType/Class to determine if the client can access the
@@ -969,149 +785,196 @@ SecurityAuditResourceIDAccess(
  *	rtype is its type or class.
  *	access_mode represents the intended use of the resource; see
  *	  resource.h.
- *	rval is a pointer to the resource structure for this resource.
+ *	res is a void * to the resource structure for this resource.
  *
  * Returns:
- *	If access is granted, the value of rval that was passed in, else NULL.
+ *	If access is granted, the value of rval that was passed in, else FALSE.
  *
  * Side Effects:
  *	Disallowed resource accesses are audited.
  */
 
-static void *
-SecurityCheckResourceIDAccess(
-    ClientPtr client,
-    XID id,
-    RESTYPE rtype,
-    Mask access_mode,
-    void * rval)
-{
-    int cid = CLIENT_ID(id);
-    int reqtype = ((xReq *)client->requestBuffer)->reqType;
+static void
+SecurityResource(CallbackListPtr *pcbl, void * unused, void * calldata)
+	{
+    XaceResourceAccessRec *rec = calldata;
+    SecurityStateRec *subj, *obj;
+    int cid = CLIENT_ID(rec->id);
+    Mask requested = rec->access_mode;
+    Mask allowed = SecurityResourceMask;
 
-    if (DixUnknownAccess == access_mode)
-	return rval;  /* for compatibility, we have to allow access */
+    subj = dixLookupPrivate(&rec->client->devPrivates, stateKey);
+    obj = dixLookupPrivate(&clients[cid]->devPrivates, stateKey);
 
-    switch (reqtype)
-    { /* these are always allowed */
-	case X_QueryTree:
-        case X_TranslateCoords:
-        case X_GetGeometry:
-	/* property access is controlled in SecurityCheckPropertyAccess */
-	case X_GetProperty:
-	case X_ChangeProperty:
-	case X_DeleteProperty:
-	case X_RotateProperties:
-        case X_ListProperties:
-	    return rval;
-	default:
-	    break;
-    }
+    /* disable background None for untrusted windows */
+    if ((requested & DixCreateAccess) && (rec->rtype == RT_WINDOW))
+	if (subj->haveState && subj->trustLevel != XSecurityClientTrusted)
+	    ((WindowPtr)rec->res)->forcedBG = TRUE;
 
-    if (cid != 0)
-    { /* not a server-owned resource */
-     /*
-      * The following 'if' restricts clients to only access resources at
-      * the same trustLevel.  Since there are currently only two trust levels,
-      * and trusted clients never call this function, this degenerates into
-      * saying that untrusted clients can only access resources of other
-      * untrusted clients.  One way to add the notion of groups would be to
-      * allow values other than Trusted (0) and Untrusted (1) for this field.
-      * Clients at the same trust level would be able to use each other's
-      * resources, but not those of clients at other trust levels.  I haven't
-      * tried it, but this probably mostly works already.  The obvious
-      * competing alternative for grouping clients for security purposes is to
-      * use app groups.  dpw
-      */
-	if (client->trustLevel == clients[cid]->trustLevel
-	)
-	    return rval;
+    /* special checks for server-owned resources */
+    if (cid == 0) {
+	if (rec->rtype & RC_DRAWABLE)
+	    /* additional operations allowed on root windows */
+	    allowed |= SecurityRootWindowExtraMask;
+
+	else if (rec->rtype == RT_COLORMAP)
+	    /* allow access to default colormaps */
+	    allowed = requested;
+
 	else
-	    return SecurityAuditResourceIDAccess(client, id);
+	    /* allow read access to other server-owned resources */
+	    allowed |= DixReadAccess;
+	}
+
+    if (SecurityDoCheck(subj, obj, requested, allowed) == Success)
+	return;
+
+
+    SecurityAudit("Security: denied client %d access %x to resource 0x%x "
+		  "of client %d on request %s\n", rec->client->index,
+		  requested, rec->id, cid,
+		  SecurityLookupRequestName(rec->client));
+    rec->status = BadAccess; /* deny access */
+	}
+
+
+static void
+SecurityExtension(CallbackListPtr *pcbl, void * unused, void * calldata)
+{
+    XaceExtAccessRec *rec = calldata;
+    SecurityStateRec *subj;
+    int i = 0;
+
+    subj = dixLookupPrivate(&rec->client->devPrivates, stateKey);
+
+    if (subj->haveState && subj->trustLevel != XSecurityClientTrusted)
+	while (SecurityUntrustedExtensions[i])
+	    if (!strcmp(SecurityUntrustedExtensions[i++], rec->ext->name)) {
+		SecurityAudit("Security: denied client %d access to extension "
+			      "%s on request %s\n",
+			      rec->client->index, rec->ext->name,
+			      SecurityLookupRequestName(rec->client));
+		rec->status = BadAccess;
+		return;
+	}
     }
-    else /* server-owned resource - probably a default colormap or root window */
+
+static void
+SecurityServer(CallbackListPtr *pcbl, void * unused, void * calldata)
+	{
+    XaceServerAccessRec *rec = calldata;
+    SecurityStateRec *subj, *obj;
+    Mask requested = rec->access_mode;
+    Mask allowed = SecurityServerMask;
+
+    subj = dixLookupPrivate(&rec->client->devPrivates, stateKey);
+    obj = dixLookupPrivate(&serverClient->devPrivates, stateKey);
+ 
+    if (SecurityDoCheck(subj, obj, requested, allowed) != Success) {
+	SecurityAudit("Security: denied client %d access to server "
+		      "configuration request %s\n", rec->client->index,
+		      SecurityLookupRequestName(rec->client));
+	rec->status = BadAccess;
+	}
+    }
+
+static void
+SecurityClient(CallbackListPtr *pcbl, void * unused, void * calldata)
     {
-	if (RT_WINDOW == rtype || RC_DRAWABLE == rtype)
-	{
-	    switch (reqtype)
-	    {   /* the following operations are allowed on root windows */
-	        case X_CreatePixmap:
-	        case X_CreateGC:
-	        case X_CreateWindow:
-	        case X_CreateColormap:
-		case X_ListProperties:
-		case X_GrabPointer:
-	        case X_UngrabButton:
-		case X_QueryBestSize:
-		case X_GetWindowAttributes:
-		    break;
-		case X_SendEvent:
-		{ /* see if it is an event specified by the ICCCM */
-		    xSendEventReq *req = (xSendEventReq *)
-						(client->requestBuffer);
-		    if (req->propagate == xTrue
-			||
-			  (req->eventMask != ColormapChangeMask &&
-			   req->eventMask != StructureNotifyMask &&
-			   req->eventMask !=
-			      (SubstructureRedirectMask|SubstructureNotifyMask)
-			  )
-			||
-			  (req->event.u.u.type != UnmapNotify &&
-			   req->event.u.u.type != ConfigureRequest &&
-			   req->event.u.u.type != ClientMessage
-			  )
-		       )
-		    { /* not an ICCCM event */
-			return SecurityAuditResourceIDAccess(client, id);
-		    }
-		    break;
-		} /* case X_SendEvent on root */
+    XaceClientAccessRec *rec = calldata;
+    SecurityStateRec *subj, *obj;
+    Mask requested = rec->access_mode;
+    Mask allowed = SecurityClientMask;
 
-		case X_ChangeWindowAttributes:
-		{ /* Allow selection of PropertyNotify and StructureNotify
-		   * events on the root.
-		   */
-		    xChangeWindowAttributesReq *req =
-			(xChangeWindowAttributesReq *)(client->requestBuffer);
-		    if (req->valueMask == CWEventMask)
-		    {
-			CARD32 value = *((CARD32 *)(req + 1));
-			if ( (value &
-			      ~(PropertyChangeMask|StructureNotifyMask)) == 0)
-			    break;
-		    }
-		    return SecurityAuditResourceIDAccess(client, id);
-		} /* case X_ChangeWindowAttributes on root */
+    subj = dixLookupPrivate(&rec->client->devPrivates, stateKey);
+    obj = dixLookupPrivate(&rec->target->devPrivates, stateKey);
 
-		default:
-		{
-		    /* others not allowed */
-		    return SecurityAuditResourceIDAccess(client, id);
-		}
-	    }
-	} /* end server-owned window or drawable */
-	else if (SecurityAuthorizationResType == rtype)
-	{
-	    SecurityAuthorizationPtr pAuth = (SecurityAuthorizationPtr)rval;
-	    if (pAuth->trustLevel != client->trustLevel)
-		return SecurityAuditResourceIDAccess(client, id);
-	}
-	else if (RT_COLORMAP != rtype)
-	{ /* don't allow anything else besides colormaps */
-	    return SecurityAuditResourceIDAccess(client, id);
+    if (SecurityDoCheck(subj, obj, requested, allowed) != Success) {
+	SecurityAudit("Security: denied client %d access to client %d on "
+		      "request %s\n", rec->client->index, rec->target->index,
+		      SecurityLookupRequestName(rec->client));
+	rec->status = BadAccess;
+    }
+    }
+
+static void
+SecurityProperty(CallbackListPtr *pcbl, void * unused, void * calldata)
+    {
+    XacePropertyAccessRec *rec = calldata;
+    SecurityStateRec *subj, *obj;
+    ATOM name = (*rec->ppProp)->propertyName;
+    Mask requested = rec->access_mode;
+    Mask allowed = SecurityResourceMask | DixReadAccess;
+
+    subj = dixLookupPrivate(&rec->client->devPrivates, stateKey);
+    obj = dixLookupPrivate(&wClient(rec->pWin)->devPrivates, stateKey);
+
+    if (SecurityDoCheck(subj, obj, requested, allowed) != Success) {
+	SecurityAudit("Security: denied client %d access to property %s "
+		      "(atom 0x%x) window 0x%x of client %d on request %s\n",
+		      rec->client->index, NameForAtom(name), name,
+		      rec->pWin->drawable.id, wClient(rec->pWin)->index,
+		      SecurityLookupRequestName(rec->client));
+	rec->status = BadAccess;
 	}
     }
-    return rval;
-} /* SecurityCheckResourceIDAccess */
 
+static void
+SecuritySend(CallbackListPtr *pcbl, void * unused, void * calldata)
+{
+    XaceSendAccessRec *rec = calldata;
+    SecurityStateRec *subj, *obj;
+
+    if (rec->client) {
+	int i;
+
+	subj = dixLookupPrivate(&rec->client->devPrivates, stateKey);
+	obj = dixLookupPrivate(&wClient(rec->pWin)->devPrivates, stateKey);
+
+	if (SecurityDoCheck(subj, obj, DixSendAccess, 0) == Success)
+	return;
+
+	for (i = 0; i < rec->count; i++)
+	    if (rec->events[i].u.u.type != UnmapNotify &&
+		rec->events[i].u.u.type != ConfigureRequest &&
+		rec->events[i].u.u.type != ClientMessage) {
+
+		SecurityAudit("Security: denied client %d from sending event "
+			      "of type %s to window 0x%x of client %d\n",
+			      rec->client->index, rec->pWin->drawable.id,
+			      wClient(rec->pWin)->index,
+			      LookupEventName(rec->events[i].u.u.type));
+		rec->status = BadAccess;
+		return;
+	    }
+	    }
+	}
+
+static void
+SecurityReceive(CallbackListPtr *pcbl, void * unused, void * calldata)
+		{
+    XaceReceiveAccessRec *rec = calldata;
+    SecurityStateRec *subj, *obj;
+
+    subj = dixLookupPrivate(&rec->client->devPrivates, stateKey);
+    obj = dixLookupPrivate(&wClient(rec->pWin)->devPrivates, stateKey);
+
+    if (SecurityDoCheck(subj, obj, DixReceiveAccess, 0) == Success)
+	return;
+
+    SecurityAudit("Security: denied client %d from receiving an event "
+		  "sent to window 0x%x of client %d\n",
+		  rec->client->index, rec->pWin->drawable.id,
+		  wClient(rec->pWin)->index);
+    rec->status = BadAccess;
+	}
 
 /* SecurityClientStateCallback
  *
  * Arguments:
  *	pcbl is &ClientStateCallback.
  *	nullata is NULL.
- *	calldata is a pointer to a NewClientInfoRec (include/dixstruct.h)
+ *	calldata is a void * to a NewClientInfoRec (include/dixstruct.h)
  *	which contains information about client state changes.
  *
  * Returns: nothing.
@@ -1121,774 +984,62 @@ SecurityCheckResourceIDAccess(
  * If a new client is connecting, its authorization ID is copied to
  * client->authID.  If this is a generated authorization, its reference
  * count is bumped, its timer is cancelled if it was running, and its
- * trustlevel is copied to client->trustLevel.
+ * trustlevel is copied to TRUSTLEVEL(client).
  * 
  * If a client is disconnecting and the client was using a generated
  * authorization, the authorization's reference count is decremented, and
  * if it is now zero, the timer for this authorization is started.
- */
+     */
 
 static void
-SecurityClientStateCallback(
-    CallbackListPtr *pcbl,
-    void * nulldata,
-    void * calldata)
-{
-    NewClientInfoRec *pci = (NewClientInfoRec *)calldata;
-    ClientPtr client = pci->client;
-
-    switch (client->clientState)
-    {
-	case ClientStateRunning:
-	{ 
-	    XID authId = AuthorizationIDOfClient(client);
-	    SecurityAuthorizationPtr pAuth;
-
-	    client->authId = authId;
-	    pAuth = (SecurityAuthorizationPtr)LookupIDByType(authId,
-						SecurityAuthorizationResType);
-	    if (pAuth)
-	    { /* it is a generated authorization */
-		pAuth->refcnt++;
-		if (pAuth->refcnt == 1)
-		{
-		    if (pAuth->timer) TimerCancel(pAuth->timer);
-		}
-		client->trustLevel = pAuth->trustLevel;
-		if (client->trustLevel != XSecurityClientTrusted)
-		{
-		    client->CheckAccess = SecurityCheckResourceIDAccess;
-		    client->requestVector = client->swapped ?
-			SwappedUntrustedProcVector : UntrustedProcVector;
-		}
-	    }
-	    break;
-	}
-	case ClientStateGone:
-	case ClientStateRetained: /* client disconnected */
+SecurityClientState(CallbackListPtr *pcbl, void * unused, void * calldata)
 	{
-	    XID authId = client->authId;
-	    SecurityAuthorizationPtr pAuth;
-
-	    pAuth = (SecurityAuthorizationPtr)LookupIDByType(authId,
-						SecurityAuthorizationResType);
-	    if (pAuth)
-	    { /* it is a generated authorization */
-		pAuth->refcnt--;
-		if (pAuth->refcnt == 0)
-		{
-		    SecurityStartAuthorizationTimer(pAuth);
-		}
-	    }	    
-	    break;
-	}
-	default: break; 
-    }
-} /* SecurityClientStateCallback */
-
-/* SecurityCensorImage
- *
- * Called after pScreen->GetImage to prevent pieces or trusted windows from
- * being returned in image data from an untrusted window.
- *
- * Arguments:
- *	client is the client doing the GetImage.
- *      pVisibleRegion is the visible region of the window.
- *	widthBytesLine is the width in bytes of one horizontal line in pBuf.
- *	pDraw is the source window.
- *	x, y, w, h is the rectangle of image data from pDraw in pBuf.
- *	format is the format of the image data in pBuf: ZPixmap or XYPixmap.
- *	pBuf is the image data.
- *
- * Returns: nothing.
- *
- * Side Effects:
- *	Any part of the rectangle (x, y, w, h) that is outside the visible
- *	region of the window will be destroyed (overwritten) in pBuf.
- */
-void
-SecurityCensorImage(client, pVisibleRegion, widthBytesLine, pDraw, x, y, w, h,
-		    format, pBuf)
-    ClientPtr client;
-    RegionPtr pVisibleRegion;
-    long widthBytesLine;
-    DrawablePtr pDraw;
-    int x, y, w, h;
-    unsigned int format;
-    char * pBuf;
-{
-    RegionRec imageRegion;  /* region representing x,y,w,h */
-    RegionRec censorRegion; /* region to obliterate */
-    BoxRec imageBox;
-    int nRects;
-
-    imageBox.x1 = x;
-    imageBox.y1 = y;
-    imageBox.x2 = x + w;
-    imageBox.y2 = y + h;
-    RegionInit(&imageRegion, &imageBox, 1);
-    RegionNull(&censorRegion);
-
-    /* censorRegion = imageRegion - visibleRegion */
-    RegionSubtract(&censorRegion, &imageRegion, pVisibleRegion);
-    nRects = RegionNumRects(&censorRegion);
-    if (nRects > 0)
-    { /* we have something to censor */
-	GCPtr pScratchGC = NULL;
-	PixmapPtr pPix = NULL;
-	xRectangle *pRects = NULL;
-	Bool failed = FALSE;
-	int depth = 1;
-	int bitsPerPixel = 1;
-	int i;
-	BoxPtr pBox;
-
-	/* convert region to list-of-rectangles for PolyFillRect */
-
-	pRects = (xRectangle *)malloc(nRects * sizeof(xRectangle *));
-	if (!pRects)
-	{
-	    failed = TRUE;
-	    goto failSafe;
-	}
-	for (pBox = RegionRects(&censorRegion), i = 0;
-	     i < nRects;
-	     i++, pBox++)
-	{
-	    pRects[i].x = pBox->x1;
-	    pRects[i].y = pBox->y1 - imageBox.y1;
-	    pRects[i].width  = pBox->x2 - pBox->x1;
-	    pRects[i].height = pBox->y2 - pBox->y1;
-	}
-
-	/* use pBuf as a fake pixmap */
-
-	if (format == ZPixmap)
-	{
-	    depth = pDraw->depth;
-	    bitsPerPixel = pDraw->bitsPerPixel;
-	}
-
-	pPix = GetScratchPixmapHeader(pDraw->pScreen, w, h,
-		    depth, bitsPerPixel,
-		    widthBytesLine, (void *)pBuf);
-	if (!pPix)
-	{
-	    failed = TRUE;
-	    goto failSafe;
-	}
-
-	pScratchGC = GetScratchGC(depth, pPix->drawable.pScreen);
-	if (!pScratchGC)
-	{
-	    failed = TRUE;
-	    goto failSafe;
-	}
-
-	ValidateGC(&pPix->drawable, pScratchGC);
-	(* pScratchGC->ops->PolyFillRect)(&pPix->drawable,
-			    pScratchGC, nRects, pRects);
-
-    failSafe:
-	if (failed)
-	{
-	    /* Censoring was not completed above.  To be safe, wipe out
-	     * all the image data so that nothing trusted gets out.
-	     */
-	    bzero(pBuf, (int)(widthBytesLine * h));
-	}
-	if (pRects)     free(pRects);
-	if (pScratchGC) FreeScratchGC(pScratchGC);
-	if (pPix)       FreeScratchPixmapHeader(pPix);
-    }
-    RegionUninit(&imageRegion);
-    RegionUninit(&censorRegion);
-} /* SecurityCensorImage */
-
-/**********************************************************************/
-
-typedef struct _PropertyAccessRec {
-    ATOM name;
-    ATOM mustHaveProperty;
-    char *mustHaveValue;
-    char windowRestriction;
-#define SecurityAnyWindow          0
-#define SecurityRootWindow         1
-#define SecurityWindowWithProperty 2
-    char readAction;
-    char writeAction;
-    char destroyAction;
-    struct _PropertyAccessRec *next;
-} PropertyAccessRec, *PropertyAccessPtr;
-
-static PropertyAccessPtr PropertyAccessList = NULL;
-static char SecurityDefaultAction = SecurityErrorOperation;
-static char *SecurityPolicyFile = DEFAULTPOLICYFILE;
-static ATOM SecurityMaxPropertyName = 0;
-
-static char *SecurityKeywords[] = {
-#define SecurityKeywordComment 0
-    "#",
-#define SecurityKeywordProperty 1
-    "property",
-#define SecurityKeywordSitePolicy 2
-    "sitepolicy",
-#define SecurityKeywordRoot 3
-    "root",
-#define SecurityKeywordAny 4
-    "any"
-};
-
-#define NUMKEYWORDS (sizeof(SecurityKeywords) / sizeof(char *))
-
-#undef PROPDEBUG
-/*#define PROPDEBUG  1*/
-
-static void
-SecurityFreePropertyAccessList(void)
-{
-    while (PropertyAccessList)
-    {
-	PropertyAccessPtr freeit = PropertyAccessList;
-	PropertyAccessList = PropertyAccessList->next;
-	free(freeit);
-    }
-} /* SecurityFreePropertyAccessList */
-
-#define SecurityIsWhitespace(c) ( (c == ' ') || (c == '\t') || (c == '\n') )
-
-static char *
-SecuritySkipWhitespace(
-    char *p)
-{
-    while (SecurityIsWhitespace(*p))
-	p++;
-    return p;
-} /* SecuritySkipWhitespace */
-
-
-static char *
-SecurityParseString(
-    char **rest)
-{
-    char *startOfString;
-    char *s = *rest;
-    char endChar = 0;
-
-    s = SecuritySkipWhitespace(s);
-
-    if (*s == '"' || *s == '\'')
-    {
-	endChar = *s++;
-	startOfString = s;
-	while (*s && (*s != endChar))
-	    s++;
-    }
-    else
-    {
-	startOfString = s;
-	while (*s && !SecurityIsWhitespace(*s))
-	    s++;
-    }
-    if (*s)
-    {
-	*s = '\0';
-	*rest = s + 1;
-	return startOfString;
-    }
-    else
-    {
-	*rest = s;
-	return (endChar) ? NULL : startOfString;
-    }
-} /* SecurityParseString */
-
-
-static int
-SecurityParseKeyword(
-    char **p)
-{
-    int i;
-    char *s = *p;
-    s = SecuritySkipWhitespace(s);
-    for (i = 0; i < NUMKEYWORDS; i++)
-    {
-	int len = strlen(SecurityKeywords[i]);
-	if (strncmp(s, SecurityKeywords[i], len) == 0)
-	{
-	    *p = s + len;
-	    return (i);
-	}
-    }
-    *p = s;
-    return -1;
-} /* SecurityParseKeyword */
-
-
-static Bool
-SecurityParsePropertyAccessRule(
-    char *p)
-{
-    char *propname;
-    char c;
-    char action = SecurityDefaultAction;
-    char readAction, writeAction, destroyAction;
-    PropertyAccessPtr pacl, prev, cur;
-    char *mustHaveProperty = NULL;
-    char *mustHaveValue = NULL;
-    Bool invalid;
-    char windowRestriction;
-    int size;
-    int keyword;
-
-    /* get property name */
-    propname = SecurityParseString(&p);
-    if (!propname || (strlen(propname) == 0))
-	return FALSE;
-
-    /* get window on which property must reside for rule to apply */
-
-    keyword = SecurityParseKeyword(&p);
-    if (keyword == SecurityKeywordRoot)
-	windowRestriction = SecurityRootWindow;
-    else if (keyword == SecurityKeywordAny) 
-	windowRestriction = SecurityAnyWindow;
-    else /* not root or any, must be a property name */
-    {
-	mustHaveProperty = SecurityParseString(&p);
-	if (!mustHaveProperty || (strlen(mustHaveProperty) == 0))
-	    return FALSE;
-	windowRestriction = SecurityWindowWithProperty;
-	p = SecuritySkipWhitespace(p);
-	if (*p == '=')
-	{ /* property value is specified too */
-	    p++; /* skip over '=' */
-	    mustHaveValue = SecurityParseString(&p);
-	    if (!mustHaveValue)
-		return FALSE;
-	}
-    }
-
-    /* get operations and actions */
-
-    invalid = FALSE;
-    readAction = writeAction = destroyAction = SecurityDefaultAction;
-    while ( (c = *p++) && !invalid)
-    {
-	switch (c)
-	{
-	    case 'i': action = SecurityIgnoreOperation; break;
-	    case 'a': action = SecurityAllowOperation;  break;
-	    case 'e': action = SecurityErrorOperation;  break;
-
-	    case 'r': readAction    = action; break;
-	    case 'w': writeAction   = action; break;
-	    case 'd': destroyAction = action; break;
-
-	    default :
-		if (!SecurityIsWhitespace(c))
-		    invalid = TRUE;
-	    break;
-	}
-    }
-    if (invalid)
-	return FALSE;
-
-    /* We've successfully collected all the information needed for this
-     * property access rule.  Now record it in a PropertyAccessRec.
-     */
-    size = sizeof(PropertyAccessRec);
-
-    /* If there is a property value string, allocate space for it 
-     * right after the PropertyAccessRec.
-     */
-    if (mustHaveValue)
-	size += strlen(mustHaveValue) + 1;
-    pacl = (PropertyAccessPtr)malloc(size);
-    if (!pacl)
-	return FALSE;
-
-    pacl->name = MakeAtom(propname, strlen(propname), TRUE);
-    if (pacl->name == BAD_RESOURCE)
-    {
-	free(pacl);
-	return FALSE;
-    }
-    if (mustHaveProperty)
-    {
-	pacl->mustHaveProperty = MakeAtom(mustHaveProperty,
-					  strlen(mustHaveProperty), TRUE);
-	if (pacl->mustHaveProperty == BAD_RESOURCE)
-	{
-	    free(pacl);
-	    return FALSE;
-	}
-    }
-    else
-	pacl->mustHaveProperty = 0;
-
-    if (mustHaveValue)
-    {
-	pacl->mustHaveValue = (char *)(pacl + 1);
-	strcpy(pacl->mustHaveValue, mustHaveValue);
-    }
-    else
-	pacl->mustHaveValue = NULL;
-
-    SecurityMaxPropertyName = max(SecurityMaxPropertyName, pacl->name);
-
-    pacl->windowRestriction = windowRestriction;
-    pacl->readAction  = readAction;
-    pacl->writeAction = writeAction;
-    pacl->destroyAction = destroyAction;
-
-    /* link the new rule into the list of rules in order of increasing
-     * property name (atom) value to make searching easier
-     */
-
-    for (prev = NULL,  cur = PropertyAccessList;
-	 cur && cur->name <= pacl->name;
-	 prev = cur, cur = cur->next)
-	;
-    if (!prev)
-    {
-	pacl->next = cur;
-	PropertyAccessList = pacl;
-    }
-    else
-    {
-	prev->next = pacl;
-	pacl->next = cur;
-    }
-    return TRUE;
-} /* SecurityParsePropertyAccessRule */
-
-static char **SecurityPolicyStrings = NULL;
-static int nSecurityPolicyStrings = 0;
-
-static Bool
-SecurityParseSitePolicy(
-    char *p)
-{
-    char *policyStr = SecurityParseString(&p);
-    char *copyPolicyStr;
-    char **newStrings;
-
-    if (!policyStr)
-	return FALSE;
-
-    copyPolicyStr = (char *)malloc(strlen(policyStr) + 1);
-    if (!copyPolicyStr)
-	return TRUE;
-    strcpy(copyPolicyStr, policyStr);
-    newStrings = (char **)realloc(SecurityPolicyStrings,
-			  sizeof (char *) * (nSecurityPolicyStrings + 1));
-    if (!newStrings)
-    {
-	free(copyPolicyStr);
-	return TRUE;
-    }
-
-    SecurityPolicyStrings = newStrings;
-    SecurityPolicyStrings[nSecurityPolicyStrings++] = copyPolicyStr;
-
-    return TRUE;
-
-} /* SecurityParseSitePolicy */
-
-
-char **
-SecurityGetSitePolicyStrings(n)
-    int *n;
-{
-    *n = nSecurityPolicyStrings;
-    return SecurityPolicyStrings;
-} /* SecurityGetSitePolicyStrings */
-
-static void
-SecurityFreeSitePolicyStrings(void)
-{
-    if (SecurityPolicyStrings)
-    {
-	assert(nSecurityPolicyStrings);
-	while (nSecurityPolicyStrings--)
-	{
-	    free(SecurityPolicyStrings[nSecurityPolicyStrings]);
-	}
-	free(SecurityPolicyStrings);
-	SecurityPolicyStrings = NULL;
-	nSecurityPolicyStrings = 0;
-    }
-} /* SecurityFreeSitePolicyStrings */
-
-
-static void
-SecurityLoadPropertyAccessList(void)
-{
-    FILE *f;
-    int lineNumber = 0;
-
-    SecurityMaxPropertyName = 0;
-
-    if (!SecurityPolicyFile)
-	return;
-
-    f = Fopen(SecurityPolicyFile, "r");
-
-    if (!f)
-    {
-
-	ErrorF("error opening security policy file %s\n",
-	       SecurityPolicyFile);
-	return;
-    }
-
-    while (!feof(f))
-    {
-	char buf[200];
-	Bool validLine;
-	char *p;
-
-	if (!(p = fgets(buf, sizeof(buf), f)))
-	    break;
-	lineNumber++;
-
-	/* if first line, check version number */
-	if (lineNumber == 1)
-	{
-	    char *v = SecurityParseString(&p);
-	    if (strcmp(v, SECURITY_POLICY_FILE_VERSION) != 0)
-	    {
-		ErrorF("%s: invalid security policy file version, ignoring file\n",
-		       SecurityPolicyFile);
-		break;
-	    }
-	    validLine = TRUE;
-	}
-	else
-	{
-	    switch (SecurityParseKeyword(&p))
-	    {
-		case SecurityKeywordComment:
-		    validLine = TRUE;
+    NewClientInfoRec *pci = calldata;
+    SecurityStateRec *state;
+    SecurityAuthorizationPtr pAuth;
+    int rc;
+
+    state = dixLookupPrivate(&pci->client->devPrivates, stateKey);
+
+    switch (pci->client->clientState) {
+    case ClientStateInitial:
+	state->trustLevel = XSecurityClientTrusted;
+	state->authId = None;
+	state->haveState = TRUE;
 		break;
 
-		case SecurityKeywordProperty:
-		    validLine = SecurityParsePropertyAccessRule(p);
-		break;
+    case ClientStateRunning:
+	state->authId = AuthorizationIDOfClient(pci->client);
+	rc = dixLookupResource((void * *)&pAuth, state->authId,
+			       SecurityAuthorizationResType, serverClient,
+			       DixGetAttrAccess);
+	if (rc == Success) {
+	    /* it is a generated authorization */
+	    pAuth->refcnt++;
+	    if (pAuth->refcnt == 1 && pAuth->timer)
+		TimerCancel(pAuth->timer);
 
-		case SecurityKeywordSitePolicy:
-		    validLine = SecurityParseSitePolicy(p);
-		break;
-
-		default:
-		    validLine = (*p == '\0'); /* blank lines OK, others not */
-		break;
-	    }
-	}
-
-	if (!validLine)
-	    ErrorF("Line %d of %s invalid, ignoring\n",
-		   lineNumber, SecurityPolicyFile);
-
-    } /* end while more input */
-
-#ifdef PROPDEBUG
-    {
-	PropertyAccessPtr pacl;
-	char *op = "aie";
-	for (pacl = PropertyAccessList; pacl; pacl = pacl->next)
-	{
-	    ErrorF("property %s ", NameForAtom(pacl->name));
-	    switch (pacl->windowRestriction)
-	    {
-		case SecurityAnyWindow: ErrorF("any "); break;
-		case SecurityRootWindow: ErrorF("root "); break;
-		case SecurityWindowWithProperty:
-		{
-		    ErrorF("%s ", NameForAtom(pacl->mustHaveProperty));
-		    if (pacl->mustHaveValue)
-			ErrorF(" = \"%s\" ", pacl->mustHaveValue);
-
-		}
-		break;
-	    }
-	    ErrorF("%cr %cw %cd\n", op[pacl->readAction],
-		   op[pacl->writeAction], op[pacl->destroyAction]);
-	}
-    }
-#endif /* PROPDEBUG */
-
-    Fclose(f);
-} /* SecurityLoadPropertyAccessList */
-
-
-static Bool
-SecurityMatchString(
-    char *ws,
-    char *cs)
-{
-    while (*ws && *cs)
-    {
-	if (*ws == '*')
-	{
-	    Bool match = FALSE;
-	    ws++;
-	    while (!(match = SecurityMatchString(ws, cs)) && *cs)
-	    {
-		cs++;
-	    }
-	    return match;
-	}
-	else if (*ws == *cs)
-	{
-	    ws++;
-	    cs++;
-	}
-	else break;
-    }
-    return ( ( (*ws == '\0') || ((*ws == '*') && *(ws+1) == '\0') )
-	     && (*cs == '\0') );
-} /* SecurityMatchString */
-
-#ifdef PROPDEBUG
-#include <sys/types.h>
-#include <sys/stat.h>
-#endif
-
-
-char
-SecurityCheckPropertyAccess(client, pWin, propertyName, access_mode)
-    ClientPtr client;
-    WindowPtr pWin;
-    ATOM propertyName;
-    Mask access_mode;
-{
-    PropertyAccessPtr pacl;
-    char action = SecurityDefaultAction;
-
-    /* if client trusted or window untrusted, allow operation */
-
-    if ( (client->trustLevel == XSecurityClientTrusted) ||
-	 (wClient(pWin)->trustLevel != XSecurityClientTrusted) )
-	return SecurityAllowOperation;
-
-#ifdef PROPDEBUG
-    /* For testing, it's more convenient if the property rules file gets
-     * reloaded whenever it changes, so we can rapidly try things without
-     * having to reset the server.
-     */
-    {
-	struct stat buf;
-	static time_t lastmod = 0;
-
-	int ret = stat(SecurityPolicyFile , &buf);
-
-	if ( (ret == 0) && (buf.st_mtime > lastmod) )
-	{
-	    ErrorF("reloading property rules\n");
-	    SecurityFreePropertyAccessList();
-	    SecurityLoadPropertyAccessList();
-	    lastmod = buf.st_mtime;
-	}
-    }
-#endif
-
-    /* If the property atom is bigger than any atoms on the list, 
-     * we know we won't find it, so don't even bother looking.
-     */
-    if (propertyName <= SecurityMaxPropertyName)
-    {
-	/* untrusted client operating on trusted window; see if it's allowed */
-
-	for (pacl = PropertyAccessList; pacl; pacl = pacl->next)
-	{
-	    if (pacl->name < propertyName)
-		continue;
-	    if (pacl->name > propertyName)
-		break;
-
-	    /* pacl->name == propertyName, so see if it applies to this window */
-
-	    switch (pacl->windowRestriction)
-	    {
-		case SecurityAnyWindow: /* always applies */
-		    break;
-
-		case SecurityRootWindow:
-		{
-		    /* if not a root window, this rule doesn't apply */
-		    if (pWin->parent)
-			continue;
+	    state->trustLevel = pAuth->trustLevel;
 		}
 		break;
 
-		case SecurityWindowWithProperty:
-		{
-		    PropertyPtr pProp = wUserProps (pWin);
-		    Bool match = FALSE;
-		    char *p;
-		    char *pEndData;
-
-		    while (pProp)
-		    {
-			if (pProp->propertyName == pacl->mustHaveProperty)
-			    break;
-			pProp = pProp->next;
+    case ClientStateGone:
+    case ClientStateRetained:
+	rc = dixLookupResource((void * *)&pAuth, state->authId,
+			       SecurityAuthorizationResType, serverClient,
+			       DixGetAttrAccess);
+	if (rc == Success) {
+	    /* it is a generated authorization */
+	    pAuth->refcnt--;
+	    if (pAuth->refcnt == 0)
+		SecurityStartAuthorizationTimer(pAuth);
 		    }
-		    if (!pProp)
-			continue;
-		    if (!pacl->mustHaveValue)
 			break;
-		    if (pProp->type != XA_STRING || pProp->format != 8)
-			continue;
 
-		    p = pProp->data;
-		    pEndData = ((char *)pProp->data) + pProp->size;
-		    while (!match && p < pEndData)
-		    {
-			 if (SecurityMatchString(pacl->mustHaveValue, p))
-			     match = TRUE;
-			 else
-			 { /* skip to the next string */
-			     while (*p++ && p < pEndData)
-				 ;
-			 }
-		    }
-		    if (!match)
-			continue;
-		}
-		break; /* end case SecurityWindowWithProperty */
-	    } /* end switch on windowRestriction */
-
-	    /* If we get here, the property access rule pacl applies.
-	     * If pacl doesn't apply, something above should have
-	     * executed a continue, which will skip the follwing code.
-	     */
-	    action = SecurityAllowOperation;
-	    if (access_mode & DixReadAccess)
-		action = max(action, pacl->readAction);
-	    if (access_mode & DixWriteAccess)
-		action = max(action, pacl->writeAction);
-	    if (access_mode & DixDestroyAccess)
-		action = max(action, pacl->destroyAction);
+    default:
 	    break;
-	} /* end for each pacl */
-    } /* end if propertyName <= SecurityMaxPropertyName */
-
-    if (SecurityAllowOperation != action)
-    { /* audit the access violation */
-	int cid = CLIENT_ID(pWin->drawable.id);
-	int reqtype = ((xReq *)client->requestBuffer)->reqType;
-	char *actionstr = (SecurityIgnoreOperation == action) ?
-							"ignored" : "error";
-	SecurityAudit("client %d attempted request %d with window 0x%x property %s (atom 0x%x) of client %d, %s\n",
-		client->index, reqtype, pWin->drawable.id,
-		      NameForAtom(propertyName), propertyName, cid, actionstr);
     }
-    return action;
-} /* SecurityCheckPropertyAccess */
-
+}
 
 /* SecurityResetProc
  *
@@ -1905,69 +1056,19 @@ static void
 SecurityResetProc(
     ExtensionEntry *extEntry)
 {
-    SecurityFreePropertyAccessList();
-    SecurityFreeSitePolicyStrings();
-} /* SecurityResetProc */
+    /* Unregister callbacks */
+    DeleteCallback(&ClientStateCallback, SecurityClientState, NULL);
 
-
-int
-XSecurityOptions(argc, argv, i)
-    int argc;
-    char **argv;
-    int i;
-{
-    if (strcmp(argv[i], "-sp") == 0)
-    {
-	if (i < argc)
-	    SecurityPolicyFile = argv[++i];
-	return (i + 1);
+    XaceDeleteCallback(XACE_EXT_DISPATCH, SecurityExtension, NULL);
+    XaceDeleteCallback(XACE_RESOURCE_ACCESS, SecurityResource, NULL);
+    XaceDeleteCallback(XACE_DEVICE_ACCESS, SecurityDevice, NULL);
+    XaceDeleteCallback(XACE_PROPERTY_ACCESS, SecurityProperty, NULL);
+    XaceDeleteCallback(XACE_SEND_ACCESS, SecuritySend, NULL);
+    XaceDeleteCallback(XACE_RECEIVE_ACCESS, SecurityReceive, NULL);
+    XaceDeleteCallback(XACE_CLIENT_ACCESS, SecurityClient, NULL);
+    XaceDeleteCallback(XACE_EXT_ACCESS, SecurityExtension, NULL);
+    XaceDeleteCallback(XACE_SERVER_ACCESS, SecurityServer, NULL);
     }
-    return (i);
-} /* XSecurityOptions */
-
-
-/* SecurityExtensionSetup
- *
- * Arguments: none.
- *
- * Returns: nothing.
- *
- * Side Effects:
- *	Sets up the Security extension if possible.
- *      This function contains things that need to be done
- *      before any other extension init functions get called.
- */
-
-void
-SecurityExtensionSetup()
-{
-    /* Allocate the client private index */
-    securityClientPrivateIndex = AllocateClientPrivateIndex();
-    if (!AllocateClientPrivate(securityClientPrivateIndex,
-			       sizeof (SecurityClientStateRec)))
-	FatalError("SecurityExtensionSetup: Can't allocate client private.\n");
-
-    /* Allocate the extension private index */
-    securityExtnsnPrivateIndex = AllocateExtensionPrivateIndex();
-    if (!AllocateExtensionPrivate(securityExtnsnPrivateIndex, 0))
-	FatalError("SecurityExtensionSetup: Can't allocate extnsn private.\n");
-
-    /* register callbacks */
-/*
-  currently disabled because we are not using XACE yet.
-#define XaceRC XaceRegisterCallback
-    XaceRC(XACE_RESOURCE_ACCESS, SecurityCheckResourceIDAccess, NULL);
-    XaceRC(XACE_DEVICE_ACCESS, SecurityCheckDeviceAccess, NULL);
-    XaceRC(XACE_PROPERTY_ACCESS, SecurityCheckPropertyAccess, NULL);
-    XaceRC(XACE_DRAWABLE_ACCESS, SecurityCheckDrawableAccess, NULL);
-    XaceRC(XACE_MAP_ACCESS, SecurityCheckMapAccess, NULL);
-    XaceRC(XACE_BACKGRND_ACCESS, SecurityCheckBackgrndAccess, NULL);
-    XaceRC(XACE_EXT_DISPATCH, SecurityCheckExtAccess, NULL);
-    XaceRC(XACE_EXT_ACCESS, SecurityCheckExtAccess, NULL);
-    XaceRC(XACE_HOSTLIST_ACCESS, SecurityCheckHostlistAccess, NULL);
-    XaceRC(XACE_DECLARE_EXT_SECURE, SecurityDeclareExtSecure, NULL);
-*/
-} /* SecurityExtensionSetup */
 
 
 /* SecurityExtensionInit
@@ -1984,7 +1085,7 @@ void
 SecurityExtensionInit(void)
 {
     ExtensionEntry	*extEntry;
-    int i;
+    int ret = TRUE;
 
     SecurityAuthorizationResType =
 	CreateNewResourceType(SecurityDeleteAuthorization);
@@ -1996,10 +1097,30 @@ SecurityExtensionInit(void)
 	return;
 
     RTEventClient |= RC_NEVERRETAIN;
+    RegisterResourceName(SecurityAuthorizationResType, "SecurityAuthorization");
+    RegisterResourceName(RTEventClient, "SecurityEventClient");
 
-    if (!AddCallback(&ClientStateCallback, SecurityClientStateCallback, NULL))
-	return;
+    /* Allocate the private storage */
+    if (!dixRequestPrivate(stateKey, sizeof(SecurityStateRec)))
+	FatalError("SecurityExtensionSetup: Can't allocate client private.\n");
 
+    /* Register callbacks */
+    ret &= AddCallback(&ClientStateCallback, SecurityClientState, NULL);
+
+    ret &= XaceRegisterCallback(XACE_EXT_DISPATCH, SecurityExtension, NULL);
+    ret &= XaceRegisterCallback(XACE_RESOURCE_ACCESS, SecurityResource, NULL);
+    ret &= XaceRegisterCallback(XACE_DEVICE_ACCESS, SecurityDevice, NULL);
+    ret &= XaceRegisterCallback(XACE_PROPERTY_ACCESS, SecurityProperty, NULL);
+    ret &= XaceRegisterCallback(XACE_SEND_ACCESS, SecuritySend, NULL);
+    ret &= XaceRegisterCallback(XACE_RECEIVE_ACCESS, SecurityReceive, NULL);
+    ret &= XaceRegisterCallback(XACE_CLIENT_ACCESS, SecurityClient, NULL);
+    ret &= XaceRegisterCallback(XACE_EXT_ACCESS, SecurityExtension, NULL);
+    ret &= XaceRegisterCallback(XACE_SERVER_ACCESS, SecurityServer, NULL);
+
+    if (!ret)
+	FatalError("SecurityExtensionSetup: Failed to register callbacks\n");
+
+    /* Add extension to server */
     extEntry = AddExtension(SECURITY_EXTENSION_NAME,
 			    XSecurityNumberEvents, XSecurityNumberErrors,
 			    ProcSecurityDispatch, SProcSecurityDispatch,
@@ -2011,25 +1132,6 @@ SecurityExtensionInit(void)
     EventSwapVector[SecurityEventBase + XSecurityAuthorizationRevoked] =
 	(EventSwapPtr)SwapSecurityAuthorizationRevokedEvent;
 
-    /* initialize untrusted proc vectors */
-
-    for (i = 0; i < 128; i++)
-    {
-	UntrustedProcVector[i] = ProcVector[i];
-	SwappedUntrustedProcVector[i] = SwappedProcVector[i];
+    /* Label objects that were created before we could register ourself */
+    SecurityLabelInitial();
     }
-
-    /* make sure insecure extensions are not allowed */
-
-    for (i = 128; i < 256; i++)
-    {
-	if (!UntrustedProcVector[i])
-	{
-	    UntrustedProcVector[i] = ProcBadRequest;
-	    SwappedUntrustedProcVector[i] = ProcBadRequest;
-	}
-    }
-
-    SecurityLoadPropertyAccessList();
-
-} /* SecurityExtensionInit */

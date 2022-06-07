@@ -429,18 +429,18 @@ SyncInitTrigger(client, pTrigger, counter, changes)
     Mask	     changes;
 {
     SyncCounter *pCounter = pTrigger->pCounter;
-    int		status;
+    int		rc;
     Bool	newcounter = FALSE;
 
     if (changes & XSyncCACounter)
     {
 	if (counter == None)
 	    pCounter = NULL;
-	else if (!(pCounter = (SyncCounter *)SecurityLookupIDByType(
-			client, counter, RTCounter, DixReadAccess)))
+	else if (Success != (rc = dixLookupResource((void * *)&pCounter,
+				counter, RTCounter, client, DixReadAccess)))
 	{
 	    client->errorValue = counter;
-	    return SyncErrorBase + XSyncBadCounter;
+	    return (rc == BadValue) ? SyncErrorBase + XSyncBadCounter : rc;
 	}
 	if (pCounter != pTrigger->pCounter)
 	{ /* new counter for trigger */
@@ -522,8 +522,8 @@ SyncInitTrigger(client, pTrigger, counter, changes)
      */
     if (newcounter)
     {
-	if ((status = SyncAddTriggerToCounter(pTrigger)) != Success)
-	    return status;
+	if ((rc = SyncAddTriggerToCounter(pTrigger)) != Success)
+	    return rc;
     }
     else if (IsSystemCounter(pCounter))
     {
@@ -566,12 +566,18 @@ SyncSendAlarmNotifyEvents(pAlarm)
     ane.state = pAlarm->state;
 
     /* send to owner */
-    if (pAlarm->events)
+    if (pAlarm->events && !pAlarm->client->clientGone) 
 	WriteEventsToClient(pAlarm->client, 1, (xEvent *) &ane);
 
     /* send to other interested clients */
     for (pcl = pAlarm->pEventClients; pcl; pcl = pcl->next)
+    {
+	if (!pAlarm->client->clientGone)
+	{
+	    ane.sequenceNumber = pcl->client->sequence;
 	    WriteEventsToClient(pcl->client, 1, (xEvent *) &ane);
+}
+    }
 }
 
 
@@ -1443,15 +1449,17 @@ ProcSyncSetPriority(client)
 {
     REQUEST(xSyncSetPriorityReq);
     ClientPtr priorityclient;
+    int rc;
 
     REQUEST_SIZE_MATCH(xSyncSetPriorityReq);
 
     if (stuff->id == None)
 	priorityclient = client;
-    else if (!(priorityclient = LookupClient(stuff->id, client)))
-    {
-	client->errorValue = stuff->id;
-	return BadMatch;
+    else {
+	rc = dixLookupClient(&priorityclient, stuff->id, client,
+			     DixSetAttrAccess);
+	if (rc != Success)
+	    return rc;
     }
 
     if (priorityclient->priority != stuff->priority)
@@ -1478,15 +1486,17 @@ ProcSyncGetPriority(client)
     REQUEST(xSyncGetPriorityReq);
     xSyncGetPriorityReply rep;
     ClientPtr priorityclient;
+    int rc;
 
     REQUEST_SIZE_MATCH(xSyncGetPriorityReq);
 
     if (stuff->id == None)
 	priorityclient = client;
-    else if (!(priorityclient = LookupClient(stuff->id, client)))
-    {
-	client->errorValue = stuff->id;
-	return BadMatch;
+    else {
+	rc = dixLookupClient(&priorityclient, stuff->id, client,
+			     DixGetAttrAccess);
+	if (rc != Success)
+	    return rc;
     }
 
     rep.type = X_Reply;
@@ -2493,11 +2503,12 @@ SyncInitServerTime(void)
 }
 
 
+
 /*
  * IDLETIME implementation
  */
 
-static SyncCounter *IdleTimeCounter;
+static void * IdleTimeCounter;
 static XSyncValue *pIdleTimeValueLess;
 static XSyncValue *pIdleTimeValueGreater;
 
@@ -2509,78 +2520,38 @@ IdleTimeQueryValue (void *pCounter, CARD64 *pValue_return)
 }
 
 static void
-IdleTimeBlockHandler (void *env, struct timeval **wt, void *LastSelectMask)
+IdleTimeBlockHandler (void * env,
+                      struct timeval **wt,
+                      void * LastSelectMask)
 {
-    XSyncValue idle, old_idle;
-    SyncTriggerList *list = IdleTimeCounter->pTriglist;
-    SyncTrigger *trig;
+    XSyncValue idle;
 
     if (!pIdleTimeValueLess && !pIdleTimeValueGreater)
 	return;
 
-    old_idle = IdleTimeCounter->value;
     IdleTimeQueryValue (NULL, &idle);
-    IdleTimeCounter->value = idle; /* push, so CheckTrigger works */
 
     if (pIdleTimeValueLess &&
         XSyncValueLessOrEqual (idle, *pIdleTimeValueLess))
     {
-       /*
-	* We've been idle for less than the threshold value, and someone
-	* wants to know about that, but now we need to know whether they
-	* want level or edge trigger.  Check the trigger list against the
-	* current idle time, and if any succeed, bomb out of select()
-	* immediately so we can reschedule.
-	*/
-
-	for (list = IdleTimeCounter->pTriglist; list; list = list->next) {
-	    trig = list->pTrigger;
-	    if (trig->CheckTrigger(trig, old_idle)) {
 		AdjustWaitForDelay(wt, 0);
-		break;
-	    }
-	}
-
-       /*
-	* We've been called exactly on the idle time, but we have a
-	* NegativeTransition trigger which requires a transition from an
-	* idle time greater than this.  Schedule a wakeup for the next
-	* millisecond so we won't miss a transition.
-	*/
-	if (XSyncValueEqual (idle, *pIdleTimeValueLess))
-	    AdjustWaitForDelay(wt, 1);
     }
     else if (pIdleTimeValueGreater)
     {
-       /*
-	* There's a threshold in the positive direction.  If we've been
-	* idle less than it, schedule a wakeup for sometime in the future.
-	* If we've been idle more than it, and someone wants to know about
-	* that level-triggered, schedule an immediate wakeup.
-	*/
-	unsigned long timeout = -1;
+	unsigned long timeout = 0;
 
-	if (XSyncValueLessThan (idle, *pIdleTimeValueGreater)) {
+	if (XSyncValueLessThan (idle, *pIdleTimeValueGreater))
+	{
 	    XSyncValue value;
 	    Bool overflow;
 
 	    XSyncValueSubtract (&value, *pIdleTimeValueGreater,
 	                        idle, &overflow);
-	    timeout = min(timeout, XSyncValueLow32 (value));
-	} else {
-	   for (list = IdleTimeCounter->pTriglist; list; list = list->next) {
-		trig = list->pTrigger;
-		if (trig->CheckTrigger(trig, old_idle)) {
-		    timeout = min(timeout, 0);
-		    break;
-		}
-	   }
+	    timeout = XSyncValueLow32 (value);
 	}
 
 	AdjustWaitForDelay (wt, timeout);
     }
-
-    IdleTimeCounter->value = old_idle; /* pop */
 }
 
 static void

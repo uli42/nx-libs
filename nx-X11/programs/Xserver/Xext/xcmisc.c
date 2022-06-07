@@ -39,10 +39,10 @@ from The Open Group.
 #include "swaprep.h"
 #include <nx-X11/extensions/xcmiscstr.h>
 
+#if HAVE_STDINT_H
 #include <stdint.h>
-
-#if 0
-static unsigned char XCMiscCode;
+#elif !defined(UINT32_MAX)
+#define UINT32_MAX 0xffffffffU
 #endif
 
 static void XCMiscResetProc(
@@ -61,20 +61,9 @@ static DISPATCH_PROC(SProcXCMiscGetXIDRange);
 void
 XCMiscExtensionInit(void)
 {
-#if 0
-    ExtensionEntry *extEntry;
-
-    if ((extEntry = AddExtension(XCMiscExtensionName, 0, 0,
-				ProcXCMiscDispatch, SProcXCMiscDispatch,
-				XCMiscResetProc, StandardMinorOpcode)) != 0)
-	XCMiscCode = (unsigned char)extEntry->base;
-#else
-    (void) AddExtension(XCMiscExtensionName, 0, 0,
+    AddExtension(XCMiscExtensionName, 0, 0,
 			ProcXCMiscDispatch, SProcXCMiscDispatch,
 			XCMiscResetProc, StandardMinorOpcode);
-#endif
-
-    DeclareExtensionSecurity(XCMiscExtensionName, TRUE);
 }
 
 /*ARGSUSED*/
