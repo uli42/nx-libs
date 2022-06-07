@@ -123,8 +123,6 @@ MakeAtom(const char *string, unsigned len, Bool makeit)
 		free(nd);
 		return BAD_RESOURCE;
 	    }
-	    strncpy(nd->string, string, (int)len);
-	    nd->string[len] = 0;
 	}
 	if ((lastAtom + 1) >= tableLength) {
 	    NodePtr *table;

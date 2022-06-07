@@ -43,7 +43,7 @@
 #include "mipointer.h"
 
 #ifdef XKB
-#include <xkbproto.h>
+#include <nx-X11/extensions/XKBproto.h>
 #include <xkbsrv.h>
 extern Bool XkbCopyKeymap(XkbDescPtr src, XkbDescPtr dst, Bool sendNotifies);
 #endif

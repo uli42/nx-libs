@@ -556,6 +556,8 @@ typedef struct {
     int count;
 } DeviceEventInfoRec;
 
+
+#if 0
 /* strcasecmp.c */
 #if NEED_STRCASECMP
 #define strcasecmp xstrcasecmp
@@ -570,6 +572,7 @@ extern int xstrncasecmp(const char *s1, const char *s2, size_t n);
 #if NEED_STRCASESTR
 #define strcasestr xstrcasestr
 extern char *xstrcasestr(const char *s, const char *find);
+#endif
 #endif
 
 /*

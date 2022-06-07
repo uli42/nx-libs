@@ -91,7 +91,6 @@ AddExtension(char *name, int NumEvents, int NumErrors,
     ext = (ExtensionEntry *) malloc(sizeof(ExtensionEntry));
     if (!ext)
 	return((ExtensionEntry *) NULL);
-    bzero(ext, totalExtensionSize);
     ext->name = (char *)malloc(strlen(name) + 1);
     ext->num_aliases = 0;
     ext->aliases = (char **)NULL;
