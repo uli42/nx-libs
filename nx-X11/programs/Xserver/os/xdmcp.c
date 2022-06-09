@@ -211,10 +211,23 @@ static void XdmcpWakeupHandler(
     int /*i*/,
     void * /*LastSelectMask*/);
 
-void XdmcpRegisterManufacturerDisplayID(
-    char    * /*name*/,
-    int	    /*length*/);
+/*
+ * Register the Manufacturer display ID
+ */
 
+ARRAY8 ManufacturerDisplayID;
+
+void
+XdmcpRegisterManufacturerDisplayID (char *name, int length)
+{
+    int	    i;
+
+    XdmcpDisposeARRAY8 (&ManufacturerDisplayID);
+    if (!XdmcpAllocARRAY8 (&ManufacturerDisplayID, length))
+	return;
+    for (i = 0; i < length; i++)
+	ManufacturerDisplayID.data[i] = (CARD8) name[i];
+}
 
 static unsigned short	xdm_udp_port = XDM_UDP_PORT;
 static Bool	OneSession = FALSE;
@@ -421,11 +434,11 @@ XdmcpRegisterAuthentication (
  * set by the manager of the host to be connected to.
  */
 
-ARRAY8		noAuthenticationName = {(CARD16) 0, (CARD8Ptr) 0};
-ARRAY8		noAuthenticationData = {(CARD16) 0, (CARD8Ptr) 0};
-ARRAY8Ptr	AuthenticationName = &noAuthenticationName;
-ARRAY8Ptr	AuthenticationData = &noAuthenticationData;
-AuthenticationFuncsPtr	AuthenticationFuncs;
+static ARRAY8		noAuthenticationName = {(CARD16) 0, (CARD8Ptr) 0};
+static ARRAY8		noAuthenticationData = {(CARD16) 0, (CARD8Ptr) 0};
+static ARRAY8Ptr	AuthenticationName = &noAuthenticationName;
+static ARRAY8Ptr	AuthenticationData = &noAuthenticationData;
+static AuthenticationFuncsPtr	AuthenticationFuncs;
 
 void
 XdmcpSetAuthentication (ARRAY8Ptr name)
@@ -572,24 +585,6 @@ XdmcpRegisterDisplayClass (char *name, int length)
 }
 
 /*
- * Register the Manufacturer display ID
- */
-
-ARRAY8 ManufacturerDisplayID;
-
-void
-XdmcpRegisterManufacturerDisplayID (char *name, int length)
-{
-    int	    i;
-
-    XdmcpDisposeARRAY8 (&ManufacturerDisplayID);
-    if (!XdmcpAllocARRAY8 (&ManufacturerDisplayID, length))
-	return;
-    for (i = 0; i < length; i++)
-	ManufacturerDisplayID.data[i] = (CARD8) name[i];
-}
-
-/* 
  * initialize XDMCP; create the socket, compute the display
  * number, set up the state machine
  */
@@ -789,7 +784,7 @@ XdmcpAddHost(
  * do the appropriate thing
  */
 
-ARRAY8	UnwillingMessage = { (CARD8) 14, (CARD8 *) "Host unwilling" };
+static ARRAY8	UnwillingMessage = { (CARD8) 14, (CARD8 *) "Host unwilling" };
 
 static void
 receive_packet(int socketfd)
@@ -966,10 +961,7 @@ timeout(void)
 }
 
 int
-XdmcpCheckAuthentication (
-    ARRAY8Ptr	Name,
-    ARRAY8Ptr	Data,
-    int	packet_type)
+XdmcpCheckAuthentication (ARRAY8Ptr Name, ARRAY8Ptr Data, int packet_type)
 {
     return (XdmcpARRAY8Equal (Name, AuthenticationName) &&
 	    (AuthenticationName->length == 0 ||
@@ -977,9 +969,7 @@ XdmcpCheckAuthentication (
 }
 
 int
-XdmcpAddAuthorization (
-    ARRAY8Ptr	name,
-    ARRAY8Ptr	data)
+XdmcpAddAuthorization (ARRAY8Ptr name, ARRAY8Ptr data)
 {
     AddAuthorFunc AddAuth;
 

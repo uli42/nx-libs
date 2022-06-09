@@ -178,9 +178,7 @@ SOFTWARE.
 #include "dixstruct.h"
 #include "osdep.h"
 
-#ifdef XCSECURITY
-#include "securitysrv.h"
-#endif
+#include "xace.h"
 
 #ifndef PATH_MAX
 #ifdef MAXPATHLEN
@@ -484,7 +482,6 @@ DefineSelf (int fd)
 #if !defined(TCPCONN) && !defined(UNIXCONN)
     return;
 #else
-    register int n;
     int	len;
     caddr_t	addr;
     int		family;
@@ -1204,16 +1201,8 @@ ComputeLocalClient(ClientPtr client)
     if (!oc->trans_conn)
 	return FALSE;
 
-#ifdef XCSECURITY
-    /* untrusted clients can't change host access */
-    if (client->trustLevel != XSecurityClientTrusted)
-    {
-	SecurityAudit("client %d attempted to change host access\n",
-		      client->index);
-	return FALSE;
-    }
-#endif
-    if (!_XSERVTransGetPeerAddr (oc->trans_conn, &notused, &alen, &from))
+    if (!_XSERVTransGetPeerAddr (((OsCommPtr)client->osPrivate)->trans_conn,
+	&notused, &alen, &from))
     {
 	family = ConvertAddr ((struct sockaddr *) from,
 	    &alen, (void **)&addr);
@@ -1386,8 +1375,16 @@ FreeLocalClientCreds(LocalClientCredRec *lcc)
 static Bool
 AuthorizedClient(ClientPtr client)
 {
+    int rc;
+
     if (!client || defeatAccessControl)
-	return TRUE;
+	return Success;
+
+    /* untrusted clients can't change host access */
+    rc = XaceHook(XACE_SERVER_ACCESS, client, DixManageAccess);
+    if (rc != Success)
+	return rc;
+
     return client->local ? Success : BadAccess;
 }
 

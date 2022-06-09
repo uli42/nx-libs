@@ -1,6 +1,6 @@
 /*
- * Copyright © 2010 Intel Corporation
- * Copyright © 2010 Francisco Jerez <currojerez@riseup.net>
+ * Copyright � 2010 Intel Corporation
+ * Copyright � 2010 Francisco Jerez <currojerez@riseup.net>
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -139,9 +139,9 @@ __xorg_list_add(struct xorg_list *entry,
  * Insert a new element after the given list head. The new element does not
  * need to be initialised as empty list.
  * The list changes from:
- *      head → some element → ...
+ *      head ? some element ? ...
  * to
- *      head → new element → older element → ...
+ *      head ? new element ? older element ? ...
  *
  * Example:
  * struct foo *newfoo = malloc(...);
@@ -160,9 +160,9 @@ xorg_list_add(struct xorg_list *entry, struct xorg_list *head)
  * Append a new element to the end of the list given with this list head.
  *
  * The list changes from:
- *      head → some element → ... → lastelement
+ *      head ? some element ? ... ? lastelement
  * to
- *      head → some element → ... → lastelement → new element
+ *      head ? some element ? ... ? lastelement ? new element
  *
  * Example:
  * struct foo *newfoo = malloc(...);
@@ -211,7 +211,8 @@ xorg_list_del(struct xorg_list *entry)
  * Example:
  * xorg_list_is_empty(&bar->list_of_foos);
  *
- * @return True if the list contains one or more elements or False otherwise.
+ * @return True if the list is empty or False if the list contains one or more
+ * elements.
  */
 static inline int
 xorg_list_is_empty(struct xorg_list *head)

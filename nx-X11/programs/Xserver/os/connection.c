@@ -104,10 +104,9 @@ SOFTWARE.
 #include <nx-X11/Xpoll.h>
 #include "opaque.h"
 #include "dixstruct.h"
-#include "list.h"
-#ifdef XCSECURITY
-#include "securitysrv.h"
-#endif
+#include "xace.h"
+
+#include <list.h>
 
 #ifdef X_NOT_POSIX
 #define Pid_t int
@@ -115,12 +114,22 @@ SOFTWARE.
 #define Pid_t pid_t
 #endif
 
-int lastfdesc;			/* maximum file descriptor */
+
 #ifdef HAS_GETPEERUCRED
 # include <ucred.h>
 # include <zone.h>
 #endif
 
+#ifdef XSERVER_DTRACE
+# include <sys/types.h>
+typedef const char *string;
+# ifndef HAS_GETPEERUCRED
+#  define zoneid_t int
+# endif
+# include "../dix/Xserver-dtrace.h"
+#endif
+
+static int lastfdesc;		/* maximum file descriptor */
 
 fd_set NotifyReadFds;           /* mask for other file descriptors */
 fd_set NotifyWriteFds;          /* mask for other write file descriptors */
@@ -247,15 +256,6 @@ InitParentProcess(void)
 	RunFromSmartParent = TRUE;
     OsSignal(SIGUSR1, handler);
     ParentProcess = getppid ();
-#ifdef __UNIXOS2__
-    /*
-     * fg030505: under OS/2, xinit is not the parent process but
-     * the "grant parent" process of the server because execvpe()
-     * presents us an additional process number;
-     * GetPPID(pid) is part of libemxfix
-     */
-    ParentProcess = GetPPID (ParentProcess);
-#endif /* __UNIXOS2__ */
 }
 
 void
@@ -492,9 +492,12 @@ AuthAudit (ClientPtr client, Bool letin,
 {
     char addr[128];
     char *out = addr;
-
     char client_uid_string[64];
     LocalClientCredRec *lcc;
+#ifdef XSERVER_DTRACE
+    pid_t client_pid = -1;
+    zoneid_t client_zid = -1;
+#endif
 
     if (!len)
         strcpy(out, "local host");
@@ -547,6 +550,9 @@ AuthAudit (ClientPtr client, Bool letin,
     }
 
 	if (lcc->fieldsSet & LCC_PID_SET) {
+#ifdef XSERVER_DTRACE	    
+	    client_pid = lcc->pid;
+#endif
 	    snprintf(client_uid_string + slen,
 	             sizeof(client_uid_string) - slen,
 	             "pid=%ld ", (long) lcc->pid);
@@ -554,19 +560,27 @@ AuthAudit (ClientPtr client, Bool letin,
 	}
 
 	if (lcc->fieldsSet & LCC_ZID_SET) {
+#ifdef XSERVER_DTRACE
+	    client_zid = lcc->zoneid;
+#endif	    
 	    snprintf(client_uid_string + slen,
 	            sizeof(client_uid_string) - slen,
 	            "zoneid=%ld ", (long) lcc->zoneid);
 	    slen = strlen(client_uid_string);
 	}
 
-	snprintf(client_uid_string + slen, sizeof(client_uid_string) - slen, ")");
+	snprintf(client_uid_string + slen, sizeof(client_uid_string) - slen,
+		 ")");
 	FreeLocalClientCreds(lcc);
     }
     else {
 	client_uid_string[0] = '\0';
     }
 
+#ifdef XSERVER_DTRACE
+    XSERVER_CLIENT_AUTH(client->index, addr, client_pid, client_zid);
+    if (auditTrailLevel > 1) {
+#endif
     if (proto_n)
 	AuditF("client %d %s from %s%s\n  Auth name: %.*s ID: %d\n",
 	       client->index, letin ? "connected" : "rejected", addr,
@@ -575,6 +589,10 @@ AuthAudit (ClientPtr client, Bool letin,
 	AuditF("client %d %s from %s%s\n",
 	       client->index, letin ? "connected" : "rejected", addr,
 	       client_uid_string);
+
+#ifdef XSERVER_DTRACE
+    }
+#endif	
 }
 
 XID
@@ -628,10 +646,6 @@ ClientAuthorized(ClientPtr client,
     if (auth_id == (XID) ~0L)
     {
 	if (
-#ifdef XCSECURITY	    
-	    (proto_n == 0 ||
-	    strncmp (auth_proto, XSecurityAuthorizationName, proto_n) != 0) &&
-#endif
 	    _XSERVTransGetPeerAddr (trans_conn,
 	        &family, &fromlen, &from) != -1)
 	{
@@ -641,7 +655,11 @@ ClientAuthorized(ClientPtr client,
 	    else
 	    {
 		auth_id = (XID) 0;
+#ifdef XSERVER_DTRACE
+		if ((auditTrailLevel > 1) || XSERVER_CLIENT_AUTH_ENABLED())
+#else
 		if (auditTrailLevel > 1)
+#endif
 		    AuthAudit(client, TRUE,
 			(struct sockaddr *) from, fromlen,
 			proto_n, auth_proto, auth_id);
@@ -657,7 +675,11 @@ ClientAuthorized(ClientPtr client,
 		return "Client is not authorized to connect to Server";
 	}
     }
+#ifdef XSERVER_DTRACE
+    else if ((auditTrailLevel > 1) || XSERVER_CLIENT_AUTH_ENABLED())
+#else
     else if (auditTrailLevel > 1)
+#endif
     {
 	if (_XSERVTransGetPeerAddr (trans_conn,
 	    &family, &fromlen, &from) != -1)
@@ -675,6 +697,9 @@ ClientAuthorized(ClientPtr client,
     /* indicate to Xdmcp protocol that we've opened new client */
     XdmcpOpenDisplay(priv->fd);
 #endif /* XDMCP */
+
+    XaceHook(XACE_AUTH_AVAIL, client, auth_id);
+
     /* At this point, if the client is authorized to change the access control
      * list, we should getpeername() information, and add the client to
      * the selfhosts list.  It's not really the host machine, but the
@@ -727,6 +752,9 @@ AllocNewConnection (XtransConnInfo trans_conn, int fd, CARD32 conn_time)
     ErrorF("AllocNewConnection: client index = %d, socket fd = %d\n",
 	   client->index, fd);
 #endif
+#ifdef XSERVER_DTRACE
+    XSERVER_CLIENT_CONNECT(client->index, fd);
+#endif	
 
     return client;
 }
@@ -738,7 +766,7 @@ AllocNewConnection (XtransConnInfo trans_conn, int fd, CARD32 conn_time)
  *    and AllSockets.
  *****************/
 
-static Bool
+Bool
 EstablishNewConnections(ClientPtr clientUnused, void * closure)
 {
     int curconn = (int) (intptr_t) closure;
@@ -764,16 +792,16 @@ EstablishNewConnections(ClientPtr clientUnused, void * closure)
 	}
     }
     if ((trans_conn = lookup_trans_conn(curconn)) == NULL)
-	return TRUE;
+      return TRUE;
 
     if ((new_trans_conn = _XSERVTransAccept(trans_conn, &status)) == NULL)
-	return TRUE;
+      return TRUE;;
 
     newconn = _XSERVTransGetConnectionNumber(new_trans_conn);
 
-    if (newconn < lastfdesc) {
+    if (newconn < lastfdesc)
+    {
 	int clientid;
-
 	clientid = ConnectionTranslation[newconn];
 	if (clientid && (client = clients[clientid]))
 	    CloseDownClient(client);
@@ -1076,11 +1104,15 @@ HandleNotifyFds(void)
  *    This routine is "undone" by ListenToAllClients()
  *****************/
 
-void
+int
 OnlyListenToOneClient(ClientPtr client)
 {
     OsCommPtr oc = (OsCommPtr)client->osPrivate;
-    int connection = oc->fd;
+    int rc, connection = oc->fd;
+
+    rc = XaceHook(XACE_SERVER_ACCESS, client, DixGrabAccess);
+    if (rc != Success)
+	return rc;
 
     if (! GrabInProgress)
     {
@@ -1101,6 +1133,7 @@ OnlyListenToOneClient(ClientPtr client)
 	XFD_ORSET(&AllSockets, &AllSockets, &AllClients);
 	GrabInProgress = client->index;
     }
+    return rc;
 }
 
 /****************

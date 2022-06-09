@@ -524,6 +524,7 @@ AbortServer(void)
     fprintf(stderr, "AbortServer: Going to abort the current server.\n");
 #endif
     OsCleanup(TRUE);
+    CloseDownDevices();
     AbortDDX();
     fflush(stderr);
     if (CoreDump)
@@ -751,7 +752,7 @@ Error(char *str)
 }
 
 void
-LogPrintMarkers()
+LogPrintMarkers(void)
 {
     /* Show what the message marker symbols mean. */
     ErrorF("Markers: ");

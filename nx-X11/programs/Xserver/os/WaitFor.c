@@ -392,13 +392,13 @@ WaitForSomething(int *pClientsReady)
 		}
 		else if (selecterr == EINVAL)
 		{
-		    FatalError("WaitForSomething(): select: errno=%d\n",
-			selecterr);
+		    FatalError("WaitForSomething(): select: %s\n",
+			strerror(selecterr));
             }
-		else if (selecterr != EINTR)
+		else if (selecterr != EINTR && selecterr != EAGAIN)
 		{
-		    ErrorF("WaitForSomething(): select: errno=%d\n",
-			selecterr);
+		    ErrorF("WaitForSomething(): select: %s\n",
+			strerror(selecterr));
 		}
 	    }
 	    else if (someReady)
@@ -478,6 +478,9 @@ WaitForSomething(int *pClientsReady)
 
 	    if (XFD_ANYSET (&clientsReadable))
 		break;
+	    /* check here for DDXes that queue events during Block/Wakeup */
+	    if (*checkForInput[0] != *checkForInput[1])
+		return 0;
 	}
     }
 
@@ -503,21 +506,6 @@ WaitForSomething(int *pClientsReady)
     #endif
     return nready;
 }
-
-#if 0
-/*
- * This is not always a macro.
- */
-ANYSET(FdMask *src)
-{
-    int i;
-
-    for (i=0; i<mskcnt; i++)
-	if (src[ i ])
-	    return (TRUE);
-    return (FALSE);
-}
-#endif
 
 /* If time has rewound, re-run every affected timer.
  * Timers might drop out of the list, so we have to restart every time. */
@@ -672,7 +660,7 @@ TimerInit(void)
 
 #define DPMS_CHECK_MODE(mode,time)\
     if (time > 0 && DPMSPowerLevel < mode && timeout >= time)\
-       DPMSSet(mode);
+	DPMSSet(serverClient, mode);
 
 #define DPMS_CHECK_TIMEOUT(time)\
     if (time > 0 && (time - timeout) > 0)\
@@ -741,7 +729,7 @@ ScreenSaverTimeoutExpire(OsTimerPtr timer,CARD32 now,void * arg)
     }
 
     ResetOsBuffers(); /* not ideal, but better than nothing */
-    SaveScreens(SCREEN_SAVER_ON, ScreenSaverActive);
+    dixSaveScreens(serverClient, SCREEN_SAVER_ON, ScreenSaverActive);
 
     if (ScreenSaverInterval > 0)
     {

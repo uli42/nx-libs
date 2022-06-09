@@ -51,10 +51,7 @@ from The Open Group.
 extern bool_t xdr_opaque_auth(XDR *, struct opaque_auth *);
 #endif
 
-#ifdef ultrix
-#include <time.h>
-#include <rpc/auth_des.h>
-#endif
+
 
 static enum auth_stat why;
 
@@ -134,7 +131,7 @@ CheckNetName (
 
 static char rpc_error[MAXNETNAMELEN+50];
 
-XID
+_X_HIDDEN XID
 SecureRPCCheck (unsigned short data_length, char *data, 
     ClientPtr client, char **reason)
 {
@@ -158,14 +155,14 @@ SecureRPCCheck (unsigned short data_length, char *data,
     return (XID) ~0L;
 }
     
-void
+_X_HIDDEN void
 SecureRPCInit (void)
 {
     if (rpc_id == ~0L)
 	AddAuthorization (9, "SUN-DES-1", 0, (char *) 0);
 }
 
-int
+_X_HIDDEN int
 SecureRPCAdd (unsigned short data_length, char *data, XID id)
 {
     if (data_length)
@@ -174,26 +171,26 @@ SecureRPCAdd (unsigned short data_length, char *data, XID id)
     return 1;
 }
 
-int
+_X_HIDDEN int
 SecureRPCReset (void)
 {
     rpc_id = (XID) ~0L;
     return 1;
 }
 
-XID
+_X_HIDDEN XID
 SecureRPCToID (unsigned short data_length, char *data)
 {
     return rpc_id;
 }
 
-int
+_X_HIDDEN int
 SecureRPCFromID (XID id, unsigned short *data_lenp, char **datap)
 {
     return 0;
 }
 
-int
+_X_HIDDEN int
 SecureRPCRemove (unsigned short data_length, char *data)
 {
     return 0;

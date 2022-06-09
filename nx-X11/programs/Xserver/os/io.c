@@ -57,9 +57,8 @@ SOFTWARE.
 #include <dix-config.h>
 #endif
 
-#if 0
-#define DEBUG_COMMUNICATION
-#endif
+#undef DEBUG_COMMUNICATION
+
 #include <stdio.h>
 #define XSERV_t
 #define TRANS_SERVER
@@ -80,6 +79,9 @@ SOFTWARE.
 CallbackListPtr       ReplyCallback;
 CallbackListPtr       FlushCallback;
 
+static ConnectionInputPtr AllocateInputBuffer(void);
+static ConnectionOutputPtr AllocateOutputBuffer(void);
+
 /* check for both EAGAIN and EWOULDBLOCK, because some supposedly POSIX
  * systems are broken and return EWOULDBLOCK when they should return EAGAIN
  */
@@ -93,11 +95,11 @@ CallbackListPtr       FlushCallback;
 #endif
 #endif
 
-Bool CriticalOutputPending;
-int timesThisConnection = 0;
-ConnectionInputPtr FreeInputs = (ConnectionInputPtr)NULL;
-ConnectionOutputPtr FreeOutputs = (ConnectionOutputPtr)NULL;
-OsCommPtr AvailableInput = (OsCommPtr)NULL;
+static Bool CriticalOutputPending;
+static int timesThisConnection = 0;
+static ConnectionInputPtr FreeInputs = (ConnectionInputPtr)NULL;
+static ConnectionOutputPtr FreeOutputs = (ConnectionOutputPtr)NULL;
+static OsCommPtr AvailableInput = (OsCommPtr)NULL;
 
 #define get_req_len(req,cli) ((cli)->swapped ? \
 			      lswaps((req)->length) : (req)->length)
@@ -923,7 +925,6 @@ WriteToClient (ClientPtr who, int count, const void *__buf)
         { /* start of new reply */
 	    CARD32 replylen;
 	    unsigned long bytesleft;
-
 	    replylen = ((xGenericReply *)buf)->length;
 	    if (who->swapped)
 		swapl(&replylen);

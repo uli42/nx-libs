@@ -133,15 +133,13 @@ OR PERFORMANCE OF THIS SOFTWARE.
 #include "dixstruct.h"
 
 #ifdef XKB
-#include "xkbsrv.h"
-#endif
-#ifdef XCSECURITY
-#include "securitysrv.h"
+#include <xkbsrv.h>
 #endif
 
 #ifdef RENDER
 #include "picture.h"
 #endif
+
 
 Bool noTestExtensions;
 #ifdef BIGREQS
@@ -150,6 +148,7 @@ Bool noBigReqExtension = FALSE;
 #ifdef COMPOSITE
 Bool noCompositeExtension = FALSE;
 #endif
+
 #ifdef DAMAGE
 Bool noDamageExtension = FALSE;
 #endif
@@ -161,6 +160,7 @@ Bool noDPMSExtension = FALSE;
 #endif
 #ifdef GLXEXT
 Bool noGlxExtension = FALSE;
+Bool noGlxVisualInit = FALSE;
 #endif
 #ifdef SCREENSAVER
 Bool noScreenSaverExtension = FALSE;
@@ -210,8 +210,15 @@ Bool noXInputExtension = FALSE;
 #ifdef XIDLE
 Bool noXIdleExtension = FALSE;
 #endif
+#ifdef XSELINUX
+Bool noSELinuxExtension = TRUE;
+int selinuxEnforcingState = SELINUX_MODE_DEFAULT;
+#endif
 #ifdef XV
 Bool noXvExtension = FALSE;
+#endif
+#ifdef DRI2
+Bool noDRI2Extension = FALSE;
 #endif
 
 #define X_INCLUDE_NETDB_H
@@ -245,6 +252,9 @@ Bool PanoramiXExtensionDisabledHack = FALSE;
 
 int auditTrailLevel = 1;
 
+Bool Must_have_memory = FALSE;
+
+
 #if defined(SVR4) || defined(__linux__) || defined(CSRG_BASED)
 #define HAS_SAVED_IDS_AND_SETEUID
 #endif
@@ -268,10 +278,6 @@ extern char **environ;
 #endif
 
 extern char dispatchExceptionAtReset;
-
-/* Extension enable/disable in miinitext.c */
-extern Bool EnableDisableExtension(char *name, Bool enable);
-extern void EnableDisableExtensionError(char *name, Bool enable);
 
 OsSigHandlerPtr
 OsSignal(sig, handler)
@@ -618,9 +624,6 @@ void UseMsg(void)
     ErrorF("-render [default|mono|gray|color] set render color alloc policy\n");
 #endif
     ErrorF("-s #                   screen-saver timeout (minutes)\n");
-#ifdef XCSECURITY
-    ErrorF("-sp file               security policy file\n");
-#endif
     ErrorF("-su                    disable any save under support\n");
     ErrorF("-t #                   mouse threshold (pixels)\n");
     ErrorF("-terminate             terminate at server reset\n");
@@ -789,7 +792,13 @@ ProcessCommandLine(int argc, char *argv[])
 	}
 #endif
 	else if ( strcmp( argv[i], "-core") == 0)
+	{
 	    CoreDump = TRUE;
+	    struct rlimit   core_limit;
+	    getrlimit (RLIMIT_CORE, &core_limit);
+	    core_limit.rlim_cur = core_limit.rlim_max;
+	    setrlimit (RLIMIT_CORE, &core_limit);
+	}
 	else if ( strcmp( argv[i], "-dpi") == 0)
 	{
 	    if(++i < argc)
@@ -947,6 +956,10 @@ ProcessCommandLine(int argc, char *argv[])
 	    else
 		UseMsg();
 	}
+	else if (strcmp(argv[i], "-pogo") == 0)
+	{
+	    dispatchException = DE_TERMINATE;
+	}
 	else if ( strcmp( argv[i], "-pn") == 0)
 	    PartialNetwork = TRUE;
 	else if ( strcmp( argv[i], "-nopn") == 0)
@@ -1050,18 +1063,12 @@ ProcessCommandLine(int argc, char *argv[])
 	    i = skip - 1;
 	}
 #endif
-#ifdef XCSECURITY
-	else if ((skip = XSecurityOptions(argc, argv, i)) != i)
-	{
-	    i = skip - 1;
-	}
-#endif
-#if HAVE_SETITIMER
 	else if ( strcmp( argv[i], "-dumbSched") == 0)
 	{
-	    SmartScheduleSignalEnable = FALSE;
-	}
+#if HAVE_SETITIMER
+	  SmartScheduleSignalEnable = FALSE;
 #endif
+	}
 	else if ( strcmp( argv[i], "-schedInterval") == 0)
 	{
 	    if (++i < argc)
@@ -1219,7 +1226,7 @@ ExpandCommandLine(int *pargc, char ***pargv)
 {
     int i;
 
-#if !defined(__CYGWIN__)
+#if !defined(WIN32) && !defined(__CYGWIN__)
     if (getuid() != geteuid())
 	return;
 #endif
@@ -2008,18 +2015,6 @@ enum BadCode {
 #define BUGADDRESS "xorg@freedesktop.org"
 #endif
 
-#define ARGMSG \
-    "\nIf the arguments used are valid, and have been rejected incorrectly\n" \
-      "please send details of the arguments and why they are valid to\n" \
-      "%s.  In the meantime, you can start the Xserver as\n" \
-      "the \"super user\" (root).\n"   
-
-#define ENVMSG \
-    "\nIf the environment is valid, and have been rejected incorrectly\n" \
-      "please send details of the environment and why it is valid to\n" \
-      "%s.  In the meantime, you can start the Xserver as\n" \
-      "the \"super user\" (root).\n"
-
 void
 CheckUserParameters(int argc, char **argv, char **envp)
 {
@@ -2063,10 +2058,6 @@ CheckUserParameters(int argc, char **argv, char **envp)
 		/* Check for bad environment variables and values */
 #if REMOVE_ENV_LD
 		while (envp[i] && (strncmp(envp[i], "LD", 2) == 0)) {
-#ifdef ENVDEBUG
-		    ErrorF("CheckUserParameters: removing %s from the "
-			   "environment\n", strtok(envp[i], "="));
-#endif
 		    for (j = i; envp[j]; j++) {
 			envp[j] = envp[j+1];
 		    }
@@ -2074,10 +2065,6 @@ CheckUserParameters(int argc, char **argv, char **envp)
 #endif   
 		if (envp[i] && (strlen(envp[i]) > MAX_ENV_LENGTH)) {
 #if REMOVE_LONG_ENV
-#ifdef ENVDEBUG
-		    ErrorF("CheckUserParameters: removing %s from the "
-			   "environment\n", strtok(envp[i], "="));
-#endif
 		    for (j = i; envp[j]; j++) {
 			envp[j] = envp[j+1];
 		    }
@@ -2130,20 +2117,16 @@ CheckUserParameters(int argc, char **argv, char **envp)
 	return;
     case UnsafeArg:
 	ErrorF("Command line argument number %d is unsafe\n", i);
-	ErrorF(ARGMSG, BUGADDRESS);
 	break;
     case ArgTooLong:
 	ErrorF("Command line argument number %d is too long\n", i);
-	ErrorF(ARGMSG, BUGADDRESS);
 	break;
     case UnprintableArg:
 	ErrorF("Command line argument number %d contains unprintable"
 		" characters\n", i);
-	ErrorF(ARGMSG, BUGADDRESS);
 	break;
     case EnvTooLong:
 	ErrorF("Environment variable `%s' is too long\n", e);
-	ErrorF(ENVMSG, BUGADDRESS);
 	break;
     case OutputIsPipe:
 	ErrorF("Stdout and/or stderr is a pipe\n");
@@ -2153,8 +2136,6 @@ CheckUserParameters(int argc, char **argv, char **envp)
 	break;
     default:
 	ErrorF("Unknown error\n");
-	ErrorF(ARGMSG, BUGADDRESS);
-	ErrorF(ENVMSG, BUGADDRESS);
 	break;
     }
     FatalError("X server aborted because of unsafe environment\n");

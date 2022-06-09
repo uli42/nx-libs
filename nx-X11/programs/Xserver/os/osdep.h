@@ -187,10 +187,6 @@ extern void HandleNotifyFds(void);
 
 #include "dix.h"
 
-extern ConnectionInputPtr AllocateInputBuffer(void);
-
-extern ConnectionOutputPtr AllocateOutputBuffer(void);
-
 extern fd_set AllSockets;
 extern fd_set AllClients;
 extern fd_set LastSelectMask;
@@ -209,12 +205,6 @@ extern int *ConnectionTranslation;
 extern Bool NewOutputPending;
 extern Bool AnyWritesPending;
 extern Bool NumNotifyWriteFd;
-extern Bool CriticalOutputPending;
-
-extern int timesThisConnection;
-extern ConnectionInputPtr FreeInputs;
-extern ConnectionOutputPtr FreeOutputs;
-extern OsCommPtr AvailableInput;
 
 extern WorkQueuePtr workQueue;
 
