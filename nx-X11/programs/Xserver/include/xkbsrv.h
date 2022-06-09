@@ -337,6 +337,7 @@ extern	int	DeviceEnterNotify,DeviceLeaveNotify;
 #define	IsKeypadKey(s)		XkbKSIsKeypad(s)
 
 #define	Status		int
+#define Display         struct _XDisplay
 
 #ifndef True
 #define	True	TRUE
