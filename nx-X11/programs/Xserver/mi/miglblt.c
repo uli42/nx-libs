@@ -93,7 +93,7 @@ miPolyGlyphBlt(pDrawable, pGC, x, y, nglyph, ppci, pglyphBase)
     int 	 x, y;
     unsigned int nglyph;
     CharInfoPtr *ppci;		/* array of character info */
-    void        *pglyphBase;	/* start of array of glyphs */
+    void *      pglyphBase;	/* start of array of glyphs */
 {
     int width, height;
     PixmapPtr pPixmap;
@@ -207,7 +207,7 @@ miImageGlyphBlt(pDrawable, pGC, x, y, nglyph, ppci, pglyphBase)
     int 	 x, y;
     unsigned int nglyph;
     CharInfoPtr *ppci;		/* array of character info */
-    void        *pglyphBase;	/* start of array of glyphs */
+    void *      pglyphBase;	/* start of array of glyphs */
 {
     ExtentInfoRec info;		/* used by xfont2_query_glyph_extents (libXfont2)
                                    resp. QueryGlyphExtents() (libXfont1) */

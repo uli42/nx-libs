@@ -68,7 +68,7 @@ miModifyPixmapHeader(pPixmap, width, height, depth, bitsPerPixel, devKind,
     int		depth;
     int		bitsPerPixel;
     int		devKind;
-    void        *pPixData;
+    void *     pPixData;
 {
     if (!pPixmap)
 	return FALSE;
@@ -126,7 +126,7 @@ miModifyPixmapHeader(pPixmap, width, height, depth, bitsPerPixel, devKind,
 }
 
 static Bool
-miCloseScreen (ScreenPtr pScreen)
+miCloseScreen (int iScreen, ScreenPtr pScreen)
 {
     return ((*pScreen->DestroyPixmap)((PixmapPtr)pScreen->devPrivate));
 }
@@ -250,7 +250,7 @@ miScreenInit(pScreen, pbits, xsize, ysize, dpix, dpiy, width,
     pScreen->ValidateTree = miValidateTree;
     pScreen->PostValidateTree = (PostValidateTreeProcPtr) 0;
     pScreen->WindowExposures = miWindowExposures;
-    /* PaintWindowBackground, PaintWindowBorder, CopyWindow */
+    /* CopyWindow */
     pScreen->ClearToBackground = miClearToBackground;
     pScreen->ClipNotify = (ClipNotifyProcPtr) 0;
     pScreen->RestackWindow = (RestackWindowProcPtr) 0;
@@ -292,35 +292,22 @@ miScreenInit(pScreen, pbits, xsize, ysize, dpix, dpiy, width,
     return miScreenDevPrivateInit(pScreen, width, pbits);
 }
 
-int
+static DevPrivateKey privateKey = &privateKey;
+
+DevPrivateKey
 miAllocateGCPrivateIndex()
 {
-    static int privateIndex = -1;
-    static unsigned long miGeneration = 0;
-
-    if (miGeneration != serverGeneration)
-    {
-	privateIndex = AllocateGCPrivateIndex();
-	miGeneration = serverGeneration;
-    }
-    return privateIndex;
+    return privateKey;
 }
 
-int miZeroLineScreenIndex;
-static unsigned int miZeroLineGeneration = 0;
+DevPrivateKey miZeroLineScreenKey = &miZeroLineScreenKey;
 
 void
 miSetZeroLineBias(pScreen, bias)
     ScreenPtr pScreen;
     unsigned int bias;
 {
-    if (miZeroLineGeneration != serverGeneration)
-    {
-	miZeroLineScreenIndex = AllocateScreenPrivateIndex();
-	miZeroLineGeneration = serverGeneration;
-    }
-    if (miZeroLineScreenIndex >= 0)
-	pScreen->devPrivates[miZeroLineScreenIndex].uval = bias;
+    dixSetPrivate(&pScreen->devPrivates, miZeroLineScreenKey, (void *)bias);
 }
 
 PixmapPtr

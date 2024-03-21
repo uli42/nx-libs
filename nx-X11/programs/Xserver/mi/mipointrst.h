@@ -38,7 +38,7 @@ typedef struct {
     CursorPtr		    pCursor;    /* current cursor */
     CursorPtr		    pSpriteCursor;/* cursor on screen */
     BoxRec		    limits;	/* current constraints */
-    Bool		    confined;	/* void * can't change screens */
+    Bool		    confined;	/* pointer can't change screens */
     int			    x, y;	/* hot spot location */
     int			    devx, devy;	/* sprite position */
 } miPointerRec, *miPointerPtr;

@@ -156,7 +156,7 @@ typedef void (*InitExtension)(void);
 #include "xace.h"
 #endif
 #ifdef XCSECURITY
-#define _SECURITY_SERVER
+#include "securitysrv.h"
 #include <nx-X11/extensions/securstr.h>
 #endif
 #ifdef PANORAMIX
@@ -217,7 +217,6 @@ extern void DbeExtensionInit(void);
 extern void XaceExtensionInit(void);
 #endif
 #ifdef XCSECURITY
-extern void SecurityExtensionSetup(void);
 extern void SecurityExtensionInit(void);
 #endif
 #ifdef XF86BIGFONT
@@ -225,17 +224,10 @@ extern void XFree86BigfontExtensionInit(void);
 #endif
 #ifdef GLXEXT
 // typedef struct __GLXprovider __GLXprovider;
-#ifdef INXDARWINAPP
-extern __GLXprovider* __DarwinglXMesaProvider;
-extern void DarwinGlxPushProvider(__GLXprovider *impl);
-extern void DarwinGlxExtensionInit(INITARGS);
-extern void DarwinGlxWrapInitVisuals(miInitVisualsProcPtr *);
-#else
 // extern __GLXprovider __glXMesaProvider;
 // extern void GlxPushProvider(__GLXprovider *impl);
 extern void GlxExtensionInit(void);
 extern void GlxWrapInitVisuals(miInitVisualsProcPtr *);
-#endif // INXDARWINAPP
 #endif // GLXEXT
 #ifdef XF86DRI
 extern void XFree86DRIExtensionInit(void);
@@ -447,13 +439,8 @@ InitExtensions(argc, argv)
 #endif
 
 #ifdef GLXEXT
-#ifdef INXDARWINAPP
-    DarwinGlxPushProvider(__DarwinglXMesaProvider);
-    if (!noGlxExtension) DarwinGlxExtensionInit();
-#else
     // GlxPushProvider(&__glXMesaProvider);
     if (!noGlxExtension) GlxExtensionInit();
-#endif // INXDARWINAPP
 #endif // GLXEXT
 #ifdef XFIXES
     /* must be before Render to layer DisplayCursor correctly */
@@ -483,9 +470,4 @@ void
 InitVisualWrap()
 {
     miResetInitVisuals();
-#ifdef GLXEXT
-#ifdef INXDARWINAPP
-    DarwinGlxWrapInitVisuals(&miInitVisualsProc);
-#endif // INXDARWINAPP
-#endif // GLXEXT
 }

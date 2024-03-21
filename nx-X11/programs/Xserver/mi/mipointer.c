@@ -41,10 +41,10 @@ in this Software without prior written authorization from The Open Group.
 # include   "inputstr.h"
 # include   <nx-X11/extensions/XI.h>
 
-int miPointerScreenIndex;
-static unsigned long miPointerGeneration = 0;
+DevPrivateKey miPointerScreenKey = &miPointerScreenKey;
 
-#define GetScreenPrivate(s) ((miPointerScreenPtr) ((s)->devPrivates[miPointerScreenIndex].ptr))
+#define GetScreenPrivate(s) ((miPointerScreenPtr) \
+    dixLookupPrivate(&(s)->devPrivates, miPointerScreenKey))
 #define SetupScreen(s)	miPointerScreenPtr  pScreenPriv = GetScreenPrivate(s)
 
 /*
@@ -62,7 +62,7 @@ static void miPointerCursorLimits(ScreenPtr pScreen, CursorPtr pCursor,
 				  BoxPtr pHotBox, BoxPtr pTopLeftBox);
 static Bool miPointerSetCursorPosition(ScreenPtr pScreen, int x, int y,
 				       Bool generateEvent);
-static Bool miPointerCloseScreen(ScreenPtr pScreen);
+static Bool miPointerCloseScreen(int index, ScreenPtr pScreen);
 static void miPointerMove(ScreenPtr pScreen, int x, int y, unsigned long time);
 
 static xEvent* events; /* for WarpPointer MotionNotifies */
@@ -76,13 +76,6 @@ miPointerInitialize (pScreen, spriteFuncs, screenFuncs, waitForUpdate)
 {
     miPointerScreenPtr	pScreenPriv;
 
-    if (miPointerGeneration != serverGeneration)
-    {
-	miPointerScreenIndex = AllocateScreenPrivateIndex();
-	if (miPointerScreenIndex < 0)
-	    return FALSE;
-	miPointerGeneration = serverGeneration;
-    }
     pScreenPriv = (miPointerScreenPtr) malloc (sizeof (miPointerScreenRec));
     if (!pScreenPriv)
 	return FALSE;
@@ -99,7 +92,7 @@ miPointerInitialize (pScreen, spriteFuncs, screenFuncs, waitForUpdate)
     pScreenPriv->showTransparent = FALSE;
     pScreenPriv->CloseScreen = pScreen->CloseScreen;
     pScreen->CloseScreen = miPointerCloseScreen;
-    pScreen->devPrivates[miPointerScreenIndex].ptr = (void *) pScreenPriv;
+    dixSetPrivate(&pScreen->devPrivates, miPointerScreenKey, pScreenPriv);
     /*
      * set up screen cursor method table
      */
@@ -132,7 +125,8 @@ miPointerInitialize (pScreen, spriteFuncs, screenFuncs, waitForUpdate)
 }
 
 static Bool
-miPointerCloseScreen (pScreen)
+miPointerCloseScreen (index, pScreen)
+    int		index;
     ScreenPtr	pScreen;
 {
     SetupScreen(pScreen);
@@ -145,7 +139,7 @@ miPointerCloseScreen (pScreen)
     free ((void *) pScreenPriv);
     free ((void *) events);
     events = NULL;
-    return (*pScreen->CloseScreen) (pScreen);
+    return (*pScreen->CloseScreen) (index, pScreen);
 }
 
 /*
@@ -241,10 +235,14 @@ miPointerWarpCursor (pScreen, x, y)
     ScreenPtr	pScreen;
     int		x, y;
 {
+    BOOL changedScreen = FALSE;
     SetupScreen (pScreen);
 
     if (miPointer.pScreen != pScreen)
+    {
 	(*pScreenPriv->screenFuncs->NewEventScreen) (pScreen, TRUE);
+        changedScreen = TRUE;
+    }
 
     if (GenerateEvent)
     {
@@ -265,6 +263,9 @@ miPointerWarpCursor (pScreen, x, y)
 	miPointer.y = y;
 	miPointer.pScreen = pScreen;
     }
+
+    if (changedScreen)
+        UpdateSpriteForScreen (pScreen) ;
 }
 
 /*

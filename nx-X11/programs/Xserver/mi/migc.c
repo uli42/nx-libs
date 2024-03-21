@@ -110,7 +110,7 @@ void
 miChangeClip(pGC, type, pvalue, nrects)
     GCPtr           pGC;
     int             type;
-    void            *pvalue;
+    void *         pvalue;
     int             nrects;
 {
     (*pGC->funcs->DestroyClip) (pGC);

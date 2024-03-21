@@ -1159,7 +1159,7 @@ miPolyArc(pDraw, pGC, narcs, parcs)
 	     * validate it */
 	    pDrawTo = (DrawablePtr)(*pDraw->pScreen->CreatePixmap)
 				(pDraw->pScreen, pixmapWidth, pixmapHeight, 1,
-				CREATE_PIXMAP_USAGE_SCRATCH);
+				 CREATE_PIXMAP_USAGE_SCRATCH);
 	    if (!pDrawTo)
 	    {
 		FreeScratchGC(pGCTo);

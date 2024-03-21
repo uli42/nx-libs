@@ -48,8 +48,8 @@ SOFTWARE.
 
 typedef struct {
     int         count;		/* number of spans		    */
-    DDXPointPtr points;		/* void * to list of start points  */
-    int         *widths;	/* void * to list of widths	    */
+    DDXPointPtr points;		/* pointer to list of start points  */
+    int         *widths;	/* pointer to list of widths	    */
 } Spans;
 
 typedef struct {

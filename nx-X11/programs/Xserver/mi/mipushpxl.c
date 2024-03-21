@@ -66,12 +66,12 @@ SOFTWARE.
                         | ( ( ( x ) & (MiBits)0xFF000000 ) >> 0x18 ) )
 
 
-#define PGSZB  4
-#define PPW    (PGSZB<<3) /* assuming 8 bits per byte */
-#define PGSZ   PPW
-#define PLST   (PPW-1)
-#define PIM    PLST
-#define PWSH   5
+#define PGSZB	4
+#define PPW	(PGSZB<<3) /* assuming 8 bits per byte */
+#define PGSZ	PPW
+#define PLST	(PPW-1)
+#define PIM	PLST
+#define PWSH	5
 
 /* miPushPixels -- squeegees the fill style of pGC through pBitMap
  * into pDrawable.  pBitMap is a stencil (dx by dy of it is used, it may
