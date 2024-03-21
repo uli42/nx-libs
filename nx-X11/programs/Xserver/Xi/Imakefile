@@ -76,7 +76,7 @@
 		ungrdev.o \
 		ungrdevb.o \
 		ungrdevk.o 
-   INCLUDES = -I../include -I$(EXTINCSRC) -I$(XINCLUDESRC) `pkg-config --cflags-only-I pixman-1`
+   INCLUDES = -I../include -I../Xext -I$(EXTINCSRC) -I$(XINCLUDESRC) `pkg-config --cflags-only-I pixman-1`
    LINTLIBS = ../dix/llib-ldix.ln ../os/llib-los.ln
 
 #if defined(NXAgentServer) && NXAgentServer

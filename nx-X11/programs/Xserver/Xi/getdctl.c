@@ -183,7 +183,6 @@ static void CopySwapDeviceCore (ClientPtr client, DeviceIntPtr dev, char *buf)
     if (client->swapped) {
         swaps(&c->control);
         swaps(&c->length);
-        swaps(&c->status);
     }
 }
 
@@ -198,7 +197,6 @@ static void CopySwapDeviceEnable (ClientPtr client, DeviceIntPtr dev, char *buf)
     if (client->swapped) {
         swaps(&e->control);
         swaps(&e->length);
-        swaps(&e->enable);
     }
 }
 
