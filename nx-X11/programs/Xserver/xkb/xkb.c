@@ -43,7 +43,7 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
 	int	XkbEventBase;
 static	int	XkbErrorBase;
 	int	XkbReqCode;
-static	int	XkbKeyboardErrorCode;
+	int	XkbKeyboardErrorCode;
 CARD32	xkbDebugFlags = 0;
 static	CARD32	xkbDebugCtrls = 0;
 
@@ -541,7 +541,7 @@ ProcXkbGetState(ClientPtr client)
 {
     REQUEST(xkbGetStateReq);
     DeviceIntPtr	dev;
-    xkbGetStateReply	 rep = {0};
+    xkbGetStateReply	 rep;
     XkbStateRec		*xkb;
 
     REQUEST_SIZE_MATCH(xkbGetStateReq);
@@ -552,6 +552,7 @@ ProcXkbGetState(ClientPtr client)
     CHK_KBD_DEVICE(dev, stuff->deviceSpec, client, DixReadAccess);
 
     xkb= &dev->key->xkbInfo->state;
+    bzero(&rep,sizeof(xkbGetStateReply));
     rep.type= X_Reply;
     rep.sequenceNumber= client->sequence;
     rep.length = 0;
@@ -1301,7 +1302,7 @@ XkbSizeVirtualModMap(XkbDescPtr xkb,xkbGetMapReply *rep)
 	rep->totalVModMapKeys= 0;
 	return 0;
     }
-    for (nRtrn=i=0;i<rep->nVModMapKeys;i++) {
+    for (nRtrn=i=0;i<rep->nVModMapKeys-1;i++) {
 	if (xkb->server->vmodmap[i+rep->firstVModMapKey]!=0)
 	    nRtrn++;
     }
@@ -1405,7 +1406,7 @@ int
 ProcXkbGetMap(ClientPtr client)
 {
     DeviceIntPtr	 dev;
-    xkbGetMapReply	 rep = {0};
+    xkbGetMapReply	 rep;
     XkbDescRec		*xkb;
     int			 n,status;
 
@@ -1421,6 +1422,7 @@ ProcXkbGetMap(ClientPtr client)
     CHK_MASK_LEGAL(0x03,stuff->partial,XkbAllMapComponentsMask);
 
     xkb= dev->key->xkbInfo->desc;
+    bzero(&rep,sizeof(xkbGetMapReply));
     rep.type= X_Reply;
     rep.sequenceNumber= client->sequence;
     rep.length = (SIZEOF(xkbGetMapReply)-SIZEOF(xGenericReply))>>2;
@@ -5454,7 +5456,7 @@ int
 ProcXkbListComponents(ClientPtr client)
 {
     DeviceIntPtr 		dev;
-    xkbListComponentsReply 	rep = {0};
+    xkbListComponentsReply 	rep;
     unsigned			len;
     int				status;
     unsigned char *		str;
@@ -5490,6 +5492,7 @@ ProcXkbListComponents(ClientPtr client)
 	}
 	return status;
     }
+    bzero(&rep,sizeof(xkbListComponentsReply));
     rep.type= X_Reply;
     rep.deviceID = dev->id;
     rep.sequenceNumber = client->sequence;
@@ -5530,7 +5533,6 @@ ProcXkbGetKbdByName(ClientPtr client)
 {
     DeviceIntPtr 		dev;
     DeviceIntPtr                tmpd;
-    XkbFileInfo			finfo;
     xkbGetKbdByNameReply 	rep = {0};
     xkbGetMapReply		mrep = {0};
     xkbGetCompatMapReply	crep = {0};
@@ -6066,7 +6068,7 @@ int
 ProcXkbGetDeviceInfo(ClientPtr client)
 {
 DeviceIntPtr		dev;
-xkbGetDeviceInfoReply	rep = {0};
+xkbGetDeviceInfoReply	rep;
 int			status,nDeviceLedFBs;
 unsigned		length,nameLen;
 CARD16			ledClass,ledID;
@@ -6090,6 +6092,7 @@ char *			str;
 	wanted&= ~XkbXI_IndicatorsMask;
 
     nameLen= XkbSizeCountedString(dev->name);
+    bzero((char *)&rep,SIZEOF(xkbGetDeviceInfoReply));
     rep.type = X_Reply;
     rep.deviceID= dev->id;
     rep.sequenceNumber = client->sequence;
@@ -6242,7 +6245,6 @@ XkbSrvLedInfoPtr 	sli;
         sli= XkbFindSrvLedInfo(dev,ledWire->ledClass,ledWire->ledID,
 							XkbXI_IndicatorsMask);
 	if (sli!=NULL) {
-	    register int n;
 	    register unsigned bit;
 	    int nMaps,nNames;
 	    CARD32 *atomWire;
