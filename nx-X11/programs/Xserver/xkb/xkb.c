@@ -40,6 +40,8 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 #include <nx-X11/extensions/XI.h>
 
+#include "protocol-versions.h"
+
 	int	XkbEventBase;
 static	int	XkbErrorBase;
 	int	XkbReqCode;
@@ -974,7 +976,7 @@ XkbWriteKeyTypes(	XkbDescPtr		xkb,
 			ClientPtr 		client)
 {
     XkbKeyTypePtr	type;
-    unsigned		i;
+    unsigned		i, n;
     xkbKeyTypeWireDesc *wire;
 
     type= &xkb->map->types[rep->firstType];
@@ -4824,6 +4826,7 @@ _CheckSetDoodad(	char **		wire_inout,
 char *			wire;
 xkbDoodadWireDesc *	dWire;
 XkbDoodadPtr		doodad;
+Status                 status;
 
     dWire= (xkbDoodadWireDesc *)(*wire_inout);
     wire= (char *)&dWire[1];
@@ -6229,7 +6232,7 @@ CheckSetDeviceIndicators(	char *		wire,
 				ClientPtr	client)
 {
 xkbDeviceLedsWireDesc *	ledWire;
-int			i;
+int			i, n;
 XkbSrvLedInfoPtr 	sli;
 
     ledWire= (xkbDeviceLedsWireDesc *)wire;

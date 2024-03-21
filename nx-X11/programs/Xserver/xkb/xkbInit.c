@@ -45,6 +45,7 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #include "inputstr.h"
 #include "opaque.h"
 #include "property.h"
+#include "scrnintstr.h"
 #include <xkbsrv.h>
 #include "xkbgeom.h"
 #include <nx-X11/extensions/XKMformat.h>

@@ -917,7 +917,7 @@ extern XkbGeometryPtr XkbLookupNamedGeometry(
 );
 
 extern char *	Xstrdup(
-	const char *		/* str */
+	const char *	  		/* str */
 );
 
 extern void	XkbConvertCase(
