@@ -183,7 +183,7 @@ Bool	haveDir;
     if (!in)
     {
         if (buf != NULL)
-	free (buf);
+	    free (buf);
 	return BadImplementation;
     }
     list->nFound[what]= 0;
@@ -242,7 +242,7 @@ Bool	haveDir;
 	    ErrorF("xkbcomp returned exit code %d\n",rval);
     }
     if (buf != NULL)
-    free (buf);
+        free (buf);
     return status;
 }
 
