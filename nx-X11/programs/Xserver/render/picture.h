@@ -1,6 +1,6 @@
 /*
  *
- * Copyright Â© 2000 SuSE, Inc.
+ * Copyright © 2000 SuSE, Inc.
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -115,7 +115,7 @@ typedef enum _PictFormatShort {
 /* 1bpp formats */
     PICT_a1 =		PIXMAN_a1,
 
-    PICT_g1 =		PIXMAN_g1,
+    PICT_g1 =		PIXMAN_g1
 } PictFormatShort;
 
 /*
@@ -163,8 +163,8 @@ extern int  PictureCmapPolicy;
 
 int	PictureParseCmapPolicy (const char *name);
 
-extern int	RenderErrBase;
-extern int	RenderClientPrivateIndex;
+extern int RenderErrBase;
+extern DevPrivateKey RenderClientPrivateKey;
 
 /* Fixed point updates from Carl Worth, USC, Information Sciences Institute */
 

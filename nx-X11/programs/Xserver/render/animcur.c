@@ -1,6 +1,6 @@
 /*
  *
- * Copyright © 2002 Keith Packard, member of The XFree86 Project, Inc.
+ * Copyright ? 2002 Keith Packard, member of The XFree86 Project, Inc.
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -44,6 +44,7 @@
 #include "dixfontstr.h"
 #include "opaque.h"
 #include "picturestr.h"
+#include "xace.h"
 
 typedef struct _AnimCurElt {
     CursorPtr	pCursor;    /* cursor to show */
@@ -87,14 +88,14 @@ static CursorBits   animCursorBits = {
     empty, empty, 2, 1, 1, 0, 0, 1
 };
 
-static int AnimCurScreenPrivateIndex = -1;
 static int AnimCurGeneration;
+static DevPrivateKey AnimCurScreenPrivateKey = &AnimCurScreenPrivateKey;
 
 #define IsAnimCur(c)	    ((c)->bits == &animCursorBits)
 #define GetAnimCur(c)	    ((AnimCurPtr) ((c) + 1))
-#define GetAnimCurScreen(s) ((AnimCurScreenPtr) ((s)->devPrivates[AnimCurScreenPrivateIndex].ptr))
-#define GetAnimCurScreenIfSet(s) ((AnimCurScreenPrivateIndex != -1) ? GetAnimCurScreen(s) : NULL)
-#define SetAnimCurScreen(s,p) ((s)->devPrivates[AnimCurScreenPrivateIndex].ptr = (void *) (p))
+#define GetAnimCurScreen(s) ((AnimCurScreenPtr)dixLookupPrivate(&(s)->devPrivates, AnimCurScreenPrivateKey))
+#define GetAnimCurScreenIfSet(s) GetAnimCurScreen(s)
+#define SetAnimCurScreen(s,p) dixSetPrivate(&(s)->devPrivates, AnimCurScreenPrivateKey, p)
 
 #define Wrap(as,s,elt,func) (((as)->elt = (s)->elt), (s)->elt = func)
 #define Unwrap(as,s,elt)    ((s)->elt = (as)->elt)
@@ -110,7 +111,7 @@ AnimCurSetCursorPosition (ScreenPtr pScreen,
 			  Bool generateEvent);
 
 static Bool
-AnimCurCloseScreen (ScreenPtr pScreen)
+AnimCurCloseScreen (int index, ScreenPtr pScreen)
 {
     AnimCurScreenPtr    as = GetAnimCurScreen(pScreen);
     Bool                ret;
@@ -126,10 +127,8 @@ AnimCurCloseScreen (ScreenPtr pScreen)
     Unwrap(as, pScreen, UnrealizeCursor);
     Unwrap(as, pScreen, RecolorCursor);
     SetAnimCurScreen(pScreen,0);
-    ret = (*pScreen->CloseScreen) (pScreen);
+    ret = (*pScreen->CloseScreen) (index, pScreen);
     free (as);
-    if (screenInfo.numScreens <= 1)
-	AnimCurScreenPrivateIndex = -1;
     return ret;
 }
 
@@ -324,9 +323,6 @@ AnimCurInit (ScreenPtr pScreen)
 
     if (AnimCurGeneration != serverGeneration)
     {
-	AnimCurScreenPrivateIndex = AllocateScreenPrivateIndex ();
-	if (AnimCurScreenPrivateIndex < 0)
-	    return FALSE;
 	AnimCurGeneration = serverGeneration;
 	animCurState.pCursor = 0;
 	animCurState.pScreen = 0;
@@ -351,10 +347,10 @@ AnimCurInit (ScreenPtr pScreen)
 }
 
 int
-AnimCursorCreate (CursorPtr *cursors, CARD32 *deltas, int ncursor, CursorPtr *ppCursor)
+AnimCursorCreate (CursorPtr *cursors, CARD32 *deltas, int ncursor, CursorPtr *ppCursor, ClientPtr client, XID cid)
 {
     CursorPtr	pCursor;
-    int		i;
+    int		rc, i;
     AnimCurPtr	ac;
 
     for (i = 0; i < screenInfo.numScreens; i++)
@@ -371,7 +367,6 @@ AnimCursorCreate (CursorPtr *cursors, CARD32 *deltas, int ncursor, CursorPtr *pp
     if (!pCursor)
 	return BadAlloc;
     pCursor->bits = &animCursorBits;
-    animCursorBits.refcnt++;
     pCursor->refcnt = 1;
     
     pCursor->foreRed = cursors[0]->foreRed;
@@ -382,9 +377,22 @@ AnimCursorCreate (CursorPtr *cursors, CARD32 *deltas, int ncursor, CursorPtr *pp
     pCursor->backGreen = cursors[0]->backGreen;
     pCursor->backBlue = cursors[0]->backBlue;
 
+    pCursor->id = cid;
+    pCursor->devPrivates = NULL;
+
+    /* security creation/labeling check */
+    rc = XaceHook(XACE_RESOURCE_ACCESS, client, cid, RT_CURSOR, pCursor,
+		  RT_NONE, NULL, DixCreateAccess);
+    if (rc != Success) {
+	dixFreePrivates(pCursor->devPrivates);
+	free(pCursor);
+	return rc;
+    }
+	
     /*
      * Fill in the AnimCurRec
      */
+    animCursorBits.refcnt++;
     ac = GetAnimCur (pCursor);
     ac->nelt = ncursor;
     ac->elts = (AnimCurElt *) (ac + 1);

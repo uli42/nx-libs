@@ -1,6 +1,6 @@
 /*
  *
- * Copyright Â© 2000 SuSE, Inc.
+ * Copyright © 2000 SuSE, Inc.
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -118,12 +118,6 @@ miRealizeGlyph (ScreenPtr pScreen,
 void
 miUnrealizeGlyph (ScreenPtr pScreen,
 		  GlyphPtr  glyph);
-
-void
-miGlyphExtents (int		nlist,
-		GlyphListPtr	list,
-		GlyphPtr	*glyphs,
-		BoxPtr		extents);
 
 void
 miGlyphs (CARD8		op,

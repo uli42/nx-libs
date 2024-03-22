@@ -1,6 +1,6 @@
 /*
  *
- * Copyright Â© 2000 Keith Packard, member of The XFree86 Project, Inc.
+ * Copyright © 2000 Keith Packard, member of The XFree86 Project, Inc.
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -94,7 +94,7 @@ miColorRects (PicturePtr    pDst,
     FreeScratchGC (pGC);
 }
 
-void
+_X_EXPORT void
 miCompositeRects (CARD8		op,
 		  PicturePtr	pDst,
 		  xRenderColor  *color,
@@ -135,8 +135,7 @@ miCompositeRects (CARD8		op,
 	if (!rgbaFormat)
 	    goto bail1;
 	
-	pPixmap = (*pScreen->CreatePixmap) (pScreen, 1, 1,
-					    rgbaFormat->depth,
+	pPixmap = (*pScreen->CreatePixmap) (pScreen, 1, 1, rgbaFormat->depth,
 					    CREATE_PIXMAP_USAGE_SCRATCH);
 	if (!pPixmap)
 	    goto bail2;
@@ -159,7 +158,7 @@ miCompositeRects (CARD8		op,
 	
 	tmpval[0] = xTrue;
 	pSrc = CreatePicture (0, &pPixmap->drawable, rgbaFormat,
-			      CPRepeat, tmpval, 0, &error);
+			      CPRepeat, tmpval, serverClient, &error);
 			      
 	if (!pSrc)
 	    goto bail4;

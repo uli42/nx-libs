@@ -1,5 +1,5 @@
 /*
- * Copyright © 2000 SuSE, Inc.
+ * Copyright ? 2000 SuSE, Inc.
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -66,11 +66,15 @@ typedef struct pixman_transform PictTransform, *PictTransformPtr;
 #define SourcePictClassHorizontal 1
 #define SourcePictClassVertical   2
 
+#ifdef NXAGENT_SERVER
+#include "../hw/nxagent/NXpicturestr_PictSolidFill.h"
+#else
 typedef struct _PictSolidFill {
     unsigned int type;
     unsigned int class;
     CARD32 color;
 } PictSolidFill, *PictSolidFillPtr;
+#endif
 
 typedef struct _PictGradientStop {
     xFixed x;
@@ -174,7 +178,7 @@ typedef struct _Picture {
 
     RegionPtr	    pCompositeClip;
 
-    DevUnion	    *devPrivates;
+    PrivateRec	    *devPrivates;
 
     PictTransform   *transform;
 
@@ -184,14 +188,12 @@ typedef struct _Picture {
     SourcePictPtr   pSourcePict;
 } PictureRec;
 
-typedef Bool (*PictFilterValidateParamsProcPtr) (ScreenPtr pScreen, int id,
-						 xFixed *params, int nparams,
-                                                 int *width, int *height);
+typedef Bool (*PictFilterValidateParamsProcPtr) (PicturePtr pPicture, int id,
+						 xFixed *params, int nparams);
 typedef struct {
     char			    *name;
     int				    id;
     PictFilterValidateParamsProcPtr ValidateParams;
-    int width, height;
 } PictFilterRec, *PictFilterPtr;
 
 #define PictFilterNearest	0
@@ -478,25 +480,13 @@ PictFilterPtr
 PictureFindFilter (ScreenPtr pScreen, char *name, int len);
 
 int
-SetPicturePictFilter (PicturePtr pPicture, PictFilterPtr pFilter,
-		      xFixed *params, int nparams);
-
-int
-SetPictureFilter (PicturePtr pPicture, char *name, int len,
-		  xFixed *params, int nparams);
+SetPictureFilter (PicturePtr pPicture, char *name, int len, xFixed *params, int nparams);
 
 Bool
 PictureFinishInit (void);
 
 void
 SetPictureToDefaults (PicturePtr pPicture);
-
-
-#if 0
-Bool
-miPictureInit (ScreenPtr pScreen, PictFormatPtr formats, int nformats);
-#endif
-
 
 PicturePtr
 CreatePicture (Picture		pid,
@@ -638,7 +628,7 @@ Bool
 AnimCurInit (ScreenPtr pScreen);
 
 int
-AnimCursorCreate (CursorPtr *cursors, CARD32 *deltas, int ncursor, CursorPtr *ppCursor);
+AnimCursorCreate (CursorPtr *cursors, CARD32 *deltas, int ncursor, CursorPtr *ppCursor, ClientPtr client, XID cid);
 
 void
 AddTraps (PicturePtr	pPicture,
@@ -689,23 +679,5 @@ CreateConicalGradientPicture (Picture pid,
 void PanoramiXRenderInit (void);
 void PanoramiXRenderReset (void);
 #endif
-
-/*
- * matrix.c
- */
-
-extern _X_EXPORT void
-PictTransform_from_xRenderTransform(PictTransformPtr pict,
-                                    xRenderTransform * render);
-
-extern _X_EXPORT void
-xRenderTransform_from_PictTransform(xRenderTransform * render,
-                                    PictTransformPtr pict);
-
-extern _X_EXPORT Bool
- PictureTransformPoint(PictTransformPtr transform, PictVectorPtr vector);
-
-extern _X_EXPORT Bool
- PictureTransformPoint3d(PictTransformPtr transform, PictVectorPtr vector);
 
 #endif /* _PICTURESTR_H_ */

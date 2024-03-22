@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 2004 Keith Packard
+ * Copyright © 2004 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -31,7 +31,7 @@
  * grid row
  */
 
-xFixed
+_X_EXPORT xFixed
 RenderSampleCeilY (xFixed y, int n)
 {
     return pixman_sample_ceil_y (y, n);
@@ -43,7 +43,7 @@ RenderSampleCeilY (xFixed y, int n)
  * Compute the largest value no greater than y which is on a
  * grid row
  */
-xFixed
+_X_EXPORT xFixed
 RenderSampleFloorY (xFixed y, int n)
 {
     return pixman_sample_floor_y (y, n);
@@ -52,7 +52,7 @@ RenderSampleFloorY (xFixed y, int n)
 /*
  * Step an edge by any amount (including negative values)
  */
-void
+_X_EXPORT void
 RenderEdgeStep (RenderEdge *e, int n)
 {
     pixman_edge_step (e, n);
@@ -62,7 +62,7 @@ RenderEdgeStep (RenderEdge *e, int n)
  * Initialize one edge structure given the line endpoints and a
  * starting y value
  */
-void
+_X_EXPORT void
 RenderEdgeInit (RenderEdge	*e,
 		int		n,
 		xFixed		y_start,
@@ -78,7 +78,7 @@ RenderEdgeInit (RenderEdge	*e,
  * Initialize one edge structure given a line, starting y value
  * and a pixel offset for the line
  */
-void
+_X_EXPORT void
 RenderLineFixedEdgeInit (RenderEdge *e,
 			 int	    n,
 			 xFixed	    y,
