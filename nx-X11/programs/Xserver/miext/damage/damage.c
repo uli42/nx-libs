@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 2003 Keith Packard
+ * Copyright © 2003 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -70,16 +70,15 @@
 #define DAMAGE_DEBUG(x)
 #endif
 
-#define getPixmapDamageRef(pPixmap) \
-    ((DamagePtr *) &(pPixmap->devPrivates[damagePixPrivateIndex].ptr))
+#define getPixmapDamageRef(pPixmap) ((DamagePtr *) \
+    dixLookupPrivateAddr(&(pPixmap)->devPrivates, damagePixPrivateKey))
 
 #define pixmapDamage(pPixmap)		damagePixPriv(pPixmap)
 
-static int damageScrPrivateIndex;
-static int damagePixPrivateIndex;
-static int damageGCPrivateIndex;
-static int damageWinPrivateIndex;
-static int damageGeneration;
+static DevPrivateKey damageScrPrivateKey = &damageScrPrivateKey;
+static DevPrivateKey damagePixPrivateKey = &damagePixPrivateKey;
+static DevPrivateKey damageGCPrivateKey = &damageGCPrivateKey;
+static DevPrivateKey damageWinPrivateKey = &damageWinPrivateKey;
 
 static DamagePtr *
 getDrawableDamageRef (DrawablePtr pDrawable)
@@ -120,7 +119,7 @@ getDrawableDamageRef (DrawablePtr pDrawable)
 
 #define winDamageRef(pWindow) \
     DamagePtr	*pPrev = (DamagePtr *) \
-	    &(pWindow->devPrivates[damageWinPrivateIndex].ptr)
+	dixLookupPrivateAddr(&(pWindow)->devPrivates, damageWinPrivateKey)
 
 static void
 DamageReportDamage (DamagePtr pDamage, RegionPtr pDamageRegion)
@@ -248,9 +247,6 @@ damageDamageRegion (DrawablePtr pDrawable, RegionPtr pRegion, Bool clip,
 	if (pDamage->pDrawable->type == DRAWABLE_WINDOW &&
 	    !((WindowPtr) (pDamage->pDrawable))->realized)
 	{
-#if 0
-	    DAMAGE_DEBUG (("damage while window unrealized\n"));
-#endif
 	    continue;
 	}
 	
@@ -663,6 +659,58 @@ damageGlyphs (CARD8		op,
     (*ps->Glyphs) (op, pSrc, pDst, maskFormat, xSrc, ySrc, nlist, list, glyphs);
     damageReportPostOp (pDst->pDrawable);
     wrap (pScrPriv, ps, Glyphs, damageGlyphs);
+}
+
+static void
+damageAddTraps (PicturePtr  pPicture,
+		INT16	    x_off,
+		INT16	    y_off,
+		int	    ntrap,
+		xTrap	    *traps)
+{
+    ScreenPtr		pScreen = pPicture->pDrawable->pScreen;
+    PictureScreenPtr	ps = GetPictureScreen(pScreen);
+    damageScrPriv(pScreen);
+
+    if (checkPictureDamage (pPicture))
+    {
+	BoxRec	box;
+	int	i;
+	int	x, y;
+	xTrap	*t = traps;
+
+	box.x1 = 32767;
+	box.y1 = 32767;
+	box.x2 = -32767;
+	box.y2 = -32767;
+	x = pPicture->pDrawable->x + x_off;
+	y = pPicture->pDrawable->y + y_off;
+	for (i = 0; i < ntrap; i++)
+	{
+	    pixman_fixed_t   l = min (t->top.l, t->bot.l);
+	    pixman_fixed_t   r = max (t->top.r, t->bot.r);
+	    int	    x1 = x + pixman_fixed_to_int (l);
+	    int	    x2 = x + pixman_fixed_to_int (pixman_fixed_ceil (r));
+	    int	    y1 = y + pixman_fixed_to_int (t->top.y);
+	    int	    y2 = y + pixman_fixed_to_int (pixman_fixed_ceil (t->bot.y));
+	    
+	    if (x1 < box.x1)
+		box.x1 = x1;
+	    if (x2 > box.x2)
+		box.x2 = x2;
+	    if (y1 < box.y1)
+		box.y1 = y1;
+	    if (y2 > box.y2)
+		box.y2 = y2;
+	}
+	TRIM_PICTURE_BOX (box, pPicture);
+	if (BOX_NOT_EMPTY(box))
+	    damageDamageBox (pPicture->pDrawable, &box, pPicture->subWindowMode);
+    }
+    unwrap (pScrPriv, ps, AddTraps);
+    (*ps->AddTraps) (pPicture, x_off, y_off, ntrap, traps);
+    damageReportPostOp (pPicture->pDrawable);
+    wrap (pScrPriv, ps, AddTraps, damageAddTraps);
 }
 #endif
 
@@ -1436,6 +1484,7 @@ damagePolyText8(DrawablePtr pDrawable,
     damageText(pDrawable, pGC, x, y, (unsigned long) count, chars,
 	       Linear8Bit, TT_POLY8);
     x = (*pGC->ops->PolyText8) (pDrawable, pGC, x, y, count, chars);
+    damageReportPostOp (pDrawable);
     DAMAGE_GC_OP_EPILOGUE(pGC, pDrawable);
     return x;
 }
@@ -1620,35 +1669,6 @@ damageDestroyPixmap (PixmapPtr pPixmap)
 }
 
 static void
-damagePaintWindow(WindowPtr pWindow,
-		  RegionPtr prgn,
-		  int	    what)
-{
-    ScreenPtr pScreen = pWindow->drawable.pScreen;
-    damageScrPriv(pScreen);
-
-    /*
-     * Painting background none doesn't actually *do* anything, so
-     * no damage is recorded
-     */
-    if ((what != PW_BACKGROUND || pWindow->backgroundState != None) &&
-	getWindowDamage (pWindow))
-	damageDamageRegion (&pWindow->drawable, prgn, FALSE, -1);
-    if(what == PW_BACKGROUND) {
-	unwrap (pScrPriv, pScreen, PaintWindowBackground);
-	(*pScreen->PaintWindowBackground) (pWindow, prgn, what);
-	damageReportPostOp (&pWindow->drawable);
-	wrap (pScrPriv, pScreen, PaintWindowBackground, damagePaintWindow);
-    } else {
-	unwrap (pScrPriv, pScreen, PaintWindowBorder);
-	(*pScreen->PaintWindowBorder) (pWindow, prgn, what);
-	damageReportPostOp (&pWindow->drawable);
-	wrap (pScrPriv, pScreen, PaintWindowBorder, damagePaintWindow);
-    }
-}
-
-
-static void
 damageCopyWindow(WindowPtr	pWindow,
 		 DDXPointRec	ptOldOrg,
 		 RegionPtr	prgnSrc)
@@ -1688,25 +1708,6 @@ static GCOps damageGCOps = {
     damagePolyGlyphBlt, damagePushPixels,
     {NULL}		/* devPrivate */
 };
-
-static void
-damageRestoreAreas (PixmapPtr	pPixmap,
-		    RegionPtr	prgn,
-		    int		xorg,
-		    int		yorg,
-		    WindowPtr	pWindow)
-{
-    ScreenPtr pScreen = pWindow->drawable.pScreen;
-    damageScrPriv(pScreen);
-
-    damageDamageRegion (&pWindow->drawable, prgn, FALSE, -1);
-    unwrap (pScrPriv, pScreen, BackingStoreFuncs.RestoreAreas);
-    (*pScreen->BackingStoreFuncs.RestoreAreas) (pPixmap, prgn,
-						xorg, yorg, pWindow);
-    damageReportPostOp (&pWindow->drawable);
-    wrap (pScrPriv, pScreen, BackingStoreFuncs.RestoreAreas,
-			     damageRestoreAreas);
-}
 
 static void
 damageSetWindowPixmap (WindowPtr pWindow, PixmapPtr pPixmap)
@@ -1761,19 +1762,16 @@ damageDestroyWindow (WindowPtr pWindow)
 }
 
 static Bool
-damageCloseScreen (ScreenPtr pScreen)
+damageCloseScreen (int i, ScreenPtr pScreen)
 {
     damageScrPriv(pScreen);
 
     unwrap (pScrPriv, pScreen, DestroyPixmap);
     unwrap (pScrPriv, pScreen, CreateGC);
-    unwrap (pScrPriv, pScreen, PaintWindowBackground);
-    unwrap (pScrPriv, pScreen, PaintWindowBorder);
     unwrap (pScrPriv, pScreen, CopyWindow);
     unwrap (pScrPriv, pScreen, CloseScreen);
-    unwrap (pScrPriv, pScreen, BackingStoreFuncs.RestoreAreas);
     free (pScrPriv);
-    return (*pScreen->CloseScreen) (pScreen);
+    return (*pScreen->CloseScreen) (i, pScreen);
 }
 
 Bool
@@ -1784,30 +1782,10 @@ DamageSetup (ScreenPtr pScreen)
     PictureScreenPtr	ps = GetPictureScreenIfSet(pScreen);
 #endif
 
-    if (damageGeneration != serverGeneration)
-    {
-	damageScrPrivateIndex = AllocateScreenPrivateIndex ();
-	if (damageScrPrivateIndex == -1)
-	    return FALSE;
-	damageGCPrivateIndex = AllocateGCPrivateIndex ();
-	if (damageGCPrivateIndex == -1)
-	    return FALSE;
-	damagePixPrivateIndex = AllocatePixmapPrivateIndex ();
-	if (damagePixPrivateIndex == -1)
-	    return FALSE;
-	damageWinPrivateIndex = AllocateWindowPrivateIndex ();
-	if (damageWinPrivateIndex == -1)
-	    return FALSE;
-	damageGeneration = serverGeneration;
-    }
-    if (pScreen->devPrivates[damageScrPrivateIndex].ptr)
+    if (dixLookupPrivate(&pScreen->devPrivates, damageScrPrivateKey))
 	return TRUE;
 
-    if (!AllocateGCPrivate (pScreen, damageGCPrivateIndex, sizeof (DamageGCPrivRec)))
-	return FALSE;
-    if (!AllocatePixmapPrivate (pScreen, damagePixPrivateIndex, 0))
-	return FALSE;
-    if (!AllocateWindowPrivate (pScreen, damageWinPrivateIndex, 0))
+    if (!dixRequestPrivate(damageGCPrivateKey, sizeof(DamageGCPrivRec)))
 	return FALSE;
 
     pScrPriv = (DamageScrPrivPtr) malloc (sizeof (DamageScrPrivRec));
@@ -1819,22 +1797,19 @@ DamageSetup (ScreenPtr pScreen)
 
     wrap (pScrPriv, pScreen, DestroyPixmap, damageDestroyPixmap);
     wrap (pScrPriv, pScreen, CreateGC, damageCreateGC);
-    wrap (pScrPriv, pScreen, PaintWindowBackground, damagePaintWindow);
-    wrap (pScrPriv, pScreen, PaintWindowBorder, damagePaintWindow);
     wrap (pScrPriv, pScreen, DestroyWindow, damageDestroyWindow);
     wrap (pScrPriv, pScreen, SetWindowPixmap, damageSetWindowPixmap);
     wrap (pScrPriv, pScreen, CopyWindow, damageCopyWindow);
     wrap (pScrPriv, pScreen, CloseScreen, damageCloseScreen);
-    wrap (pScrPriv, pScreen, BackingStoreFuncs.RestoreAreas,
-			     damageRestoreAreas);
 #ifdef RENDER
     if (ps) {
 	wrap (pScrPriv, ps, Glyphs, damageGlyphs);
 	wrap (pScrPriv, ps, Composite, damageComposite);
+	wrap (pScrPriv, ps, AddTraps, damageAddTraps);
     }
 #endif
 
-    pScreen->devPrivates[damageScrPrivateIndex].ptr = (void *) pScrPriv;
+    dixSetPrivate(&pScreen->devPrivates, damageScrPrivateKey, pScrPriv);
     return TRUE;
 }
 
@@ -1994,7 +1969,13 @@ DamageRegion (DamagePtr		    pDamage)
     return &pDamage->damage;
 }
 
-void
+_X_EXPORT RegionPtr
+DamagePendingRegion (DamagePtr	    pDamage)
+{
+    return &pDamage->pendingDamage;
+}
+
+_X_EXPORT void
 DamageDamageRegion (DrawablePtr	pDrawable,
 		    RegionPtr	pRegion)
 {

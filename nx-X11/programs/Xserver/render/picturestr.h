@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 2000 SuSE, Inc.
+ * Copyright © 2000 SuSE, Inc.
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -27,6 +27,7 @@
 #include "scrnintstr.h"
 #include "glyphstr.h"
 #include "resource.h"
+#include "privates.h"
 
 typedef struct _DirectFormat {
     CARD16	    red, redMask;
@@ -55,8 +56,6 @@ typedef struct _PictFormat {
 typedef struct pixman_vector PictVector, *PictVectorPtr;
 typedef struct pixman_transform PictTransform, *PictTransformPtr;
 
-#define pict_f_transform pixman_f_transform
-
 #define PICT_GRADIENT_STOPTABLE_SIZE 1024
 #define SourcePictTypeSolidFill 0
 #define SourcePictTypeLinear 1
@@ -67,15 +66,11 @@ typedef struct pixman_transform PictTransform, *PictTransformPtr;
 #define SourcePictClassHorizontal 1
 #define SourcePictClassVertical   2
 
-#ifdef NXAGENT_SERVER
-#include "../hw/nxagent/NXpicturestr_PictSolidFill.h"
-#else
 typedef struct _PictSolidFill {
     unsigned int type;
     unsigned int class;
     CARD32 color;
 } PictSolidFill, *PictSolidFillPtr;
-#endif /* NXAGENT_SERVER */
 
 typedef struct _PictGradientStop {
     xFixed x;
@@ -336,10 +331,6 @@ typedef void	(*UnrealizeGlyphProcPtr)    (ScreenPtr	    pScreen,
 					     GlyphPtr	    glyph);
 
 typedef struct _PictureScreen {
-    int				totalPictureSize;
-    unsigned int		*PicturePrivateSizes;
-    int				PicturePrivateLen;
-
     PictFormatPtr		formats;
     PictFormatPtr		fallback;
     int				nformats;
@@ -353,7 +344,7 @@ typedef struct _PictureScreen {
     ValidatePictureProcPtr	ValidatePicture;
 
     CompositeProcPtr		Composite;
-    GlyphsProcPtr		Glyphs;
+    GlyphsProcPtr		Glyphs; /* unused */
     CompositeRectsProcPtr	CompositeRects;
 
     DestroyWindowProcPtr	DestroyWindow;
@@ -397,30 +388,25 @@ typedef struct _PictureScreen {
 
     AddTrapsProcPtr		AddTraps;
 
-    int			  	totalGlyphPrivateSize;
-    unsigned int	  	*glyphPrivateSizes;
-    int			  	glyphPrivateLen;
-    int			  	glyphPrivateOffset;
-
     RealizeGlyphProcPtr   	RealizeGlyph;
     UnrealizeGlyphProcPtr 	UnrealizeGlyph;
 
 } PictureScreenRec, *PictureScreenPtr;
 
-extern int		PictureScreenPrivateIndex;
-extern int		PictureWindowPrivateIndex;
+extern DevPrivateKey	PictureScreenPrivateKey;
+extern DevPrivateKey	PictureWindowPrivateKey;
 extern RESTYPE		PictureType;
 extern RESTYPE		PictFormatType;
 extern RESTYPE		GlyphSetType;
 
-#define GetPictureScreen(s) ((PictureScreenPtr) ((s)->devPrivates[PictureScreenPrivateIndex].ptr))
-#define GetPictureScreenIfSet(s) ((PictureScreenPrivateIndex != -1) ? GetPictureScreen(s) : NULL)
-#define SetPictureScreen(s,p) ((s)->devPrivates[PictureScreenPrivateIndex].ptr = (void *) (p))
-#define GetPictureWindow(w) ((PicturePtr) ((w)->devPrivates[PictureWindowPrivateIndex].ptr))
-#define SetPictureWindow(w,p) ((w)->devPrivates[PictureWindowPrivateIndex].ptr = (void *) (p))
+#define GetPictureScreen(s) ((PictureScreenPtr)dixLookupPrivate(&(s)->devPrivates, PictureScreenPrivateKey))
+#define GetPictureScreenIfSet(s) GetPictureScreen(s)
+#define SetPictureScreen(s,p) dixSetPrivate(&(s)->devPrivates, PictureScreenPrivateKey, p)
+#define GetPictureWindow(w) ((PicturePtr)dixLookupPrivate(&(w)->devPrivates, PictureWindowPrivateKey))
+#define SetPictureWindow(w,p) dixSetPrivate(&(w)->devPrivates, PictureWindowPrivateKey, p)
 
-#define GetGlyphPrivatesForScreen(glyph, s)				\
-    ((glyph)->devPrivates + (GetPictureScreen (s))->glyphPrivateOffset)
+#define GetGlyphPrivatesForScreen(glyph, s) \
+    ((PrivateRec **)dixLookupPrivateAddr(&(glyph)->devPrivates, s))
 
 #define VERIFY_PICTURE(pPicture, pid, client, mode, err) {\
     pPicture = SecurityLookupIDByType(client, pid, PictureType, mode);\
@@ -438,26 +424,17 @@ extern RESTYPE		GlyphSetType;
     } \
 } \
 
-void
-ResetPicturePrivateIndex (void);
-
-int
-AllocatePicturePrivateIndex (void);
-
-Bool
-AllocatePicturePrivate (ScreenPtr pScreen, int index2, unsigned int amount);
-
 Bool
 PictureDestroyWindow (WindowPtr pWindow);
 
 Bool
-PictureCloseScreen (ScreenPtr pScreen);
+PictureCloseScreen (int Index, ScreenPtr pScreen);
 
 void
 PictureStoreColors (ColormapPtr pColormap, int ndef, xColorItem *pdef);
 
 Bool
-PictureInitIndexedFormats (ScreenPtr pScreen);
+PictureInitIndexedFormat (ScreenPtr pScreen, PictFormatPtr format);
 
 Bool
 PictureSetSubpixelOrder (ScreenPtr pScreen, int subpixel);
@@ -514,8 +491,6 @@ PictureFinishInit (void);
 void
 SetPictureToDefaults (PicturePtr pPicture);
 
-PicturePtr
-AllocatePicture (ScreenPtr  pScreen);
 
 #if 0
 Bool
