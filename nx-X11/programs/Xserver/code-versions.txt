@@ -14,7 +14,7 @@ mi                1.5.0
 miext             1.4.2
 os                1.5.0 + many backports, some of them from 2019
 randr             1.18.0
-record            1.4.2
+record            1.5.0
 render            1.4.2
 Xext              1.5.0
 xfixes            1.4.2
