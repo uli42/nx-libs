@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 2002 Keith Packard
+ * Copyright © 2002 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -47,7 +47,7 @@ typedef struct _DamageClient {
     int		critical;
 } DamageClientRec, *DamageClientPtr;
 
-#define GetDamageClient(pClient)    ((DamageClientPtr) (pClient)->devPrivates[DamageClientPrivateIndex].ptr)
+#define GetDamageClient(pClient) ((DamageClientPtr)dixLookupPrivate(&(pClient)->devPrivates, DamageClientPrivateKey))
 
 typedef struct _DamageExt {
     DamagePtr		pDamage;

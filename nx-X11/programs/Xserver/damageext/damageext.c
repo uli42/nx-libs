@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 2002 Keith Packard
+ * Copyright © 2002 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -30,7 +30,7 @@
 static unsigned char	DamageReqCode;
 static int		DamageEventBase;
 static int		DamageErrorBase;
-static int		DamageClientPrivateIndex;
+static DevPrivateKey	DamageClientPrivateKey = &DamageClientPrivateKey;
 static RESTYPE		DamageExtType;
 static RESTYPE		DamageExtWinType;
 
@@ -169,13 +169,17 @@ ProcDamageCreate (ClientPtr client)
     DamageExtPtr	pDamageExt;
     DamageReportLevel	level;
     RegionPtr		pRegion;
+    int			rc;
     
     REQUEST(xDamageCreateReq);
 
     REQUEST_SIZE_MATCH(xDamageCreateReq);
     LEGAL_NEW_RESOURCE(stuff->damage, client);
-    SECURITY_VERIFY_DRAWABLE (pDrawable, stuff->drawable, client,
-			      DixReadAccess);
+    rc = dixLookupDrawable(&pDrawable, stuff->drawable, client, 0,
+			   DixGetAttrAccess|DixReadAccess);
+    if (rc != Success)
+	return rc;
+
     switch (stuff->level) {
     case XDamageReportRawRectangles:
 	level = DamageReportRawRegion;
@@ -277,11 +281,14 @@ ProcDamageAdd (ClientPtr client)
     REQUEST(xDamageAddReq);
     DrawablePtr	    pDrawable;
     RegionPtr	    pRegion;
+    int		    rc;
 
     REQUEST_SIZE_MATCH(xDamageAddReq);
     VERIFY_REGION(pRegion, stuff->region, client, DixWriteAccess);
-    SECURITY_VERIFY_DRAWABLE (pDrawable, stuff->drawable, client,
-                             DixReadAccess);
+    rc = dixLookupDrawable(&pDrawable, stuff->drawable, client, 0,
+			   DixWriteAccess);
+    if (rc != Success)
+	return rc;
 
     /* The region is relative to the drawable origin, so translate it out to
      * screen coordinates like damage expects.
@@ -490,9 +497,7 @@ DamageExtensionInit(void)
     if (!DamageExtWinType)
 	return;
 
-    DamageClientPrivateIndex = AllocateClientPrivateIndex ();
-    if (!AllocateClientPrivate (DamageClientPrivateIndex, 
-				sizeof (DamageClientRec)))
+    if (!dixRequestPrivate(DamageClientPrivateKey, sizeof (DamageClientRec)))
 	return;
     if (!AddCallback (&ClientStateCallback, DamageClientCallback, 0))
 	return;
