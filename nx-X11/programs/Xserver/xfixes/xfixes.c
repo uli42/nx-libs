@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 2006 Sun Microsystems
+ * Copyright © 2006 Sun Microsystems
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -19,7 +19,7 @@
  * TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  *
- * Copyright Â© 2002 Keith Packard
+ * Copyright © 2002 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -50,7 +50,7 @@
 static unsigned char	XFixesReqCode;
 int		XFixesEventBase;
 int		XFixesErrorBase;
-static int	XFixesClientPrivateIndex;
+static DevPrivateKey XFixesClientPrivateKey = &XFixesClientPrivateKey;
 
 static int
 ProcXFixesQueryVersion(ClientPtr client)
@@ -233,9 +233,7 @@ XFixesExtensionInit(void)
 {
     ExtensionEntry *extEntry;
 
-    XFixesClientPrivateIndex = AllocateClientPrivateIndex ();
-    if (!AllocateClientPrivate (XFixesClientPrivateIndex, 
-				sizeof (XFixesClientRec)))
+    if (!dixRequestPrivate(XFixesClientPrivateKey, sizeof (XFixesClientRec)))
 	return;
     if (!AddCallback (&ClientStateCallback, XFixesClientCallback, 0))
 	return;

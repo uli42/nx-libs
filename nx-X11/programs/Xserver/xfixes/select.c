@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 2002 Keith Packard
+ * Copyright © 2002 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -25,6 +25,7 @@
 #endif
 
 #include "xfixesint.h"
+#include "xace.h"
 
 static RESTYPE		SelectionClientType, SelectionWindowType;
 static Bool		SelectionCallbackRegistered = FALSE;
@@ -131,7 +132,12 @@ XFixesSelectSelectionInput (ClientPtr	pClient,
 			    WindowPtr	pWindow,
 			    CARD32	eventMask)
 {
+    int rc;
     SelectionEventPtr	*prev, e;
+
+    rc = XaceHook(XACE_SELECTION_ACCESS, pClient, selection, DixGetAttrAccess);
+    if (rc != Success)
+	return rc;
 
     for (prev = &selectionEvents; (e = *prev); prev = &e->next)
     {
@@ -193,21 +199,12 @@ ProcXFixesSelectSelectionInput (ClientPtr client)
 {
     REQUEST (xXFixesSelectSelectionInputReq);
     WindowPtr	pWin;
-#ifndef NXAGENT_SERVER
     int		rc;
-#endif
 
     REQUEST_SIZE_MATCH (xXFixesSelectSelectionInputReq);
-#ifndef NXAGENT_SERVER
-    rc = dixLookupWindow(&pWin, stuff->window, client, DixReadAccess);
+    rc = dixLookupWindow(&pWin, stuff->window, client, DixGetAttrAccess);
     if (rc != Success)
         return rc;
-#else
-    pWin = (WindowPtr)SecurityLookupWindow(stuff->window, client,
-                                          DixReadAccess);
-    if (!pWin)
-        return(BadWindow);
-#endif
     if (stuff->eventMask & ~SelectionAllEvents)
     {
 	client->errorValue = stuff->eventMask;

@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 2002 Keith Packard
+ * Copyright © 2002 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -35,16 +35,9 @@ ProcXFixesChangeSaveSet(ClientPtr client)
     REQUEST(xXFixesChangeSaveSetReq);
 		  
     REQUEST_SIZE_MATCH(xXFixesChangeSaveSetReq);
-#ifndef NXAGENT_SERVER
-    result = dixLookupWindow(&pWin, stuff->window, client, DixReadAccess);
+    result = dixLookupWindow(&pWin, stuff->window, client, DixManageAccess);
     if (result != Success)
         return result;
-#else
-    pWin = (WindowPtr)SecurityLookupWindow(stuff->window, client,
-					   DixReadAccess);
-    if (!pWin)
-        return(BadWindow);
-#endif
     if (client->clientAsMask == (CLIENT_BITS(pWin->drawable.id)))
         return BadMatch;
     if ((stuff->mode != SetModeInsert) && (stuff->mode != SetModeDelete))

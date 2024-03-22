@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 2003 Keith Packard
+ * Copyright © 2003 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -108,18 +108,18 @@ ProcXFixesCreateRegionFromBitmap (ClientPtr client)
 {
     RegionPtr	pRegion;
     PixmapPtr	pPixmap;
+    int rc;
     REQUEST (xXFixesCreateRegionFromBitmapReq);
 
     REQUEST_SIZE_MATCH (xXFixesCreateRegionFromBitmapReq);
     LEGAL_NEW_RESOURCE (stuff->region, client);
 
-    pPixmap = (PixmapPtr) SecurityLookupIDByType (client, stuff->bitmap,
-						  RT_PIXMAP,
-						  DixReadAccess);
-    if (!pPixmap)
+    rc = dixLookupResource((pointer *)&pPixmap, stuff->bitmap, RT_PIXMAP,
+			   client, DixReadAccess);
+    if (rc != Success)
     {
 	client->errorValue = stuff->bitmap;
-	return BadPixmap;
+	return (rc == BadValue) ? BadPixmap : rc;
     }
     if (pPixmap->drawable.depth != 1)
 	return BadMatch;
@@ -153,15 +153,17 @@ ProcXFixesCreateRegionFromWindow (ClientPtr client)
     RegionPtr	pRegion;
     Bool	copy = TRUE;
     WindowPtr	pWin;
+    int rc;
     REQUEST (xXFixesCreateRegionFromWindowReq);
     
     REQUEST_SIZE_MATCH (xXFixesCreateRegionFromWindowReq);
     LEGAL_NEW_RESOURCE (stuff->region, client);
-    pWin = (WindowPtr) LookupIDByType (stuff->window, RT_WINDOW);
-    if (!pWin)
+    rc = dixLookupResource((pointer *)&pWin, stuff->window, RT_WINDOW,
+			   client, DixGetAttrAccess);
+    if (rc != Success)
     {
 	client->errorValue = stuff->window;
-	return BadWindow;
+	return (rc == BadValue) ? BadWindow : rc;
     }
     switch (stuff->kind) {
     case WindowRegionBounding:
@@ -215,21 +217,15 @@ ProcXFixesCreateRegionFromGC (ClientPtr client)
 {
     RegionPtr	pRegion, pClip;
     GCPtr	pGC;
-#ifndef NXAGENT_SERVER
     int 	rc;
-#endif
     REQUEST (xXFixesCreateRegionFromGCReq);
 
     REQUEST_SIZE_MATCH (xXFixesCreateRegionFromGCReq);
     LEGAL_NEW_RESOURCE (stuff->region, client);
 
-#ifndef NXAGENT_SERVER
-    rc = dixLookupGC(&pGC, stuff->gc, client, DixReadAccess);
+    rc = dixLookupGC(&pGC, stuff->gc, client, DixGetAttrAccess);
     if (rc != Success)
 	return rc;
-#else
-    SECURITY_VERIFY_GC(pGC, stuff->gc, client, DixReadAccess);
-#endif
     
     switch (pGC->clientClipType) {
     case CT_PIXMAP:
@@ -622,20 +618,14 @@ ProcXFixesSetGCClipRegion (ClientPtr client)
     GCPtr	pGC;
     RegionPtr	pRegion;
     XID		vals[2];
-#ifndef NXAGENT_SERVER
     int		rc;
-#endif
     REQUEST(xXFixesSetGCClipRegionReq);
-
     REQUEST_SIZE_MATCH(xXFixesSetGCClipRegionReq);
 
-#ifndef NXAGENT_SERVER
-    rc = dixLookupGC(&pGC, stuff->gc, client, DixWriteAccess);
+    rc = dixLookupGC(&pGC, stuff->gc, client, DixSetAttrAccess);
     if (rc != Success)
 	return rc;
-#else
-    SECURITY_VERIFY_GC(pGC, stuff->gc, client, DixWriteAccess);
-#endif
+
     VERIFY_REGION_OR_NONE (pRegion, stuff->region, client, DixReadAccess);
 
     if (pRegion)
@@ -677,14 +667,16 @@ ProcXFixesSetWindowShapeRegion (ClientPtr client)
     ScreenPtr	    pScreen;
     RegionPtr	    pRegion;
     RegionPtr	    *pDestRegion;
+    int rc;
     REQUEST(xXFixesSetWindowShapeRegionReq);
 
     REQUEST_SIZE_MATCH(xXFixesSetWindowShapeRegionReq);
-    pWin = (WindowPtr) LookupIDByType (stuff->dest, RT_WINDOW);
-    if (!pWin)
+    rc = dixLookupResource((pointer *)&pWin, stuff->dest, RT_WINDOW,
+			   client, DixSetAttrAccess);
+    if (rc != Success)
     {
 	client->errorValue = stuff->dest;
-	return BadWindow;
+	return (rc == BadValue) ? BadWindow : rc;
     }
     VERIFY_REGION_OR_NONE(pRegion, stuff->region, client, DixWriteAccess);
     pScreen = pWin->drawable.pScreen;
