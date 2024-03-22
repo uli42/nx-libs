@@ -83,7 +83,7 @@ extern void miFreeSpanGroup(
     SpanGroup * /*spanGroup*/
 );
 
-extern int miClipSpans(
+extern int RegionClipSpans(
     RegionPtr /*prgnDst*/,
     DDXPointPtr /*ppt*/,
     int * /*pwidth*/,

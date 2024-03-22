@@ -358,7 +358,7 @@ extern void miPushPixels(
 
 /* see also region.h */
 
-extern Bool miRectAlloc(
+extern Bool RegionRectAlloc(
     RegionPtr /*pRgn*/,
     int /*n*/
 );
@@ -368,12 +368,12 @@ extern int miFindMaxBand(
 );
 
 #ifdef DEBUG
-extern Bool miValidRegion(
+extern Bool RegionIsValid(
     RegionPtr /*prgn*/
 );
 #endif
 
-extern Bool miRegionBroken(RegionPtr pReg);
+extern Bool RegionBroken(RegionPtr pReg);
 
 /* miscrinit.c */
 
