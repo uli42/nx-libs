@@ -118,7 +118,7 @@ dixAllocatePrivate(PrivateRec **privates, const DevPrivateKey key)
     if (item) {
 	PrivateCallbackRec calldata = { key, &ptr->value };
 	CallCallbacks(&item->initfuncs, &calldata);
-}
+    }
     return &ptr->value;
 }
 
@@ -135,7 +135,7 @@ dixLookupPrivate(PrivateRec **privates, const DevPrivateKey key)
 	if (rec->key == key)
 	    return rec->value;
 	rec = rec->next;
-	}
+    }
 
     ptr = dixAllocatePrivate(privates, key);
     return ptr ? *ptr : NULL;
@@ -172,9 +172,9 @@ dixSetPrivate(PrivateRec **privates, const DevPrivateKey key, void * val)
 	if (rec->key == key) {
 	    rec->value = val;
 	    return TRUE;
-    }
+	}
 	rec = rec->next;
-}
+    }
 
     if (!dixAllocatePrivate(privates, key))
 	return FALSE;
@@ -198,9 +198,9 @@ dixFreePrivates(PrivateRec *privates)
 	    calldata.key = ptr->key;
 	    calldata.value = &ptr->value;
 	    CallCallbacks(&item->deletefuncs, &calldata);
-}
-}
-
+	}
+    }
+	
     /* second pass frees the memory */
     ptr = privates;
     while (ptr) {
@@ -222,14 +222,14 @@ dixRegisterPrivateInitFunc(const DevPrivateKey key,
 	if (!dixRequestPrivate(key, 0))
 	    return FALSE;
 	item = findItem(key);
-	}
-    return AddCallback(&item->initfuncs, callback, data);
     }
+    return AddCallback(&item->initfuncs, callback, data);
+}
 
 int
 dixRegisterPrivateDeleteFunc(const DevPrivateKey key,
 			     CallbackProcPtr callback, void * data)
-    {
+{
     PrivateDescRec *item = findItem(key);
     if (!item) {
 	if (!dixRequestPrivate(key, 0))
@@ -271,11 +271,11 @@ dixRegisterPrivateOffset(RESTYPE type, int offset)
 	if (!offsets) {
 	    offsetsSize = 0;
 	    return FALSE;
-    }
+	}
 	for (i=offsetsSize; i < 2*offsetsSize; i++)
 	    offsets[i] = -1;
 	offsetsSize *= 2;
-}
+    }
 
     offsets[type] = offset;
     return TRUE;
@@ -287,10 +287,10 @@ dixLookupPrivateOffset(RESTYPE type)
     type = type & TypeMask;
     assert(type < offsetsSize);
     return offsets[type];
-	}
+}
 
 int
-AllocateDevicePrivateIndex(void)
+dixResetPrivates(void)
 {
     PrivateDescRec *next;
 
@@ -308,7 +308,7 @@ AllocateDevicePrivateIndex(void)
     offsets = (int *)malloc(offsetsSize);
     offsetsSize /= sizeof(int);
     if (!offsets)
-	    return FALSE;
+	return FALSE;
     memcpy(offsets, offsetDefaults, sizeof(offsetDefaults));
-	return TRUE;
+    return TRUE;
 }
