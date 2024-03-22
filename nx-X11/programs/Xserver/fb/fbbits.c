@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 1998 Keith Packard
+ * Copyright © 1998 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -108,7 +108,7 @@
 #define FbDoTypeMaskRRop(b,t,a,x,m,s) WRITE((t *) (b), FbDoMaskRRop(READ((t *) (b)),\
 								    (a) >> (s), \
 								    (x) >> (s), \
-								   (m) >> (s))
+								    (m) >> (s)))
 #if BITMAP_BIT_ORDER == LSBFirst
 #define BITSSTORE(b,x)	((unsigned long) (b) & 1 ? \
 			 (FbDoTypeStore (b, CARD8, x, 0), \

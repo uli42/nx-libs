@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 1998 Keith Packard
+ * Copyright © 1998 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -32,8 +32,8 @@ Bool
 fbCreateWindow(WindowPtr pWin)
 {
 #ifndef FB_NO_WINDOW_PIXMAPS
-    pWin->devPrivates[fbWinPrivateIndex].ptr = 
-	(void *) fbGetScreenPixmap(pWin->drawable.pScreen);
+    dixSetPrivate(&pWin->devPrivates, fbGetWinPrivateKey(),
+		  fbGetScreenPixmap(pWin->drawable.pScreen));
 #endif
 #ifdef FB_SCREEN_PRIVATE
     if (pWin->drawable.bitsPerPixel == 32)
@@ -249,124 +249,4 @@ fbFillRegionSolid (DrawablePtr	pDrawable,
     }
     
     fbFinishAccess (pDrawable);
-}
-
-#ifdef PANORAMIX
-#include "panoramiX.h"
-#include "panoramiXsrv.h"
-#endif
-
-void
-fbFillRegionTiled (DrawablePtr	pDrawable,
-		   RegionPtr	pRegion,
-		   PixmapPtr	pTile)
-{
-    FbBits	*dst;
-    FbStride	dstStride;
-    int		dstBpp;
-    int		dstXoff, dstYoff;
-    FbBits	*tile;
-    FbStride	tileStride;
-    int		tileBpp;
-    _X_UNUSED int		tileXoff, tileYoff; /* XXX assumed to be zero */
-    int		tileWidth, tileHeight;
-    int		n = RegionNumRects(pRegion);
-    BoxPtr	pbox = RegionRects(pRegion);
-    int		xRot = pDrawable->x;
-    int		yRot = pDrawable->y;
-    
-#ifdef PANORAMIX
-    if(!noPanoramiXExtension) 
-    {
-	int index = pDrawable->pScreen->myNum;
-	if(&screenInfo.screens[index]->root->drawable == pDrawable)
-	{
-	    xRot -= panoramiXdataPtr[index].x;
-	    yRot -= panoramiXdataPtr[index].y;
-	}
-    }
-#endif
-    fbGetDrawable (pDrawable, dst, dstStride, dstBpp, dstXoff, dstYoff);
-    fbGetDrawable (&pTile->drawable, tile, tileStride, tileBpp, tileXoff, tileYoff);
-    tileWidth = pTile->drawable.width;
-    tileHeight = pTile->drawable.height;
-    xRot += dstXoff;
-    yRot += dstYoff;
-    
-    while (n--)
-    {
-	fbTile (dst + (pbox->y1 + dstYoff) * dstStride,
-		dstStride,
-		(pbox->x1 + dstXoff) * dstBpp,
-		(pbox->x2 - pbox->x1) * dstBpp,
-		pbox->y2 - pbox->y1,
-		tile,
-		tileStride,
-		tileWidth * dstBpp,
-		tileHeight,
-		GXcopy,
-		FB_ALLONES,
-		dstBpp,
-		xRot * dstBpp,
-		yRot - (pbox->y1 + dstYoff));
-	pbox++;
-    }
-
-    fbFinishAccess (&pTile->drawable);
-    fbFinishAccess (pDrawable);
-}
-
-void
-fbPaintWindow(WindowPtr pWin, RegionPtr pRegion, int what)
-{
-    WindowPtr	pBgWin;
-    
-    switch (what) {
-    case PW_BACKGROUND:
-	switch (pWin->backgroundState) {
-	case None:
-	    break;
-	case ParentRelative:
-	    do {
-		pWin = pWin->parent;
-	    } while (pWin->backgroundState == ParentRelative);
-	    (*pWin->drawable.pScreen->PaintWindowBackground)(pWin, pRegion,
-							     what);
-	    break;
-	case BackgroundPixmap:
-	    fbFillRegionTiled (&pWin->drawable,
-			       pRegion,
-			       pWin->background.pixmap);
-	    break;
-	case BackgroundPixel:
-	    fbFillRegionSolid (&pWin->drawable,
-			       pRegion,
-			       0,
-			       fbReplicatePixel (pWin->background.pixel,
-						 pWin->drawable.bitsPerPixel));
-	    break;
-    	}
-    	break;
-    case PW_BORDER:
-	if (pWin->borderIsPixel)
-	{
-	    fbFillRegionSolid (&pWin->drawable,
-			       pRegion,
-			       0,
-			       fbReplicatePixel (pWin->border.pixel,
-						 pWin->drawable.bitsPerPixel));
-	}
-	else
-	{
-	    for (pBgWin = pWin;
-		 pBgWin->backgroundState == ParentRelative;
-		 pBgWin = pBgWin->parent);
-
-	    fbFillRegionTiled (&pBgWin->drawable,
-			       pRegion,
-			       pWin->border.pixmap);
-	}
-	break;
-    }
-    fbValidateDrawable (&pWin->drawable);
 }

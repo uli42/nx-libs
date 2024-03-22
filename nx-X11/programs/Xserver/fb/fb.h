@@ -1,6 +1,6 @@
 /*
  *
- * Copyright © 1998 Keith Packard
+ * Copyright ? 1998 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -37,6 +37,7 @@
 #include "miscstruct.h"
 #include "servermd.h"
 #include "windowstr.h"
+#include "privates.h"
 #include "mi.h"
 #include "migc.h"
 #include "mibstore.h"
@@ -137,7 +138,7 @@
       defined(ia64) || defined(__ia64__) || \
       defined(__sparc64__) || defined(_LP64) || \
       defined(__s390x__) || \
-      defined(amd64) || defined (__amd64__) || \
+      defined(amd64) || defined (__amd64__) || defined(__x86_64__) || \
       defined (__powerpc64__) || \
       (defined(sgi) && (_MIPS_SZLONG == 64))
 typedef unsigned long	    FbBits;
@@ -594,13 +595,9 @@ extern void fbSetBits (FbStip *bits, int stride, FbStip data);
     }							    \
 }
 
-/* XXX fb*PrivateIndex should be static, but it breaks the ABI */
-
-extern int	fbGCPrivateIndex;
-extern int	fbGetGCPrivateIndex(void);
+extern DevPrivateKey fbGetGCPrivateKey(void);
 #ifndef FB_NO_WINDOW_PIXMAPS
-extern int	fbWinPrivateIndex;
-extern int	fbGetWinPrivateIndex(void);
+extern DevPrivateKey fbGetWinPrivateKey(void);
 #endif
 extern const GCOps	fbGCOps;
 extern const GCFuncs	fbGCFuncs;
@@ -636,8 +633,7 @@ typedef void (*FinishWrapProcPtr)(DrawablePtr pDraw);
 
 
 #ifdef FB_SCREEN_PRIVATE
-extern int	fbScreenPrivateIndex;
-extern int	fbGetScreenPrivateIndex(void);
+extern DevPrivateKey fbGetScreenPrivateKey(void);
 
 /* private field of a screen */
 typedef struct {
@@ -650,7 +646,7 @@ typedef struct {
 } FbScreenPrivRec, *FbScreenPrivPtr;
 
 #define fbGetScreenPrivate(pScreen) ((FbScreenPrivPtr) \
-				     (pScreen)->devPrivates[fbGetScreenPrivateIndex()].ptr)
+	dixLookupPrivate(&(pScreen)->devPrivates, fbGetScreenPrivateKey()))
 #endif
 
 /* private field of GC */
@@ -665,7 +661,7 @@ typedef struct {
 } FbGCPrivRec, *FbGCPrivPtr;
 
 #define fbGetGCPrivate(pGC)	((FbGCPrivPtr)\
-	(pGC)->devPrivates[fbGetGCPrivateIndex()].ptr)
+	dixLookupPrivate(&(pGC)->devPrivates, fbGetGCPrivateKey()))
 
 #define fbGetCompositeClip(pGC) ((pGC)->pCompositeClip)
 #define fbGetExpose(pGC)	((pGC)->fExpose)
@@ -677,7 +673,7 @@ typedef struct {
 #define fbGetWindowPixmap(d)	fbGetScreenPixmap(((DrawablePtr) (d))->pScreen)
 #else
 #define fbGetWindowPixmap(pWin)	((PixmapPtr)\
-	((WindowPtr) (pWin))->devPrivates[fbGetWinPrivateIndex()].ptr)
+    dixLookupPrivate(&((WindowPtr)(pWin))->devPrivates, fbGetWinPrivateKey()))
 #endif
 
 #ifdef ROOTLESS
@@ -830,7 +826,7 @@ fb24_32ModifyPixmapHeader (PixmapPtr   pPixmap,
  * fballpriv.c
  */
 Bool
-fbAllocatePrivates(ScreenPtr pScreen, int *pGCIndex);
+fbAllocatePrivates(ScreenPtr pScreen, DevPrivateKey *pGCIndex);
     
 /*
  * fbarc.c
@@ -1258,23 +1254,6 @@ fbBltPlane (FbBits	    *src,
 	    Pixel	    planeMask);
 
 /*
- * fbbstore.c
- */
-void
-fbSaveAreas(PixmapPtr	pPixmap,
-	    RegionPtr	prgnSave,
-	    int		xorg,
-	    int		yorg,
-	    WindowPtr	pWin);
-
-void
-fbRestoreAreas(PixmapPtr    pPixmap,
-	       RegionPtr    prgnRestore,
-	       int	    xorg,
-	       int	    yorg,
-	       WindowPtr    pWin);
-
-/*
  * fbcmap.c
  */
 int
@@ -1635,10 +1614,11 @@ fbPictureInit (ScreenPtr pScreen,
 
 PixmapPtr
 fbCreatePixmapBpp (ScreenPtr pScreen, int width, int height, int depth, int bpp,
-                   unsigned usage_hint);
+		   unsigned usage_hint);
 
 PixmapPtr
-fbCreatePixmap (ScreenPtr pScreen, int width, int height, int depth, unsigned usage_hint);
+fbCreatePixmap (ScreenPtr pScreen, int width, int height, int depth,
+		unsigned usage_hint);
 
 Bool
 fbDestroyPixmap (PixmapPtr pPixmap);
@@ -1742,7 +1722,7 @@ fbPushPixels (GCPtr	    pGC,
  */
 
 Bool
-fbCloseScreen (ScreenPtr pScreen);
+fbCloseScreen (int indx, ScreenPtr pScreen);
 
 Bool
 fbRealizeFont(ScreenPtr pScreen, FontPtr pFont);
@@ -2102,15 +2082,6 @@ fbFillRegionSolid (DrawablePtr	pDrawable,
 		   RegionPtr	pRegion,
 		   FbBits	and,
 		   FbBits	xor);
-
-void
-fbFillRegionTiled (DrawablePtr	pDrawable,
-		   RegionPtr	pRegion,
-		   PixmapPtr	pTile);
-
-void
-fbPaintWindow(WindowPtr pWin, RegionPtr pRegion, int what);
-
 
 pixman_image_t *image_from_pict (PicturePtr pict,
 				 Bool       has_clip);

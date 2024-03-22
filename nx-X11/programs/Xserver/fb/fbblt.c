@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 1998 Keith Packard
+ * Copyright © 1998 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -837,9 +837,6 @@ fbBltOdd24 (FbBits	*srcLine,
 	    even = TRUE;
 	}
     }
-#if 0
-    fprintf (stderr, "\n");
-#endif
 }
 #endif
 

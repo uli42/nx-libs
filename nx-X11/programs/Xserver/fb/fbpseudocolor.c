@@ -94,8 +94,6 @@ typedef struct {
     CreateScreenResourcesProcPtr CreateScreenResources;
     CreateWindowProcPtr		CreateWindow;
     CopyWindowProcPtr		CopyWindow;
-    PaintWindowProcPtr		PaintWindowBackground;
-    PaintWindowProcPtr		PaintWindowBorder;
     WindowExposuresProcPtr	WindowExposures;
     CreateGCProcPtr		CreateGC;
     CreateColormapProcPtr	CreateColormap;
@@ -125,13 +123,11 @@ typedef struct {
 } xxScrPrivRec, *xxScrPrivPtr;
 
 #define xxGetScrPriv(s)	((xxScrPrivPtr) \
-				 (xxScrPrivateIndex != -1) \
-                          ? (s)->devPrivates[xxScrPrivateIndex].ptr\
-				: NULL)
+    dixLookupPrivate(&(s)->devPrivates, xxScrPrivateKey))
 #define xxScrPriv(s)     xxScrPrivPtr pScrPriv = xxGetScrPriv(s)
 
 #define xxGetCmapPriv(s) ((xxCmapPrivPtr) \
-                          (s)->devPrivates[xxColormapPrivateIndex].ptr)
+    dixLookupPrivate(&(s)->devPrivates, xxColormapPrivateKey))
 #define xxCmapPriv(s)    xxCmapPrivPtr pCmapPriv = xxGetCmapPriv(s);
 
 typedef struct _xxGCPriv {
@@ -140,13 +136,12 @@ typedef struct _xxGCPriv {
 } xxGCPrivRec, *xxGCPrivPtr;
 
 #define xxGetGCPriv(pGC) ((xxGCPrivPtr) \
-				      (pGC)->devPrivates[xxGCPrivateIndex].ptr)
+    dixLookupPrivate(&(pGC)->devPrivates, xxGCPrivateKey))
 #define xxGCPriv(pGC)   xxGCPrivPtr  pGCPriv = xxGetGCPriv(pGC)
 
-int xxScrPrivateIndex = -1;
-int xxGCPrivateIndex;
-int xxColormapPrivateIndex = -1;
-int xxGeneration;
+static DevPrivateKey xxScrPrivateKey = &xxScrPrivateKey;
+static DevPrivateKey xxGCPrivateKey = &xxGCPrivateKey;
+static DevPrivateKey xxColormapPrivateKey = &xxColormapPrivateKey;
 
 
 #define wrap(priv,real,mem,func) {\
@@ -356,26 +351,20 @@ xxMyVisual(ScreenPtr pScreen, VisualID vid)
 }
 
 static Bool
-xxInitColormapDummy(ColormapPtr pmap, int index)
-{
-    return TRUE;
-}
-
-static Bool
 xxInitColormapPrivate(ColormapPtr pmap)
 {
     xxScrPriv(pmap->pScreen);
     xxCmapPrivPtr	pCmapPriv;
     void *		cmap;
 
-    pmap->devPrivates[xxColormapPrivateIndex].ptr = (void *) -1;
+    dixSetPrivate(&pmap->devPrivates, xxColormapPrivateKey, (void *) -1);
     
     if (xxMyVisual(pmap->pScreen,pmap->pVisual->vid)) {
 	DBG("CreateColormap\n");
 	pCmapPriv = (xxCmapPrivPtr) malloc (sizeof (xxCmapPrivRec));
 	if (!pCmapPriv)
 	    return FALSE;
-	pmap->devPrivates[xxColormapPrivateIndex].ptr = (void *) pCmapPriv;
+	dixSetPrivate(&pmap->devPrivates, xxColormapPrivateKey, pCmapPriv);
 	cmap = malloc(sizeof (CARD32) * (1 << pScrPriv->myDepth));
 	if (!cmap)
 	return FALSE;
@@ -677,7 +666,7 @@ xxCreateWindow(WindowPtr pWin)
     
     DBG("CreateWindow\n");
 
-    pWin->devPrivates[fbWinPrivateIndex].ptr = (void *) pScrPriv->pPixmap;
+    dixSetPrivate(&pWin->devPrivates, fbGetWinPrivateKey(), pScrPriv->pPixmap);
     PRINT_RECTS(pScrPriv->region);
 	if (!pWin->parent) {
 	RegionEmpty(&pScrPriv->region);
@@ -747,8 +736,9 @@ xxCopyWindow(WindowPtr	pWin,
 
     unwrap (pScrPriv, pScreen, CopyWindow);
     pWin->devPrivates[fbWinPrivateIndex].ptr = fbGetScreenPixmap(pScreen);
+		  fbGetScreenPixmap(pScreen));
     pScreen->CopyWindow(pWin, ptOldOrg, prgnSrc);
-    pWin->devPrivates[fbWinPrivateIndex].ptr = pPixmap;
+    dixSetPrivate(&pWin->devPrivates, fbGetWinPrivateKey(), pPixmap);
     wrap(pScrPriv, pScreen, CopyWindow, xxCopyWindow);
 
     RegionIntersect(&rgn,&rgn,&rgn_new);
@@ -792,70 +782,6 @@ xxWindowExposures (WindowPtr	pWin,
     unwrap (pScrPriv, pWin->drawable.pScreen, WindowExposures);
     pWin->drawable.pScreen->WindowExposures(pWin, prgn, other_exposed);
     wrap(pScrPriv, pWin->drawable.pScreen, WindowExposures, xxWindowExposures);
-}
-
-static void
-xxPaintWindow(WindowPtr pWin, RegionPtr pRegion, int what)
-{
-    xxScrPriv(pWin->drawable.pScreen);
-    RegionRec		rgni;
-
-    DBG("xxPaintWindow\n");
-
-    RegionNull(&rgni);
-#if 0
-    RegionUnion(&rgni, &rgni, &pWin->borderClip);
-    RegionIntersect(&rgni, &rgni, pRegion);
-#else
-    RegionUnion(&rgni, &rgni, pRegion);
-#endif
-    switch (what) {
-    case PW_BORDER:
-	RegionSubtract(&rgni, &rgni, &pWin->winSize);
-	if (fbGetWindowPixmap(pWin) == pScrPriv->pPixmap) {
-	    DBG("PaintWindowBorder\n");
-	    RegionUnion(&pScrPriv->region,
-			  &pScrPriv->region, &rgni);
-	} else {
-	    DBG("PaintWindowBorder NoOverlay\n");
-	    RegionSubtract(&pScrPriv->region,
-			     &pScrPriv->region, &rgni);	
-	}
-	unwrap (pScrPriv, pWin->drawable.pScreen, PaintWindowBorder);
-	pWin->drawable.pScreen->PaintWindowBorder (pWin, pRegion, what);
-	wrap(pScrPriv, pWin->drawable.pScreen, PaintWindowBorder,
-	     xxPaintWindow);	
-	break;
-    case PW_BACKGROUND:
-	switch (pWin->backgroundState) {
-	case None:
-	    break;
-	default:
-	    RegionIntersect(&rgni,
-			      &rgni,&pWin->winSize);
-	    if (fbGetWindowPixmap(pWin) == pScrPriv->pPixmap) {
-		DBG("PaintWindowBackground\n");
-		RegionUnion(&pScrPriv->region,
-			      &pScrPriv->region, &rgni);
-	    } else {
-		DBG("PaintWindowBackground NoOverlay\n");
-		RegionSubtract(&pScrPriv->region,
-				 &pScrPriv->region, &rgni);	
-	    }
-	    break;
-	}
-	
-	unwrap (pScrPriv, pWin->drawable.pScreen, PaintWindowBackground);
-	pWin->drawable.pScreen->PaintWindowBackground (pWin, pRegion, what);
-	wrap(pScrPriv, pWin->drawable.pScreen, PaintWindowBackground,
-	     xxPaintWindow);
-	break;
-    }
-    PRINT_RECTS(rgni);
-    PRINT_RECTS(pScrPriv->region);
-#if 1
-    RegionUninit(&rgni);
-#endif
 }
 
 static void
@@ -1082,7 +1008,7 @@ xxBlockHandler (void *	data,
 }
 
 static void
-xxWakeupHandler (void * data, int i, pointer LastSelectMask)
+xxWakeupHandler (void * data, int i, void * LastSelectMask)
 {
 }
 
@@ -1098,21 +1024,7 @@ xxSetup(ScreenPtr pScreen, int myDepth, int baseDepth, char* addr, xxSyncFunc sy
     PictureScreenPtr	ps = GetPictureScreenIfSet(pScreen);
 #endif
 
-    if (xxGeneration != serverGeneration) {
-	xxScrPrivateIndex = AllocateScreenPrivateIndex ();
-	if (xxScrPrivateIndex == -1)
-	    return FALSE;
-	xxColormapPrivateIndex
-	    = AllocateColormapPrivateIndex (xxInitColormapDummy);
-	if (xxColormapPrivateIndex == -1)
-	    return FALSE;
-	xxGCPrivateIndex = AllocateGCPrivateIndex ();
-	if (xxGCPrivateIndex == -1)
-	    return FALSE;
-	xxGeneration = serverGeneration;
-    }
-
-    if (!AllocateGCPrivate (pScreen, xxGCPrivateIndex, sizeof (xxGCPrivRec)))
+    if (!dixRequestPrivate(xxGCPrivateKey, sizeof (xxGCPrivRec)))
 	return FALSE;
 
     pScrPriv = (xxScrPrivPtr) malloc (sizeof (xxScrPrivRec));
@@ -1171,8 +1083,6 @@ xxSetup(ScreenPtr pScreen, int myDepth, int baseDepth, char* addr, xxSyncFunc sy
     wrap (pScrPriv, pScreen, CreateScreenResources, xxCreateScreenResources);
     wrap (pScrPriv, pScreen, CreateWindow, xxCreateWindow);
     wrap (pScrPriv, pScreen, CopyWindow, xxCopyWindow);
-    wrap (pScrPriv, pScreen, PaintWindowBorder, xxPaintWindow);
-    wrap (pScrPriv, pScreen, PaintWindowBackground, xxPaintWindow);
 #if 0 /* can we leave this out even with backing store enabled ? */
     wrap (pScrPriv, pScreen, WindowExposures, xxWindowExposures);
 #endif
@@ -1190,7 +1100,7 @@ xxSetup(ScreenPtr pScreen, int myDepth, int baseDepth, char* addr, xxSyncFunc sy
     }
 #endif
     pScrPriv->addr = addr;
-    pScreen->devPrivates[xxScrPrivateIndex].ptr = (void *) pScrPriv;
+    dixSetPrivate(&pScreen->devPrivates, xxScrPrivateKey, pScrPriv);
 
     pDefMap = (ColormapPtr) LookupIDByType(pScreen->defColormap, RT_COLORMAP);
     if (!xxInitColormapPrivate(pDefMap))

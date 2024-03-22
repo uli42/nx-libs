@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 1998 Keith Packard
+ * Copyright © 1998 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -27,7 +27,7 @@
 #include "fb.h"
 
 Bool
-fbCloseScreen (ScreenPtr pScreen)
+fbCloseScreen (int index, ScreenPtr pScreen)
 {
     int	    d;
     DepthPtr	depths = pScreen->allowedDepths;
@@ -38,7 +38,7 @@ fbCloseScreen (ScreenPtr pScreen)
     free (pScreen->visuals);
     free (pScreen->devPrivate);
 #ifdef FB_SCREEN_PRIVATE
-    free (pScreen->devPrivates[fbScreenPrivateIndex].ptr);
+    free (dixLookupPrivate(&pScreen->devPrivates, fbGetScreenPrivateKey()));
 #endif
     return TRUE;
 }
@@ -93,7 +93,7 @@ _fbSetWindowPixmap (WindowPtr pWindow, PixmapPtr pPixmap)
 #ifdef FB_NO_WINDOW_PIXMAPS
     FatalError ("Attempted to set window pixmap without fb support\n");
 #else
-    pWindow->devPrivates[fbWinPrivateIndex].ptr = (void *) pPixmap;
+    dixSetPrivate(&pWindow->devPrivates, fbGetWinPrivateKey(), pPixmap);
 #endif
 }
 
@@ -107,7 +107,7 @@ fbSetupScreen(ScreenPtr	pScreen,
 	      int	width,		/* pixel width of frame buffer */
 	      int	bpp)		/* bits per pixel for screen */
 {
-    if (!fbAllocatePrivates(pScreen, (int *) 0))
+    if (!fbAllocatePrivates(pScreen, NULL))
 	return FALSE;
     pScreen->defColormap = FakeClientID(0);
     /* let CreateDefColormap do whatever it wants for pixels */ 
@@ -122,8 +122,6 @@ fbSetupScreen(ScreenPtr	pScreen,
     pScreen->ChangeWindowAttributes = fbChangeWindowAttributes;
     pScreen->RealizeWindow = fbMapWindow;
     pScreen->UnrealizeWindow = fbUnmapWindow;
-    pScreen->PaintWindowBackground = fbPaintWindow;
-    pScreen->PaintWindowBorder = fbPaintWindow;
     pScreen->CopyWindow = fbCopyWindow;
     pScreen->CreatePixmap = fbCreatePixmap;
     pScreen->DestroyPixmap = fbDestroyPixmap;
@@ -142,12 +140,6 @@ fbSetupScreen(ScreenPtr	pScreen,
     pScreen->GetWindowPixmap = _fbGetWindowPixmap;
     pScreen->SetWindowPixmap = _fbSetWindowPixmap;
 
-    pScreen->BackingStoreFuncs.SaveAreas = fbSaveAreas;
-    pScreen->BackingStoreFuncs.RestoreAreas = fbRestoreAreas;
-    pScreen->BackingStoreFuncs.SetClipmaskRgn = 0;
-    pScreen->BackingStoreFuncs.GetImagePixmap = 0;
-    pScreen->BackingStoreFuncs.GetSpansPixmap = 0;
-    
     return TRUE;
 }
 

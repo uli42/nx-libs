@@ -1,6 +1,6 @@
 /*
  *
- * Copyright Â© 2000 SuSE, Inc.
+ * Copyright © 2000 SuSE, Inc.
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -25,9 +25,9 @@
 #ifndef _FBOVERLAY_H_
 #define _FBOVERLAY_H_
 
-extern int	fbOverlayGeneration;
-extern int	fbOverlayScreenPrivateIndex; /* XXX should be static */
-extern int	fbOverlayGetScreenPrivateIndex(void);
+#include "privates.h"
+
+extern DevPrivateKey fbOverlayGetScreenPrivateKey(void);
 
 #ifndef FB_OVERLAY_MAX
 #define FB_OVERLAY_MAX	2
@@ -58,13 +58,12 @@ typedef struct _fbOverlayScrPriv {
 } FbOverlayScrPrivRec, *FbOverlayScrPrivPtr;
 
 #define fbOverlayGetScrPriv(s) \
-    ((fbOverlayGetScreenPrivateIndex() != -1) ? \
-     (s)->devPrivates[fbOverlayGetScreenPrivateIndex()].ptr : NULL)
+    dixLookupPrivate(&(s)->devPrivates, fbOverlayGetScreenPrivateKey())
 Bool
 fbOverlayCreateWindow(WindowPtr pWin);
 
 Bool
-fbOverlayCloseScreen (ScreenPtr pScreen);
+fbOverlayCloseScreen (int iScreen, ScreenPtr pScreen);
 
 int
 fbOverlayWindowLayer(WindowPtr pWin);
@@ -92,10 +91,6 @@ void
 fbOverlayWindowExposures (WindowPtr	pWin,
 			  RegionPtr	prgn,
 			  RegionPtr	other_exposed);
-
-void
-fbOverlayPaintWindow(WindowPtr pWin, RegionPtr pRegion, int what);
-
 
 Bool
 fbOverlaySetupScreen(ScreenPtr	pScreen,

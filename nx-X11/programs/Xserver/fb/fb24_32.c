@@ -1,6 +1,5 @@
 /*
- *
- * Copyright Â© 2000 SuSE, Inc.
+ * Copyright © 2000 SuSE, Inc.
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -27,6 +26,7 @@
 #endif
 
 #include <string.h>
+
 #include "fb.h"
 
 /* X apps don't like 24bpp images, this code exposes 32bpp images */
@@ -152,7 +152,7 @@ fb24_32BltDown (CARD8	    *srcLine,
 	{
 	    while (w--)
 	    {
-		pixel = *src++;
+		pixel = READ(src++);
 		dpixel = Get24 (dst);
 		pixel = FbDoMergeRop(pixel, dpixel);
 		Put24 (dst, pixel);
@@ -540,14 +540,13 @@ fb24_32ReformatTile(PixmapPtr pOldTile, int bitsPerPixel)
     FbStride	oldStride, newStride;
     int		oldBpp, newBpp;
     fb24_32BltFunc  blt;
-    _X_UNUSED int		oldXoff, oldYoff;
-    _X_UNUSED int		newXoff, newYoff;
+    int		oldXoff, oldYoff;
+    int		newXoff, newYoff;
 
-    pNewTile = fbCreatePixmapBpp (pScreen,
-				  pOldTile->drawable.width,
-				  pOldTile->drawable.height,
-				  pOldTile->drawable.depth,
-				  bitsPerPixel, 0);
+    pNewTile = pScreen->CreatePixmap(pScreen, pOldTile->drawable.width,
+				     pOldTile->drawable.height,
+				     pOldTile->drawable.depth,
+				     pOldTile->usage_hint);
     if (!pNewTile)
 	return 0;
     fbGetDrawable (&pOldTile->drawable, 

@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 1998 Keith Packard
+ * Copyright © 1998 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -30,7 +30,7 @@
 
 PixmapPtr
 fbCreatePixmapBpp (ScreenPtr pScreen, int width, int height, int depth, int bpp,
-                   unsigned usage_hint)
+		   unsigned usage_hint)
 {
     PixmapPtr	pPixmap;
     size_t	datasize;
@@ -42,11 +42,7 @@ fbCreatePixmapBpp (ScreenPtr pScreen, int width, int height, int depth, int bpp,
     if (paddedWidth / 4 > 32767 || height > 32767)
 	return NullPixmap;
     datasize = height * paddedWidth;
-#ifdef PIXPRIV
     base = pScreen->totalPixmapSize;
-#else
-    base = sizeof (PixmapRec);
-#endif
     adjust = 0;
     if (base & 7)
 	adjust = 8 - (base & 7);
@@ -80,6 +76,7 @@ fbCreatePixmapBpp (ScreenPtr pScreen, int width, int height, int depth, int bpp,
     pPixmap->screen_x = 0;
     pPixmap->screen_y = 0;
 #endif
+
     pPixmap->usage_hint = usage_hint;
 
     return pPixmap;
@@ -87,7 +84,7 @@ fbCreatePixmapBpp (ScreenPtr pScreen, int width, int height, int depth, int bpp,
 
 PixmapPtr
 fbCreatePixmap (ScreenPtr pScreen, int width, int height, int depth,
-                unsigned usage_hint)
+		unsigned usage_hint)
 {
     int	bpp;
     bpp = BitsPerPixel (depth);
@@ -103,6 +100,7 @@ fbDestroyPixmap (PixmapPtr pPixmap)
 {
     if(--pPixmap->refcnt)
 	return TRUE;
+    dixFreePrivates(pPixmap->devPrivates);
     free(pPixmap);
     return TRUE;
 }
