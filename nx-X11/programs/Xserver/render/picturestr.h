@@ -56,6 +56,9 @@ typedef struct _PictFormat {
 typedef struct pixman_vector PictVector, *PictVectorPtr;
 typedef struct pixman_transform PictTransform, *PictTransformPtr;
 
+#define pict_f_vector pixman_f_vector
+#define pict_f_transform pixman_f_transform
+
 #define PICT_GRADIENT_STOPTABLE_SIZE 1024
 #define SourcePictTypeSolidFill 0
 #define SourcePictTypeLinear 1
@@ -188,6 +191,7 @@ typedef struct _Picture {
     SourcePictPtr   pSourcePict;
 } PictureRec;
 
+#ifndef NXAGENT_SERVER
 typedef Bool (*PictFilterValidateParamsProcPtr) (PicturePtr pPicture, int id,
 						 xFixed *params, int nparams);
 typedef struct {
@@ -195,6 +199,17 @@ typedef struct {
     int				    id;
     PictFilterValidateParamsProcPtr ValidateParams;
 } PictFilterRec, *PictFilterPtr;
+#else
+typedef Bool (*PictFilterValidateParamsProcPtr) (ScreenPtr pScreen, int id,
+                                                 xFixed *params, int nparams,
+                                                 int *width, int *height);
+typedef struct {
+    char                            *name;
+    int                             id;
+    PictFilterValidateParamsProcPtr ValidateParams;
+    int width, height;
+} PictFilterRec, *PictFilterPtr;
+#endif
 
 #define PictFilterNearest	0
 #define PictFilterBilinear	1

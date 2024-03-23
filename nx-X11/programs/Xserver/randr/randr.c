@@ -55,6 +55,7 @@
 #endif
 
 #include "randrstr.h"
+#include "registry.h"
 
 #ifndef NXAGENT_SERVER
 #include "extinit.h"
@@ -84,13 +85,11 @@ int RREventBase;
 int RRErrorBase;
 RESTYPE RRClientType, RREventType;      /* resource types for event masks */
 
-#ifndef NXAGENT_SERVER
-DevPrivateKey RRClientPrivateKey = &RRClientPrivateKey;
-DevPrivateKey rrPrivKey = &rrPrivKey;
-#else
-int RRClientPrivateIndex;
-int rrPrivIndex = -1;
-#endif
+static int RRClientPrivateKeyIndex;
+DevPrivateKey RRClientPrivateKey = &RRClientPrivateKeyIndex;
+ 
+static int rrPrivKeyIndex;
+DevPrivateKey rrPrivKey = &rrPrivKeyIndex;
 
 static void
 RRClientCallback(CallbackListPtr *list, void *closure, void *data)
@@ -117,7 +116,7 @@ RRClientCallback(CallbackListPtr *list, void *closure, void *data)
 }
 
 static Bool
-RRCloseScreen(
+RRCloseScreen(int index,
               ScreenPtr pScreen)
 {
     rrScrPriv(pScreen);
@@ -138,7 +137,7 @@ RRCloseScreen(
     free(pScrPriv->outputs);
     free(pScrPriv);
     RRNScreens -= 1;            /* ok, one fewer screen with RandR running */
-    return (*pScreen->CloseScreen) (pScreen);
+    return (*pScreen->CloseScreen) (index, pScreen);
 }
 
 static void
@@ -294,10 +293,6 @@ Bool
 RRInit(void)
 {
     if (RRGeneration != serverGeneration) {
-#ifdef NXAGENT_SERVER
-        if ((rrPrivIndex = AllocateScreenPrivateIndex()) < 0)
-            return FALSE;
-#endif
         if (!RRModeInit())
             return FALSE;
         if (!RRCrtcInit())
@@ -308,11 +303,6 @@ RRInit(void)
             return FALSE;
         RRGeneration = serverGeneration;
     }
-#ifndef NXAGENT_SERVER
-    if (!dixRegisterPrivateKey(&rrPrivKeyRec, PRIVATE_SCREEN, 0))
-        return FALSE;
-#endif                          /* !defined(NXAGENT_SERVER) */
-
     return TRUE;
 }
 
@@ -390,12 +380,8 @@ RRFreeClient(void *data, XID id)
 
     pRREvent = (RREventPtr) data;
     pWin = pRREvent->window;
-#ifndef NXAGENT_SERVER
     dixLookupResourceByType((void **) &pHead, pWin->drawable.id,
                             RREventType, serverClient, DixDestroyAccess);
-#else                           /* !defined(NXAGENT_SERVER) */
-    pHead = (RREventPtr *) LookupIDByType(pWin->drawable.id, RREventType);
-#endif                          /* !defined(NXAGENT_SERVER) */
 
     if (pHead) {
         pPrev = 0;
@@ -435,18 +421,11 @@ RRExtensionInit(void)
     if (RRNScreens == 0)
         return;
 
-#ifndef NXAGENT_SERVER
-    if (!dixRegisterPrivateKey(&RRClientPrivateKeyRec, PRIVATE_CLIENT,
-                               sizeof(RRClientRec) +
-                               screenInfo.numScreens * sizeof(RRTimesRec)))
+ 
+    if (!dixRequestPrivate(RRClientPrivateKey,
+                               sizeof (RRClientRec) +
+                               screenInfo.numScreens * sizeof (RRTimesRec)))
         return;
-#else                           /* !defined(NXAGENT_SERVER) */
-    RRClientPrivateIndex = AllocateClientPrivateIndex();
-    if (!AllocateClientPrivate(RRClientPrivateIndex,
-                               sizeof(RRClientRec) +
-                               screenInfo.numScreens * sizeof(RRTimesRec)))
-        return;
-#endif                          /* !defined(NXAGENT_SERVER) */
 
     if (!AddCallback(&ClientStateCallback, RRClientCallback, 0))
         return;

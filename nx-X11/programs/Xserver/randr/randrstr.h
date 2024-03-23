@@ -245,7 +245,7 @@ typedef Bool (*RRProviderSetPropertyProcPtr) (ScreenPtr pScreen,
                                               RRPropertyValuePtr value);
 
 typedef Bool (*RRGetInfoProcPtr) (ScreenPtr pScreen, Rotation * rotations);
-typedef Bool (*RRCloseScreenProcPtr) (ScreenPtr pscreen);
+typedef Bool (*RRCloseScreenProcPtr) (int index, ScreenPtr pscreen);
 
 typedef Bool (*RRProviderSetOutputSourceProcPtr) (ScreenPtr pScreen,
                                                   RRProviderPtr provider,
@@ -366,28 +366,11 @@ typedef struct _rrScrPriv {
 
 } rrScrPrivRec, *rrScrPrivPtr;
 
-#ifndef NXAGENT_SERVER
-extern _X_EXPORT DevPrivateKeyRec rrPrivKeyRec;
-
-#define rrPrivKey (&rrPrivKeyRec)
-extern DevPrivateKey rrPrivKey;
-#else
-extern int rrPrivIndex;
-#endif
-
-#ifndef NXAGENT_SERVER
+extern _X_EXPORT DevPrivateKey rrPrivKey;
 
 #define rrGetScrPriv(pScr) ((rrScrPrivPtr)dixLookupPrivate(&(pScr)->devPrivates, rrPrivKey))
 #define rrScrPriv(pScr)	rrScrPrivPtr pScrPriv = rrGetScrPriv(pScr)
 #define SetRRScreen(s,p) dixSetPrivate(&(s)->devPrivates, rrPrivKey, p)
-
-#else                           /* !defined(NXAGENT_SERVER) */
-
-#define rrGetScrPriv(pScr) ((rrScrPrivPtr) (pScr)->devPrivates[rrPrivIndex].ptr)
-#define rrScrPriv(pScr) rrScrPrivPtr pScrPriv = rrGetScrPriv(pScr)
-#define SetRRScreen(s,p) ((s)->devPrivates[rrPrivIndex].ptr = (void *) (p))
-
-#endif                          /* !defined(NXAGENT_SERVER) */
 
 /*
  * each window has a list of clients requesting
@@ -418,53 +401,23 @@ typedef struct _RRClient {
 /*  RRTimesRec	times[0]; */
 } RRClientRec, *RRClientPtr;
 
+
+/* just a hack until we have dixLookupResourceByType in dix */
+#define dixLookupResourceByType(result, id, rtype, client, mode) dixLookupResource(result, id, rtype, client, mode)
+
+
 extern RESTYPE RRClientType, RREventType;       /* resource types for event masks */
-
-#ifndef NXAGENT_SERVER
-extern DevPrivateKey RRClientPrivateKey;
-#else
-extern int RRClientPrivateIndex;
-#endif
-
+extern _X_EXPORT DevPrivateKey RRClientPrivateKey;
 extern _X_EXPORT RESTYPE RRCrtcType, RRModeType, RROutputType, RRProviderType;
 
-#ifdef NXAGENT_SERVER
-
-#define LookupOutput(client,id,a) ((RROutputPtr) \
-                                  (SecurityLookupIDByType (client, id, \
-                                                           RROutputType, a)))
-#define LookupCrtc(client,id,a) ((RRCrtcPtr) \
-                                (SecurityLookupIDByType (client, id, \
-                                                         RRCrtcType, a)))
-#define LookupMode(client,id,a) ((RRModePtr) \
-                                (SecurityLookupIDByType (client, id, \
-                                                         RRModeType, a)))
-#define LookupProvider(client,id,a) ((RRProviderPtr) \
-                                (SecurityLookupIDByType (client, id, \
-                                                         RRProviderType, a)))
-
-#define DixSetAttrAccess     DixWriteAccess
-#define DixUseAccess         DixWriteAccess
-
-#endif
-
-#ifndef NXAGENT_SERVER
-
-#define RRClientPrivateKey (&RRClientPrivateKeyRec)
 #define GetRRClient(pClient) ((RRClientPtr)dixLookupPrivate(&(pClient)->devPrivates, RRClientPrivateKey))
 
-#else                           /* !defined/NXAGENT_SERVER) */
-
-#define GetRRClient(pClient) ((RRClientPtr) (pClient)->devPrivates[RRClientPrivateIndex].ptr)
-
-#endif                          /* !defined(NXAGENT_SERVER) */
 #define rrClientPriv(pClient) RRClientPtr pRRClient = GetRRClient(pClient)
 
 /* Initialize the extension */
 void
  RRExtensionInit(void);
 
-#ifndef NXAGENT_SERVER
 #define VERIFY_RR_OUTPUT(id, ptr, a)\
     {\
         int rc = dixLookupResourceByType((void **)&(ptr), id,\
@@ -504,43 +457,6 @@ void
             return rc;\
         }\
     }
-#else                           /* !defined(NXAGENT_SERVER) */
-#define VERIFY_RR_OUTPUT(id, ptr, a)\
-    {\
-	ptr = LookupOutput(client, id, a);\
-	if (!ptr) {\
-	    client->errorValue = id;\
-	    return RRErrorBase + BadRROutput;\
-	}\
-    }
-
-#define VERIFY_RR_CRTC(id, ptr, a)\
-    {\
-	ptr = LookupCrtc (client, id, a);\
-	if (!ptr) {\
-	    client->errorValue = id;\
-	    return RRErrorBase + BadRRCrtc;\
-	}\
-    }
-
-#define VERIFY_RR_MODE(id, ptr, a)\
-    {\
-	ptr = LookupMode (client, id, a);\
-	if (!ptr) {\
-	    client->errorValue = id;\
-	    return RRErrorBase + BadRRMode;\
-	}\
-    }
-
-#define VERIFY_RR_PROVIDER(id, ptr, a)\
-    {\
-	ptr = LookupProvider (client, id, a);\
-	if (!ptr) {\
-	    client->errorValue = id;\
-	    return RRErrorBase + BadRRProvider;\
-	}\
-    }
-#endif                          /* !defined(NXAGENT_SERVER) */
 
 #ifdef RANDR_12_INTERFACE
 /*
