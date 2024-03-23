@@ -246,18 +246,15 @@ ProcChangeProperty(ClientPtr client)
     else
 	return client->noClientException;
 }
+#else
+int
+ProcChangeProperty(ClientPtr client);
 #endif /* NXAGENT_SERVER */
 
 int
-#ifdef NXAGENT_SERVER
-xorg_ChangeWindowProperty(WindowPtr pWin, Atom property, Atom type, int format,
-                     int mode, unsigned long len, void * value,
-                     Bool sendevent)
-#else
-ChangeWindowProperty(WindowPtr pWin, Atom property, Atom type, int format, 
-                     int mode, unsigned long len, void * value, 
-                     Bool sendevent)
-#endif
+dixChangeWindowProperty(ClientPtr pClient, WindowPtr pWin, Atom property,
+			Atom type, int format, int mode, unsigned long len,
+			void * value, Bool sendevent)
 {
     PropertyPtr pProp;
     int sizeInBytes, totalSize, rc;
@@ -368,17 +365,23 @@ ChangeWindowProperty(WindowPtr pWin, Atom property, Atom type, int format,
 }
 
 int
-ChangeWindowProperty(WindowPtr pWin, Atom property, Atom type, int format, 
-		     int mode, unsigned long len, void * value, 
+#ifdef NXAGENT_SERVER
+xorg_ChangeWindowProperty(WindowPtr pWin, Atom property, Atom type, int format,
+		     int mode, unsigned long len, void * value,
 		     Bool sendevent)
-    {
+#else
+ChangeWindowProperty(WindowPtr pWin, Atom property, Atom type, int format,
+		     int mode, unsigned long len, void * value,
+		     Bool sendevent)
+#endif
+{
     return dixChangeWindowProperty(serverClient, pWin, property, type, format,
 				   mode, len, value, sendevent);
-    }
+}
 
 int
 DeleteProperty(ClientPtr client, WindowPtr pWin, Atom propName)
-        {
+{
     PropertyPtr pProp, prevProp;
     int rc;
 
@@ -441,7 +444,6 @@ NullPropertyReply(
 }
 
 #ifndef NXAGENT_SERVER
-
 /*****************
  * GetProperty
  *    If type Any is specified, returns the property from the specified
@@ -573,6 +575,9 @@ ProcGetProperty(ClientPtr client)
     }
     return(client->noClientException);
 }
+#else
+int
+ProcGetProperty(ClientPtr client);
 #endif /* NXAGENT_SERVER */
 
 int
@@ -603,8 +608,8 @@ ProcListProperties(ClientPtr client)
 	rc = XaceHookPropertyAccess(client, pWin, &realProp, DixGetAttrAccess);
 	if (rc == Success && realProp == pProp) {
 	    *temppAtoms++ = pProp->propertyName;
-	numProps++;
-    }
+	    numProps++;
+	}
     }
 
     memset(&xlpr, 0, sizeof(xListPropertiesReply));
@@ -623,7 +628,11 @@ ProcListProperties(ClientPtr client)
 }
 
 int 
+#ifdef NXAGENT_SERVER
+xorg_ProcDeleteProperty(ClientPtr client)
+#else
 ProcDeleteProperty(ClientPtr client)
+#endif
 {
     WindowPtr pWin;
     REQUEST(xDeletePropertyReq);
