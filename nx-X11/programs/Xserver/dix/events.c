@@ -2243,6 +2243,8 @@ CheckMotion(xEvent *xE)
     }
     return TRUE;
 }
+#else
+static Bool CheckMotion(xEvent *xE);
 #endif /* NXAGENT_SERVER */
 
 /**
