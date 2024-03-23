@@ -78,14 +78,9 @@ static Bool
 compRepaintBorder (ClientPtr pClient, void * closure)
 {
     WindowPtr	pWindow;
-#ifndef NXAGENT_SERVER
     int rc =
         dixLookupWindow(&pWindow, (XID) (intptr_t) closure, pClient,
                         DixWriteAccess);
-#else
-    pWindow = SecurityLookupWindow((XID) (intptr_t) closure, pClient, DixWriteAccess);
-    int rc = pWindow ? Success : BadWindow;
-#endif
 
     if (rc == Success)
     {
@@ -93,11 +88,7 @@ compRepaintBorder (ClientPtr pClient, void * closure)
 
 	RegionNull(&exposed);
 	RegionSubtract(&exposed, &pWindow->borderClip, &pWindow->winSize);
-#ifndef NXAGENT_SERVER
 	pWindow->drawable.pScreen->PaintWindowBorder(pWindow, &exposed, PW_BORDER);
-#else
-	(*pWindow->drawable.pScreen->PaintWindowBorder)(pWindow, &exposed, PW_BORDER);
-#endif
 	RegionUninit(&exposed);
     }
     return TRUE;

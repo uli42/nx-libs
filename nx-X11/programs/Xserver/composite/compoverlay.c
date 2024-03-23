@@ -46,9 +46,7 @@
 #endif
 
 #include "compint.h"
-#ifndef NXAGENT_SERVER
 #include "xace.h"
-#endif
 
 #ifdef PANORAMIX
 #include "panoramiXsrv.h"

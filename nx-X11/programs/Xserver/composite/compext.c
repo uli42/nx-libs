@@ -32,17 +32,12 @@
 #include "protocol-versions.h"
 #include "extinit.h"
 
-static CARD8	CompositeReqCode;
-
-#ifndef NXAGENT_SERVER
-static DevPrivateKeyRec CompositeClientPrivateKeyRec;
-
-#define CompositeClientPrivateKey (&CompositeClientPrivateKeyRec)
-#else /* !defined(NXAGENT_SERVER) */
+#ifdef NXAGENT_SERVER
 #include "../hw/nxagent/Options.h"
-static int CompositeClientPrivIndex = -1;
-#endif /* !defined(NXAGENT_SERVER) */
+#endif
 
+static CARD8	CompositeReqCode;
+static DevPrivateKey CompositeClientPrivateKey = &CompositeClientPrivateKey;
 RESTYPE		CompositeClientWindowType;
 RESTYPE		CompositeClientSubwindowsType;
 RESTYPE CompositeClientOverlayType;
@@ -52,13 +47,8 @@ typedef struct _CompositeClient {
     int	    minor_version;
 } CompositeClientRec, *CompositeClientPtr;
 
-#ifndef NXAGENT_SERVER
 #define GetCompositeClient(pClient) ((CompositeClientPtr) \
     dixLookupPrivate(&(pClient)->devPrivates, CompositeClientPrivateKey))
-#else /* !defined(NXAGENT_SERVER) */
-#define GetCompositeClient(pClient) ((CompositeClientPtr) \
-    (pClient)->devPrivates[CompositeClientPrivIndex].ptr)
-#endif /* !edefined(NXAGENT_SERVER) */
 
 static void
 CompositeClientCallback (CallbackListPtr	*list,
@@ -673,16 +663,9 @@ CompositeExtensionInit (void)
     if (!CompositeClientOverlayType)
         return;
 
-#ifndef NXAGENT_SERVER
-    if (!dixRegisterPrivateKey(&CompositeClientPrivateKeyRec, PRIVATE_CLIENT,
-				sizeof (CompositeClientRec)))
+    if (!dixRequestPrivate(CompositeClientPrivateKey,
+                           sizeof(CompositeClientRec)))
 	return;
-#else /* !defined(NXAGENT_SERVER) */
-    if ((CompositeClientPrivIndex = AllocateClientPrivateIndex()) < 0)
-        return;
-    if (!AllocateClientPrivate(CompositeClientPrivIndex, sizeof (CompositeClientRec)))
-        return;
-#endif /* !defined(NXAGENT_SERVER) */
 
     if (!AddCallback (&ClientStateCallback, CompositeClientCallback, 0))
 	return;

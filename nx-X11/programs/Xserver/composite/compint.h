@@ -1,7 +1,7 @@
 /*
  * $Id: compint.h,v 1.8 2005/07/03 08:53:37 daniels Exp $
  *
- * Copyright Â© 2003 Keith Packard
+ * Copyright © 2003 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -46,6 +46,7 @@
 #include "globals.h"
 #include "picturestr.h"
 #include "extnsionst.h"
+#include "privates.h"
 #include "mi.h"
 #include "damage.h"
 #include "damageextint.h"
@@ -160,52 +161,25 @@ typedef struct _CompScreen {
     SourceValidateProcPtr SourceValidate;
 } CompScreenRec, *CompScreenPtr;
 
-#ifndef NXAGENT_SERVER
-extern DevPrivateKeyRec CompScreenPrivateKeyRec;
-
-#define CompScreenPrivateKey (&CompScreenPrivateKeyRec)
-
-extern DevPrivateKeyRec CompWindowPrivateKeyRec;
-
-#define CompWindowPrivateKey (&CompWindowPrivateKeyRec)
-
-extern DevPrivateKeyRec CompSubwindowsPrivateKeyRec;
-
-#define CompSubwindowsPrivateKey (&CompSubwindowsPrivateKeyRec)
-
+extern DevPrivateKey CompScreenPrivateKey;
+extern DevPrivateKey CompWindowPrivateKey;
+extern DevPrivateKey CompSubwindowsPrivateKey;
+ 
 #define GetCompScreen(s) ((CompScreenPtr) \
     dixLookupPrivate(&(s)->devPrivates, CompScreenPrivateKey))
 #define GetCompWindow(w) ((CompWindowPtr) \
     dixLookupPrivate(&(w)->devPrivates, CompWindowPrivateKey))
 #define GetCompSubwindows(w) ((CompSubwindowsPtr) \
     dixLookupPrivate(&(w)->devPrivates, CompSubwindowsPrivateKey))
-#else /* !defined(NXAGENT_SERVER) */
-extern int CompScreenPrivIndex;
-extern int CompWindowPrivIndex;
-extern int CompSubwindowsPrivIndex;
-
-#define GetCompScreen(s) ((CompScreenPtr) (s)->devPrivates[CompScreenPrivIndex].ptr)
-#define GetCompWindow(w) ((CompWindowPtr) (w)->devPrivates[CompWindowPrivIndex].ptr)
-#define GetCompSubwindows(w) ((CompSubwindowsPtr) (w)->devPrivates[CompSubwindowsPrivIndex].ptr)
-#endif /* !defined(NXAGENT_SERVER) */
 
 extern RESTYPE		CompositeClientSubwindowsType;
 extern RESTYPE CompositeClientOverlayType;
 
-/* Shim for less ifdefs within the actual code. */
-#ifndef NXAGENT_SERVER
 #define FAKE_DIX_SET_PRIVATE_IMPL(obj, privateKey, ptr_val) do { dixSetPrivate(&(obj)->devPrivates, privateKey, ptr_val); } while (0)
 
 #define FAKE_DIX_SET_SCREEN_PRIVATE(pScreen, ptr_val) FAKE_DIX_SET_PRIVATE_IMPL(pScreen, CompScreenPrivateKey, ptr_val)
 #define FAKE_DIX_SET_WINDOW_PRIVATE(pWin, ptr_val) FAKE_DIX_SET_PRIVATE_IMPL(pWin, CompWindowPrivateKey, ptr_val)
 #define FAKE_DIX_SET_SUBWINDOWS_PRIVATE(pWin, ptr_val) FAKE_DIX_SET_PRIVATE_IMPL(pWin, CompSubwindowsPrivateKey, ptr_val)
-#else /* !defined(NXAGENT_SERVER) */
-#define FAKE_DIX_SET_PRIVATE_IMPL(obj, privIndex, ptr_val) do { (obj)->devPrivates[privIndex].ptr = (void *) (ptr_val); } while (0)
-
-#define FAKE_DIX_SET_SCREEN_PRIVATE(pScreen, ptr_val) FAKE_DIX_SET_PRIVATE_IMPL(pScreen, CompScreenPrivIndex, ptr_val)
-#define FAKE_DIX_SET_WINDOW_PRIVATE(pWin, ptr_val) FAKE_DIX_SET_PRIVATE_IMPL(pWin, CompWindowPrivIndex, ptr_val)
-#define FAKE_DIX_SET_SUBWINDOWS_PRIVATE(pWin, ptr_val) FAKE_DIX_SET_PRIVATE_IMPL(pWin, CompSubwindowsPrivIndex, ptr_val)
-#endif /* !defined(NXAGENT_SERVER) */
 
 /*
  * compalloc.c
