@@ -1801,9 +1801,11 @@ GravityTranslate (int x, int y, int oldx, int oldy,
 }
 
 /* XXX need to retile border on each window with ParentRelative origin */
-#ifndef NXAGENT_SERVER
 void
 ResizeChildrenWinSize(WindowPtr pWin, int dx, int dy, int dw, int dh)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     ScreenPtr pScreen;
     WindowPtr pSib, pChild;
@@ -2216,9 +2218,11 @@ ReflectStackChange(
  * ConfigureWindow
  *****/
 
-#ifndef NXAGENT_SERVER
 int
 ConfigureWindow(WindowPtr pWin, Mask mask, XID *vlist, ClientPtr client)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
 #define RESTACK_WIN    0
 #define MOVE_WIN       1
@@ -2566,10 +2570,12 @@ CompareWIDs(
  *  ReparentWindow
  *****/
 
-#ifndef NXAGENT_SERVER
 int
 ReparentWindow(WindowPtr pWin, WindowPtr pParent,
                int x, int y, ClientPtr client)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     WindowPtr pPrev, pPriorParent;
     Bool WasMapped = (Bool)(pWin->mapped);
@@ -2726,9 +2732,11 @@ MapUnmapEventsEnabled(WindowPtr pWin)
  *    MapNotify event is generated.
  *****/
 
-#ifndef NXAGENT_SERVER
 int
 MapWindow(WindowPtr pWin, ClientPtr client)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     ScreenPtr pScreen;
 
