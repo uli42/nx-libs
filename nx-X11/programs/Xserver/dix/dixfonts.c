@@ -1948,7 +1948,7 @@ bail:
 
 /* XXX -- do we need to pass error down to each renderer? */
 int
-SetFontPath(ClientPtr client, int npaths, unsigned char *paths)
+SetFontPath(ClientPtr client, int npaths, unsigned char *paths, int *error)
 {
     int err = XaceHook(XACE_SERVER_ACCESS, client, DixManageAccess);
     if (err != Success)
@@ -1958,9 +1958,7 @@ SetFontPath(ClientPtr client, int npaths, unsigned char *paths)
 	if (SetDefaultFontPath(defaultFontPath) != Success)
 	    return BadValue;
     } else {
-	int bad;
-	err = SetFontPathElements(npaths, paths, &bad, FALSE);
-	client->errorValue = bad;
+	err = SetFontPathElements(npaths, paths, error, FALSE);
     }
     return err;
 }
