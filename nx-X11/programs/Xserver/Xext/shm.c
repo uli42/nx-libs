@@ -56,6 +56,33 @@ in this Software without prior written authorization from The Open Group.
 #include <X11/extensions/shmstr.h>
 #include <nx-X11/Xfuncproto.h>
 
+/* Needed for Solaris cross-zone shared memory extension */
+#ifdef HAVE_SHMCTL64
+#include <sys/ipc_impl.h>
+#define SHMSTAT(id, buf)	shmctl64(id, IPC_STAT64, buf)
+#define SHMSTAT_TYPE 		struct shmid_ds64
+#define SHMPERM_TYPE 		struct ipc_perm64
+#define SHM_PERM(buf) 		buf.shmx_perm
+#define SHM_SEGSZ(buf)		buf.shmx_segsz
+#define SHMPERM_UID(p)		p->ipcx_uid
+#define SHMPERM_CUID(p)		p->ipcx_cuid
+#define SHMPERM_GID(p)		p->ipcx_gid
+#define SHMPERM_CGID(p)		p->ipcx_cgid
+#define SHMPERM_MODE(p)		p->ipcx_mode
+#define SHMPERM_ZONEID(p)	p->ipcx_zoneid
+#else
+#define SHMSTAT(id, buf) 	shmctl(id, IPC_STAT, buf)
+#define SHMSTAT_TYPE 		struct shmid_ds
+#define SHMPERM_TYPE 		struct ipc_perm
+#define SHM_PERM(buf) 		buf.shm_perm
+#define SHM_SEGSZ(buf)		buf.shm_segsz
+#define SHMPERM_UID(p)		p->uid
+#define SHMPERM_CUID(p)		p->cuid
+#define SHMPERM_GID(p)		p->gid
+#define SHMPERM_CGID(p)		p->cgid
+#define SHMPERM_MODE(p)		p->mode
+#endif
+
 #include "protocol-versions.h"
 
 #ifdef PANORAMIX
@@ -365,27 +392,27 @@ shm_access(ClientPtr client, SHMPERM_TYPE *perm, int readonly)
 	FreeLocalClientCreds(lcc);
 	
 	if (uidset) {
-	/* User id 0 always gets access */
-	if (uid == 0) {
-	    return 0;
-	}
-	/* Check the owner */
-	    if (SHMPERM_UID(perm) == uid || SHMPERM_CUID(perm) == uid) {
-	    mask = S_IRUSR;
-	    if (!readonly) {
-		mask |= S_IWUSR;
+	    /* User id 0 always gets access */
+	    if (uid == 0) {
+		return 0;
 	    }
+	    /* Check the owner */
+	    if (SHMPERM_UID(perm) == uid || SHMPERM_CUID(perm) == uid) {
+		mask = S_IRUSR;
+		if (!readonly) {
+		    mask |= S_IWUSR;
+		}
 		return (SHMPERM_MODE(perm) & mask) == mask ? 0 : -1;
 	    }
 	}
 
 	if (gidset) {
-	/* Check the group */
-	if (perm->gid == gid || perm->cgid == gid) {
-	    mask = S_IRGRP;
-	    if (!readonly) {
-		mask |= S_IWGRP;
-	    }
+	    /* Check the group */
+	    if (SHMPERM_GID(perm) == gid || SHMPERM_CGID(perm) == gid) {
+		mask = S_IRGRP;
+		if (!readonly) {
+		    mask |= S_IWGRP;
+		}
 		return (SHMPERM_MODE(perm) & mask) == mask ? 0 : -1;
 	    }
 	}
@@ -496,22 +523,29 @@ ProcShmDetach(client)
  * wrap the image in a scratch pixmap header and let CopyArea sort it out.
  */
 static void
+#ifdef NXAGENT_SERVER
+xorg_doShmPutImage(DrawablePtr dst, GCPtr pGC,
+	      int depth, unsigned int format,
+	      int w, int h, int sx, int sy, int sw, int sh, int dx, int dy,
+	      char *data)
+#else
 doShmPutImage(DrawablePtr dst, GCPtr pGC,
 	      int depth, unsigned int format,
 	      int w, int h, int sx, int sy, int sw, int sh, int dx, int dy,
 	      char *data)
-    {
-	PixmapPtr pPixmap;
-
-	pPixmap = GetScratchPixmapHeader(dst->pScreen, w, h, depth,
+#endif
+{
+    PixmapPtr pPixmap;
+  
+    pPixmap = GetScratchPixmapHeader(dst->pScreen, w, h, depth,
 				     BitsPerPixel(depth),
 				     PixmapBytePad(w, depth),
 				     data);
-	if (!pPixmap)
-	    return;
+    if (!pPixmap)
+	return;
     pGC->ops->CopyArea((DrawablePtr)pPixmap, dst, pGC, sx, sy, sw, sh, dx, dy);
-	FreeScratchPixmapHeader(pPixmap);
-    }
+    FreeScratchPixmapHeader(pPixmap);
+}
 
 #ifdef PANORAMIX
 static int 
@@ -663,8 +697,8 @@ ProcPanoramiXShmGetImage(ClientPtr client)
     }
     
     if (client->swapped) {
-	swaps(&xgi.sequenceNumber);
-	swapl(&xgi.length);
+    	swaps(&xgi.sequenceNumber);
+    	swapl(&xgi.length);
 	swapl(&xgi.visual);
 	swapl(&xgi.size);
     }
@@ -781,10 +815,11 @@ CreatePmap:
 
 #endif
 
-#ifndef NXAGENT_SERVER
 static int
-ProcShmPutImage(client)
-    register ClientPtr client;
+ProcShmPutImage(ClientPtr client)
+#ifdef NXAGENT_SERVER
+    ;
+#else
 {
     GCPtr pGC;
     DrawablePtr pDraw;
@@ -869,11 +904,11 @@ ProcShmPutImage(client)
 			       (stuff->srcY * length));
     else
 	doShmPutImage(pDraw, pGC, stuff->depth, stuff->format,
-			       stuff->totalWidth, stuff->totalHeight,
-			       stuff->srcX, stuff->srcY,
-			       stuff->srcWidth, stuff->srcHeight,
-			       stuff->dstX, stuff->dstY,
-                               shmdesc->addr + stuff->offset);
+		      stuff->totalWidth, stuff->totalHeight,
+		      stuff->srcX, stuff->srcY,
+		      stuff->srcWidth, stuff->srcHeight,
+		      stuff->dstX, stuff->dstY,
+                      shmdesc->addr + stuff->offset);
 
     if (stuff->sendEvent)
     {
@@ -903,7 +938,7 @@ ProcShmGetImage(client)
     Mask		plane = 0;
     xShmGetImageReply	xgi;
     ShmDescPtr		shmdesc;
-    int			n, rc;
+    int			rc;
 
     REQUEST(xShmGetImageReq);
 
@@ -1000,8 +1035,8 @@ ProcShmGetImage(client)
     }
     
     if (client->swapped) {
-	swaps(&xgi.sequenceNumber);
-	swapl(&xgi.length);
+    	swaps(&xgi.sequenceNumber);
+    	swapl(&xgi.length);
 	swapl(&xgi.visual);
 	swapl(&xgi.size);
     }
@@ -1010,14 +1045,11 @@ ProcShmGetImage(client)
     return(client->noClientException);
 }
 
-#ifndef NXAGENT_SERVER
 static PixmapPtr
-fbShmCreatePixmap (pScreen, width, height, depth, addr)
-    ScreenPtr	pScreen;
-    int		width;
-    int		height;
-    int		depth;
-    char	*addr;
+fbShmCreatePixmap(ScreenPtr pScreen, int width, int height, int depth, char *addr)
+#ifdef NXAGENT_SERVER
+    ;
+#else
 {
     register PixmapPtr pPixmap;
 
@@ -1085,10 +1117,10 @@ CreatePmap:
     if (sizeof(size) == 4 && BitsPerPixel(depth) > 8) {
 	if (size < width * height)
 	    return BadAlloc;
+    }
     /* thankfully, offset is unsigned */
     if (stuff->offset + size < size)
 	return BadAlloc;
-    }
 
     VERIFY_SHMSIZE(shmdesc, stuff->offset, size, client);
     pMap = (*shmFuncs[pDraw->pScreen->myNum]->CreatePixmap)(
