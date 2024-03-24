@@ -12,6 +12,7 @@ SRCS =  \
 	NXdixfonts.c \
 	NXglyphcurs.c \
 	NXdispatch.c \
+	NXselection.c \
 	NXrender.c \
 	NXglyph.c \
 	NXpicture.c \
@@ -69,6 +70,7 @@ OBJS =  \
 	NXdixfonts.o \
 	NXglyphcurs.o \
 	NXdispatch.o \
+	NXselection.o \
 	NXrender.o \
 	NXglyph.o \
 	NXpicture.o \

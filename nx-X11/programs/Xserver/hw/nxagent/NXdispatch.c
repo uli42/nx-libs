@@ -187,50 +187,12 @@ extern int nxagentMaxAllowedResets;
 
 extern int nxagentFindClientResource(int, RESTYPE, void *);
 
-#ifdef NXAGENT_CLIPBOARD
-extern int nxagentPrimarySelection;
-extern int nxagentClipboardSelection;
-extern int nxagentMaxSelections;
-#endif
-
 extern int nxOpenFont(ClientPtr, XID, Mask, unsigned, char*);
-
 
 /*
  * This used to be a dix variable used only by XPRINT, so xorg dropped it.
  */
 ClientPtr nxagentRequestingClient;
-
-void
-InitSelections(void)
-{
-    xorg_InitSelections();
-
-#ifdef NXAGENT_CLIPBOARD
-    {
-      Selection *newsels;
-      newsels = (Selection *)malloc(nxagentMaxSelections * sizeof(Selection));
-      if (!newsels)
-        return;
-      NumCurrentSelections += nxagentMaxSelections;
-      CurrentSelections = newsels;
-
-      /* Note: these are the same values that will be set on a SelectionClear event */
-
-      CurrentSelections[nxagentPrimarySelection].selection = XA_PRIMARY;
-      CurrentSelections[nxagentPrimarySelection].lastTimeChanged = ClientTimeToServerTime(CurrentTime);
-      CurrentSelections[nxagentPrimarySelection].window = screenInfo.screens[0]->root->drawable.id;
-      CurrentSelections[nxagentPrimarySelection].pWin = NULL;
-      CurrentSelections[nxagentPrimarySelection].client = NullClient;
-
-      CurrentSelections[nxagentClipboardSelection].selection = MakeAtom("CLIPBOARD", 9, 1);
-      CurrentSelections[nxagentClipboardSelection].lastTimeChanged = ClientTimeToServerTime(CurrentTime);
-      CurrentSelections[nxagentClipboardSelection].window = screenInfo.screens[0]->root->drawable.id;
-      CurrentSelections[nxagentClipboardSelection].pWin = NULL;
-      CurrentSelections[nxagentClipboardSelection].client = NullClient;
-    }
-#endif
-}
 
 #define MAJOROP ((xReq *)client->requestBuffer)->reqType
 
@@ -245,7 +207,6 @@ Dispatch(void)
     long			start_tick;
 
     nextFreeClientID = 1;
-    InitSelections();
     nClients = 0;
 
 #ifdef NXAGENT_SERVER
@@ -719,100 +680,6 @@ ProcQueryTree(ClientPtr client)
 
     return(client->noClientException);
 }
-
-
-int
-ProcConvertSelection(ClientPtr client)
-{
-    Bool paramsOkay;
-    xEvent event;
-    WindowPtr pWin;
-    REQUEST(xConvertSelectionReq);
-
-    REQUEST_SIZE_MATCH(xConvertSelectionReq);
-    pWin = (WindowPtr)SecurityLookupWindow(stuff->requestor, client,
-					   DixReadAccess);
-    if (!pWin)
-        return(BadWindow);
-
-#ifdef NXAGENT_CLIPBOARD
-    if (((stuff->selection == XA_PRIMARY) ||
-           (stuff->selection == MakeAtom("CLIPBOARD", 9, 0))) &&
-               nxagentOption(Clipboard) != ClipboardNone)
-    {
-      int index = nxagentFindCurrentSelectionIndex(stuff->selection);
-      if ((index != -1) && (CurrentSelections[index].window != None))
-      {
-        if (nxagentConvertSelection(client, pWin, stuff->selection, stuff->requestor,
-                                       stuff->property, stuff->target, stuff->time))
-        {
-          return (client->noClientException);
-        }
-      }
-    }
-#endif
-
-    paramsOkay = (ValidAtom(stuff->selection) && ValidAtom(stuff->target));
-    if (stuff->property != None)
-	paramsOkay &= ValidAtom(stuff->property);
-    if (paramsOkay)
-    {
-	int i;
-
-	i = 0;
-	while ((i < NumCurrentSelections) &&
-	       CurrentSelections[i].selection != stuff->selection) i++;
-	if ((i < NumCurrentSelections) &&
-	    (CurrentSelections[i].window != None)
-#ifdef NXAGENT_SERVER
-            /*
-             * .window can be set and pointing to our server window to
-             * signal the clipboard owner being on the real X
-             * server. Therefore we need to check .client in addition
-             * to ensure having a local owner.
-             */
-	    && (CurrentSelections[i].client != NullClient)
-#endif
-#ifdef XCSECURITY
-	    && (!client->CheckAccess ||
-		(* client->CheckAccess)(client, CurrentSelections[i].window,
-					RT_WINDOW, DixReadAccess,
-					CurrentSelections[i].pWin))
-#endif
-	    )
-	{
-	    memset(&event, 0, sizeof(xEvent));
-	    event.u.u.type = SelectionRequest;
-	    event.u.selectionRequest.time = stuff->time;
-	    event.u.selectionRequest.owner =
-			CurrentSelections[i].window;
-	    event.u.selectionRequest.requestor = stuff->requestor;
-	    event.u.selectionRequest.selection = stuff->selection;
-	    event.u.selectionRequest.target = stuff->target;
-	    event.u.selectionRequest.property = stuff->property;
-	    if (TryClientEvents(
-		CurrentSelections[i].client, &event, 1, NoEventMask,
-		NoEventMask /* CantBeFiltered */, NullGrab))
-		return (client->noClientException);
-	}
-	memset(&event, 0, sizeof(xEvent));
-	event.u.u.type = SelectionNotify;
-	event.u.selectionNotify.time = stuff->time;
-	event.u.selectionNotify.requestor = stuff->requestor;
-	event.u.selectionNotify.selection = stuff->selection;
-	event.u.selectionNotify.target = stuff->target;
-	event.u.selectionNotify.property = None;
-	(void) TryClientEvents(client, &event, 1, NoEventMask,
-			       NoEventMask /* CantBeFiltered */, NullGrab);
-	return (client->noClientException);
-    }
-    else
-    {
-	client->errorValue = stuff->property;
-        return (BadAtom);
-    }
-}
-
 
 int
 ProcOpenFont(ClientPtr client)
