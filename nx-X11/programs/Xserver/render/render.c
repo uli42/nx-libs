@@ -48,7 +48,7 @@
 
 #include "protocol-versions.h"
 
-#if HAVE_STDINT_H
+#ifdef HAVE_STDINT_H
 #include <stdint.h>
 #elif !defined(UINT32_MAX)
 #define UINT32_MAX 0xffffffffU
@@ -129,11 +129,6 @@ static int SProcRenderCreateRadialGradient (ClientPtr pClient);
 static int SProcRenderCreateConicalGradient (ClientPtr pClient);
 
 static int SProcRenderDispatch (ClientPtr pClient);
-
-#ifdef NXAGENT_SERVER
-static int xorg_ProcRenderDispatch (ClientPtr pClient);
-static int xorg_SProcRenderDispatch (ClientPtr pClient);
-#endif
 
 int	(*ProcRenderVector[RenderNumberRequests])(ClientPtr) = {
     ProcRenderQueryVersion,
@@ -268,9 +263,11 @@ RenderResetProc (ExtensionEntry *extEntry)
 {
 }
 
-#ifndef NXAGENT_SERVER
 static int
 ProcRenderQueryVersion (ClientPtr client)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     RenderClientPtr pRenderClient = GetRenderClient (client);
     xRenderQueryVersionReply rep = {
@@ -314,9 +311,11 @@ findVisual (ScreenPtr pScreen, VisualID vid)
 
 extern char *ConnectionInfo;
 
-#ifndef NXAGENT_SERVER
 static int
 ProcRenderQueryPictFormats (ClientPtr client)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     RenderClientPtr		    pRenderClient = GetRenderClient (client);
     xRenderQueryPictFormatsReply    *reply;
@@ -596,9 +595,11 @@ ProcRenderQueryDithers (ClientPtr client)
     return BadImplementation;
 }
 
-#ifndef NXAGENT_SERVER
 static int
 ProcRenderCreatePicture (ClientPtr client)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     PicturePtr	    pPicture;
     DrawablePtr	    pDrawable;
@@ -642,9 +643,13 @@ ProcRenderCreatePicture (ClientPtr client)
 	return BadAlloc;
     return Success;
 }
+#endif /* NXAGENT_SERVER */
 
 static int
 ProcRenderChangePicture (ClientPtr client)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     PicturePtr	    pPicture;
     REQUEST(xRenderChangePictureReq);
@@ -661,9 +666,13 @@ ProcRenderChangePicture (ClientPtr client)
     return ChangePicture (pPicture, stuff->mask, (XID *) (stuff + 1),
 			  (DevUnion *) 0, client);
 }
+#endif /* NXAGENT_SERVER */
 
 static int
 ProcRenderSetPictureClipRectangles (ClientPtr client)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     REQUEST(xRenderSetPictureClipRectanglesReq);
     PicturePtr	    pPicture;
@@ -716,9 +725,11 @@ PictOpValid (CARD8 op)
     return FALSE;
 }
 
-#ifndef NXAGENT_SERVER
 static int
 ProcRenderComposite (ClientPtr client)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     PicturePtr	pSrc, pMask, pDst;
     REQUEST(xRenderCompositeReq);
@@ -762,9 +773,11 @@ ProcRenderScale (ClientPtr client)
     return BadImplementation;
 }
 
-#ifndef NXAGENT_SERVER
 static int
 ProcRenderTrapezoids (ClientPtr client)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     int		ntraps;
     PicturePtr	pSrc, pDst;
@@ -970,9 +983,11 @@ ProcRenderTransform (ClientPtr client)
     return BadImplementation;
 }
 
-#ifndef NXAGENT_SERVER
 static int
 ProcRenderCreateGlyphSet (ClientPtr client)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     GlyphSetPtr	    glyphSet;
     PictFormatPtr   format;
@@ -1053,9 +1068,11 @@ ProcRenderReferenceGlyphSet (ClientPtr client)
 #define NLOCALDELTA	64
 #define NLOCALGLYPH	256
 
-#ifndef NXAGENT_SERVER
 static int
 ProcRenderFreeGlyphSet (ClientPtr client)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     GlyphSetPtr     glyphSet;
     int rc;
@@ -1282,9 +1299,11 @@ ProcRenderAddGlyphsFromPicture (ClientPtr client)
     return BadImplementation;
 }
 
-#ifndef NXAGENT_SERVER
 static int
 ProcRenderFreeGlyphs (ClientPtr client)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     REQUEST(xRenderFreeGlyphsReq);
     GlyphSetPtr     glyphSet;
@@ -1573,9 +1592,11 @@ static CARD32 orderedDither[DITHER_DIM][DITHER_DIM] = {
 
 #define DITHER_SIZE  ((sizeof orderedDither / sizeof orderedDither[0][0]) + 1)
 
-#ifndef NXAGENT_SERVER
 static int
 ProcRenderCreateCursor (ClientPtr client)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     REQUEST(xRenderCreateCursorReq);
     PicturePtr	    pSrc;
@@ -1775,9 +1796,14 @@ ProcRenderCreateCursor (ClientPtr client)
 
     return client->noClientException;
 }
+#endif /* NXAGENT_SERVER */
+
 
 static int
 ProcRenderSetPictureTransform (ClientPtr client)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     REQUEST(xRenderSetPictureTransformReq);
     PicturePtr	pPicture;
@@ -1902,9 +1928,11 @@ ProcRenderQueryFilters (ClientPtr client)
     return(client->noClientException);
 }
 
-#ifndef NXAGENT_SERVER
 static int
 ProcRenderSetPictureFilter (ClientPtr client)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     REQUEST (xRenderSetPictureFilterReq);
     PicturePtr	pPicture;
@@ -1922,9 +1950,13 @@ ProcRenderSetPictureFilter (ClientPtr client)
     result = SetPictureFilter (pPicture, name, stuff->nbytes, params, nparams);
     return result;
 }
+#endif /* NXAGENT_SERVER */
 
 static int
 ProcRenderCreateAnimCursor (ClientPtr client)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     REQUEST(xRenderCreateAnimCursorReq);
     CursorPtr	    *cursors;
@@ -1958,7 +1990,8 @@ ProcRenderCreateAnimCursor (ClientPtr client)
 	deltas[i] = elt->delay;
 	elt++;
     }
-    ret = AnimCursorCreate (cursors, deltas, ncursor, &pCursor);
+    ret = AnimCursorCreate (cursors, deltas, ncursor, &pCursor, client,
+			    stuff->cid);
     free (cursors);
     if (ret != Success)
 	return ret;
@@ -1992,8 +2025,10 @@ ProcRenderAddTraps (ClientPtr client)
     return client->noClientException;
 }
 
-#ifndef NXAGENT_SERVER
 static int ProcRenderCreateSolidFill(ClientPtr client)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     PicturePtr	    pPicture;
     int		    error = 0;
@@ -2015,8 +2050,12 @@ static int ProcRenderCreateSolidFill(ClientPtr client)
 	return BadAlloc;
     return Success;
 }
+#endif /* NXAGENT_SERVER */
 
 static int ProcRenderCreateLinearGradient (ClientPtr client)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     PicturePtr	    pPicture;
     int		    len;
@@ -2051,8 +2090,12 @@ static int ProcRenderCreateLinearGradient (ClientPtr client)
 	return BadAlloc;
     return Success;
 }
+#endif /* NXAGENT_SERVER */
 
 static int ProcRenderCreateRadialGradient (ClientPtr client)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     PicturePtr	    pPicture;
     int		    len;
@@ -2086,8 +2129,12 @@ static int ProcRenderCreateRadialGradient (ClientPtr client)
 	return BadAlloc;
     return Success;
 }
+#endif /* NXAGENT_SERVER */
 
 static int ProcRenderCreateConicalGradient (ClientPtr client)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     PicturePtr	    pPicture;
     int		    len;
@@ -2128,7 +2175,7 @@ static int
 xorg_ProcRenderDispatch (ClientPtr client)
 #else
 ProcRenderDispatch (ClientPtr client)
-#endif
+#endif /* NXAGENT_SERVER */
 {
     REQUEST(xReq);
     
@@ -2715,7 +2762,7 @@ static int
 xorg_SProcRenderDispatch (ClientPtr client)
 #else
 SProcRenderDispatch (ClientPtr client)
-#endif
+#endif /* NXAGENT_SERVER */
 {
     REQUEST(xReq);
     
