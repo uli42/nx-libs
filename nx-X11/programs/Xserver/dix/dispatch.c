@@ -2354,11 +2354,11 @@ ProcInstallColormap(ClientPtr client)
     if (rc != Success)
 	goto out;
 
-        (*(pcmp->pScreen->InstallColormap)) (pcmp);
+    (*(pcmp->pScreen->InstallColormap)) (pcmp);
 
     rc = client->noClientException;
 out:
-        client->errorValue = stuff->id;
+    client->errorValue = stuff->id;
     return (rc == BadValue) ? BadColor : rc;
 }
 
@@ -2379,12 +2379,12 @@ ProcUninstallColormap(ClientPtr client)
     if (rc != Success)
 	goto out;
 
-	if(pcmp->mid != pcmp->pScreen->defColormap)
-            (*(pcmp->pScreen->UninstallColormap)) (pcmp);
+    if(pcmp->mid != pcmp->pScreen->defColormap)
+        (*(pcmp->pScreen->UninstallColormap)) (pcmp);
 
     rc = client->noClientException;
 out:
-        client->errorValue = stuff->id;
+    client->errorValue = stuff->id;
     return (rc == BadValue) ? BadColor : rc;
 }
 
