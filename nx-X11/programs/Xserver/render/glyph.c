@@ -149,6 +149,9 @@ FindGlyphRef (GlyphHashPtr	hash,
 	      CARD32		signature,
 	      Bool		match,
 	      unsigned char	sha1[20])
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     CARD32	elt, step, s;
     GlyphPtr	glyph;
@@ -195,6 +198,7 @@ FindGlyphRef (GlyphHashPtr	hash,
     }
     return gr;
 }
+#endif
 
 int
 HashGlyph (xGlyphInfo    *gi,
@@ -318,6 +322,9 @@ FreeGlyph (GlyphPtr glyph, int format)
 
 void
 AddGlyph (GlyphSetPtr glyphSet, GlyphPtr glyph, Glyph id)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     GlyphRefPtr	    gr;
     CARD32	    signature;
@@ -360,6 +367,7 @@ AddGlyph (GlyphSetPtr glyphSet, GlyphPtr glyph, Glyph id)
     gr->signature = id;
     CheckDuplicates (&globalGlyphs[glyphSet->fdepth], "AddGlyph bottom");
 }
+#endif
 
 Bool
 DeleteGlyph (GlyphSetPtr glyphSet, Glyph id)
@@ -381,6 +389,9 @@ DeleteGlyph (GlyphSetPtr glyphSet, Glyph id)
 
 GlyphPtr
 FindGlyph (GlyphSetPtr glyphSet, Glyph id)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     GlyphPtr        glyph;
 
@@ -389,6 +400,7 @@ FindGlyph (GlyphSetPtr glyphSet, Glyph id)
 	glyph = 0;
     return glyph;
 }
+#endif
 
 GlyphPtr
 AllocateGlyph (xGlyphInfo *gi, int fdepth)
@@ -447,6 +459,9 @@ AllocateGlyphHash (GlyphHashPtr hash, GlyphHashSetPtr hashSet)
 
 Bool
 ResizeGlyphHash (GlyphHashPtr hash, CARD32 change, Bool global)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     CARD32	    tableEntries;
     GlyphHashSetPtr hashSet;
@@ -487,6 +502,7 @@ ResizeGlyphHash (GlyphHashPtr hash, CARD32 change, Bool global)
 	CheckDuplicates (hash, "ResizeGlyphHash bottom");
     return TRUE;
 }
+#endif
 
 Bool
 ResizeGlyphSet (GlyphSetPtr glyphSet, CARD32 change)
