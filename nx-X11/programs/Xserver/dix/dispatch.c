@@ -3585,6 +3585,7 @@ ProcInitialConnection(ClientPtr client)
     REQUEST(xReq);
     xConnClientPrefix *prefix;
     int whichbyte = 1;
+    char order;
 
     prefix = (xConnClientPrefix *)((char *)stuff + sz_xReq);
     order = prefix->byteOrder;
