@@ -50,19 +50,6 @@ XkbInternAtom(char *str,Bool only_if_exists)
     return MakeAtom(str,strlen(str),!only_if_exists);
 }
 
-char *
-Xstrdup(const char *str)
-{
-char *new;
-   
-   if (str==NULL)
-	return NULL;
-   new= (char *)_XkbCalloc(strlen(str)+1,sizeof(char));
-   if (new)
-	strcpy(new,str);
-   return new;
-}
-
 /***====================================================================***/
 
 static void *
