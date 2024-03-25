@@ -668,6 +668,9 @@ miGlyphs (CARD8		op,
 	  int		nlist,
 	  GlyphListPtr	list,
 	  GlyphPtr	*glyphs)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     PicturePtr	pPicture;
     PixmapPtr   pMaskPixmap = 0;
@@ -784,3 +787,4 @@ miGlyphs (CARD8		op,
 	(*pScreen->DestroyPixmap) (pMaskPixmap);
     }
 }
+#endif
