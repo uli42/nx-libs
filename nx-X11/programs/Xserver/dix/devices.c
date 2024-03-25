@@ -361,7 +361,7 @@ CoreKeyboardProc(DeviceIntPtr pDev, int what)
 #ifdef XKB
         if (!noXkbExtension)
         {
-            XkbFreePrivates(pDev);
+            dixFreePrivates(pDev->devPrivates);
         }
 #endif
 	dixSetPrivate(&pDev->devPrivates, CoreDevicePrivateKey, NULL);
@@ -404,7 +404,7 @@ CorePointerProc(DeviceIntPtr pDev, int what)
 #ifdef XKB
         if (!noXkbExtension)
         {
-            XkbFreePrivates(pDev);
+            dixFreePrivates(pDev->devPrivates);
         }
 #endif
 	dixSetPrivate(&pDev->devPrivates, CoreDevicePrivateKey, NULL);
