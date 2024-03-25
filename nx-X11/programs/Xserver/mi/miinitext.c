@@ -370,9 +370,6 @@ InitExtensions(argc, argv)
     int		argc;
     char	*argv[];
 {
-#ifdef XCSECURITY
-    SecurityExtensionSetup();
-#endif
 #ifdef PANORAMIX
 # if !defined(PRINT_ONLY_SERVER) && !defined(NO_PANORAMIX)
   if (!noPanoramiXExtension) PanoramiXExtensionInit();
