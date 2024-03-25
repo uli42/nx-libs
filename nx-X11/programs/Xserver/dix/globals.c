@@ -83,6 +83,8 @@ ClientPtr  serverClient;
 int  currentMaxClients;   /* current size of clients array */
 long maxBigRequestSize = MAX_BIG_REQUEST_SIZE;
 
+WindowPtr *WindowTable;
+
 unsigned long globalSerialNumber = 0;
 unsigned long serverGeneration = 0;
 
@@ -149,6 +151,8 @@ int defaultColorVisualClass = -1;
 int monitorResolution = 0;
 
 char *display;
+int displayfd = -1;
+Bool explicit_display = FALSE;
 
 CARD32 TimeOutValue = DEFAULT_TIMEOUT * MILLI_PER_SECOND;
 int	argcGlobal;
