@@ -736,7 +736,6 @@ AddScreen(
        multiple screens. 
     */ 
     pScreen->rgf = ~0L;  /* there are no scratch GCs yet*/
-    screenInfo.screens[i]->root = NullWindow;
     screenInfo.screens[i] = pScreen;
     screenInfo.numScreens++;
     if (!(*pfnInit)(i, pScreen, argc, argv))
