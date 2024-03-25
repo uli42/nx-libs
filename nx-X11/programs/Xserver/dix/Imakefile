@@ -35,6 +35,7 @@ SRCS =                          \
        atom.c                   \
        colormap.c               \
        cursor.c                 \
+       deprecated.c             \
        devices.c                \
        dixutils.c               \
        extension.c              \
@@ -59,6 +60,7 @@ OBJS =                          \
        atom.o                   \
        colormap.o               \
        cursor.o                 \
+       deprecated.o             \
        devices.o                \
        dixutils.o               \
        extension.o              \
