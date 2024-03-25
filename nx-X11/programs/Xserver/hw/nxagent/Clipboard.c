@@ -79,7 +79,13 @@
  * These are defined in the dispatcher.
  */
 
-extern int NumCurrentSelections;
+/*
+ * FIXME: NumCurrentSelections does not exist anymore, we temporarily
+ * add it here to make it compile/link. Clipboard will probably not
+ * work (correctly).
+ * extern int NumCurrentSelections;
+*/
+int NumCurrentSelections = 2;
 extern Selection *CurrentSelections;
 
 static int agentClipboardInitialized = False;
