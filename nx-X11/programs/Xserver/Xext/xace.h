@@ -20,9 +20,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #ifndef _XACE_H
 #define _XACE_H
 
-/* FIXME: need to integrate this into the makefiles */
-#define XACE
-
 #ifdef XACE
 
 #define XACE_MAJOR_VERSION		2

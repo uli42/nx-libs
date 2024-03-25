@@ -541,6 +541,14 @@ FCHOWN_DEFINES = -DHAS_FCHOWN
 #endif
 #endif
 
+#ifndef XaceDefines
+#if BuildXace
+#define XaceDefines -DXACE
+#else
+#define XaceDefines /**/
+#endif
+#endif
+
 #ifndef DPMSDefines
 #if BuildDPMS
 #define DPMSDefines -DDPMSExtension
@@ -607,6 +615,7 @@ FCHOWN_DEFINES = -DHAS_FCHOWN
 	XInputDefines \
 	XkbDefines \
 	XCSecurityDefines \
+	XaceDefines \
 	XF86BigfontExtensionDefines \
 	DPMSDefines \
 	SitePervasiveExtensionDefines \
