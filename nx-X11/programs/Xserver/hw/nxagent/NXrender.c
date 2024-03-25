@@ -46,7 +46,7 @@
  * Author:  Keith Packard, SuSE, Inc.
  */
 
-#include "../render/render.c"
+#include "../../render/render.c"
 
 #include "Trap.h"
 
