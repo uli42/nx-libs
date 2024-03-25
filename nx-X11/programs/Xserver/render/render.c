@@ -1039,9 +1039,13 @@ ProcRenderCreateGlyphSet (ClientPtr client)
 	return BadAlloc;
     return Success;
 }
+#endif /* NXAGENT_SERVER */
 
 static int
 ProcRenderReferenceGlyphSet (ClientPtr client)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     GlyphSetPtr     glyphSet;
     int rc;
@@ -1332,9 +1336,13 @@ ProcRenderFreeGlyphs (ClientPtr client)
     }
     return client->noClientException;
 }
+#endif /* NXAGENT_SERVER */
 
 static int
 ProcRenderCompositeGlyphs (ClientPtr client)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     GlyphSetPtr     glyphSet;
     GlyphSet	    gs;
@@ -1532,9 +1540,13 @@ ProcRenderCompositeGlyphs (ClientPtr client)
     
     return client->noClientException;
 }
+#endif /* NXAGENT_SERVER */
 
 static int
 ProcRenderFillRectangles (ClientPtr client)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     PicturePtr	    pDst;
     int             things;
