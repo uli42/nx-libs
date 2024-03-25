@@ -277,6 +277,7 @@ PIXMANLIB =  `pkg-config --libs pixman-1`
 ZLIB      =  $$(pkg-config --exists 'zlib' >/dev/null 2>&1 && pkg-config --libs 'zlib' || printf '%s' '-lz')
 PNGLIB    =  `pkg-config --libs libpng`
 JPEGLIB   =  -ljpeg
+OPENSSLLIB =  `pkg-config --libs openssl`
 
 TIRPC_LIB =
 
@@ -289,7 +290,7 @@ TIRPC_LIB =  $$(pkg-config --libs 'libtirpc')
 NXAGENT = hw/nxagent/LibraryTargetName(nxagent)
 NXCOMPEXT =  hw/nxagent/compext/LibraryTargetName(compext)
 NXAGENTLIBS = PreFbLibs $(NXAGENT) FbPostFbLibs $(NXCOMPEXT) $(NXAGENT) $(MI)
-NXAGENTSYSLIBS = $(XLIB) $(SYSLIBS) $(XPMLIB) $(XMLLIB) $(PIXMANLIB) $(TIRPC_LIB)
+NXAGENTSYSLIBS = $(XLIB) $(SYSLIBS) $(XPMLIB) $(XMLLIB) $(PIXMANLIB) $(TIRPC_LIB) $(OPENSSLLIB)
 NXCOMPEXTSYSLIBS = $(ZLIB) $(PNGLIB) $(JPEGLIB)
 #if HasParallelMake
 MakeMutex($(NXAGENTDIRS) $(NXCOMPEXT) $(NXAGENTOBJS) $(NXAGENTLIBS) $(NXCOMPEXTSYSLIBS) $(NXAGENTSYSLIBS))
