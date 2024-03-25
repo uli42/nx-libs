@@ -350,7 +350,7 @@ main(int argc, char *argv[], char *envp[])
 	if (!dixResetPrivates())
 	    FatalError("couldn't init private data storage");
 	dixResetRegistry();
-	ResetFontPrivateIndex();
+	InitFonts();
 	InitCallbackManager();
 	InitVisualWrap();
 	InitOutput(&screenInfo, argc, argv);
