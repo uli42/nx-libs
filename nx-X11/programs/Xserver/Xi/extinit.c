@@ -67,6 +67,7 @@ SOFTWARE.
 #include "extinit.h"
 #include "exglobals.h"
 #include "swaprep.h"
+#include "registry.h"
 #include "protocol-versions.h"
 
 /* modules local to Xi */
