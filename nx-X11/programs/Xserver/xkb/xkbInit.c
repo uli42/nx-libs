@@ -532,8 +532,6 @@ XkbEventCauseRec	cause;
 
 	XkbInitIndicatorMap(xkbi);
 
-	XkbDDXInitDevice(pXDev);
-
         if (xkb->defined & XkmSymbolsMask)
 	    XkbUpdateCoreDescription(pXDev,True);
         else
