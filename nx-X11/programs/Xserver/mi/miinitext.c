@@ -152,9 +152,6 @@ typedef void (*InitExtension)(void);
 #ifdef XKB
 #include <nx-X11/extensions/XKB.h>
 #endif
-#ifdef XACE
-#include "xace.h"
-#endif
 #ifdef XCSECURITY
 #include "securitysrv.h"
 #include <nx-X11/extensions/securstr.h>
@@ -212,9 +209,6 @@ extern void RecordExtensionInit(void);
 #endif
 #ifdef DBE
 extern void DbeExtensionInit(void);
-#endif
-#ifdef XACE
-extern void XaceExtensionInit(void);
 #endif
 #ifdef XCSECURITY
 extern void SecurityExtensionInit(void);
@@ -416,9 +410,6 @@ InitExtensions(argc, argv)
 #endif
 #ifdef DBE
     if (!noDbeExtension) DbeExtensionInit();
-#endif
-#ifdef XACE
-    XaceExtensionInit();
 #endif
 #ifdef XCSECURITY
     if (!noSecurityExtension) SecurityExtensionInit();
