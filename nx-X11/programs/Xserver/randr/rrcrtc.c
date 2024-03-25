@@ -49,6 +49,7 @@
 #include "randrstr.h"
 #include "swaprep.h"
 #include "mipointer.h"
+#include "registry.h"
 
 RESTYPE RRCrtcType;
 

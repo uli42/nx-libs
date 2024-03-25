@@ -24,6 +24,7 @@
 
 #include "randrstr.h"
 #include "swaprep.h"
+#include "registry.h"
 
 RESTYPE RRProviderType;
 

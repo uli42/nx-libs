@@ -46,6 +46,7 @@
  */
 
 #include "randrstr.h"
+#include "registry.h"
 
 RESTYPE RRModeType;
 
