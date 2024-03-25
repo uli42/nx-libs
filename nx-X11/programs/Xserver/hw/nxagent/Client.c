@@ -103,7 +103,7 @@ void nxagentCheckRestartedClients(struct timeval **timeout);
  * Allow attaching private members to the client.
  */
 
-int nxagentClientPrivateIndex;
+DevPrivateKey nxagentClientPrivateKey = &nxagentClientPrivateKey;
 
 /*
  * The master nxagent holds in nxagentShadowCounter the number of

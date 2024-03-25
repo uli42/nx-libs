@@ -57,8 +57,6 @@ typedef struct {
 
 } nxagentPrivGC;
 
-extern int nxagentGCPrivateIndex;
-
 typedef struct _nxagentGraphicContextsRec
 {
   int   depth;
@@ -71,9 +69,11 @@ typedef nxagentGraphicContextsRec *nxagentGraphicContextsPtr;
 extern nxagentGraphicContextsPtr nxagentGraphicContexts;
 extern int nxagentGraphicContextsSize;
 
-#define nxagentGCPriv(pGC) \
-  ((nxagentPrivGC *)((pGC) -> devPrivates[nxagentGCPrivateIndex].ptr))
-
+extern DevPrivateKey nxagentGCPrivateKey;
+ 
+#define nxagentGCPriv(pGC) ((nxagentPrivGC *) \
+     dixLookupPrivate(&(pGC)->devPrivates, nxagentGCPrivateKey))
+ 
 #define nxagentGC(pGC) (nxagentGCPriv(pGC) -> gc)
 
 #define nxagentCopyGCPriv(valueMask, valueField, src, mask, dst) \

@@ -690,14 +690,11 @@ MapWindow(register WindowPtr pWin, ClientPtr client)
     if (pWin->mapped)
 	return(Success);
 
-#ifdef XCSECURITY
-    /*  don't let an untrusted client map a child-of-trusted-window, InputOnly
-     *  window; too easy to steal device input
-     */
-    if ( (client->trustLevel != XSecurityClientTrusted) &&
-	 (pWin->drawable.class == InputOnly) &&
-	 (wClient(pWin->parent)->trustLevel == XSecurityClientTrusted) )
-	 return Success;
+#ifdef XACE
+    /*  general check for permission to map window */
+    if (XaceHook(XACE_RESOURCE_ACCESS, client, pWin->drawable.id, RT_WINDOW,
+                 pWin, RT_NONE, NULL, DixShowAccess) != Success)
+       return Success;
 #endif	
 
     pScreen = pWin->drawable.pScreen;

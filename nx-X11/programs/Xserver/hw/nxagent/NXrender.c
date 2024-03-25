@@ -72,8 +72,8 @@
  */
 
 extern
-void miGlyphExtents(int nlist, GlyphListPtr list,
-                        GlyphPtr *glyphs, BoxPtr extents);
+void GlyphExtents(int nlist, GlyphListPtr list,
+                      GlyphPtr *glyphs, BoxPtr extents);
 
 /*
  * From NXmitrap.c.
@@ -387,15 +387,17 @@ ProcRenderCreatePicture (ClientPtr client)
     PicturePtr	    pPicture;
     DrawablePtr	    pDrawable;
     PictFormatPtr   pFormat;
-    int		    len;
-    int		    error;
+    int		    len, error, rc;
     REQUEST(xRenderCreatePictureReq);
 
     REQUEST_AT_LEAST_SIZE(xRenderCreatePictureReq);
 
     LEGAL_NEW_RESOURCE(stuff->pid, client);
-    SECURITY_VERIFY_DRAWABLE(pDrawable, stuff->drawable, client,
-			     DixWriteAccess);
+    rc = dixLookupDrawable(&pDrawable, stuff->drawable, client, 0,
+			   DixReadAccess|DixAddAccess);
+    if (rc != Success)
+	return rc;
+
     pFormat = (PictFormatPtr) SecurityLookupIDByType (client, 
 						      stuff->format,
 						      PictFormatType,
@@ -450,6 +452,7 @@ ProcRenderChangePicture (ClientPtr client)
 	int error = ChangePicture (pPicture, stuff->mask, (XID *) (stuff + 1),
 				   (DevUnion *) 0, client);
     
+	/* FIXME: integrate into ChangePicture? */
 	nxagentChangePicture(pPicture, stuff->mask);
 
 	return error;
@@ -1180,7 +1183,7 @@ ProcRenderCompositeGlyphs (ClientPtr client)
 
     nxagentGlyphsExtents = (BoxPtr) malloc(sizeof(BoxRec));
 
-    miGlyphExtents(nlist, listsBase, glyphsBase, nxagentGlyphsExtents);
+    GlyphExtents(nlist, listsBase, glyphsBase, nxagentGlyphsExtents);
 
     nxagentGlyphs(stuff -> op,
                   pSrc,
@@ -1292,8 +1295,8 @@ ProcRenderCreateCursor (ClientPtr client)
     int		    nbytes_mono;
     CursorMetricRec cm;
     CursorPtr	    pCursor;
-    CARD32	    twocolor[3];
-    int		    ncolor;
+    CARD32	    twocolor[3] = {0};
+    int		    rc, ncolor;
 
     REQUEST_SIZE_MATCH (xRenderCreateCursorReq);
     LEGAL_NEW_RESOURCE(stuff->cid, client);
@@ -1478,17 +1481,23 @@ ProcRenderCreateCursor (ClientPtr client)
 
     pScreen -> RealizeCursor = nxagentCursorSaveRenderInfo;
 #endif
-    pCursor = AllocCursorARGB (srcbits, mskbits, argbbits, &cm,
-			       GetColor(twocolor[0], 16),
-			       GetColor(twocolor[0], 8),
-			       GetColor(twocolor[0], 0),
-			       GetColor(twocolor[1], 16),
-			       GetColor(twocolor[1], 8),
-			       GetColor(twocolor[1], 0));
+    rc = AllocARGBCursor(srcbits, mskbits, argbbits, &cm,
+			 GetColor(twocolor[0], 16),
+			 GetColor(twocolor[0], 8),
+			 GetColor(twocolor[0], 0),
+			 GetColor(twocolor[1], 16),
+			 GetColor(twocolor[1], 8),
+			 GetColor(twocolor[1], 0),
+			 &pCursor, client, stuff->cid);
 
 #ifdef NXAGENT_SERVER
     pScreen -> RealizeCursor = saveRealizeCursor;
+#endif
 
+    if (rc != Success)
+	return rc;
+
+#ifdef NXAGENT_SERVER
     /*
      * Store into the private data members the
      * information needed to recreate it at
@@ -1497,18 +1506,14 @@ ProcRenderCreateCursor (ClientPtr client)
      * picture info.
      */
 
-    if (pCursor == NULL)
-    {
-      return BadAlloc;
-    }
-
     nxagentCursorPostSaveRenderInfo(pCursor, pScreen, pSrc, stuff -> x, stuff -> y);
 
     nxagentRenderRealizeCursor(pScreen, pCursor);
 #endif
-    if (pCursor && AddResource(stuff->cid, RT_CURSOR, (void *)pCursor))
-	return (client->noClientException);
-    return BadAlloc;
+    if (!AddResource(stuff->cid, RT_CURSOR, (void *)pCursor))
+	return BadAlloc;
+
+    return (client->noClientException);
 }
 
 static int
@@ -1593,7 +1598,8 @@ ProcRenderCreateAnimCursor (ClientPtr client)
 	deltas[i] = elt->delay;
 	elt++;
     }
-    ret = AnimCursorCreate (cursors, deltas, ncursor, &pCursor);
+    ret = AnimCursorCreate (cursors, deltas, ncursor, &pCursor, client,
+			    stuff->cid);
     free (cursors);
     if (ret != Success)
 	return ret;
@@ -1601,10 +1607,15 @@ ProcRenderCreateAnimCursor (ClientPtr client)
 #ifdef NXAGENT_SERVER
     nxagentAnimCursorBits = pCursor -> bits;
 
+    /* 2024-03-24 FIXME: probably no longer required since API
+       changed. After AnimCursorCreate() pCursor->devPrivates is NULL.
+       It is unclear how to handle this here. Leave it out for now. */
+    /*
     for (i = 0; i < MAXSCREENS; i++)
     {
       pCursor -> devPriv[i] = NULL;
     }
+    */
 #endif
 
     if (AddResource (stuff->cid, RT_CURSOR, (void *)pCursor))

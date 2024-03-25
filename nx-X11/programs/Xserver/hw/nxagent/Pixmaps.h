@@ -72,14 +72,14 @@ typedef struct
 
 typedef nxagentPrivPixmapRec *nxagentPrivPixmapPtr;
 
-extern int nxagentPixmapPrivateIndex;
+extern DevPrivateKey nxagentPixmapPrivateKey;
 
 /*
  * Pixmap privates macro.
  */
 
-#define nxagentPixmapPriv(pPixmap) \
-    ((nxagentPrivPixmapPtr)((pPixmap) -> devPrivates[nxagentPixmapPrivateIndex].ptr))
+#define nxagentPixmapPriv(pPixmap) ((nxagentPrivPixmapPtr) \
+    dixLookupPrivate(&(pPixmap)->devPrivates, nxagentPixmapPrivateKey))
 
 #define nxagentPixmap(pPixmap) (nxagentPixmapPriv(pPixmap) -> id)
 

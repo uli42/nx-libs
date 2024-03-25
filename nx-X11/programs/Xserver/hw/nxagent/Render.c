@@ -103,7 +103,7 @@ int nxagentRenderEnable = UNDEFINED;
 int nxagentRenderVersionMajor;
 int nxagentRenderVersionMinor;
 
-int nxagentPicturePrivateIndex = 0;
+DevPrivateKey nxagentPicturePrivateKey = &nxagentPicturePrivateKey;
 
 static int nxagentNumFormats = 0;
 
@@ -488,9 +488,9 @@ void nxagentRenderExtensionInit(void)
 
 int nxagentCursorSaveRenderInfo(ScreenPtr pScreen, CursorPtr pCursor)
 {
-  pCursor -> devPriv[pScreen -> myNum] = malloc(sizeof(nxagentPrivCursor));
+  nxagentSetCursorPriv(pCursor, pScreen, malloc(sizeof(nxagentPrivCursor)));
 
-  if (nxagentCursorPriv(pCursor, pScreen) == NULL)
+  if (nxagentGetCursorPriv(pCursor, pScreen) == NULL)
   {
     FatalError("malloc failed");
   }
@@ -2178,9 +2178,8 @@ Bool nxagentPictureInit(ScreenPtr pScreen, PictFormatPtr formats, int nformats)
     return FALSE;
   }
 
-  nxagentPicturePrivateIndex = AllocatePicturePrivateIndex();
-
-  AllocatePicturePrivate(pScreen, nxagentPicturePrivateIndex, sizeof(nxagentPrivPictureRec));
+  if (!dixRequestPrivate(nxagentPicturePrivateKey, sizeof(nxagentPrivPictureRec)))
+    return FALSE;
   #endif
 
   return TRUE;

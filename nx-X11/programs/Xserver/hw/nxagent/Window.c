@@ -73,7 +73,7 @@
  * Used to register the window's privates.
  */
 
-int nxagentWindowPrivateIndex;
+DevPrivateKey nxagentWindowPrivateKey = &nxagentWindowPrivateKey;
 
 /*
  * Used to track nxagent window's visibility.
@@ -1805,7 +1805,7 @@ Bool nxagentChangeWindowAttributes(WindowPtr pWin, unsigned long mask)
     if (nxagentOption(Rootless))
     {
       if (pWin->cursorIsNone == 0 && pWin->optional != NULL &&
-              pWin->optional->cursor != NULL && nxagentCursorPriv(pWin ->
+              pWin->optional->cursor != NULL && nxagentGetCursorPriv(pWin ->
                   optional -> cursor, pWin -> drawable.pScreen) != NULL)
       {
         attributes.cursor = nxagentCursor(pWin -> optional -> cursor,
@@ -1954,7 +1954,7 @@ void nxagentFrameBufferPaintWindow(WindowPtr pWin, RegionPtr pRegion, int what)
 
     pWin->drawable.pScreen -> PaintWindowBackground = nxagentFrameBufferPaintWindow;
 
-    fbPaintWindow(pWin, pRegion, what);
+    miPaintWindow(pWin, pRegion, what);
 
     pWin->drawable.pScreen -> PaintWindowBackground = PaintWindowBackgroundBackup;
   }
@@ -2625,7 +2625,7 @@ void nxagentDisconnectWindow(void * p0, XID x1, void * p2)
   ScreenPtr pScreen = pWin -> drawable.pScreen;
 
   if ((pCursor = wCursor(pWin)) &&
-         nxagentCursorPriv(pCursor, pScreen) &&
+         nxagentGetCursorPriv(pCursor, pScreen) &&
            nxagentCursor(pCursor, pScreen))
   {
     #ifdef NXAGENT_RECONNECT_CURSOR_DEBUG
@@ -2663,7 +2663,7 @@ void nxagentDisconnectWindow(void * p0, XID x1, void * p2)
   {
     Atom prop = MakeAtom("NX_REAL_WINDOW", strlen("NX_REAL_WINDOW"), True);
 
-    if (DeleteProperty(pWin, prop) != Success)
+    if (DeleteProperty(serverClient, pWin, prop) != Success)
     {
       fprintf(stderr, "nxagentDisconnectWindow: Deleting NX_REAL_WINDOW failed.\n");
     }
@@ -3158,7 +3158,7 @@ static void nxagentReconfigureWindowCursor(void * param0, XID param1, void * dat
 
   ScreenPtr pScreen = pWin -> drawable.pScreen;
 
-  if (!(nxagentCursorPriv(pCursor, pScreen)))
+  if (!(nxagentGetCursorPriv(pCursor, pScreen)))
   {
     return;
   }

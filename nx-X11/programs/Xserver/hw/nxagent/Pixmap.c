@@ -69,7 +69,7 @@ RESTYPE  RT_NX_PIXMAP;
 #include "Font.h"
 #endif
 
-int nxagentPixmapPrivateIndex;
+DevPrivateKey nxagentPixmapPrivateKey = &nxagentPixmapPrivateKey;
 
 /*
  * Force deallocation of the virtual pixmap.
@@ -137,12 +137,14 @@ PixmapPtr nxagentCreatePixmap(ScreenPtr pScreen, int width, int height,
   pPixmap -> drawable.height = height;
   pPixmap -> devKind = 0;
   pPixmap -> refcnt = 1;
-  pPixmap -> devPrivate.ptr = NULL;
   pPixmap -> usage_hint = usage_hint;
 
   /*
    * Initialize the privates of the real picture.
    */
+
+  dixSetPrivate(&pPixmap->devPrivates, nxagentPixmapPrivateKey,
+                (char *)pPixmap + pScreen->totalPixmapSize);
 
   nxagentPrivPixmapPtr pPixmapPriv = nxagentPixmapPriv(pPixmap);
 
@@ -202,9 +204,10 @@ PixmapPtr nxagentCreatePixmap(ScreenPtr pScreen, int width, int height,
 
   if (width != 0 && height != 0 && !nxagentGCTrap)
   {
-    pPixmapPriv -> id = XCreatePixmap(nxagentDisplay,
-                                      nxagentDefaultWindows[pScreen -> myNum],
-                                      width, height, depth);
+
+     pPixmapPriv -> id = XCreatePixmap(nxagentDisplay,
+				       nxagentDefaultWindows[pScreen -> myNum],
+				       width, height, depth);
   }
   else
   {

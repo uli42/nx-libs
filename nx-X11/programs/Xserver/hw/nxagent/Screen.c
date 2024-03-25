@@ -852,7 +852,7 @@ void freeDepths(DepthPtr depths, int num)
   SAFE_free(depths);
 }
 
-Bool nxagentOpenScreen(ScreenPtr pScreen, int argc, char *argv[])
+Bool nxagentOpenScreen(int index, ScreenPtr pScreen, int argc, char *argv[])
 {
   Bool resetAgentPosition = False;
 
@@ -861,10 +861,11 @@ Bool nxagentOpenScreen(ScreenPtr pScreen, int argc, char *argv[])
               pScreen->myNum);
   #endif
 
-  if (nxagentRenderEnable && !nxagentReconnectTrap)
-  {
-    PictureScreenPrivateIndex = -1;
-  }
+  // FIXME: does this need a replacement in Xorg 1.5.0+ codelevel?
+  //  if (nxagentRenderEnable && !nxagentReconnectTrap)
+  //{
+  //  PictureScreenPrivateIndex = -1;
+  //}
 
   nxagentDefaultScreen = pScreen;
 
@@ -1167,14 +1168,15 @@ Bool nxagentOpenScreen(ScreenPtr pScreen, int argc, char *argv[])
      * Initialize all our privates.
      */
 
-    if (AllocateWindowPrivate(pScreen, nxagentWindowPrivateIndex, sizeof(nxagentPrivWindowRec)) == 0 ||
-            AllocateGCPrivate(pScreen, nxagentGCPrivateIndex, sizeof(nxagentPrivGC)) == 0 ||
-                AllocateClientPrivate(nxagentClientPrivateIndex, sizeof(PrivClientRec)) == 0 ||
-                    AllocatePixmapPrivate(pScreen, nxagentPixmapPrivateIndex, sizeof(nxagentPrivPixmapRec)) == 0)
+    if (!dixRequestPrivate(nxagentWindowPrivateKey, sizeof(nxagentPrivWindowRec)) ||
+        !dixRequestPrivate(nxagentGCPrivateKey, sizeof(nxagentPrivGC)) ||
+	!dixRequestPrivate(nxagentClientPrivateKey, sizeof(PrivClientRec)) ||
+	!dixRequestPrivate(nxagentPixmapPrivateKey, sizeof(nxagentPrivPixmapRec)))
     {
       return False;
     }
 
+    
     /*
      * Initialize the depths.
      */
@@ -2120,7 +2122,7 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
   return True;
 }
 
-Bool nxagentCloseScreen(ScreenPtr pScreen)
+Bool nxagentCloseScreen(int index, ScreenPtr pScreen)
 {
   #ifdef DEBUG
   fprintf(stderr, "running nxagentCloseScreen()\n");
@@ -2146,7 +2148,7 @@ Bool nxagentCloseScreen(ScreenPtr pScreen)
   SAFE_free(pScreen->devPrivate);
   SAFE_free(pScreen->visuals);
 
-  fbCloseScreen(pScreen);
+  fbCloseScreen(index, pScreen);
 
   /*
    * Reset the geometry and alpha information
@@ -3485,7 +3487,8 @@ Bool nxagentReconnectScreen(void *p0)
   fprintf(stderr, "nxagentReconnectScreen\n");
 #endif
 
-  if (!nxagentOpenScreen(nxagentDefaultScreen, nxagentArgc, nxagentArgv))
+  // FIXME: 2024-03-24: what is the correct index here?
+  if (!nxagentOpenScreen(0, nxagentDefaultScreen, nxagentArgc, nxagentArgv))
   {
     return False;
   }

@@ -53,6 +53,9 @@ in this Software without prior written authorization from The Open Group.
 
 
 #include <nx-X11/X.h>
+
+#include "privates.h"
+
 #include "Trap.h"
 #include "Agent.h"
 
@@ -60,6 +63,7 @@ in this Software without prior written authorization from The Open Group.
 #include "Pixmaps.h"
 
 #include "../../Xext/shm.c"
+
 
 /*
  * Set here the required log level.
@@ -150,26 +154,38 @@ ShmExtensionInit(void)
 }
 
 static void
-miShmPutImage(dst, pGC, depth, format, w, h, sx, sy, sw, sh, dx, dy, data)
-    DrawablePtr dst;
-    GCPtr	pGC;
-    int		depth, w, h, sx, sy, sw, sh, dx, dy;
-    unsigned int format;
-    char 	*data;
+doShmPutImage(DrawablePtr dst, GCPtr pGC,
+	      int depth, unsigned int format,
+	      int w, int h, int sx, int sy, int sw, int sh, int dx, int dy,
+	      char *data)
+
 {
     /* Careful! This wrapper DEACTIVATES the trap! */
 
     nxagentShmTrap = False;
 
-    xorg_miShmPutImage(dst, pGC, depth, format, w, h, sx, sy, sw, sh, dx, dy, data);
+    xorg_doShmPutImage(dst, pGC, depth, format, w, h, sx, sy, sw, sh, dx, dy, data);
 
+    /*
+     * FIXME: Maybe add code previously in fbShmPutImage() with does
+     * is not longer being undes (but still exists within this
+     * file). See comment there
+     */
+     
     nxagentShmTrap = True;
 
     return;
 }
 
 
-static void
+/*
+ * FIXME: fbShmPutImage() is no longer called/used with Xorg 1.5.0. However,
+ * there's specail NX code here. We need to determine where to place
+ * it now and/or if it is requried anymore at all!
+ */
+
+#if 0
+  static void
 fbShmPutImage(dst, pGC, depth, format, w, h, sx, sy, sw, sh, dx, dy, data)
     DrawablePtr dst;
     GCPtr	pGC;
@@ -236,23 +252,24 @@ fbShmPutImage(dst, pGC, depth, format, w, h, sx, sy, sw, sh, dx, dy, data)
         #ifdef TEST
         fprintf(stderr, "fbShmPutImage: Calling miShmPutImage().\n");
         #endif
-	miShmPutImage(dst, pGC, depth, format, w, h, sx, sy, sw, sh, dx, dy,
+	doShmPutImage(dst, pGC, depth, format, w, h, sx, sy, sw, sh, dx, dy,
 		      data);
     }
 }
+#endif
 
 static int
 ProcShmPutImage(client)
     register ClientPtr client;
 {
-    register GCPtr pGC;
-    register DrawablePtr pDraw;
+    GCPtr pGC;
+    DrawablePtr pDraw;
     long length;
     ShmDescPtr shmdesc;
     REQUEST(xShmPutImageReq);
 
     REQUEST_SIZE_MATCH(xShmPutImageReq);
-    VALIDATE_DRAWABLE_AND_GC(stuff->drawable, pDraw, pGC, client);
+    VALIDATE_DRAWABLE_AND_GC(stuff->drawable, pDraw, DixWriteAccess);
     VERIFY_SHMPTR(stuff->shmseg, stuff->offset, FALSE, shmdesc, client);
     if ((stuff->sendEvent != xTrue) && (stuff->sendEvent != xFalse))
 	return BadValue;
@@ -313,12 +330,14 @@ ProcShmPutImage(client)
 	return BadValue;
     }
 
+#ifdef NXAGENT_SERVER
     #ifdef TEST
     fprintf(stderr, "ProcShmPutImage: Format [%d] srcX [%d] srcY [%d], "
                 "totalWidth [%d] totalHeight [%d]\n", stuff->format, stuff->srcX,
                     stuff->srcY, stuff->totalWidth, stuff->totalHeight);
     #endif
-
+#endif
+    
 #ifndef NXAGENT_SERVER
     /*
     It seems like this code was removed for a good reason. Including
@@ -351,20 +370,21 @@ ProcShmPutImage(client)
         fprintf(stderr, "ProcShmPutImage: Calling (*shmFuncs[pDraw->pScreen->myNum]->PutImage)().\n");
         #endif
 
-        (*shmFuncs[pDraw->pScreen->myNum]->PutImage)(
-                                   pDraw, pGC, stuff->depth, stuff->format,
-                                   stuff->totalWidth, stuff->totalHeight,
-                                   stuff->srcX, stuff->srcY,
-                                   stuff->srcWidth, stuff->srcHeight,
-                                   stuff->dstX, stuff->dstY,
-                                   shmdesc->addr + stuff->offset);
+	doShmPutImage(pDraw, pGC, stuff->depth, stuff->format,
+			       stuff->totalWidth, stuff->totalHeight,
+			       stuff->srcX, stuff->srcY,
+			       stuff->srcWidth, stuff->srcHeight,
+			       stuff->dstX, stuff->dstY,
+                               shmdesc->addr + stuff->offset);
     }
 
     if (stuff->sendEvent)
     {
 	xShmCompletionEvent ev;
 
+#ifdef NXAGENT_SERVER
 	memset(&ev, 0, sizeof(xShmCompletionEvent));
+#endif
 	ev.type = ShmCompletionCode;
 	ev.drawable = stuff->drawable;
 	ev.minorEvent = X_ShmPutImage;

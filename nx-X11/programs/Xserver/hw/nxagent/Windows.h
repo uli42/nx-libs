@@ -106,10 +106,10 @@ void nxagentInitBSPixmapList(void);
 int nxagentEmptyBSPixmapList(void);
 StoringPixmapPtr nxagentFindItemBSPixmapList (unsigned long);
 
-extern int nxagentWindowPrivateIndex;
+extern DevPrivateKey nxagentWindowPrivateKey;
 
 #define nxagentWindowPriv(pWin) \
-  ((nxagentPrivWindowPtr)((pWin)->devPrivates[nxagentWindowPrivateIndex].ptr))
+ ((nxagentPrivWindowPtr)dixLookupPrivate(&(pWin)->devPrivates, nxagentWindowPrivateKey))
 
 #define nxagentWindow(pWin) (nxagentWindowPriv(pWin)->window)
 

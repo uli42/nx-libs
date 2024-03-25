@@ -55,6 +55,7 @@ is" without express or implied warranty.
 #include <X11/fonts/fontstruct.h>
 #include "dixfontstr.h"
 #include "dixstruct.h"
+#include "selection.h"
 
 #include "Agent.h"
 #include "Display.h"
@@ -98,7 +99,7 @@ extern int (*ProcVector[256])(ClientPtr);
 /*
  * From the fb code.
  */
-extern int fbGCPrivateIndex;
+extern DevPrivateKey fbGetGCPrivateKey(void);
 
 /*
  * Our error logging function.
@@ -374,8 +375,6 @@ FIXME: These variables, if not removed at all because have probably
    * Get our own privates' index.
    */
 
-  nxagentWindowPrivateIndex = AllocateWindowPrivateIndex();
-  nxagentGCPrivateIndex = AllocateGCPrivateIndex();
   RT_NX_GC = CreateNewResourceType(nxagentDestroyNewGCResourceType);
 #ifdef HAS_XFONT2
   nxagentFontPrivateIndex = xfont2_allocate_font_private_index();
@@ -383,15 +382,11 @@ FIXME: These variables, if not removed at all because have probably
   nxagentFontPrivateIndex = AllocateFontPrivateIndex();
 #endif /* HAS_XFONT2 */
   RT_NX_FONT = CreateNewResourceType(nxagentDestroyNewFontResourceType); 
-  nxagentClientPrivateIndex = AllocateClientPrivateIndex();
-  nxagentPixmapPrivateIndex = AllocatePixmapPrivateIndex();
   RT_NX_PIXMAP = CreateNewResourceType(nxagentDestroyNewPixmapResourceType); 
 
   RT_NX_CORR_BACKGROUND = CreateNewResourceType(nxagentDestroyCorruptedBackgroundResource);
   RT_NX_CORR_WINDOW = CreateNewResourceType(nxagentDestroyCorruptedWindowResource);
   RT_NX_CORR_PIXMAP = CreateNewResourceType(nxagentDestroyCorruptedPixmapResource);
-
-  fbGCPrivateIndex = AllocateGCPrivateIndex();
 
   if (nxagentNumScreens == 0)
   {

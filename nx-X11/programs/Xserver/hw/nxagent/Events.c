@@ -1221,7 +1221,7 @@ FIXME: Don't enqueue the KeyRelease event if the key was not already
                                True,
                                nxagentLastKeyPressTime + (X.xkey.time - nxagentLastServerTime));
 
-          CriticalOutputPending = 1;
+          SetCriticalOutputPending();
 
           if (!nxagentOption(ViewOnly) && nxagentOption(Shadow))
           {
@@ -1328,7 +1328,7 @@ FIXME: Don't enqueue the KeyRelease event if the key was not already
             mieqEnqueue(nxagentPointerDevice, nxagentEvents + i);
 #endif
 
-          CriticalOutputPending = 1;
+          SetCriticalOutputPending();
         }
 
         if (!nxagentOption(ViewOnly) && nxagentOption(Shadow))
@@ -1413,7 +1413,7 @@ FIXME: Don't enqueue the KeyRelease event if the key was not already
             mieqEnqueue(nxagentPointerDevice, nxagentEvents + i);
 #endif
 
-          CriticalOutputPending = 1;
+          SetCriticalOutputPending();
         }
 
         if (!nxagentOption(ViewOnly) && nxagentOption(Shadow))
@@ -2380,7 +2380,7 @@ int nxagentHandleKeyPress(XEvent *X, enum HandleEventResult *result)
   nxagentLastServerTime = X -> xkey.time;
   nxagentLastKeyPressTime = nxagentLastEventTime;
 
-  CriticalOutputPending = 1;
+  SetCriticalOutputPending();
 
   return 1;
 }

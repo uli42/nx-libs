@@ -135,6 +135,7 @@ of the copyright holder.
 
 #include <nx-X11/Xlib.h>
 
+// define this to inform dix about having a own implementation of GetXYStartWindow()
 #define XYWINDOWCALLBACK
 #include "../../dix/events.c"
 
@@ -274,6 +275,53 @@ ProcAllowEvents(register ClientPtr client)
     return Success;
 }
 
+void
+DefineInitialRootWindow(register WindowPtr win)
+{
+    register ScreenPtr pScreen = win->drawable.pScreen;
+
+    xorg_DefineInitialRootWindow(win);
+
+    #ifdef VIEWPORT_FRAME
+    nxagentInitViewportFrame(pScreen, win);
+    #endif
+
+    if (nxagentOption(Shadow))
+    {
+      if (nxagentShadowInit(pScreen, win) == -1)
+      {
+        FatalError("Failed to connect to display '%s'", nxagentShadowDisplayName);
+      }
+    }
+}
+
+int
+ProcSendEvent(ClientPtr client)
+{
+#ifdef NXAGENT_CLIPBOARD
+
+    REQUEST(xSendEventReq);
+
+    REQUEST_SIZE_MATCH(xSendEventReq);
+
+    if (nxagentOption(Rootless) && stuff->event.u.u.type == ClientMessage)
+    {
+        ForwardClientMessage(client, stuff);
+        return Success;
+    }
+
+    if (stuff -> event.u.u.type == SelectionNotify)
+    {
+        #ifdef DEBUG
+        fprintf(stderr, "%s: sending SelectionNotify to ourselves"\n, __func__);
+        #endif
+        if (nxagentSendNotificationToSelfViaXServer(&stuff->event) == 1)
+            return Success;
+    }
+#endif
+    return xorg_ProcSendEvent(client);
+}
+
 /*
  * called from XYToWindow to determine where XYToWindow() should start
  * going through the list.
@@ -394,51 +442,4 @@ CheckMotion(xEvent *xE)
         return FALSE;
     }
     return TRUE;
-}
-
-void
-DefineInitialRootWindow(register WindowPtr win)
-{
-    register ScreenPtr pScreen = win->drawable.pScreen;
-
-    xorg_DefineInitialRootWindow(win);
-
-    #ifdef VIEWPORT_FRAME
-    nxagentInitViewportFrame(pScreen, win);
-    #endif
-
-    if (nxagentOption(Shadow))
-    {
-      if (nxagentShadowInit(pScreen, win) == -1)
-      {
-        FatalError("Failed to connect to display '%s'", nxagentShadowDisplayName);
-      }
-    }
-}
-
-int
-ProcSendEvent(ClientPtr client)
-{
-#ifdef NXAGENT_CLIPBOARD
-
-    REQUEST(xSendEventReq);
-
-    REQUEST_SIZE_MATCH(xSendEventReq);
-
-    if (nxagentOption(Rootless) && stuff->event.u.u.type == ClientMessage)
-    {
-        ForwardClientMessage(client, stuff);
-        return Success;
-    }
-
-    if (stuff -> event.u.u.type == SelectionNotify)
-    {
-        #ifdef DEBUG
-        fprintf(stderr, "%s: sending SelectionNotify to ourselves"\n, __func__);
-        #endif
-        if (nxagentSendNotificationToSelfViaXServer(&stuff->event) == 1)
-            return Success;
-    }
-#endif
-    return xorg_ProcSendEvent(client);
 }

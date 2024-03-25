@@ -155,18 +155,6 @@ ProcChangeProperty(ClientPtr client)
 	return(BadAtom);
     }
 
-#ifdef XCSECURITY
-    switch (SecurityCheckPropertyAccess(client, pWin, stuff->property,
-					DixWriteAccess))
-    {
-	case SecurityErrorOperation:
-	    client->errorValue = stuff->property;
-	    return BadAtom;
-	case SecurityIgnoreOperation:
-	    return Success;
-    }
-#endif
-
 #ifdef NXAGENT_ARTSD
     {
     /* Do not process MCOPGLOBALS property changes,
@@ -184,8 +172,9 @@ ProcChangeProperty(ClientPtr client)
       return client->noClientException;
 #endif
 
-    err = ChangeWindowProperty(pWin, stuff->property, stuff->type, (int)format,
-			       (int)mode, len, (void *)&stuff[1], TRUE);
+    err = dixChangeWindowProperty(client, pWin, stuff->property, stuff->type,
+				  (int)format, (int)mode, len, &stuff[1],
+				  TRUE);
     if (err != Success)
 	return err;
     else
@@ -208,6 +197,28 @@ ProcChangeProperty(ClientPtr client)
     }
 }
 
+int
+ChangeWindowProperty(WindowPtr pWin, Atom property, Atom type, int format,
+                     int mode, unsigned long len, void * value,
+                     Bool sendevent)
+{
+    int sizeInBytes = format>>3;
+    int totalSize = len * sizeInBytes;
+    int copySize = nxagentOption(CopyBufferSize);
+
+    if (copySize != COPY_UNLIMITED && property == clientCutProperty)
+    {
+      if (totalSize > copySize)
+      {
+        totalSize = copySize;
+        totalSize = totalSize - (totalSize % sizeInBytes);
+        len = totalSize / sizeInBytes;
+      }
+    }
+
+    return xorg_ChangeWindowProperty(pWin, property, type, format, mode, len, value, sendevent);
+}
+
 /*****************
  * GetProperty
  *    If type Any is specified, returns the property from the specified
@@ -223,17 +234,21 @@ ProcGetProperty(ClientPtr client)
 {
     PropertyPtr pProp, prevProp;
     unsigned long n, len, ind;
+    int rc;
     WindowPtr pWin;
     xGetPropertyReply reply;
+    Mask win_mode = DixGetPropAccess, prop_mode = DixReadAccess;
     REQUEST(xGetPropertyReq);
 
     REQUEST_SIZE_MATCH(xGetPropertyReq);
-    if (stuff->delete)
+    if (stuff->delete) {
 	UpdateCurrentTime();
-    pWin = (WindowPtr)SecurityLookupWindow(stuff->window, client,
-					   DixReadAccess);
-    if (!pWin)
-	return BadWindow;
+	win_mode |= DixSetPropAccess;
+	prop_mode |= DixDestroyAccess;
+    }
+    rc = dixLookupWindow(&pWin, stuff->window, client, win_mode);
+    if (rc != Success)
+	return rc;
 
     if (!ValidAtom(stuff->property))
     {
@@ -265,7 +280,13 @@ ProcGetProperty(ClientPtr client)
     reply.type = X_Reply;
     reply.sequenceNumber = client->sequence;
 
-    #ifdef NXAGENT_SERVER
+    rc = dixLookupProperty(&pProp, pWin, stuff->property, client, prop_mode);
+    if (rc == BadMatch)
+	return NullPropertyReply(client, None, 0, &reply);
+    else if (rc != Success)
+	return rc;
+
+#ifdef NXAGENT_SERVER
 
     /*
      * Creating a reply for WM_STATE property if it doesn't exist.
@@ -321,27 +342,6 @@ ProcGetProperty(ClientPtr client)
     }
     #endif
 
-    if (!pProp) 
-	return NullPropertyReply(client, None, 0, &reply);
-
-#ifdef XCSECURITY
-    {
-	Mask access_mode = DixReadAccess;
-
-	if (stuff->delete)
-	    access_mode |= DixDestroyAccess;
-	switch(SecurityCheckPropertyAccess(client, pWin, stuff->property,
-					   access_mode))
-	{
-	    case SecurityErrorOperation:
-		client->errorValue = stuff->property;
-		return BadAtom;;
-	    case SecurityIgnoreOperation:
-		return NullPropertyReply(client, pProp->type, pProp->format,
-					 &reply);
-	}
-    }
-#endif
     /* If the request type and actual type don't match. Return the
     property information, but not the data. */
 
@@ -382,17 +382,7 @@ ProcGetProperty(ClientPtr client)
     reply.propertyType = pProp->type;
 
     if (stuff->delete && (reply.bytesAfter == 0))
-    { /* send the event */
-	xEvent event;
-
-	memset(&event, 0, sizeof(xEvent));
-	event.u.u.type = PropertyNotify;
-	event.u.property.window = pWin->drawable.id;
-	event.u.property.state = PropertyDelete;
-	event.u.property.atom = pProp->propertyName;
-	event.u.property.time = currentTime.milliseconds;
-	DeliverEvents(pWin, &event, 1, (WindowPtr)NULL);
-    }
+	deliverPropertyNotifyEvent(pWin, PropertyDelete, pProp->propertyName);
 
     WriteReplyToClient(client, sizeof(xGenericReply), &reply);
     if (len)
@@ -406,15 +396,21 @@ ProcGetProperty(ClientPtr client)
 				 (char *)pProp->data + ind);
     }
 
-    if (stuff->delete && (reply.bytesAfter == 0))
-    { /* delete the Property */
-	if (prevProp == (PropertyPtr)NULL) /* takes care of head */
-	{
+    if (stuff->delete && (reply.bytesAfter == 0)) {
+	/* Delete the Property */
+	if (pWin->optional->userProps == pProp) {
+	    /* Takes care of head */
 	    if (!(pWin->optional->userProps = pProp->next))
 		CheckWindowOptionalNeed (pWin);
-	}
-	else
+	} else {
+	    /* Need to traverse to find the previous element */
+	    prevProp = pWin->optional->userProps;
+	    while (prevProp->next != pProp)
+		prevProp = prevProp->next;
 	    prevProp->next = pProp->next;
+	}
+
+	dixFreePrivates(pProp->devPrivates);
 	free(pProp->data);
 	free(pProp);
     }
@@ -422,7 +418,7 @@ ProcGetProperty(ClientPtr client)
 }
 
 int
-ProcDeleteProperty(register ClientPtr client)
+ProcDeleteProperty(ClientPtr client)
 {
     REQUEST(xDeletePropertyReq);
     REQUEST_SIZE_MATCH(xDeletePropertyReq);
@@ -561,26 +557,4 @@ GetWindowProperty(WindowPtr pWin, Atom property, long longOffset,
 	free(pProp);
     }
     return Success;
-}
-
-int
-ChangeWindowProperty(WindowPtr pWin, Atom property, Atom type, int format,
-                     int mode, unsigned long len, void * value,
-                     Bool sendevent)
-{
-    int sizeInBytes = format>>3;
-    int totalSize = len * sizeInBytes;
-    int copySize = nxagentOption(CopyBufferSize);
-
-    if (copySize != COPY_UNLIMITED && property == clientCutProperty)
-    {
-      if (totalSize > copySize)
-      {
-        totalSize = copySize;
-        totalSize = totalSize - (totalSize % sizeInBytes);
-        len = totalSize / sizeInBytes;
-      }
-    }
-
-    return xorg_ChangeWindowProperty(pWin, property, type, format, mode, len, value, sendevent);
 }

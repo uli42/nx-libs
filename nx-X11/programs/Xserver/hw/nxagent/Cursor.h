@@ -70,23 +70,26 @@ extern CursorBitsPtr nxagentAnimCursorBits;
 #define nxagentIsAnimCursor(c)        ((c)->bits == nxagentAnimCursorBits)
 #define nxagentGetAnimCursor(c)       ((AnimCurPtr) ((c) + 1))
 
-#define nxagentCursorPriv(pCursor, pScreen) \
-  ((nxagentPrivCursor *)((pCursor)->devPriv[pScreen->myNum]))
+#define nxagentGetCursorPriv(pCursor, pScreen) \
+    ((nxagentPrivCursor *)dixLookupPrivate(&(pCursor)->devPrivates, pScreen))
 
-#define nxagentCursor(pCursor, pScreen) \
-  (nxagentCursorPriv(pCursor, pScreen)->cursor)
+#define nxagentSetCursorPriv(pCursor, pScreen, v) \
+    dixSetPrivate(&(pCursor)->devPrivates, pScreen, v)
+
+#define nxagentCursor(pCursor, pScreen)		\
+  (nxagentGetCursorPriv(pCursor, pScreen)->cursor)
 
 #define nxagentCursorPicture(pCursor, pScreen) \
-  (nxagentCursorPriv(pCursor, pScreen)->picture)
+  (nxagentGetCursorPriv(pCursor, pScreen)->picture)
 
 #define nxagentCursorUsesRender(pCursor, pScreen) \
-  (nxagentCursorPriv(pCursor, pScreen)->uses_render)
+  (nxagentGetCursorPriv(pCursor, pScreen)->uses_render)
 
 #define nxagentCursorXOffset(pCursor, pScreen) \
-  (nxagentCursorPriv(pCursor, pScreen)->x)
+  (nxagentGetCursorPriv(pCursor, pScreen)->x)
 
 #define nxagentCursorYOffset(pCursor, pScreen) \
-  (nxagentCursorPriv(pCursor, pScreen)->y)
+  (nxagentGetCursorPriv(pCursor, pScreen)->y)
 
 void nxagentConstrainCursor(ScreenPtr pScreen, BoxPtr pBox);
 

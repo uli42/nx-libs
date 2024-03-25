@@ -79,6 +79,8 @@ Equipment Corporation.
 static Bool doOpenFont(ClientPtr client, OFclosurePtr c);
 static Bool doListFontsAndAliases(ClientPtr client, LFclosurePtr c);
 
+#include "list.h"
+
 #include "../../dix/dixfonts.c"
 
 #include "Agent.h"
@@ -510,7 +512,7 @@ doListFontsAndAliases(ClientPtr client, LFclosurePtr c)
 		    return TRUE;
 		}
 		if (err == FontNameAlias) {
-		    free(resolved);
+		    if (resolved) free(resolved);
 		    resolved = (char *) malloc(resolvedlen + 1);
 		    if (resolved)
 			memmove(resolved, tmpname, resolvedlen + 1);
@@ -702,14 +704,14 @@ bail:
     for (i = 0; i < c->num_fpes; i++)
 	FreeFPE(c->fpe_list[i]);
     free(c->fpe_list);
-    free(c->savedName);
+    if (c->savedName) free(c->savedName);
 #ifdef HAS_XFONT2
     xfont2_free_font_names(names);
 #else
     FreeFontNames(names);
 #endif /* HAS_XFONT2 */
     free(c);
-    free(resolved);
+    if (resolved) free(resolved);
     return TRUE;
 }
 
@@ -728,6 +730,10 @@ ListFonts(ClientPtr client, unsigned char *pattern, unsigned length,
      */
     if (length > XLFDMAXFONTNAMELEN)
 	return BadAlloc;
+
+    i = XaceHook(XACE_SERVER_ACCESS, client, DixGetAttrAccess);
+    if (i != Success)
+	return i;
 
     if (!(c = (LFclosurePtr) calloc(1, sizeof *c)))
 	return BadAlloc;
@@ -907,6 +913,7 @@ doListFontsWithInfo(ClientPtr client, LFWIclosurePtr c)
 		c->saved = c->current;
 		c->haveSaved = TRUE;
 		c->savedNumFonts = numFonts;
+		if (c->savedName)
 		free(c->savedName);
 		c->savedName = (char *)malloc(namelen + 1);
 		if (c->savedName)

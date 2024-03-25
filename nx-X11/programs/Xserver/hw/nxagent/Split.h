@@ -26,6 +26,9 @@
 #ifndef __Split_H__
 #define __Split_H__
 
+#include "pixmap.h"
+#include "gc.h"
+
 typedef struct _SplitResourceRec
 {
   int         pending;

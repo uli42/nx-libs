@@ -60,7 +60,10 @@
 #endif
 
 GlyphRefPtr
-FindGlyphRef (GlyphHashPtr hash, CARD32 signature, Bool match, GlyphPtr compare)
+FindGlyphRef (GlyphHashPtr	hash,
+	      CARD32		signature,
+	      Bool		match,
+	      unsigned char	sha1[20])
 {
     CARD32	elt, step, s;
     GlyphPtr	glyph;
@@ -90,7 +93,7 @@ FindGlyphRef (GlyphHashPtr hash, CARD32 signature, Bool match, GlyphPtr compare)
 		break;
 	}
 #ifdef NXAGENT_SERVER
-	else if (s == signature && match && glyph->size != compare->size)
+	else if (s == signature && match && glyph->size != 20)
         {
           /*
            * if the glyphsize is different there's no need to do a memcmp
@@ -103,7 +106,7 @@ FindGlyphRef (GlyphHashPtr hash, CARD32 signature, Bool match, GlyphPtr compare)
 #endif
 	else if (s == signature &&
 		 (!match ||
-		  memcmp (&compare->info, &glyph->info, compare->size) == 0))
+		  memcmp (glyph->sha1, sha1, 20) == 0))
 	{
 	    break;
 	}
@@ -124,13 +127,14 @@ void
 AddGlyph (GlyphSetPtr glyphSet, GlyphPtr glyph, Glyph id)
 {
     GlyphRefPtr	    gr;
-    CARD32	    hash;
+    CARD32	    signature;
 
     CheckDuplicates (&globalGlyphs[glyphSet->fdepth], "AddGlyph top global");
     /* Locate existing matching glyph */
-    hash = HashGlyph (glyph);
-    gr = FindGlyphRef (&globalGlyphs[glyphSet->fdepth], hash, TRUE, glyph);
-    if (gr->glyph && gr->glyph != DeletedGlyph)
+    signature = *(CARD32 *) glyph->sha1;
+    gr = FindGlyphRef (&globalGlyphs[glyphSet->fdepth], signature,
+		       TRUE, glyph->sha1);
+    if (gr->glyph && gr->glyph != DeletedGlyph && gr->glyph != glyph)
     {
 	PictureScreenPtr ps;
 	int              i;
@@ -141,15 +145,14 @@ AddGlyph (GlyphSetPtr glyphSet, GlyphPtr glyph, Glyph id)
 	    if (ps)
 		(*ps->UnrealizeGlyph) (screenInfo.screens[i], glyph);
 	}
-	if (glyph->devPrivates)
-	    free (glyph->devPrivates);
+	FreeGlyphPrivates(glyph);
 	free (glyph);
 	glyph = gr->glyph;
     }
     else
     {
 	gr->glyph = glyph;
-	gr->signature = hash;
+	gr->signature = signature;
 	globalGlyphs[glyphSet->fdepth].tableEntries++;
     }
  
@@ -163,11 +166,9 @@ AddGlyph (GlyphSetPtr glyphSet, GlyphPtr glyph, Glyph id)
     gr->glyph = glyph;
     gr->signature = id;
 
-    #ifdef NXAGENT_SERVER
-
+#ifdef NXAGENT_SERVER
     gr -> corruptedGlyph = 1;
-
-    #endif
+#endif
 
     CheckDuplicates (&globalGlyphs[glyphSet->fdepth], "AddGlyph bottom");
 }
@@ -239,7 +240,7 @@ ResizeGlyphHash (GlyphHashPtr hash, CARD32 change, Bool global)
 
                 #endif
 
-		gr = FindGlyphRef (&newHash, s, global, glyph);
+		gr = FindGlyphRef (&newHash, s, global, glyph->sha1);
 		gr->signature = s;
 		gr->glyph = glyph;
 

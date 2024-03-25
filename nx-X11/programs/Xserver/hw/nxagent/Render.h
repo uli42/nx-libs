@@ -26,6 +26,7 @@
 #ifndef __Render_H__
 #define __Render_H__
 
+#include "privates.h"
 #include "screenint.h"
 #include "cursor.h"
 #include "picture.h"
@@ -38,8 +39,6 @@
 extern int nxagentRenderEnable;
 extern int nxagentRenderVersionMajor;
 extern int nxagentRenderVersionMinor;
-
-extern int nxagentPicturePrivateIndex;
 
 extern BoxPtr nxagentGlyphsExtents;
 extern BoxPtr nxagentTrapezoidExtents;
@@ -84,10 +83,12 @@ typedef struct
 
 } nxagentPrivPictureRec;
 
+extern DevPrivateKey nxagentPicturePrivateKey;
+
 typedef nxagentPrivPictureRec *nxagentPrivPicturePtr;
 
-#define nxagentPicturePriv(pPicture) \
-  ((nxagentPrivPicturePtr) ((pPicture) -> devPrivates[nxagentPicturePrivateIndex].ptr))
+#define nxagentPicturePriv(pPicture) ((nxagentPrivPicturePtr) \
+     dixLookupPrivate(&(pPicture)->devPrivates, nxagentPicturePrivateKey))
 
 #define nxagentPicture(pPicture) (nxagentPicturePriv(pPicture) -> picture)
 

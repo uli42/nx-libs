@@ -57,10 +57,10 @@ typedef struct _PrivClientRec
   char *clientInfoString;
 } PrivClientRec;
 
-extern int nxagentClientPrivateIndex;
+extern DevPrivateKey nxagentClientPrivateKey;
 
-#define nxagentClientPriv(pClient) \
-  ((PrivClientRec *)((pClient)->devPrivates[nxagentClientPrivateIndex].ptr))
+#define nxagentClientPriv(pClient)					\
+  ((PrivClientRec *)dixLookupPrivate(&(pClient)->devPrivates, nxagentClientPrivateKey))
 
 extern void nxagentClientStateCallback(CallbackListPtr *callbacks, void *data, void *args);
 

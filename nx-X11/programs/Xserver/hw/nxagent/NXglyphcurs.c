@@ -52,13 +52,13 @@ Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts.
 
                         All Rights Reserved
 
-Permission to use, copy, modify, and distribute this software and its 
-documentation for any purpose and without fee is hereby granted, 
+Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose and without fee is hereby granted,
 provided that the above copyright notice appear in all copies and that
-both that copyright notice and this permission notice appear in 
+both that copyright notice and this permission notice appear in
 supporting documentation, and that the name of Digital not be
 used in advertising or publicity pertaining to distribution of the
-software without specific, written prior permission.  
+software without specific, written prior permission.
 
 DIGITAL DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING
 ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL
@@ -92,10 +92,10 @@ cursor metrics.
 */
 
 int
-ServerBitsFromGlyph(FontPtr pfont, unsigned ch, register CursorMetricPtr cm, unsigned char **ppbits)
+ServerBitsFromGlyph(FontPtr pfont, unsigned ch, CursorMetricPtr cm, unsigned char **ppbits)
 {
-    register ScreenPtr pScreen;
-    register GCPtr pGC;
+    ScreenPtr pScreen;
+    GCPtr pGC;
     xRectangle rect;
     PixmapPtr ppix;
     long nby;
@@ -115,14 +115,24 @@ ServerBitsFromGlyph(FontPtr pfont, unsigned ch, register CursorMetricPtr cm, uns
     /* zeroing the (pad) bits seems to help some ddx cursor handling */
     bzero(pbits, nby);
 
+#ifndef NXAGENT_SERVER
+    ppix = (PixmapPtr)(*pScreen->CreatePixmap)(pScreen, cm->width,
+					       cm->height, 1,
+					       CREATE_PIXMAP_USAGE_SCRATCH);
+#else
     ppix = fbCreatePixmap(pScreen, cm->width,
                           cm->height, 1,
                           CREATE_PIXMAP_USAGE_SCRATCH);
+#endif
     pGC = GetScratchGC(1, pScreen);
     if (!ppix || !pGC)
     {
 	if (ppix)
+#ifndef NXAGENT_SERVER
+	    (*pScreen->DestroyPixmap)(ppix);
+#else
 	    fbDestroyPixmap(ppix);
+#endif
 	if (pGC)
 	    FreeScratchGC(pGC);
 	free(pbits);
@@ -152,19 +162,34 @@ ServerBitsFromGlyph(FontPtr pfont, unsigned ch, register CursorMetricPtr cm, uns
     dixChangeGC(NullClient, pGC, GCFunction | GCForeground | GCFont,
 		NULL, gcval);
     ValidateGC((DrawablePtr)ppix, pGC);
+#ifndef NXAGENT_SERVER
+    (*pGC->ops->PolyFillRect)((DrawablePtr)ppix, pGC, 1, &rect);
+#else
     fbPolyFillRect((DrawablePtr)ppix, pGC, 1, &rect);
+#endif
 
     /* draw the glyph */
     gcval[0].val = 1;
     dixChangeGC(NullClient, pGC, GCForeground, NULL, gcval);
     ValidateGC((DrawablePtr)ppix, pGC);
+#ifndef NXAGENT_SERVER
+    (*pGC->ops->PolyText16)((DrawablePtr)ppix, pGC, cm->xhot, cm->yhot,
+			    1, (unsigned short *)char2b);
+    (*pScreen->GetImage)((DrawablePtr)ppix, 0, 0, cm->width, cm->height,
+			 XYPixmap, 1, pbits);
+#else
     miPolyText16((DrawablePtr)ppix, pGC, (int)cm->xhot, (int)cm->yhot,
                  (int)1, (unsigned short*)char2b);
     fbGetImage((DrawablePtr)ppix, 0, 0, cm->width, cm->height,
                          XYPixmap, 1, pbits);
+#endif
     *ppbits = (unsigned char *)pbits;
     FreeScratchGC(pGC);
+#ifndef NXAGENT_SERVER
+    (*pScreen->DestroyPixmap)(ppix);
+#else
     fbDestroyPixmap(ppix);
+#endif
 
     #ifdef TEST
     fprintf(stderr, "ServerBitsFromGlyph: Destroyed virtual pixmap at [%p].\n",

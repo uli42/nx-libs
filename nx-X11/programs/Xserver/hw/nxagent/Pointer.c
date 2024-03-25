@@ -169,7 +169,7 @@ int nxagentPointerProc(DeviceIntPtr pDev, int onoff)
       fprintf(stderr, "%s: Called for [DEVICE_CLOSE].\n", __func__);
       #endif
 
-      XkbFreePrivates(pDev);
+      dixFreePrivates(pDev->devPrivates);
 
       break;
     }

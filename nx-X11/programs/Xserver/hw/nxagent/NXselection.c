@@ -102,6 +102,10 @@ Equipment Corporation.
 
 #include "../../dix/selection.c"
 
+#include "Xatom.h"
+#include "Options.h"
+#include "Clipboard.h"
+
 /*
  * Set here the required log level.
  */
@@ -117,36 +121,13 @@ extern int nxagentClipboardSelection;
 extern int nxagentMaxSelections;
 #endif
 
-/*
- *  this used to be in dix/dispatch.c but
- *  has been dropped:
- *  Commit 34bf308a9e66f1a2f48630a15b1802afad50ec24
- *  Author: Eamon Walsh <ewalsh@tycho.nsa.gov>
- *  Date:   Fri Feb 29 18:00:23 2008 -0500
- *
- *     dix: Refactoring of selection code to allow for polyinstantiation.
- *     Introduces dixLookupSelection() API.
- *     Removes NumCurrentSelections from API.
- *
- * FIXME: we put the code here for now but need to do thsi rework for
- * the whole clipboard code soon
-*/
-
-static void
-xorg_InitSelections(void)
-{
-    if (CurrentSelections)
-       xfree(CurrentSelections);
-    CurrentSelections = (Selection *)NULL;
-    NumCurrentSelections = 0;
-}
-
-static void
+void
 InitSelections(void)
 {
     xorg_InitSelections();
 
-#ifdef NXAGENT_CLIPBOARD
+//#ifdef NXAGENT_CLIPBOARD
+#if 0
     {
       Selection *newsels;
       newsels = (Selection *)malloc(nxagentMaxSelections * sizeof(Selection));
@@ -157,6 +138,10 @@ InitSelections(void)
 
       /* Note: these are the same values that will be set on a SelectionClear event */
 
+      pSel = malloc(sizeof(Selection));
+      psel->selection = XA_PRIMARY;
+      
+		    
       CurrentSelections[nxagentPrimarySelection].selection = XA_PRIMARY;
       CurrentSelections[nxagentPrimarySelection].lastTimeChanged = ClientTimeToServerTime(CurrentTime);
       CurrentSelections[nxagentPrimarySelection].window = screenInfo.screens[0]->root->drawable.id;
@@ -216,8 +201,8 @@ ProcConvertSelection(ClientPtr client)
 
     if (rc != Success && rc != BadMatch)
 	return rc;
-    else if (rc == Success && pSel->window != None) {
-#ifdef NXAGENT_SERVER && NXAGENT_CLIPBOARD
+    else if (rc == Success && pSel->window != None
+#if defined(NXAGENT_SERVER) && defined(NXAGENT_CLIPBOARD)
             /*
              * .window can be set and pointing to our server window to
              * signal the clipboard owner being on the real X
@@ -226,7 +211,8 @@ ProcConvertSelection(ClientPtr client)
              */
 	    && (pSel->client != NullClient)
 #endif
-	memset(&event, 0, sizeof(xEvent));
+      ) {
+        memset(&event, 0, sizeof(xEvent));
 	event.u.u.type = SelectionRequest;
 	event.u.selectionRequest.owner = pSel->window;
 	event.u.selectionRequest.time = stuff->time;
