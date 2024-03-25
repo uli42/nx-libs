@@ -1312,8 +1312,31 @@ set_font_authorizations(char **authorizations, int *authlen, void * client)
 #endif /* TCPCONN */
 }
 
+_X_EXPORT void *
+Xalloc(unsigned long amount)
+{
+    register pointer  ptr;
+
+    if ((long)amount <= 0) {
+        return (unsigned long *)NULL;
+    }
+    /* aligned extra on long word boundary */
+    amount = (amount + (sizeof(long) - 1)) & ~(sizeof(long) - 1);
+#ifdef MEMBUG
+    if (!Must_have_memory && Memory_fail &&
+        ((random() % MEM_FAIL_SCALE) < Memory_fail))
+        return (unsigned long *)NULL;
+#endif
+    if ((ptr = (pointer)malloc(amount))) {
+        return (unsigned long *)ptr;
+    }
+    if (Must_have_memory)
+        FatalError("Out of memory");
+    return (unsigned long *)NULL;
+}
+
 /*****************
- * XNFalloc 
+ * XNFalloc
  * "no failure" alloc
  *****************/
 
@@ -1326,6 +1349,21 @@ XNFalloc(unsigned long amount)
         FatalError("Out of memory");
     }
     return ptr;
+}
+
+/*****************
+ * Xcalloc
+ *****************/
+
+void *
+Xcalloc(unsigned long amount)
+{
+    unsigned long   *ret;
+
+    ret = Xalloc (amount);
+    if (ret)
+	bzero ((char *) ret, (int) amount);
+    return ret;
 }
 
 /*****************
@@ -1342,7 +1380,37 @@ XNFcalloc(unsigned long amount)
 }
 
 /*****************
- * XNFrealloc 
+ * Xrealloc
+ *****************/
+
+void *
+Xrealloc(void * ptr, unsigned long amount)
+{
+#ifdef MEMBUG
+    if (!Must_have_memory && Memory_fail &&
+	((random() % MEM_FAIL_SCALE) < Memory_fail))
+	return (unsigned long *)NULL;
+#endif
+    if ((long)amount <= 0)
+    {
+	if (ptr && !amount)
+	    free(ptr);
+	return (unsigned long *)NULL;
+    }
+    amount = (amount + (sizeof(long) - 1)) & ~(sizeof(long) - 1);
+    if (ptr)
+        ptr = (void *)realloc((char *)ptr, amount);
+    else
+	ptr = (void *)malloc(amount);
+    if (ptr)
+        return (unsigned long *)ptr;
+    if (Must_have_memory)
+	FatalError("Out of memory");
+    return (unsigned long *)NULL;
+}
+
+/*****************
+ * XNFrealloc
  * "no failure" realloc
  *****************/
 
@@ -1353,6 +1421,18 @@ XNFrealloc(void * ptr, unsigned long amount)
     if (!ret)
        FatalError("XNFrealloc: Out of memory");
     return ret;
+}
+
+/*****************
+ *  Xfree
+ *    calls free
+ *****************/
+
+void
+Xfree(void * ptr)
+{
+    if (ptr)
+	free((char *)ptr);
 }
 
 void
