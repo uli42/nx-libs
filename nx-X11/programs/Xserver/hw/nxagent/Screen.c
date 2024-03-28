@@ -121,7 +121,7 @@ is" without express or implied warranty.
 void nxagentShowPixmap(PixmapPtr pPixmap, int x, int y, int width, int height);
 
 void nxagentFbRestoreArea(PixmapPtr pPixmap, WindowPtr pWin, int xSrc, int ySrc, int width,
-                              int height, int xDst, int yDst)
+			       int height, int xDst, int yDst);
 #endif
 
 #ifdef WATCH
@@ -1176,7 +1176,6 @@ Bool nxagentOpenScreen(int index, ScreenPtr pScreen, int argc, char *argv[])
       return False;
     }
 
-    
     /*
      * Initialize the depths.
      */
