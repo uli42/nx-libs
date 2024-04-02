@@ -55,10 +55,10 @@ static RESTYPE	RT_XKBCLIENT;
 
 #define	CHK_DEVICE(dev, id, client, access_mode, lf) {\
     int why;\
-    int rc = lf(&(dev), id, client, access_mode, &why);\
-    if (rc != Success) {\
+    int _rc = lf(&(dev), id, client, access_mode, &why);\
+    if (_rc != Success) {\
 	client->errorValue = _XkbErrCode2(why, id);\
-	return rc;\
+	return _rc;\
     }\
 }
 
@@ -976,12 +976,12 @@ XkbWriteKeyTypes(	XkbDescPtr		xkb,
 			ClientPtr 		client)
 {
     XkbKeyTypePtr	type;
-    unsigned		i, n;
+    unsigned		i;
     xkbKeyTypeWireDesc *wire;
 
     type= &xkb->map->types[rep->firstType];
     for (i=0;i<rep->nTypes;i++,type++) {
-	register unsigned n;
+	unsigned n;
 	wire= (xkbKeyTypeWireDesc *)buf;
 	wire->mask = type->mods.mask;
 	wire->realMods = type->mods.real_mods;
@@ -2729,7 +2729,6 @@ _XkbSetCompatMap(ClientPtr client, DeviceIntPtr dev,
     XkbDescPtr		xkb;
     XkbCompatMapPtr 	compat;
     int		 	nGroups;
-    unsigned            i,bit;
 
     xkbi = dev->key->xkbInfo;
     xkb= xkbi->desc;
@@ -2748,6 +2747,7 @@ _XkbSetCompatMap(ClientPtr client, DeviceIntPtr dev,
 
     nGroups= 0;
     if (req->groups!=0) {
+	unsigned i,bit;
 	for (i=0,bit=1;i<XkbNumKbdGroups;i++,bit<<=1) {
 	    if ( req->groups&bit )
 		nGroups++;
@@ -2764,6 +2764,7 @@ _XkbSetCompatMap(ClientPtr client, DeviceIntPtr dev,
 
     data = (char *)&req[1];
     if (req->nSI>0) {
+	unsigned i;
 	xkbSymInterpretWireDesc *wire = (xkbSymInterpretWireDesc *)data;
 	XkbSymInterpretPtr	sym;
 	if ((unsigned)(req->firstSI+req->nSI)>compat->num_si) {
@@ -2799,12 +2800,11 @@ _XkbSetCompatMap(ClientPtr client, DeviceIntPtr dev,
     }
 
     if (req->groups!=0) {
-	unsigned i, bit;
+	unsigned i,bit;
 	xkbModsWireDesc *wire = (xkbModsWireDesc *)data;
 	for (i=0,bit=1;i<XkbNumKbdGroups;i++,bit<<=1) {
 	    if (req->groups & bit) {
 		if (client->swapped) {
-		    int n;
 		    swaps(&wire->virtualMods);
 		}
 		compat->groups[i].mask= wire->realMods;
@@ -2820,12 +2820,12 @@ _XkbSetCompatMap(ClientPtr client, DeviceIntPtr dev,
 	    }
 	}
     }
-    i= XkbPaddedSize((data-((char *)req)));
-    if ((i/4)!=req->length) {
+    int s = XkbPaddedSize((data-((char *)req)));
+    if ((s/4)!=req->length) {
 	ErrorF("[xkb] Internal length error on read in _XkbSetCompatMap\n");
 	return BadLength;
     }
-    
+
     if (dev->xkb_interest) {
 	xkbCompatMapNotify ev;
 	ev.deviceID = dev->id;
@@ -3856,14 +3856,11 @@ _XkbSetNamesCheck(ClientPtr client, DeviceIntPtr dev,
                   xkbSetNamesReq *stuff, CARD32 *data)
 {
     XkbDescRec		*xkb;
-    XkbNamesRec		*names;
     CARD32		*tmp;
     Atom		 bad;
 
     tmp = data;
     xkb = dev->key->xkbInfo->desc;
-    names = xkb->names;
-
 
     if (stuff->which&XkbKeyTypeNamesMask) {
         int i;
@@ -6434,14 +6431,13 @@ static int
 _XkbSetDeviceInfoCheck(ClientPtr client, DeviceIntPtr dev,
                        xkbSetDeviceInfoReq *stuff)
 {
-    unsigned                    change;
     char                       *wire;
     xkbExtensionDeviceNotify    ed;
 
     bzero((char *)&ed,SIZEOF(xkbExtensionDeviceNotify));
     ed.deviceID=	dev->id;
     wire= (char *)&stuff[1];
-    if (change&XkbXI_ButtonActionsMask) {
+    if (stuff->change & XkbXI_ButtonActionsMask) {
 	int			nBtns,sz,i;
 	XkbAction *		acts;
 	DeviceIntPtr		kbd;
@@ -6471,7 +6467,7 @@ _XkbSetDeviceInfoCheck(ClientPtr client, DeviceIntPtr dev,
     }
     if (stuff->change&XkbXI_IndicatorsMask) {
 	int status= Success;
-	wire= SetDeviceIndicators(wire,dev,change,stuff->nDeviceLedFBs,
+	wire= SetDeviceIndicators(wire,dev,stuff->change,stuff->nDeviceLedFBs,
 							&status,client,&ed);
 	if (status!=Success)
 	    return status;
@@ -6484,7 +6480,6 @@ _XkbSetDeviceInfoCheck(ClientPtr client, DeviceIntPtr dev,
 int
 ProcXkbSetDeviceInfo(ClientPtr client)
 {
-    unsigned int        change;
     DeviceIntPtr        dev;
     int                 rc;
 
@@ -6494,10 +6489,8 @@ ProcXkbSetDeviceInfo(ClientPtr client)
     if (!(client->xkbClientFlags&_XkbClientInitialized))
 	return BadAccess;
 
-    change = stuff->change;
-
     CHK_ANY_DEVICE(dev, stuff->deviceSpec, client, DixManageAccess);
-    CHK_MASK_LEGAL(0x01,change,XkbXI_AllFeaturesMask);
+    CHK_MASK_LEGAL(0x01,stuff->change,XkbXI_AllFeaturesMask);
 
     rc = _XkbSetDeviceInfoCheck(client, dev, stuff);
 
