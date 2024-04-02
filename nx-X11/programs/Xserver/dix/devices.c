@@ -361,10 +361,11 @@ CoreKeyboardProc(DeviceIntPtr pDev, int what)
 #ifdef XKB
         if (!noXkbExtension)
         {
-            dixFreePrivates(pDev->devPrivates);
+            /* Hack because the private storage allocated in XkbSetExtension() is never freed */
+            free(dixLookupPrivate(&pDev->devPrivates, xkbDevicePrivateKey));
+            dixSetPrivate(&pDev->devPrivates, CoreDevicePrivateKey, NULL);
         }
 #endif
-	dixSetPrivate(&pDev->devPrivates, CoreDevicePrivateKey, NULL);
         break;
 
     default:
@@ -404,10 +405,11 @@ CorePointerProc(DeviceIntPtr pDev, int what)
 #ifdef XKB
         if (!noXkbExtension)
         {
-            dixFreePrivates(pDev->devPrivates);
+            /* Hack because the private storage allocated in XkbSetExtension() is never freed */
+            free(dixLookupPrivate(&pDev->devPrivates, xkbDevicePrivateKey));
+            dixSetPrivate(&pDev->devPrivates, CoreDevicePrivateKey, NULL);
         }
 #endif
-	dixSetPrivate(&pDev->devPrivates, CoreDevicePrivateKey, NULL);
         break;
 
     default:
@@ -648,6 +650,11 @@ CloseDownDevices(void)
 	next = dev->next;
         DeleteInputDeviceRequest(dev);
     }
+
+    /* Backport:  dix: remove core devices when shutting down. (#25028) */
+    CloseDevice(inputInfo.pointer);
+    CloseDevice(inputInfo.keyboard);
+
     inputInfo.devices = NULL;
     inputInfo.off_devices = NULL;
     inputInfo.keyboard = NULL;
