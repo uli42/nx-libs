@@ -355,7 +355,7 @@ CoreKeyboardProc(DeviceIntPtr pDev, int what)
     case DEVICE_CLOSE:
         #ifdef DEBUG
         fprintf(stderr, "%s: DEVICE_CLOSE: device [%p] nPrivates [%d] name [%s] \n",
-                __func__, pDev, pDev->nPrivates, pDev->name);
+                __func__, (void *)pDev, pDev->nPrivates, pDev->name);
         #endif
 
 #ifdef XKB
@@ -399,7 +399,7 @@ CorePointerProc(DeviceIntPtr pDev, int what)
     case DEVICE_CLOSE:
         #ifdef DEBUG
         fprintf(stderr, "%s: DEVICE_CLOSE: device [%p] nPrivates [%d] name [%s] \n",
-                __func__, pDev, pDev->nPrivates, pDev->name);
+                __func__, (void *)pDev, pDev->nPrivates, pDev->name);
         #endif
 
 #ifdef XKB
@@ -659,6 +659,12 @@ CloseDownDevices(void)
     inputInfo.off_devices = NULL;
     inputInfo.keyboard = NULL;
     inputInfo.pointer = NULL;
+
+    /* backports */
+#ifdef XKB
+    XkbDeleteRulesDflts();
+    XkbDeleteRulesUsed();
+#endif
 }
 
 /**
@@ -875,7 +881,7 @@ InitKeyClassDeviceStruct(DeviceIntPtr dev, KeySymsPtr pKeySyms, CARD8 pModifiers
     int i;
     KeyClassPtr keyc;
 
-    keyc = (KeyClassPtr)calloc(1, sizeof(KeyClassRec));
+    keyc = (KeyClassPtr)malloc(sizeof(KeyClassRec));
     if (!keyc)
 	return FALSE;
     keyc->curKeySyms.map = (KeySym *)NULL;
@@ -890,6 +896,7 @@ InitKeyClassDeviceStruct(DeviceIntPtr dev, KeySymsPtr pKeySyms, CARD8 pModifiers
     else
 	bzero((char *)keyc->modifierMap, MAP_LENGTH);
     bzero((char *)keyc->down, DOWN_LENGTH);
+    bzero((char *)keyc->postdown, DOWN_LENGTH);
     for (i = 0; i < 8; i++)
 	keyc->modifierKeyCount[i] = 0;
     if (!SetKeySymsMap(&keyc->curKeySyms, pKeySyms) || !InitModMap(keyc))
@@ -2134,8 +2141,8 @@ ProcQueryKeymap(ClientPtr client)
     if (rc != Success)
 	return rc;
 
-	for (i = 0; i<32; i++)
-	    rep.map[i] = down[i];
+    for (i = 0; i<32; i++)
+	rep.map[i] = down[i];
 
     WriteReplyToClient(client, sizeof(xQueryKeymapReply), &rep);
     return Success;
