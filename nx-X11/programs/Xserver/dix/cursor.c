@@ -167,7 +167,7 @@ CheckForEmptyMask(CursorBitsPtr bits)
 int
 AllocARGBCursor(unsigned char *psrcbits, unsigned char *pmaskbits,
 		CARD32 *argb, CursorMetricPtr cm,
-                unsigned foreRed, unsigned foreGreen, unsigned foreBlue,
+		unsigned foreRed, unsigned foreGreen, unsigned foreBlue,
 		unsigned backRed, unsigned backGreen, unsigned backBlue,
 		CursorPtr *ppCurs, ClientPtr client, XID cid)
 {
@@ -242,8 +242,8 @@ AllocARGBCursor(unsigned char *psrcbits, unsigned char *pmaskbits,
 	    FreeCursorBits(bits);
 	    free(pCurs);
 	    return BadAlloc;
+	}
     }
-}
     *ppCurs = pCurs;
     return rc;
 }
