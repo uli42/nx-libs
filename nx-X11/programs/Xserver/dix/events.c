@@ -207,7 +207,7 @@ static int DontPropagateRefCnts[DNPMCOUNT];
 
 /**
  * Main input device struct.
- *     inputInfo.pointer 
+ *     inputInfo.pointer
  *     is the core pointer. Referred to as "virtual core pointer", "VCP",
  *     "core pointer" or inputInfo.pointer. There is exactly one core pointer,
  *     but multiple devices may send core events. If a device generates core
@@ -1627,7 +1627,6 @@ int
 TryClientEvents (ClientPtr client, xEvent *pEvents, int count, Mask mask,
                  Mask filter, GrabPtr grab)
 {
-    int i;
     int type;
 
 #ifdef DEBUG_EVENTS
@@ -1730,7 +1729,7 @@ DeliverEventsToWindow(WindowPtr pWin, xEvent *pEvents, int count,
 	if (XaceHook(XACE_RECEIVE_ACCESS, wClient(pWin), pWin, pEvents, count))
 	    /* do nothing */;
 	else if ( (attempt = TryClientEvents(wClient(pWin), pEvents, count,
-				      pWin->eventMask, filter, grab)) )
+					     pWin->eventMask, filter, grab)) )
 	{
 	    if (attempt > 0)
 	    {
@@ -2172,7 +2171,6 @@ XYToWindow(int x, int y)
     return spriteTrace[spriteTraceGood-1];
 }
 
-#ifndef NXAGENT_SERVER
 /**
  * Update the sprite coordinates based on the event. Update the cursor
  * position, then update the event with the new coordinates that may have been
@@ -2181,6 +2179,9 @@ XYToWindow(int x, int y)
  */
 static Bool
 CheckMotion(xEvent *xE)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     WindowPtr prevSpriteWin = sprite.win;
 
@@ -2243,8 +2244,6 @@ CheckMotion(xEvent *xE)
     }
     return TRUE;
 }
-#else
-static Bool CheckMotion(xEvent *xE);
 #endif /* NXAGENT_SERVER */
 
 /**
@@ -2758,9 +2757,9 @@ CheckPassiveGrabsOnWindow(
 	    {
 		if (device->sync.evcount < count)
 		{
-		    device->sync.event = realloc(device->sync.event,
-						 count*
-						 sizeof(xEvent));
+		    device->sync.event = (xEvent *)realloc(device->sync.event,
+							    count*
+							    sizeof(xEvent));
 		}
 		device->sync.evcount = count;
 		for (dxE = device->sync.event; --count >= 0; dxE++, xE++)
@@ -2926,9 +2925,9 @@ DeliverGrabbedEvent(xEvent *xE, DeviceIntPtr thisDev,
 		     count))
 	    deliveries = 1; /* don't send, but pretend we did */
 	else
-	deliveries = TryClientEvents(rClient(grab), xE, count,
-				     (Mask)grab->eventMask,
-				     filters[xE->u.u.type], grab);
+	    deliveries = TryClientEvents(rClient(grab), xE, count,
+					 (Mask)grab->eventMask,
+					 filters[xE->u.u.type], grab);
 	if (deliveries && (xE->u.u.type == MotionNotify
 #ifdef XINPUT
 			   || xE->u.u.type == DeviceMotionNotify
@@ -2962,8 +2961,8 @@ DeliverGrabbedEvent(xEvent *xE, DeviceIntPtr thisDev,
 	    FreezeThaw(thisDev, TRUE);
 	    if (thisDev->sync.evcount < count)
 	    {
-		thisDev->sync.event = realloc(thisDev->sync.event,
-					      count*sizeof(xEvent));
+		thisDev->sync.event = (xEvent *)realloc(thisDev->sync.event,
+							 count*sizeof(xEvent));
 	    }
 	    thisDev->sync.evcount = count;
 	    for (dxE = thisDev->sync.event; --count >= 0; dxE++, xE++)
@@ -3538,7 +3537,7 @@ EnterLeaveEvent(
 	if (XaceHook(XACE_DEVICE_ACCESS, client, keybd, DixReadAccess))
 	    bzero((char *)&ke.map[0], 31);
 	else
-	memmove((char *)&ke.map[0], (char *)&keybd->key->down[1], 31);
+	    memmove((char *)&ke.map[0], (char *)&keybd->key->down[1], 31);
 
 	ke.type = KeymapNotify;
 	if (grab)
@@ -3646,7 +3645,7 @@ FocusEvent(DeviceIntPtr dev, int type, int mode, int detail, WindowPtr pWin)
 	if (XaceHook(XACE_DEVICE_ACCESS, client, dev, DixReadAccess))
 	    bzero((char *)&ke.map[0], 31);
 	else
-	memmove((char *)&ke.map[0], (char *)&dev->key->down[1], 31);
+	    memmove((char *)&ke.map[0], (char *)&dev->key->down[1], 31);
 
 	ke.type = KeymapNotify;
 	(void)DeliverEventsToWindow(pWin, (xEvent *)&ke, 1,
@@ -3909,8 +3908,9 @@ SetInputFocus(
         if (depth > focus->traceSize)
         {
 	    focus->traceSize = depth+1;
-	    focus->trace = realloc(focus->trace,
-				   focus->traceSize * sizeof(WindowPtr));
+	    focus->trace = (WindowPtr *)realloc(focus->trace,
+						 focus->traceSize *
+						 sizeof(WindowPtr));
 	}
 	focus->traceGood = depth;
         for (pWin = focusWin, depth--; pWin; pWin = pWin->parent, depth--)
