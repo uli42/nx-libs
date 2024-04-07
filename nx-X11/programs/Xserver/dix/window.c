@@ -541,7 +541,7 @@ WindowPtr
 RealChildHead(WindowPtr pWin)
 {
     if (realChildHeadProc) {
-        return realChildHeadProc (pWin);
+	return realChildHeadProc (pWin);
     }
 
     if (!pWin->parent &&
@@ -954,7 +954,7 @@ DestroySubwindows(WindowPtr pWin, ClientPtr client)
 	if (rc != Success)
 	    return rc;
 	FreeResource(pWin->lastChild->drawable.id, RT_NONE);
-}
+    }
     return Success;
 }
 
@@ -1084,9 +1084,9 @@ ChangeWindowAttributes(WindowPtr pWin, Mask vmask, XID *vlist, ClientPtr client)
 		    goto PatchUp;
 		}
 		if (pWin->parent->borderIsPixel == TRUE) {
-		if (pWin->borderIsPixel == FALSE)
-		    (*pScreen->DestroyPixmap)(pWin->border.pixmap);
-		pWin->border = pWin->parent->border;
+		    if (pWin->borderIsPixel == FALSE)
+			(*pScreen->DestroyPixmap)(pWin->border.pixmap);
+		    pWin->border = pWin->parent->border;
 		    pWin->borderIsPixel = TRUE;
 		    index2 = CWBorderPixel;
 		    break;
@@ -1099,25 +1099,25 @@ ChangeWindowAttributes(WindowPtr pWin, Mask vmask, XID *vlist, ClientPtr client)
 	    rc = dixLookupResource((void * *)&pPixmap, pixID, RT_PIXMAP,
 				   client, DixReadAccess);
 	    if (rc == Success)
+	    {
+		if ((pPixmap->drawable.depth != pWin->drawable.depth) ||
+		    (pPixmap->drawable.pScreen != pScreen))
 		{
-		    if	((pPixmap->drawable.depth != pWin->drawable.depth) ||
-			 (pPixmap->drawable.pScreen != pScreen))
-		    {
-			error = BadMatch;
-			goto PatchUp;
-		    }
-		    if (pWin->borderIsPixel == FALSE)
-			(*pScreen->DestroyPixmap)(pWin->border.pixmap);
-		    pWin->borderIsPixel = FALSE;
-		    pWin->border.pixmap = pPixmap;
-		    pPixmap->refcnt++;
-		}
-		else
-		{
-		error = (rc == BadValue) ? BadPixmap : rc;
-		    client->errorValue = pixID;
+		    error = BadMatch;
 		    goto PatchUp;
 		}
+		if (pWin->borderIsPixel == FALSE)
+		    (*pScreen->DestroyPixmap)(pWin->border.pixmap);
+		pWin->borderIsPixel = FALSE;
+		pWin->border.pixmap = pPixmap;
+		pPixmap->refcnt++;
+	    }
+	    else
+	    {
+		error = (rc == BadValue) ? BadPixmap : rc;
+		client->errorValue = pixID;
+		goto PatchUp;
+	    }
 	    break;
 	  case CWBorderPixel:
 	    if (pWin->borderIsPixel == FALSE)
@@ -2752,7 +2752,7 @@ MapWindow(WindowPtr pWin, ClientPtr client)
     /*  general check for permission to map window */
     if (XaceHook(XACE_RESOURCE_ACCESS, client, pWin->drawable.id, RT_WINDOW,
 		 pWin, RT_NONE, NULL, DixShowAccess) != Success)
-	 return Success;
+	return Success;
 
     pScreen = pWin->drawable.pScreen;
     if ( (pParent = pWin->parent) )

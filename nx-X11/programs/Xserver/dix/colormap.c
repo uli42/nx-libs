@@ -398,7 +398,7 @@ CreateColormap (Colormap mid, ScreenPtr pScreen, VisualPtr pVisual,
     i = XaceHook(XACE_RESOURCE_ACCESS, clients[client], mid, RT_COLORMAP,
 		 pmap, RT_NONE, NULL, DixCreateAccess);
     if (i != Success) {
-	    FreeResource (mid, RT_NONE);
+	FreeResource(mid, RT_NONE);
 	return i;
     }
 

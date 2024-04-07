@@ -92,7 +92,7 @@ Equipment Corporation.
 #include "colormap.h"
 #include "colormapst.h"
 #include "cursorstr.h"
-#include <X11/fonts/font.h>
+#include "selection.h"
 #include <X11/fonts/fontstruct.h>
 #ifdef HAS_XFONT2
 # include <X11/fonts/libxfont2.h>
@@ -527,9 +527,9 @@ CreateConnectionBlock(void)
         sizesofar = 0;
     char *pBuf;
 
-    
-   /* Leave off the ridBase and ridMask, these must be sent with
-      connection */
+
+    /* Leave off the ridBase and ridMask, these must be sent with
+       connection */
 
     memset(&setup, 0, sizeof(xConnSetup));
     setup.release = VendorRelease;
@@ -657,7 +657,7 @@ CreateConnectionBlock(void)
 
 /*
 	grow the array of screenRecs if necessary.
-	call the device-supplied initialization procedure 
+	call the device-supplied initialization procedure
 with its screen number, a void * to its ScreenRec, argc, and argv.
 	return the number of successfully installed screens.
 
@@ -692,7 +692,7 @@ AddScreen(
     pScreen->totalPixmapSize = BitmapBytePad(sizeof(PixmapRec)*8);
     pScreen->ClipNotify = 0;	/* for R4 ddx compatibility */
     pScreen->CreateScreenResources = 0;
-    
+
     /*
      * This loop gets run once for every Screen that gets added,
      * but thats ok.  If the ddx layer initializes the formats
@@ -726,15 +726,15 @@ AddScreen(
 	    PixmapWidthPaddingInfo[ depth ].notPower2 = 0;
 	}
     }
-  
+
     /* This is where screen specific stuff gets initialized.  Load the
        screen structure, call the hardware, whatever.
        This is also where the default colormap should be allocated and
        also pixel values for blackPixel, whitePixel, and the cursor
        Note that InitScreen is NOT allowed to modify argc, argv, or
        any of the strings pointed to by argv.  They may be passed to
-       multiple screens. 
-    */ 
+       multiple screens.
+    */
     pScreen->rgf = ~0L;  /* there are no scratch GCs yet*/
     screenInfo.screens[i] = pScreen;
     screenInfo.numScreens++;

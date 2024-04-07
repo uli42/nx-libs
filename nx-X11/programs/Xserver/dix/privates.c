@@ -102,7 +102,7 @@ dixAllocatePrivate(PrivateRec **privates, const DevPrivateKey key)
     PrivateDescRec *item = findItem(key);
     PrivateRec *ptr;
     unsigned size = sizeof(PrivateRec);
-    
+
     if (item)
 	size += item->size;
 
@@ -252,7 +252,7 @@ static const int offsetDefaults[] = {
     -1,					/* RT_OTHERCLIENT */
     -1					/* RT_PASSIVEGRAB */
 };
-    
+
 static int *offsets = NULL;
 static int offsetsSize = 0;
 

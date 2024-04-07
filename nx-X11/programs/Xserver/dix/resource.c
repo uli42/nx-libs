@@ -215,7 +215,7 @@ CreateNewResourceType(DeleteType deleteFunc)
     if (!funcs)
 	return 0;
     if (!dixRegisterPrivateOffset(next, -1))
-           return 0;
+	return 0;
 
     lastResourceType = next;
     DeleteFuncs = funcs;
@@ -437,9 +437,11 @@ FakeClientID(int client)
     return id;
 }
 
-#ifndef NXAGENT_SERVER
 Bool
 AddResource(XID id, RESTYPE type, void * value)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     int client;
     ClientResourceRec *rrec;
@@ -528,9 +530,11 @@ RebuildTable(int client)
     clientTable[client].resources = resources;
 }
 
-#ifndef NXAGENT_SERVER
 void
 FreeResource(XID id, RESTYPE skipDeleteFuncType)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     int		cid;
     ResourcePtr res;
@@ -570,10 +574,13 @@ FreeResource(XID id, RESTYPE skipDeleteFuncType)
         }
     }
 }
-
+#endif /* NXAGENT_SERVER */
 
 void
 FreeResourceByType(XID id, RESTYPE type, Bool skipFree)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     int		cid;
     ResourcePtr res;
@@ -639,14 +646,17 @@ ChangeResourceValue (XID id, RESTYPE rtype, void * value)
  * add and delete an equal number of resources!
  */
 
-#ifndef NXAGENT_SERVER
 void
 FindClientResourcesByType(
     ClientPtr client,
     RESTYPE type,
     FindResType func,
     void * cdata
-){
+)
+#ifdef NXAGENT_SERVER
+  ;
+#else
+{
     ResourcePtr *resources;
     ResourcePtr this, next;
     int i, elements;
@@ -671,13 +681,18 @@ FindClientResourcesByType(
 	}
     }
 }
+#endif /* NXAGENT_SERVER */
 
 void
 FindAllClientResources(
     ClientPtr client,
     FindAllRes func,
     void * cdata
-){
+)
+#ifdef NXAGENT_SERVER
+  ;
+#else
+{
     ResourcePtr *resources;
     ResourcePtr this, next;
     int i, elements;
@@ -700,7 +715,7 @@ FindAllClientResources(
         }
     }
 }
-
+#endif /* NXAGENT_SERVER */
 
 void *
 LookupClientResourceComplex(
@@ -708,7 +723,11 @@ LookupClientResourceComplex(
     RESTYPE type,
     FindComplexResType func,
     void * cdata
-){
+)
+#ifdef NXAGENT_SERVER
+  ;
+#else
+{
     ResourcePtr *resources;
     ResourcePtr this;
     int i;
@@ -759,7 +778,7 @@ FreeClientNeverRetainResources(ClientPtr client)
 		CallResourceStateCallback(ResourceStateFreeing, this);
 
 		(*DeleteFuncs[rtype & TypeMask])(this->value, this->id);
-		free(this);	
+		free(this);
 	    }
 	    else
 		prev = &this->next;
@@ -810,7 +829,7 @@ FreeClientResources(ClientPtr client)
 	    CallResourceStateCallback(ResourceStateFreeing, this);
 
 	    (*DeleteFuncs[rtype & TypeMask])(this->value, this->id);
-	    free(this);	
+	    free(this);
 	}
     }
     free(clientTable[client->index].resources);
@@ -853,7 +872,7 @@ LegalNewID(XID id, ClientPtr client)
 int
 dixLookupResource(void * *result, XID id, RESTYPE rtype,
 		  ClientPtr client, Mask mode)
-    {
+{
     int cid = CLIENT_ID(id);
     int istype = (rtype & TypeMask) && (rtype != RC_ANY);
     ResourcePtr res = NULL;
@@ -867,7 +886,7 @@ dixLookupResource(void * *result, XID id, RESTYPE rtype,
 	    if ((res->id == id) && ((istype && res->type == rtype) ||
 				    (!istype && res->type & rtype)))
 		break;
-	    }
+    }
     if (!res)
 	return BadValue;
 
@@ -877,8 +896,8 @@ dixLookupResource(void * *result, XID id, RESTYPE rtype,
 		       res->value, RT_NONE, NULL, mode);
 	if (cid != Success)
 	    return cid;
-}
+    }
 
     *result = res->value;
     return Success;
-    }
+}

@@ -149,13 +149,13 @@ ProcRotateProperties(ClientPtr client)
 	    rc = BadAtom;
 	    client->errorValue = atoms[i];
 	    goto out;
-	}
+        }
         for (j = i + 1; j < stuff->nAtoms; j++)
             if (atoms[j] == atoms[i])
             {
 		rc = BadMatch;
 		goto out;
-        }
+            }
 
 	rc = dixLookupProperty(&pProp, pWin, atoms[i], client,
 			       DixReadAccess|DixWriteAccess);
@@ -174,7 +174,7 @@ ProcRotateProperties(ClientPtr client)
     {
 	while (delta < 0)                  /* faster if abs value is small */
             delta += stuff->nAtoms;
-    	for (i = 0; i < stuff->nAtoms; i++)
+	for (i = 0; i < stuff->nAtoms; i++)
 	{
 	    j = (i + delta) % stuff->nAtoms;
 	    deliverPropertyNotifyEvent(pWin, PropertyNewValue, atoms[i]);
@@ -192,9 +192,11 @@ out:
     return rc;
 }
 
-#ifndef NXAGENT_SERVER
 int
 ProcChangeProperty(ClientPtr client)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     WindowPtr pWin;
     char format, mode;
@@ -246,9 +248,6 @@ ProcChangeProperty(ClientPtr client)
     else
 	return client->noClientException;
 }
-#else
-int
-ProcChangeProperty(ClientPtr client);
 #endif /* NXAGENT_SERVER */
 
 int
@@ -316,14 +315,14 @@ dixChangeWindowProperty(ClientPtr pClient, WindowPtr pWin, Atom property,
 	    if (totalSize != pProp->size * (pProp->format >> 3))
 	    {
 		data = (void *)realloc(pProp->data, totalSize);
-	    	if (!data && len)
+		if (!data && len)
 		    return(BadAlloc);
-            	pProp->data = data;
+		pProp->data = data;
 	    }
 	    if (len)
 		memmove((char *)pProp->data, (char *)value, totalSize);
 	    pProp->size = len;
-    	    pProp->type = type;
+	    pProp->type = type;
 	    pProp->format = format;
 	}
 	else if (len == 0)
@@ -399,8 +398,8 @@ DeleteProperty(ClientPtr client, WindowPtr pWin, Atom propName)
 	    prevProp = pWin->optional->userProps;
 	    while (prevProp->next != pProp)
 		prevProp = prevProp->next;
-            prevProp->next = pProp->next;
-        }
+	    prevProp->next = pProp->next;
+	}
 
 	deliverPropertyNotifyEvent(pWin, PropertyDelete, pProp->propertyName);
 	dixFreePrivates(pProp->devPrivates);
@@ -443,7 +442,6 @@ NullPropertyReply(
     return(client->noClientException);
 }
 
-#ifndef NXAGENT_SERVER
 /*****************
  * GetProperty
  *    If type Any is specified, returns the property from the specified
@@ -456,6 +454,9 @@ NullPropertyReply(
 
 int
 ProcGetProperty(ClientPtr client)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     PropertyPtr pProp, prevProp;
     unsigned long n, len, ind;
@@ -559,7 +560,7 @@ ProcGetProperty(ClientPtr client)
 	/* Delete the Property */
 	if (pWin->optional->userProps == pProp) {
 	    /* Takes care of head */
-	    if (!(pWin->optional->userProps = pProp->next))
+            if (!(pWin->optional->userProps = pProp->next))
 		CheckWindowOptionalNeed (pWin);
 	} else {
 	    /* Need to traverse to find the previous element */
@@ -575,9 +576,6 @@ ProcGetProperty(ClientPtr client)
     }
     return(client->noClientException);
 }
-#else
-int
-ProcGetProperty(ClientPtr client);
 #endif /* NXAGENT_SERVER */
 
 int
@@ -627,7 +625,7 @@ ProcListProperties(ClientPtr client)
     return(client->noClientException);
 }
 
-int 
+int
 #ifdef NXAGENT_SERVER
 xorg_ProcDeleteProperty(ClientPtr client)
 #else
