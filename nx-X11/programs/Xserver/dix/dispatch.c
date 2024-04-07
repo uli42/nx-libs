@@ -22,6 +22,7 @@ Except as contained in this notice, the name of The Open Group shall not be
 used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
+
 Copyright 1987, 1989 by Digital Equipment Corporation, Maynard, Massachusetts.
 
                         All Rights Reserved
@@ -226,7 +227,7 @@ UpdateCurrentTimeIf(void)
     systime.milliseconds = GetTimeInMillis();
     if (systime.milliseconds < currentTime.milliseconds)
 	systime.months++;
-    if (*checkForInput[0] == *checkForInput[1])
+    if (CompareTimeStamps(systime, currentTime) == LATER)
 	currentTime = systime;
 }
 
@@ -389,15 +390,15 @@ Dispatch(void)
 		break;
 	    }
 	    isItTimeToYield = FALSE;
- 
+
 	    start_tick = SmartScheduleTime;
 	    while (!isItTimeToYield)
 	    {
 	        if (*icheck[0] != *icheck[1])
 		    ProcessInputEvents();
 		
-		    FlushIfCriticalOutputPending();
-		if (!SmartScheduleDisable && 
+		FlushIfCriticalOutputPending();
+		if (!SmartScheduleDisable &&
 		    (SmartScheduleTime - start_tick) >= SmartScheduleSlice)
 		{
 		    /* Penalize clients which consume ticks */
@@ -432,7 +433,7 @@ Dispatch(void)
 		else {
 		    result = XaceHookDispatch(client, MAJOROP);
 		    if (result == Success)
-		    result = (* client->requestVector[MAJOROP])(client);
+			result = (* client->requestVector[MAJOROP])(client);
 		    XaceHookAuditEnd(client, result);
 		}
 #ifdef XSERVER_DTRACE
@@ -1193,7 +1194,7 @@ ProcQueryTextExtents(ClientPtr client)
 	rc = dixLookupResource((void * *)&pGC, stuff->fid, RT_GC, client,
 			       DixGetAttrAccess);
 	if (rc == Success)
-	pFont = pGC->font;
+	    pFont = pGC->font;
     }
     if (rc != Success)
 	return (rc == BadValue) ? BadFont: rc;
@@ -1274,7 +1275,7 @@ ProcCreatePixmap(ClientPtr client)
     REQUEST_SIZE_MATCH(xCreatePixmapReq);
     client->errorValue = stuff->pid;
     LEGAL_NEW_RESOURCE(stuff->pid, client);
-    
+
     rc = dixLookupDrawable(&pDraw, stuff->drawable, client, M_ANY,
 			   DixGetAttrAccess);
     if (rc != Success)
@@ -1343,7 +1344,7 @@ ProcFreePixmap(ClientPtr client)
     REQUEST_SIZE_MATCH(xResourceReq);
 
     rc = dixLookupResource((void * *)&pMap, stuff->id, RT_PIXMAP, client,
-					     DixDestroyAccess);
+			   DixDestroyAccess);
     if (rc == Success)
     {
 	FreeResource(stuff->id, RT_NONE);
@@ -1554,7 +1555,7 @@ ProcCopyArea(ClientPtr client)
 
     REQUEST_SIZE_MATCH(xCopyAreaReq);
 
-    VALIDATE_DRAWABLE_AND_GC(stuff->dstDrawable, pDst, DixWriteAccess); 
+    VALIDATE_DRAWABLE_AND_GC(stuff->dstDrawable, pDst, DixWriteAccess);
     if (stuff->dstDrawable != stuff->srcDrawable)
     {
 	rc = dixLookupDrawable(&pSrc, stuff->srcDrawable, client, 0,
@@ -1599,7 +1600,7 @@ ProcCopyPlane(ClientPtr client)
     if (stuff->dstDrawable != stuff->srcDrawable)
     {
 	rc = dixLookupDrawable(&psrcDraw, stuff->srcDrawable, client, 0,
-				 DixReadAccess);
+			       DixReadAccess);
 	if (rc != Success)
 	    return rc;
 
@@ -1648,7 +1649,7 @@ ProcPolyPoint(ClientPtr client)
 	client->errorValue = stuff->coordMode;
         return BadValue;
     }
-    VALIDATE_DRAWABLE_AND_GC(stuff->drawable, pDraw, DixWriteAccess); 
+    VALIDATE_DRAWABLE_AND_GC(stuff->drawable, pDraw, DixWriteAccess);
     npoint = ((client->req_len << 2) - sizeof(xPolyPointReq)) >> 2;
     if (npoint)
         (*pGC->ops->PolyPoint)(pDraw, pGC, stuff->coordMode, npoint,
@@ -2293,7 +2294,7 @@ ProcFreeColormap(ClientPtr client)
 
     REQUEST_SIZE_MATCH(xResourceReq);
     rc = dixLookupResource((void * *)&pmap, stuff->id, RT_COLORMAP, client,
-						DixDestroyAccess);
+			   DixDestroyAccess);
     if (rc == Success)
     {
 	/* Freeing a default colormap is a no-op */
@@ -2380,7 +2381,7 @@ ProcUninstallColormap(ClientPtr client)
 	goto out;
 
     if(pcmp->mid != pcmp->pScreen->defColormap)
-        (*(pcmp->pScreen->UninstallColormap)) (pcmp);
+	(*(pcmp->pScreen->UninstallColormap)) (pcmp);
 
     rc = client->noClientException;
 out:
@@ -2556,7 +2557,7 @@ ProcAllocColorCells (ClientPtr client)
             return(BadAlloc);
 	pmasks = ppixels + npixels;
 
-	if( (rc = AllocColorCells(client->index, pcmp, npixels, nmasks, 
+	if( (rc = AllocColorCells(client->index, pcmp, npixels, nmasks,
 				    (Bool)stuff->contiguous, ppixels, pmasks)) )
 	{
 	    free(ppixels);
@@ -2931,14 +2932,14 @@ ProcCreateCursor (ClientPtr client)
     cm.xhot = stuff->x;
     cm.yhot = stuff->y;
     rc = AllocARGBCursor(srcbits, mskbits, NULL, &cm,
-	    stuff->foreRed, stuff->foreGreen, stuff->foreBlue,
+			 stuff->foreRed, stuff->foreGreen, stuff->foreBlue,
 			 stuff->backRed, stuff->backGreen, stuff->backBlue,
 			 &pCursor, client, stuff->cid);
 
     if (rc != Success)
 	return rc;
     if (!AddResource(stuff->cid, RT_CURSOR, (void *)pCursor))
-    return BadAlloc;
+	return BadAlloc;
 
     return client->noClientException;
 }
@@ -2977,7 +2978,7 @@ ProcFreeCursor (ClientPtr client)
     REQUEST_SIZE_MATCH(xResourceReq);
     rc = dixLookupResource((void * *)&pCursor, stuff->id, RT_CURSOR, client,
 			   DixDestroyAccess);
-    if (rc == Success) 
+    if (rc == Success)
     {
 	FreeResource(stuff->id, RT_NONE);
 	return (client->noClientException);
@@ -3218,7 +3219,7 @@ int
 ProcKillClient(ClientPtr client)
 {
     REQUEST(xResourceReq);
-    ClientPtr	killclient;
+    ClientPtr killclient;
     int rc;
 
     REQUEST_SIZE_MATCH(xResourceReq);
@@ -3331,7 +3332,7 @@ ProcChangeCloseDownMode(ClientPtr client)
 }
 
 int ProcForceScreenSaver(ClientPtr client)
-{    
+{
     int rc;
     REQUEST(xForceScreenSaverReq);
 
