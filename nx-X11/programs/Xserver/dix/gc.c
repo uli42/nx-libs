@@ -27,13 +27,13 @@ Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts.
 
                         All Rights Reserved
 
-Permission to use, copy, modify, and distribute this software and its 
-documentation for any purpose and without fee is hereby granted, 
+Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose and without fee is hereby granted,
 provided that the above copyright notice appear in all copies and that
-both that copyright notice and this permission notice appear in 
+both that copyright notice and this permission notice appear in
 supporting documentation, and that the name of Digital not be
 used in advertising or publicity pertaining to distribution of the
-software without specific, written prior permission.  
+software without specific, written prior permission.
 
 DIGITAL DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING
 ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL
@@ -83,27 +83,27 @@ ValidateGC(DrawablePtr pDraw, GC *pGC)
 
 
 /* dixChangeGC(client, pGC, mask, pC32, pUnion)
- * 
+ *
  * This function was created as part of the Security extension
  * implementation.  The client performing the gc change must be passed so
  * that access checks can be performed on any tiles, stipples, or fonts
  * that are specified.  ddxen can call this too; they should normally
  * pass NullClient for the client since any access checking should have
  * already been done at a higher level.
- * 
+ *
  * Since we had to create a new function anyway, we decided to change the
  * way the list of gc values is passed to eliminate the compiler warnings
  * caused by the DoChangeGC interface.  You can pass the values via pC32
  * or pUnion, but not both; one of them must be NULL.  If you don't need
  * to pass any pointers, you can use either one:
- * 
+ *
  *     example calling dixChangeGC using pC32 parameter
  *
  *     CARD32 v[2];
  *     v[0] = foreground;
  *     v[1] = background;
  *     dixChangeGC(client, pGC, GCForeground|GCBackground, v, NULL);
- * 
+ *
  *     example calling dixChangeGC using pUnion parameter;
  *     same effect as above
  *
@@ -111,10 +111,10 @@ ValidateGC(DrawablePtr pDraw, GC *pGC)
  *     v[0].val = foreground;
  *     v[1].val = background;
  *     dixChangeGC(client, pGC, GCForeground|GCBackground, NULL, v);
- * 
+ *
  * However, if you need to pass a void * to a pixmap or font, you MUST
  * use the pUnion parameter.
- * 
+ *
  *     example calling dixChangeGC passing pointers in the value list
  *     v[1].ptr is a void * to a pixmap
  *
@@ -122,16 +122,16 @@ ValidateGC(DrawablePtr pDraw, GC *pGC)
  *     v[0].val = FillTiled;
  *     v[1].ptr = pPixmap;
  *     dixChangeGC(client, pGC, GCFillStyle|GCTile, NULL, v);
- * 
+ *
  * Note: we could have gotten by with just the pUnion parameter, but on
  * 64 bit machines that would have forced us to copy the value list that
  * comes in the ChangeGC request.
- * 
+ *
  * Ideally, we'd change all the DoChangeGC calls to dixChangeGC, but this
  * is far too many changes to consider at this time, so we've only
  * changed the ones that caused compiler warnings.  New code should use
  * dixChangeGC.
- * 
+ *
  * dpw
  */
 
@@ -157,7 +157,7 @@ dixChangeGC(ClientPtr client, GC *pGC, BITS32 mask, CARD32 *pC32, ChangeGCValPtr
     pGC->serialNumber |= GC_CHANGE_SERIAL_BIT;
 
     maskQ = mask;	/* save these for when we walk the GCque */
-    while (mask && !error) 
+    while (mask && !error)
     {
 	index2 = (BITS32) lowbit (mask);
 	mask &= ~index2;
@@ -546,7 +546,7 @@ ChangeGC(GC *pGC, BITS32 mask, XID *pval)
    size data type may be used.  To avoid this cruftiness, use dixChangeGC
    above.
 
-   if there is an error, the value is marked as changed 
+   if there is an error, the value is marked as changed
    anyway, which is probably wrong, but infrequent.
 
 NOTE:
@@ -690,7 +690,7 @@ CreateDefaultTile (GCPtr pGC)
     tmpval[0] = GXcopy;
     tmpval[1] = pGC->tile.pixel;
     tmpval[2] = FillSolid;
-    (void)ChangeGC(pgcScratch, GCFunction | GCForeground | GCFillStyle, 
+    (void)ChangeGC(pgcScratch, GCFunction | GCForeground | GCFillStyle,
 		   tmpval);
     ValidateGC((DrawablePtr)pTile, pgcScratch);
     rect.x = 0;
@@ -897,7 +897,7 @@ since we can't create them without already having a GC.  any code
 using the tile or stipple has to set them explicitly anyway,
 since the state of the scratch gc is unknown.  This is OK
 because ChangeGC() has to be able to deal with NULL tiles and
-stipples anyway (in case the CreateGC() call has provided a 
+stipples anyway (in case the CreateGC() call has provided a
 value for them -- we can't set the default tile until the
 client-supplied attributes are installed, since the fgPixel
 is what fills the default tile.  (maybe this comment should
@@ -1036,7 +1036,7 @@ CreateDefaultStipple(int screenNum)
     rect.y = 0;
     rect.width = w;
     rect.height = h;
-    (*pgcScratch->ops->PolyFillRect)((DrawablePtr)pScreen->PixmapPerDepth[0], 
+    (*pgcScratch->ops->PolyFillRect)((DrawablePtr)pScreen->PixmapPerDepth[0],
 				     pgcScratch, 1, &rect);
     FreeScratchGC(pgcScratch);
     return TRUE;
@@ -1156,7 +1156,7 @@ VerifyRectOrder(int nrects, xRectangle *prects, int ordering)
 }
 
 int
-SetClipRects(GCPtr pGC, int xOrigin, int yOrigin, int nrects, 
+SetClipRects(GCPtr pGC, int xOrigin, int yOrigin, int nrects,
              xRectangle *prects, int ordering)
 {
     int			newct, size;
@@ -1173,7 +1173,7 @@ SetClipRects(GCPtr pGC, int xOrigin, int yOrigin, int nrects,
     pGC->serialNumber |= GC_CHANGE_SERIAL_BIT;
     pGC->clipOrg.x = xOrigin;
     pGC->stateChanges |= GCClipXOrigin;
-		 
+
     pGC->clipOrg.y = yOrigin;
     pGC->stateChanges |= GCClipYOrigin;
 
@@ -1187,7 +1187,7 @@ SetClipRects(GCPtr pGC, int xOrigin, int yOrigin, int nrects,
 
 
 /*
-   sets reasonable defaults 
+   sets reasonable defaults
    if we can get a pre-allocated one, use it and mark it as used.
    if we can't, create one out of whole cloth (The Velveteen GC -- if
    you use it often enough it will become real.)
