@@ -732,31 +732,31 @@ PanoramiXMaybeAddDepth(DepthPtr pDepth)
     int j, k;
     Bool found = FALSE;
 
-        for (j = 1; j < PanoramiXNumScreens; j++) {
-	pScreen = screenInfo.screens[j];
-	for (k = 0; k < pScreen->numDepths; k++) {
-	    if (pScreen->allowedDepths[k].depth == pDepth->depth) {
-		found = TRUE;
-                     break;
-                 }
-             }
-        }
-          
+    for (j = 1; j < PanoramiXNumScreens; j++) {
+      pScreen = screenInfo.screens[j];
+      for (k = 0; k < pScreen->numDepths; k++) {
+	  if (pScreen->allowedDepths[k].depth == pDepth->depth) {
+	      found = TRUE;
+	      break;
+	}
+      }
+    }
+
     if (!found)
 	return;
 
     j = PanoramiXNumDepths;
     PanoramiXNumDepths++;
     PanoramiXDepths = realloc(PanoramiXDepths,
-	    PanoramiXNumDepths * sizeof(DepthRec));
+			      PanoramiXNumDepths * sizeof(DepthRec));
     PanoramiXDepths[j].depth = pDepth->depth;
     PanoramiXDepths[j].numVids = 0;
     /* XXX suboptimal, should grow these dynamically */
-            if(pDepth->numVids)
-	PanoramiXDepths[j].vids = malloc(sizeof(VisualID) * pDepth->numVids);
-            else
-	PanoramiXDepths[j].vids = NULL;
-    }
+    if(pDepth->numVids)
+        PanoramiXDepths[j].vids = malloc(sizeof(VisualID) * pDepth->numVids);
+    else
+        PanoramiXDepths[j].vids = NULL;
+}
 
 static void
 PanoramiXMaybeAddVisual(VisualPtr pVisual)
@@ -765,26 +765,26 @@ PanoramiXMaybeAddVisual(VisualPtr pVisual)
     int j, k;
     Bool found = FALSE;
 
-	for (j = 1; j < PanoramiXNumScreens; j++) {
-	pScreen = screenInfo.screens[j];
-	found = FALSE;
+    for (j = 1; j < PanoramiXNumScreens; j++) {
+        pScreen = screenInfo.screens[j];
+        found = FALSE;
 
-	for (k = 0; k < pScreen->numVisuals; k++) {
-	    VisualPtr candidate = &pScreen->visuals[k];
+      for (k = 0; k < pScreen->numVisuals; k++) {
+	  VisualPtr candidate = &pScreen->visuals[k];
 
-	    if ((*XineramaVisualsEqualPtr)(pVisual, pScreen, candidate)
+	  if ((*XineramaVisualsEqualPtr)(pVisual, pScreen, candidate)
 #ifdef GLXPROXY
-		&& glxMatchVisual(screenInfo.screens[0], pVisual, pScreen)
+	      && glxMatchVisual(screenInfo.screens[0], pVisual, pScreen)
 #endif
-		    ) {
-		found = TRUE;
-			break;
-		}
-	    }
-	
-	if (!found)
-	    return;
-	}
+	      ) {
+	      found = TRUE;
+	      break;
+	  }
+      }
+
+      if (!found)
+	  return;
+    }
 
     /* found a matching visual on all screens, add it to the subset list */
     j = PanoramiXNumVisuals;
@@ -798,10 +798,10 @@ PanoramiXMaybeAddVisual(VisualPtr pVisual)
 	if (PanoramiXDepths[k].depth == pVisual->nplanes) {
 	    PanoramiXDepths[k].vids[PanoramiXDepths[k].numVids] = pVisual->vid;
 	    PanoramiXDepths[k].numVids++;
-		    break;
-		}	
-	    }   
+	    break;
 	}
+    }
+}
 
 extern void
 PanoramiXConsolidate(void)
