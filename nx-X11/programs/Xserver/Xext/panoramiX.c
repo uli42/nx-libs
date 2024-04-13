@@ -81,9 +81,6 @@ static DepthPtr		PanoramiXDepths;
 static int		PanoramiXNumVisuals;
 static VisualPtr	PanoramiXVisuals;
 
-/* We support at most 256 visuals */
-_X_EXPORT XID		*PanoramiXVisualTable = NULL;
-
 _X_EXPORT unsigned long XRC_DRAWABLE;
 _X_EXPORT unsigned long XRT_WINDOW;
 _X_EXPORT unsigned long XRT_PIXMAP;
