@@ -952,7 +952,7 @@ XkbCopyKeymap(XkbDescPtr src, XkbDescPtr dst, Bool sendNotifies)
     XkbShapePtr sshape = NULL, dshape = NULL;
     DeviceIntPtr pDev = NULL, tmpDev = NULL;
     xkbMapNotify mn;
-    xkbNewKeyboardNotify nkn;
+    xkbNewKeyboardNotify nkn = {0};
 
     if (!src || !dst || src == dst)
         return FALSE;
@@ -1099,7 +1099,7 @@ XkbCopyKeymap(XkbDescPtr src, XkbDescPtr dst, Bool sendNotifies)
                         }
                         else if (!dtype->map_count || !dtype->map ||
                                  i >= dst->map->num_types) {
-                            tmp = malloc(stype->map_count *
+                                     tmp = calloc(stype->map_count,
                                            sizeof(XkbKTMapEntryRec));
                             if (!tmp)
                                 return FALSE;
@@ -1128,7 +1128,7 @@ XkbCopyKeymap(XkbDescPtr src, XkbDescPtr dst, Bool sendNotifies)
                         }
                         else if (!dtype->preserve || !dtype->map_count ||
                                  i >= dst->map->num_types) {
-                            tmp = malloc(stype->map_count *
+                            tmp = calloc(stype->map_count,
                                          sizeof(XkbModsRec));
                             if (!tmp)
                                 return FALSE;
@@ -1185,7 +1185,7 @@ XkbCopyKeymap(XkbDescPtr src, XkbDescPtr dst, Bool sendNotifies)
                 if (dst->map->modmap)
                     tmp = realloc(dst->map->modmap, src->max_key_code + 1);
                 else
-                    tmp = malloc(src->max_key_code + 1);
+                    tmp = calloc(1, src->max_key_code + 1);
                 if (!tmp)
                     return FALSE;
                 dst->map->modmap = tmp;
@@ -1218,7 +1218,7 @@ XkbCopyKeymap(XkbDescPtr src, XkbDescPtr dst, Bool sendNotifies)
                 if (dst->server->explicit)
                     tmp = realloc(dst->server->explicit, src->max_key_code + 1);
                 else
-                    tmp = malloc(src->max_key_code + 1);
+                    tmp = calloc(1, src->max_key_code + 1);
                 if (!tmp)
                     return FALSE;
                 dst->server->explicit = tmp;
@@ -1239,7 +1239,7 @@ XkbCopyKeymap(XkbDescPtr src, XkbDescPtr dst, Bool sendNotifies)
                     tmp = realloc(dst->server->acts,
                                    src->server->size_acts * sizeof(XkbAction));
                 else
-                    tmp = malloc(src->server->size_acts * sizeof(XkbAction));
+                    tmp = calloc(src->server->size_acts, sizeof(XkbAction));
                 if (!tmp)
                     return FALSE;
                 dst->server->acts = tmp;
@@ -1263,7 +1263,7 @@ XkbCopyKeymap(XkbDescPtr src, XkbDescPtr dst, Bool sendNotifies)
                                    (src->max_key_code + 1) *
                                      sizeof(unsigned short));
                 else
-                    tmp = malloc((src->max_key_code + 1) *
+                    tmp = calloc((src->max_key_code + 1),
                                  sizeof(unsigned short));
                 if (!tmp)
                     return FALSE;
@@ -1311,7 +1311,7 @@ XkbCopyKeymap(XkbDescPtr src, XkbDescPtr dst, Bool sendNotifies)
                                    (src->max_key_code + 1) *
                                    sizeof(unsigned short));
                 else
-                    tmp = malloc((src->max_key_code + 1) *
+                    tmp = calloc((src->max_key_code + 1),
                                  sizeof(unsigned short));
                 if (!tmp)
                     return FALSE;
@@ -1335,7 +1335,7 @@ XkbCopyKeymap(XkbDescPtr src, XkbDescPtr dst, Bool sendNotifies)
     /* indicators */
     if (src->indicators) {
         if (!dst->indicators) {
-            dst->indicators = malloc(sizeof(XkbIndicatorRec));
+            dst->indicators = calloc(1, sizeof(XkbIndicatorRec));
             if (!dst->indicators)
                 return FALSE;
         }
@@ -1351,7 +1351,7 @@ XkbCopyKeymap(XkbDescPtr src, XkbDescPtr dst, Bool sendNotifies)
     /* controls */
     if (src->ctrls) {
         if (!dst->ctrls) {
-            dst->ctrls = malloc(sizeof(XkbControlsRec));
+            dst->ctrls = calloc(1, sizeof(XkbControlsRec));
             if (!dst->ctrls)
                 return FALSE;
         }
@@ -1378,7 +1378,7 @@ XkbCopyKeymap(XkbDescPtr src, XkbDescPtr dst, Bool sendNotifies)
                     tmp = realloc(dst->names->keys, (src->max_key_code + 1) *
                                    sizeof(XkbKeyNameRec));
                 else
-                    tmp = malloc((src->max_key_code + 1) *
+                    tmp = calloc((src->max_key_code + 1),
                                  sizeof(XkbKeyNameRec));
                 if (!tmp)
                     return FALSE;
@@ -1401,7 +1401,7 @@ XkbCopyKeymap(XkbDescPtr src, XkbDescPtr dst, Bool sendNotifies)
                                    src->names->num_key_aliases *
                                      sizeof(XkbKeyAliasRec));
                 else
-                    tmp = malloc(src->names->num_key_aliases *
+                    tmp = calloc(src->names->num_key_aliases,
                                  sizeof(XkbKeyAliasRec));
                 if (!tmp)
                     return FALSE;
@@ -1424,7 +1424,7 @@ XkbCopyKeymap(XkbDescPtr src, XkbDescPtr dst, Bool sendNotifies)
                     tmp = realloc(dst->names->radio_groups,
                                    src->names->num_rg * sizeof(Atom));
                 else
-                    tmp = malloc(src->names->num_rg * sizeof(Atom));
+                    tmp = calloc(src->names->num_rg, sizeof(Atom));
                 if (!tmp)
                     return FALSE;
                 dst->names->radio_groups = tmp;
@@ -1472,7 +1472,7 @@ XkbCopyKeymap(XkbDescPtr src, XkbDescPtr dst, Bool sendNotifies)
                                    src->compat->num_si *
                                      sizeof(XkbSymInterpretRec));
                 else
-                    tmp = malloc(src->compat->num_si *
+                    tmp = calloc(src->compat->num_si,
                                  sizeof(XkbSymInterpretRec));
                 if (!tmp)
                     return FALSE;
@@ -1530,7 +1530,7 @@ XkbCopyKeymap(XkbDescPtr src, XkbDescPtr dst, Bool sendNotifies)
                                    src->geom->num_properties *
                                     sizeof(XkbPropertyRec));
                 else
-                    tmp = malloc(src->geom->num_properties *
+                    tmp = calloc(src->geom->num_properties,
                                   sizeof(XkbPropertyRec));
                 if (!tmp)
                     return FALSE;
@@ -1610,7 +1610,7 @@ XkbCopyKeymap(XkbDescPtr src, XkbDescPtr dst, Bool sendNotifies)
                                    src->geom->num_colors *
                                     sizeof(XkbColorRec));
                 else
-                    tmp = malloc(src->geom->num_colors *
+                    tmp = calloc(src->geom->num_colors,
                                   sizeof(XkbColorRec));
                 if (!tmp)
                     return FALSE;
@@ -1705,7 +1705,7 @@ XkbCopyKeymap(XkbDescPtr src, XkbDescPtr dst, Bool sendNotifies)
                          j < sshape->num_outlines;
                          j++, soutline++, doutline++) {
                         if (soutline->num_points) {
-                            tmp = malloc(soutline->num_points *
+                            tmp = calloc(soutline->num_points,
                                           sizeof(XkbPointRec));
                             if (!tmp)
                                 return FALSE;
@@ -1816,7 +1816,7 @@ XkbCopyKeymap(XkbDescPtr src, XkbDescPtr dst, Bool sendNotifies)
                      j < ssection->num_rows;
                      j++, srow++, drow++) {
                     if (srow->num_keys) {
-                        tmp = malloc(srow->num_keys * sizeof(XkbKeyRec));
+                        tmp = calloc(srow->num_keys, sizeof(XkbKeyRec));
                         if (!tmp)
                             return FALSE;
                         drow->keys = tmp;
@@ -1955,7 +1955,7 @@ XkbCopyKeymap(XkbDescPtr src, XkbDescPtr dst, Bool sendNotifies)
                                    src->geom->num_key_aliases *
                                     2 * XkbKeyNameLength);
                 else
-                    tmp = malloc(src->geom->num_key_aliases *
+                    tmp = calloc(src->geom->num_key_aliases,
                                   2 * XkbKeyNameLength);
                 if (!tmp)
                     return FALSE;
