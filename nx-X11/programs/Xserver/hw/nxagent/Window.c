@@ -1860,11 +1860,18 @@ void nxagentSetWMState(WindowPtr pWin, CARD32 desired)
  * exposure events for underlying windows; this is taken care of by
  * DIX. DIX does, however, call PaintWindowBackground() and
  * PaintWindowBorder() to perform some of these.
--+ */
+ */
 Bool nxagentRealizeWindow(WindowPtr pWin)
 {
+  #ifdef DEBUG
+  fprintf(stderr, "%s: running for window [%p]....\n", __func__, (void *)pWin);
+  #endif
+
   if (nxagentScreenTrap)
   {
+    #ifdef DEBUG
+    fprintf(stderr, "%s: doing nothing because of nxagentScreenTrap\n", __func__);
+    #endif
     return True;
   }
 
@@ -1904,6 +1911,9 @@ Bool nxagentRealizeWindow(WindowPtr pWin)
 
   nxagentLastWindowDestroyed = False;
 
+  #ifdef DEBUG
+  fprintf(stderr, "%s: leaving...\n", __func__);
+  #endif
   return True;
 }
 
@@ -1938,6 +1948,10 @@ extern void xorg_miPaintWindow(WindowPtr pWin, RegionPtr pRegion, int what);
  */
 void miPaintWindow(WindowPtr pWin, RegionPtr pRegion, int what)
 {
+  #ifdef DEBUG
+  fprintf(stderr, "%s: running for window [0x%x]....\n", __func__, pWin->drawable.id);
+  #endif
+
   if (what == PW_BACKGROUND)
       nxagentPaintWindowBackground(pWin, pRegion, what);
   else
@@ -1946,6 +1960,10 @@ void miPaintWindow(WindowPtr pWin, RegionPtr pRegion, int what)
 
 void nxagentFrameBufferPaintWindow(WindowPtr pWin, RegionPtr pRegion, int what)
 {
+  #ifdef DEBUG
+  fprintf(stderr, "%s: running for window [0x%x]....\n", __func__, pWin->drawable.id);
+  #endif
+
   if (pWin->backgroundState == BackgroundPixmap)
   {
     pWin->background.pixmap = nxagentVirtualPixmap(pWin->background.pixmap);
@@ -1986,6 +2004,10 @@ void nxagentFrameBufferPaintWindow(WindowPtr pWin, RegionPtr pRegion, int what)
 
 void nxagentPaintWindowBackground(WindowPtr pWin, RegionPtr pRegion, int what)
 {
+  #ifdef DEBUG
+  fprintf(stderr, "%s: running for window [0x%x]....\n", __func__, pWin->drawable.id);
+  #endif
+
   if (pWin -> realized)
   {
     BoxPtr pBox = RegionRects(pRegion);
@@ -2022,6 +2044,10 @@ void nxagentPaintWindowBackground(WindowPtr pWin, RegionPtr pRegion, int what)
 
 void nxagentPaintWindowBorder(WindowPtr pWin, RegionPtr pRegion, int what)
 {
+  #ifdef DEBUG
+  fprintf(stderr, "%s: running for window [0x%x]....\n", __func__, pWin->drawable.id);
+  #endif
+
   /*
    * The framebuffer operations don't take care of clipping to the
    * actual area of the framebuffer so we need to clip ourselves.
@@ -2062,6 +2088,10 @@ void nxagentPaintWindowBorder(WindowPtr pWin, RegionPtr pRegion, int what)
  */
 void nxagentCopyWindow(WindowPtr pWin, xPoint oldOrigin, RegionPtr oldRegion)
 {
+  #ifdef DEBUG
+  fprintf(stderr, "%s: running for window [0x%x]....\n", __func__, pWin->drawable.id);
+  #endif
+
   fbCopyWindow(pWin, oldOrigin, oldRegion);
 }
 
@@ -2106,6 +2136,10 @@ void nxagentClipNotify(WindowPtr pWin, int dx, int dy)
  */
 void nxagentWindowExposures(WindowPtr pWin, RegionPtr pRgn, RegionPtr other_exposed)
 {
+  #ifdef DEBUG
+  fprintf(stderr, "%s: running for window [0x%x]....\n", __func__, pWin->drawable.id);
+  #endif
+
   /*
    * The problem: we want to synthetize the expose events internally, so
    * that we reduce the time between a window operation and the corresp-
