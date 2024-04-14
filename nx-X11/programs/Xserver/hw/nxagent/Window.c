@@ -1930,6 +1930,20 @@ Bool nxagentUnrealizeWindow(WindowPtr pWin)
   return True;
 }
 
+extern void xorg_miPaintWindow(WindowPtr pWin, RegionPtr pRegion, int what);
+
+/*
+ * Wrapper to call our own functions here. These had been part of the
+ * screen procs before but do not exisit there anymore.
+ */
+void miPaintWindow(WindowPtr pWin, RegionPtr pRegion, int what)
+{
+  if (what == PW_BACKGROUND)
+      nxagentPaintWindowBackground(pWin, pRegion, what);
+  else
+      nxagentPaintWindowBorder(pWin, pRegion, what);
+}
+
 void nxagentFrameBufferPaintWindow(WindowPtr pWin, RegionPtr pRegion, int what)
 {
   if (pWin->backgroundState == BackgroundPixmap)
@@ -1954,7 +1968,7 @@ void nxagentFrameBufferPaintWindow(WindowPtr pWin, RegionPtr pRegion, int what)
 
     pWin->drawable.pScreen -> PaintWindowBackground = nxagentFrameBufferPaintWindow;
 
-    miPaintWindow(pWin, pRegion, what);
+    xorg_miPaintWindow(pWin, pRegion, what);
 
     pWin->drawable.pScreen -> PaintWindowBackground = PaintWindowBackgroundBackup;
   }

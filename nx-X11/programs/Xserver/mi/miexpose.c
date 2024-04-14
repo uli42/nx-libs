@@ -531,7 +531,11 @@ miWindowExposures(pWin, prgn, other_exposed)
 }
 
 void
+#ifdef NXAGENT_SERVER
+xorg_miPaintWindow(WindowPtr pWin, RegionPtr prgn, int what)
+#else
 miPaintWindow(WindowPtr pWin, RegionPtr prgn, int what)
+#endif
 {
     ScreenPtr	pScreen = pWin->drawable.pScreen;
     ChangeGCVal gcval[5];

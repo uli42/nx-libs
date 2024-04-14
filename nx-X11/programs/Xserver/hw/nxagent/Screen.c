@@ -1560,8 +1560,6 @@ N/A
     pScreen->UnrealizeWindow = nxagentUnrealizeWindow;
     pScreen->PostValidateTree = nxagentPostValidateTree;
     pScreen->WindowExposures = nxagentWindowExposures;
-    pScreen->PaintWindowBackground = nxagentPaintWindowBackground;
-    pScreen->PaintWindowBorder = nxagentPaintWindowBorder;
     pScreen->CopyWindow = nxagentCopyWindow;
     pScreen->ClipNotify = nxagentClipNotify;
     pScreen->RestackWindow = nxagentRestackWindow;
