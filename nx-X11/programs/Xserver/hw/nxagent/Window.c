@@ -1974,22 +1974,7 @@ void nxagentFrameBufferPaintWindow(WindowPtr pWin, RegionPtr pRegion, int what)
     pWin->border.pixmap = nxagentVirtualPixmap(pWin->border.pixmap);
   }
 
-  /*
-   * Call fbPaintWindow(). We need to temporarily replace
-   * PaintWindowBackground() by ourself because fbPaintWindow() is
-   * recursively calling it for parent windows, too.
-   */
-  {
-    void (*PaintWindowBackgroundBackup)(WindowPtr, RegionPtr, int);
-
-    PaintWindowBackgroundBackup = pWin->drawable.pScreen -> PaintWindowBackground;
-
-    pWin->drawable.pScreen -> PaintWindowBackground = nxagentFrameBufferPaintWindow;
-
-    xorg_miPaintWindow(pWin, pRegion, what);
-
-    pWin->drawable.pScreen -> PaintWindowBackground = PaintWindowBackgroundBackup;
-  }
+  xorg_miPaintWindow(pWin, pRegion, what);
 
   if (pWin->backgroundState == BackgroundPixmap)
   {
