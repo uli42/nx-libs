@@ -1864,7 +1864,7 @@ void nxagentSetWMState(WindowPtr pWin, CARD32 desired)
 Bool nxagentRealizeWindow(WindowPtr pWin)
 {
   #ifdef DEBUG
-  fprintf(stderr, "%s: running for window [%p]....\n", __func__, (void *)pWin);
+  fprintf(stderr, "%s: running for window [0x%x]....\n", __func__, pWin->drawable.id);
   #endif
 
   if (nxagentScreenTrap)
@@ -1920,6 +1920,10 @@ Bool nxagentRealizeWindow(WindowPtr pWin)
 /* See nxagentRealizeWindow for a description */
 Bool nxagentUnrealizeWindow(WindowPtr pWin)
 {
+  #ifdef DEBUG
+  fprintf(stderr, "%s: running for window [%p]....\n", __func__, (void *)pWin);
+  #endif
+
   if (nxagentScreenTrap)
   {
     return True;
