@@ -581,7 +581,7 @@ Bool nxagentRealizeFont(ScreenPtr pScreen, FontPtr pFont)
         }
 
         #ifdef NXAGENT_FONTMATCH_DEBUG
-        fprintf(stderr, "Font: Going to realize font [%s],[%s] on real X server.\n", validateString(name), origName);
+        fprintf(stderr, "Font: Going to realize font [%s], [%s] on real X server.\n", validateString(name), origName);
         #endif
 
         if (nxagentRemoteFontList.length == 0 && (NXDisplayError(nxagentDisplay) == 0))
@@ -663,7 +663,7 @@ Bool nxagentUnrealizeFont(ScreenPtr pScreen, FontPtr pFont)
                      */
 
                     #ifdef NXAGENT_FONTCACHE_DEBUG
-                    fprintf(stderr, "nxagentUnrealizeFont: Freeing font not found in cache '%d'\n",
+                    fprintf(stderr, "nxagentUnrealizeFont: Freeing font not found in cache (atom [%d])\n",
                                 CACHE_ATOM(fci));
                     #endif
 
@@ -689,7 +689,7 @@ Bool nxagentUnrealizeFont(ScreenPtr pScreen, FontPtr pFont)
 int nxagentDestroyNewFontResourceType(void * p, XID id)
 {
     #ifdef TEST
-    fprintf(stderr, "%s: Destroying mirror id [%ld] for font at [%p].\n", __func__,
+    fprintf(stderr, "%s: Destroying mirror id [%d] for font at [%p].\n", __func__,
                 nxagentFontPriv((FontPtr) p) -> mirrorID, (void *) p);
     #endif
 
@@ -805,7 +805,7 @@ static XFontStruct *nxagentLoadBestQueryFont(Display* dpy, char *fontName, FontP
           snprintf(substFontBuf, sizeof(substFontBuf), "%s", nxagentRemoteFontList.list[i]->name);
 
           #ifdef NXAGENT_RECONNECT_FONT_DEBUG
-          fprintf(stderr, "nxagentLoadBestQueryFont: Weight '%d' of more accurate font '%s' .\n", weight, substFontBuf);
+          fprintf(stderr, "nxagentLoadBestQueryFont: Weight [%d] of more accurate font [%s].\n", weight, substFontBuf);
           #endif
       }
 
@@ -844,7 +844,7 @@ static void nxagentFontDisconnect(FontPtr pFont, XID param1, void * param2)
   nxagentPrivFont *privFont = nxagentFontPriv(pFont);
 
   #ifdef NXAGENT_RECONNECT_FONT_DEBUG
-  fprintf(stderr, "nxagentFontDisconnect: pFont %p, XID %lx\n",
+  fprintf(stderr, "nxagentFontDisconnect: pFont [%p], XID [%lx]\n",
               (void *) pFont, privFont -> font_struct ? nxagentFont(pFont) : 0);
   #endif
 
@@ -853,7 +853,7 @@ static void nxagentFontDisconnect(FontPtr pFont, XID param1, void * param2)
       if (strcasecmp(CACHE_NAME(i), privFont -> fontName) == 0)
       {
           #ifdef NXAGENT_RECONNECT_FONT_DEBUG
-          fprintf(stderr, "nxagentFontDisconnect: font %s found in cache at position %d\n",
+          fprintf(stderr, "nxagentFontDisconnect: font [%s] found in cache at position [%d]\n",
                       privFont -> fontName, i);
           #endif
 
@@ -863,7 +863,7 @@ static void nxagentFontDisconnect(FontPtr pFont, XID param1, void * param2)
   }
 
   #ifdef NXAGENT_RECONNECT_FONT_DEBUG
-  fprintf(stderr, "nxagentFontDisconnect: WARNING font %s not found in cache freeing it now\n",
+  fprintf(stderr, "nxagentFontDisconnect: WARNING font [%s] not found in cache freeing it now\n",
               privFont -> fontName);
   #endif
 
@@ -891,7 +891,7 @@ static void nxagentCollectFailedFont(FontPtr fpt, XID id)
             SAFE_free(nxagentFailedToReconnectFonts.font);
             SAFE_free(nxagentFailedToReconnectFonts.id);
 
-            FatalError("Font: font not reconnected memory allocation failed!.\n");
+            FatalError("Font: font not reconnected memory allocation failed!\n");
         }
 
         #ifdef NXAGENT_RECONNECT_FONT_DEBUG
@@ -949,7 +949,7 @@ static void nxagentFontReconnect(FontPtr pFont, XID param1, void * param2)
     nxagentPrivFont *privFont = nxagentFontPriv(pFont);
 
     #ifdef NXAGENT_RECONNECT_FONT_DEBUG
-    fprintf(stderr, "nxagentFontReconnect: pFont %p - XID %lx - name %s\n",
+    fprintf(stderr, "nxagentFontReconnect: pFont [%p] - XID [%lx] - name [%s]\n",
                 (void*) pFont, (privFont -> font_struct) ? nxagentFont(pFont) : 0,
                     privFont -> fontName);
     #endif
@@ -1148,7 +1148,7 @@ static void nxagentFailedFontReconnect(FontPtr pFont, XID param1, void * param2)
     nxagentPrivFont *privFont = nxagentFontPriv(pFont);
 
     #ifdef NXAGENT_RECONNECT_FONT_DEBUG
-    fprintf(stderr, "nxagentFailedFontReconnect: pFont %p - XID %lx - name %s\n",
+    fprintf(stderr, "nxagentFailedFontReconnect: pFont [%p] - XID [%lx] - name [%s]\n",
                 (void*) pFont, (privFont -> font_struct) ? nxagentFont(pFont) : 0,
                     privFont -> fontName);
     #endif
@@ -1232,7 +1232,7 @@ Bool nxagentReconnectFailedFonts(void *p0)
     reconnectFlexibility = *((int *) p0);
 
     #ifdef NXAGENT_RECONNECT_FONT_DEBUG
-    fprintf(stderr, "nxagentReconnectFailedFonts: \n");
+    fprintf(stderr, "nxagentReconnectFailedFonts:\n");
     #endif
 
     if (nxagentGetFontServerPath(fontServerPath, sizeof(fontServerPath)) == False)
