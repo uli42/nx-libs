@@ -652,8 +652,10 @@ CloseDownDevices(void)
     }
 
     /* Backport:  dix: remove core devices when shutting down. (#25028) */
-    CloseDevice(inputInfo.pointer);
-    CloseDevice(inputInfo.keyboard);
+    if (inputInfo.pointer)
+      CloseDevice(inputInfo.pointer);
+    if (inputInfo.keyboard)
+      CloseDevice(inputInfo.keyboard);
 
     inputInfo.devices = NULL;
     inputInfo.off_devices = NULL;
