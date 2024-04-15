@@ -3478,8 +3478,7 @@ Bool nxagentReconnectScreen(void *p0)
   fprintf(stderr, "nxagentReconnectScreen\n");
 #endif
 
-  // FIXME: 2024-03-24: what is the correct index here?
-  if (!nxagentOpenScreen(0, nxagentDefaultScreen, nxagentArgc, nxagentArgv))
+  if (!nxagentOpenScreen(nxagentDefaultScreen->myNum, nxagentDefaultScreen, nxagentArgc, nxagentArgv))
   {
     return False;
   }
