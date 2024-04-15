@@ -186,7 +186,7 @@ void nxagentFreeFontCache(void)
     {
         #ifdef NXAGENT_FONTCACHE_DEBUG
         fprintf(stderr, "Font: Freeing nxagent font cache entry [%d] entry pointer is [%p], name [%s]\n",
-                    i, CACHE_ENTRY(i), CACHE_NAME(i));
+                    i, (void *)CACHE_ENTRY(i), CACHE_NAME(i));
         #endif
 
         if (CACHE_FSTRUCT(i))
@@ -492,13 +492,13 @@ Bool nxagentRealizeFont(ScreenPtr pScreen, FontPtr pFont)
     const char *name = NameForAtom(value_atom);
 
     #ifdef NXAGENT_FONTCACHE_DEBUG
-    fprintf(stderr, "Font: nxagentRealizeFont, realizing font: %s\n", validateString(name));
-    fprintf(stderr, "                                 atom: %ld\n", value_atom);
+    fprintf(stderr, "Font: nxagentRealizeFont, realizing font: [%s]\n", validateString(name));
+    fprintf(stderr, "                                 atom: [%d]\n", value_atom);
     fprintf(stderr, "Font: Cache dump:\n");
     for (int i = 0; i < CACHE_INDEX; i++)
     {
-        fprintf(stderr, "nxagentFontCache.entry[%d]->name: %s font_struct at %p\n",
-                    i, CACHE_NAME(i), CACHE_FSTRUCT(i));
+        fprintf(stderr, "nxagentFontCache.entry[%d]->name: [%s] font_struct at [%p]\n",
+                    i, CACHE_NAME(i), (void *)CACHE_FSTRUCT(i));
     }
     #endif
 
