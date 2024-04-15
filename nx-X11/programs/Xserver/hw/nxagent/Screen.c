@@ -861,12 +861,6 @@ Bool nxagentOpenScreen(int index, ScreenPtr pScreen, int argc, char *argv[])
               pScreen->myNum);
   #endif
 
-  // FIXME: does this need a replacement in Xorg 1.5.0+ codelevel?
-  //  if (nxagentRenderEnable && !nxagentReconnectTrap)
-  //{
-  //  PictureScreenPrivateIndex = -1;
-  //}
-
   nxagentDefaultScreen = pScreen;
 
   nxagentQueryAtoms(pScreen);
