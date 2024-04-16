@@ -1252,6 +1252,11 @@ void nxagentGlyphs(CARD8 op, PicturePtr pSrc, PicturePtr pDst,
 
   XGlyphElt8 *elements;
 
+  #ifdef DEBUG
+  fprintf(stderr, "%s: pSrc [%p] pSrc->pDrawable [%p] pDst [%p] pDst->pDrawable [%p]\n",
+	      __func__, pSrc, pSrc ? pSrc->pDrawable : NULL, pDst, pDst ? pDst->pDrawable : NULL);
+  #endif
+
   if (pSrc == NULL || pDst == NULL)
   {
     return;
@@ -1508,6 +1513,10 @@ void nxagentGlyphs(CARD8 op, PicturePtr pSrc, PicturePtr pDst,
     {
       for (int j = 0; j < nlists; j++)
       {
+        #ifdef DEBUG
+        fprintf(stderr, "%s: sizeID is [%d] - [%s]\n", __func__, sizeID, "XRenderCompositeText8");
+        #endif
+
         XRenderCompositeText8(nxagentDisplay,
                               op,
                               nxagentPicturePriv(pSrc)->picture,
@@ -1528,6 +1537,10 @@ void nxagentGlyphs(CARD8 op, PicturePtr pSrc, PicturePtr pDst,
     {
       for (int j = 0; j < nlists; j++)
       {
+        #ifdef DEBUG
+        fprintf(stderr, "%s: sizeID is [%d] - [%s]\n", __func__, sizeID, "XRenderCompositeText16");
+        #endif
+
         XRenderCompositeText16(nxagentDisplay,
                                op,
                                nxagentPicturePriv(pSrc) -> picture,
@@ -1548,6 +1561,10 @@ void nxagentGlyphs(CARD8 op, PicturePtr pSrc, PicturePtr pDst,
     {
       for (int j = 0; j < nlists; j++)
       {
+        #ifdef DEBUG
+        fprintf(stderr, "%s: sizeID is [%d] - [%s]\n", __func__, sizeID, "XRenderCompositeText32");
+        #endif
+
         XRenderCompositeText32(nxagentDisplay,
                                op,
                                nxagentPicturePriv(pSrc) -> picture,
@@ -1582,6 +1599,10 @@ void nxagentGlyphs(CARD8 op, PicturePtr pSrc, PicturePtr pDst,
   {
     case 1:
     {
+      #ifdef DEBUG
+      fprintf(stderr, "%s: sizeID is [%d] - [%s]\n", __func__, sizeID, "XRenderCompositeText8");
+      #endif
+
       XRenderCompositeText8(nxagentDisplay,
                             op,
                             nxagentPicturePriv(pSrc)->picture,
@@ -1597,6 +1618,10 @@ void nxagentGlyphs(CARD8 op, PicturePtr pSrc, PicturePtr pDst,
     }
     case 2:
     {
+      #ifdef DEBUG
+      fprintf(stderr, "%s: sizeID is [%d] - [%s]\n", __func__, sizeID, "XRenderCompositeText16");
+      #endif
+
       XRenderCompositeText16(nxagentDisplay,
                              op,
                              nxagentPicturePriv(pSrc) -> picture,
@@ -1612,6 +1637,10 @@ void nxagentGlyphs(CARD8 op, PicturePtr pSrc, PicturePtr pDst,
     }
     case 4:
     {
+      #ifdef DEBUG
+      fprintf(stderr, "%s: sizeID is [%d] - [%s]\n", __func__, sizeID, "XRenderCompositeText32");
+      #endif
+
       XRenderCompositeText32(nxagentDisplay,
                              op,
                              nxagentPicturePriv(pSrc) -> picture,
@@ -2168,18 +2197,30 @@ Bool nxagentPictureInit(ScreenPtr pScreen, PictFormatPtr formats, int nformats)
 {
   #ifdef RENDER
   #ifdef DEBUG
-  fprintf(stderr, "nxagentPictureInit: Screen [%p].\n", (void *) pScreen);
+  fprintf(stderr, "%s: Screen [%p].\n", __func__, (void *) pScreen);
   #endif
 
   nxagentQueryFormats();
 
-  if (fbPictureInit(pScreen, formats, nformats) == 0)
+  if (fbPictureInit(pScreen, formats, nformats) == FALSE)
   {
+    #ifdef DEBUG
+    fprintf(stderr, "%s: failed: fbPictureInit returned [FALSE]\n", __func__);
+    #endif
     return FALSE;
   }
 
   if (!dixRequestPrivate(nxagentPicturePrivateKey, sizeof(nxagentPrivPictureRec)))
+  {
+    #ifdef DEBUG
+    fprintf(stderr, "%s: failed to request PicturePrivates.\n", __func__);
+    #endif
     return FALSE;
+  }
+  #endif
+
+  #ifdef DEBUG
+  fprintf(stderr, "%s: success\n", __func__);
   #endif
 
   return TRUE;
