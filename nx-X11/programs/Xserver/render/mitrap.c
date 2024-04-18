@@ -127,7 +127,6 @@ miTrapezoidBounds (int ntrap, xTrapezoid *traps, BoxPtr box)
     }
 }
 
-#ifndef NXAGENT_SERVER
 void
 miTrapezoids (CARD8	    op,
 	      PicturePtr    pSrc,
@@ -137,6 +136,9 @@ miTrapezoids (CARD8	    op,
 	      INT16	    ySrc,
 	      int	    ntrap,
 	      xTrapezoid    *traps)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     ScreenPtr		pScreen = pDst->pDrawable->pScreen;
     PictureScreenPtr    ps = GetPictureScreen(pScreen);
