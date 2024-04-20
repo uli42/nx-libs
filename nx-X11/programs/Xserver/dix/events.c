@@ -2366,7 +2366,7 @@ UpdateSpriteForScreen(ScreenPtr pScreen)
     WindowPtr win = NULL;
     if (!pScreen)
         return ;
-    win = WindowTable[pScreen->myNum];
+    win = pScreen->root;
 
     sprite.hotPhys.pScreen = pScreen;
     sprite.hot = sprite.hotPhys;
