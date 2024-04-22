@@ -90,7 +90,7 @@ AddGlyph (GlyphSetPtr glyphSet, GlyphPtr glyph, Glyph id)
 	free (glyph);
 	glyph = gr->glyph;
     }
-    else
+    else if (gr->glyph != glyph)
     {
 	gr->glyph = glyph;
 	gr->signature = signature;
