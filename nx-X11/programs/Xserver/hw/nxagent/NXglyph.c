@@ -59,6 +59,10 @@
 
 #endif
 
+/* FIXME: the only change is setting corruptedGlyph to 1. this could also be done AFTER
+   CheckDuplicates(), as that one will not change any data. So we could call xorg_AddGlyph()
+   and the set corruptedGlyph. The only problem is to efficiently determine the GlyphRefPtr
+   after xorg_AddGlyph(). */
 
 void
 AddGlyph (GlyphSetPtr glyphSet, GlyphPtr glyph, Glyph id)
