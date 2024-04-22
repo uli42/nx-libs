@@ -286,18 +286,21 @@ miGlyphs (CARD8		op,
     BoxRec	extents;
     CARD32	component_alpha;
 
+#ifdef NXAGENT_SERVER
     /*
      * Get rid of the warning.
      */
 
     extents.x1 = 0;
     extents.y1 = 0;
-    
+#endif
+
     if (maskFormat)
     {
 	GCPtr	    pGC;
 	xRectangle  rect;
 
+#ifdef NXAGENT_SERVER
         if (nxagentGlyphsExtents != NullBox)
         {
           memcpy(&extents, nxagentGlyphsExtents, sizeof(BoxRec));
@@ -310,21 +313,23 @@ miGlyphs (CARD8		op,
 
           memcpy(nxagentGlyphsExtents, &extents, sizeof(BoxRec));
         }
+#else
+	GlyphExtents (nlist, list, glyphs, &extents);
+#endif
 
 	if (extents.x2 <= extents.x1 || extents.y2 <= extents.y1)
 	    return;
 	width = extents.x2 - extents.x1;
 	height = extents.y2 - extents.y1;
-	pMaskPixmap = (*pScreen->CreatePixmap) (pScreen, width, height, maskFormat->depth, 0);
-
+	pMaskPixmap = (*pScreen->CreatePixmap) (pScreen, width, height,
+						maskFormat->depth,
+						CREATE_PIXMAP_USAGE_SCRATCH);
 	if (!pMaskPixmap)
 	    return;
-
 	component_alpha = NeedsComponent(maskFormat->format);
 	pMask = CreatePicture (0, &pMaskPixmap->drawable,
 			       maskFormat, CPComponentAlpha, &component_alpha,
 			       serverClient, &error);
-
 	if (!pMask)
 	{
 	    (*pScreen->DestroyPixmap) (pMaskPixmap);
@@ -347,38 +352,17 @@ miGlyphs (CARD8		op,
 	x = 0;
 	y = 0;
     }
-    pPicture = 0;
     while (nlist--)
     {
 	x += list->xOff;
 	y += list->yOff;
 	n = list->len;
-
 	while (n--)
 	{
 	    glyph = *glyphs++;
-	    if (!pPicture)
-	    {
-		pPixmap = GetScratchPixmapHeader (pScreen, glyph->info.width, glyph->info.height,
-						  list->format->depth,
-						  list->format->depth,
-						  0, (void *) (glyph + 1));
-		if (!pPixmap)
-		    return;
-		component_alpha = NeedsComponent(list->format->format);
-		pPicture = CreatePicture (0, &pPixmap->drawable, list->format,
-					  CPComponentAlpha, &component_alpha,
-					  serverClient, &error);
-		if (!pPicture)
-		{
-		    FreeScratchPixmapHeader (pPixmap);
-		    return;
-		}
-	    }
-	    (*pScreen->ModifyPixmapHeader) (pPixmap,
-					    glyph->info.width, glyph->info.height,
-					    0, 0, -1, (void *) (glyph + 1));
+            pPicture = GlyphPicture (glyph)[pScreen->myNum];
 
+#ifdef NXAGENT_SERVER
             /*
              * The following line fixes a problem with glyphs that appeared
              * as clipped. It was a side effect due the validate function
@@ -386,10 +370,11 @@ miGlyphs (CARD8		op,
              * number instead of the picture serial number, failing thus
              * the clip mask update.
              */
-
-            pPicture->pDrawable->serialNumber = NEXT_SERIAL_NUMBER;
-
-	    pPixmap->drawable.serialNumber = NEXT_SERIAL_NUMBER;
+            // FIXME: remove this, it is probably not longer necesseary anymore
+            // with xorg 1.5.0 code
+            // as we are not creating a Picture here but use an existing one
+            // pPicture->pDrawable->serialNumber = NEXT_SERIAL_NUMBER;
+#endif
 	    if (maskFormat)
 	    {
 		CompositePicture (PictOpAdd,
@@ -422,13 +407,6 @@ miGlyphs (CARD8		op,
 	}
 
 	list++;
-	if (pPicture)
-	{
-	    FreeScratchPixmapHeader (pPixmap);
-	    FreePicture ((void *) pPicture, 0);
-	    pPicture = 0;
-	    pPixmap = 0;
-	}
     }
     if (maskFormat)
     {
@@ -447,5 +425,4 @@ miGlyphs (CARD8		op,
 	FreePicture ((void *) pMask, (XID) 0);
 	(*pScreen->DestroyPixmap) (pMaskPixmap);
     }
-
 }
