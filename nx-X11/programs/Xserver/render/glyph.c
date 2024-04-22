@@ -152,9 +152,6 @@ FindGlyphRef (GlyphHashPtr	hash,
 	      CARD32		signature,
 	      Bool		match,
 	      unsigned char	sha1[20])
-#ifdef NXAGENT_SERVER
-  ;
-#else
 {
     CARD32	elt, step, s;
     GlyphPtr	glyph;
@@ -201,7 +198,6 @@ FindGlyphRef (GlyphHashPtr	hash,
     }
     return gr;
 }
-#endif
 
 int
 HashGlyph (xGlyphInfo    *gi,

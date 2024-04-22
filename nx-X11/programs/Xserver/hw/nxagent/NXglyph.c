@@ -59,69 +59,6 @@
 
 #endif
 
-GlyphRefPtr
-FindGlyphRef (GlyphHashPtr	hash,
-	      CARD32		signature,
-	      Bool		match,
-	      unsigned char	sha1[20])
-{
-    CARD32	elt, step, s;
-    GlyphPtr	glyph;
-    GlyphRefPtr	table, gr, del;
-    CARD32	tableSize = hash->hashSet->size;
-
-    table = hash->table;
-    elt = signature % tableSize;
-    step = 0;
-    del = 0;
-    for (;;)
-    {
-	gr = &table[elt];
-	s = gr->signature;
-	glyph = gr->glyph;
-	if (!glyph)
-	{
-	    if (del)
-		gr = del;
-	    break;
-	}
-	if (glyph == DeletedGlyph)
-	{
-	    if (!del)
-		del = gr;
-	    else if (gr == del)
-		break;
-	}
-#ifdef NXAGENT_SERVER
-	else if (s == signature && match && glyph->size != 20)
-        {
-          /*
-           * if the glyphsize is different there's no need to do a memcmp
-           * because it will surely report difference. And even worse:
-           * it will read beyond the end of glyph under some
-           * circumstances, which can be detected when compiling with
-           * -fsanitize=address.
-           */
-        }
-#endif
-	else if (s == signature &&
-		 (!match ||
-		  memcmp (glyph->sha1, sha1, 20) == 0))
-	{
-	    break;
-	}
-	if (!step)
-	{
-	    step = signature % hash->hashSet->rehash;
-	    if (!step)
-		step = 1;
-	}
-	elt += step;
-	if (elt >= tableSize)
-	    elt -= tableSize;
-    }
-    return gr;
-}
 
 void
 AddGlyph (GlyphSetPtr glyphSet, GlyphPtr glyph, Glyph id)
