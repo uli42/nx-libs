@@ -307,13 +307,13 @@ extern CARD32	xkbDebugFlags;
 
 #define	_XkbAlloc(s)		malloc((s))
 #define	_XkbCalloc(n,s)		calloc(1, (n)*(s))
-#define	_XkbRealloc(o,s)	Xrealloc((o),(s))
+#define	_XkbRealloc(o,s)	realloc((o),(s))
 #define	_XkbTypedAlloc(t)	((t *)malloc(sizeof(t)))
 #define	_XkbTypedCalloc(n,t)	((t *)calloc(1, (n)*sizeof(t)))
 #define	_XkbTypedRealloc(o,n,t) \
-	((o)?(t *)Xrealloc((o),(n)*sizeof(t)):_XkbTypedCalloc(n,t))
+	((o)?(t *)realloc((o),(n)*sizeof(t)):_XkbTypedCalloc(n,t))
 #define	_XkbClearElems(a,f,l,t)	bzero(&(a)[f],((l)-(f)+1)*sizeof(t))
-#define	_XkbFree(p)		Xfree(p)
+#define	_XkbFree(p)		free(p)
 
 #define	_XkbLibError(c,l,d) /* Epoch fail */
 #define	_XkbErrCode2(a,b) ((XID)((((unsigned int)(a))<<24)|((b)&0xffffff)))

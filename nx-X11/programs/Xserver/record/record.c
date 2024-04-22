@@ -1100,7 +1100,7 @@ RecordUninstallHooks(RecordClientsAndProtocolPtr pRCAP, XID oneclient)
 		    pClient->requestVector = pClientPriv->originalVector;
 		    dixSetPrivate(&pClient->devPrivates,
 				  RecordClientPrivateKey, NULL);
-		    xfree(pClientPriv);
+		    free(pClientPriv);
 		}
 	    } /* end if this RCAP specifies any requests */
 	} /* end if not future clients */

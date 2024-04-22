@@ -358,7 +358,7 @@ ProcDbeAllocateBackBufferName(ClientPtr client)
             }
 
             /* malloc/realloc a new array and initialize all elements to 0. */
-            pDbeWindowPriv->IDs = (XID *)xrealloc(pIDs,
+            pDbeWindowPriv->IDs = (XID *)realloc(pIDs,
                 (pDbeWindowPriv->maxAvailableIDs+DBE_INCR_MAX_IDS)*sizeof(XID));
             if (!pDbeWindowPriv->IDs)
             {
@@ -1626,7 +1626,7 @@ DbeExtensionInit(void)
 	pScreen = screenInfo.screens[i];
 
 	if (!(pDbeScreenPriv =
-             (DbeScreenPrivPtr)Xcalloc(sizeof(DbeScreenPrivRec))))
+	      (DbeScreenPrivPtr)calloc(1, sizeof(DbeScreenPrivRec))))
 	{
             /* If we can not alloc a window or screen private,
              * then free any privates that we already alloc'ed and return

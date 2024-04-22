@@ -2177,8 +2177,8 @@ unsigned	 first,last;
     if (maxRG>(int)xkbi->nRadioGroups) {
         int sz = maxRG*sizeof(XkbRadioGroupRec);
         if (xkbi->radioGroups)
-             xkbi->radioGroups=(XkbRadioGroupPtr)_XkbRealloc(xkbi->radioGroups,sz);
-        else xkbi->radioGroups= (XkbRadioGroupPtr)_XkbCalloc(1, sz);
+             xkbi->radioGroups=(XkbRadioGroupPtr)realloc(xkbi->radioGroups,sz);
+        else xkbi->radioGroups= (XkbRadioGroupPtr)calloc(1, sz);
         if (xkbi->radioGroups) {
              if (xkbi->nRadioGroups)
                 bzero(&xkbi->radioGroups[xkbi->nRadioGroups],
