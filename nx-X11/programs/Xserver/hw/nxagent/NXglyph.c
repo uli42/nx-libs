@@ -132,13 +132,38 @@ FindGlyph (GlyphSetPtr glyphSet, Glyph id)
 #ifdef NXAGENT_SERVER
     else if (gr -> corruptedGlyph == 1)
     {
-        #ifdef DEBUG
-        fprintf(stderr, "FindGlyphRef: Going to synchronize the glyph [%p] for glyphset [%p].\n",
-                 (void *) glyph, (void *) glyphSet);
-        #endif
+	#ifdef DEBUG
+	fprintf(stderr, "FindGlyphRef: Going to synchronize the glyph [%p] for glyphset [%p].\n",
+		 (void *) glyph, (void *) glyphSet);
+	#endif
 
-        nxagentAddGlyphs(glyphSet, &id, &(glyph -> info), 1,
-                         (CARD8*)(glyph + 1), glyph -> size - sizeof(xGlyphInfo));
+	for (int i = 0; i < screenInfo.numScreens; i++)
+	{
+	  /* glyph points to a GlyphRec followed by numscreen PicturePtrs. We need to
+	     extract the data from there */
+	  PicturePtr pPicture = GlyphPicture(glyph)[i];
+	  DrawablePtr pDrawable = pPicture->pDrawable;
+	  /* calculate size in Bytes */
+	  //int size = pDrawable->width * pDrawable->height * pDrawable->bitsPerPixel / 8;
+	  int size = PixmapBytePad(pDrawable->width, pDrawable->depth) * pDrawable->height;
+	  #ifdef DEBUG
+	  fprintf(stderr, "%s: type [%d] width [%d] height [%d] bitsPerPixel [%d] "
+		      "depth [%d] BitmapBytePad(%d) [%d] PixmapBytePad(%d, %d) [%d]\n", __func__,
+		  pDrawable->type, pDrawable->width, pDrawable->height,
+		  pDrawable->bitsPerPixel, pDrawable->depth,
+		  pDrawable->width, BitmapBytePad(pDrawable->width),
+		  pDrawable->width, pDrawable->depth, PixmapBytePad(pDrawable->width, pDrawable->depth));
+	  #endif
+
+	  void *zImage = malloc(size);
+
+	  // FIXME: there might be a ZPixmap already existing in the Picture struct.
+	  miGetImage(pDrawable, pDrawable->x, pDrawable->y, pDrawable->width, pDrawable->height, ZPixmap, -1, zImage);
+
+	  nxagentAddGlyphs(glyphSet, &id, &(glyph -> info), 1,
+			   zImage, size);
+	  free(zImage);
+	}
     }
 #endif
 
