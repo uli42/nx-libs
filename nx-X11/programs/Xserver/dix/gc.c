@@ -112,11 +112,11 @@ ValidateGC(DrawablePtr pDraw, GC *pGC)
  *     v[1].val = background;
  *     dixChangeGC(client, pGC, GCForeground|GCBackground, NULL, v);
  *
- * However, if you need to pass a void * to a pixmap or font, you MUST
+ * However, if you need to pass a pointer to a pixmap or font, you MUST
  * use the pUnion parameter.
  *
  *     example calling dixChangeGC passing pointers in the value list
- *     v[1].ptr is a void * to a pixmap
+ *     v[1].ptr is a pointer to a pixmap
  *
  *     ChangeGCVal v[2];
  *     v[0].val = FillTiled;
@@ -567,7 +567,7 @@ DoChangeGC(GC *pGC, BITS32 mask, XID *pval, int fPointer)
 /* CreateGC(pDrawable, mask, pval, pStatus)
    creates a default GC for the given drawable, using mask to fill
    in any non-default values.
-   Returns a void * to the new GC on success, NULL otherwise.
+   Returns a pointer to the new GC on success, NULL otherwise.
    returns status of non-default fields in pStatus
 BUG:
    should check for failure to create default tile
