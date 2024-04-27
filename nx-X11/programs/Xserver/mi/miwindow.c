@@ -296,21 +296,21 @@ miPostChangeSaveUnder(pWin, pFirst)
     WindowPtr		pFirst;
 {
     WindowPtr pParent, pChild;
-    ChangeWindowAttributesProcPtr ChangeWindowAttributes;
+    ChangeWindowAttributesProcPtr myChangeWindowAttributes;
 
     if (!(pParent = pWin->parent))
 	return;
-    ChangeWindowAttributes = pParent->drawable.pScreen->ChangeWindowAttributes;
+    myChangeWindowAttributes = pParent->drawable.pScreen->ChangeWindowAttributes;
     if (!pParent->DIXsaveUnder &&
 	(pParent->backingStore == NotUseful) && pParent->backStorage)
-	(*ChangeWindowAttributes)(pParent, CWBackingStore);
+	(*myChangeWindowAttributes)(pParent, CWBackingStore);
     if (!(pChild = pFirst))
 	return;
     while (1)
     {
 	if (!pChild->DIXsaveUnder &&
 	    (pChild->backingStore == NotUseful) && pChild->backStorage)
-	    (*ChangeWindowAttributes)(pChild, CWBackingStore);
+	    (*myChangeWindowAttributes)(pChild, CWBackingStore);
 	if (pChild->firstChild)
 	{
 	    pChild = pChild->firstChild;
