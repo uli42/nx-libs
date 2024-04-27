@@ -6396,13 +6396,10 @@ static int
 _XkbSetDeviceInfo(ClientPtr client, DeviceIntPtr dev,
                   xkbSetDeviceInfoReq *stuff)
 {
-unsigned		change;
-char *			wire;
-
-    change= stuff->change;
+    char *			wire;
 
     wire= (char *)&stuff[1];
-    if (change&XkbXI_ButtonActionsMask) {
+    if (stuff->change&XkbXI_ButtonActionsMask) {
 	if (!dev->button) {
 	    client->errorValue = _XkbErrCode2(XkbErr_BadClass,ButtonClass);
 	    return XkbKeyboardErrorCode;
@@ -6467,8 +6464,8 @@ _XkbSetDeviceInfoCheck(ClientPtr client, DeviceIntPtr dev,
     }
     if (stuff->change&XkbXI_IndicatorsMask) {
 	int status= Success;
-	wire= SetDeviceIndicators(wire,dev,stuff->change,stuff->nDeviceLedFBs,
-							&status,client,&ed);
+	wire= SetDeviceIndicators(wire,dev,stuff->change,
+				  stuff->nDeviceLedFBs, &status,client,&ed);
 	if (status!=Success)
 	    return status;
     }
