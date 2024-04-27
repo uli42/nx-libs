@@ -1104,7 +1104,10 @@ typedef struct _GlyphNew {
 
 #define NeedsComponent(f) (PICT_FORMAT_A(f) != 0 && PICT_FORMAT_RGB(f) != 0)
 
-static int
+#ifndef NXAGENT_SERVER
+static
+#endif
+int
 ProcRenderAddGlyphs (ClientPtr client)
 {
     GlyphSetPtr     glyphSet;
@@ -1144,7 +1147,7 @@ ProcRenderAddGlyphs (ClientPtr client)
     }
     else
     {
-	glyphsBase = (GlyphNewPtr) Xcalloc (nglyphs * sizeof (GlyphNewRec));
+	glyphsBase = (GlyphNewPtr) calloc (nglyphs, sizeof (GlyphNewRec));
 	if (!glyphsBase)
 	    return BadAlloc;
     }

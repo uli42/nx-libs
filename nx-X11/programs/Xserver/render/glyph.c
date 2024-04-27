@@ -307,7 +307,7 @@ FreeGlyph (GlyphPtr glyph, int format)
 	{
 	    ScreenPtr pScreen = screenInfo.screens[i];
 
-	    FreePicture ((pointer) GlyphPicture (glyph)[i], 0);
+	    FreePicture ((void *) GlyphPicture (glyph)[i], 0);
 
 	    ps = GetPictureScreenIfSet (pScreen);
 	    if (ps)
@@ -785,7 +785,7 @@ miGlyphs (CARD8		op,
 			  0, 0,
 			  x, y,
 			  width, height);
-	FreePicture ((pointer) pMask, (XID) 0);
+	FreePicture ((void *) pMask, (XID) 0);
 	(*pScreen->DestroyPixmap) (pMaskPixmap);
     }
 }

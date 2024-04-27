@@ -591,11 +591,9 @@ PictureInit (ScreenPtr pScreen, PictFormatPtr formats, int nformats)
 	if (!GlyphSetType)
 	    return FALSE;
 	PictureGeneration = serverGeneration;
-#ifdef XResExtension
 	RegisterResourceName (PictureType, "PICTURE");
 	RegisterResourceName (PictFormatType, "PICTFORMAT");
 	RegisterResourceName (GlyphSetType, "GLYPHSET");
-#endif
     }
     if (!formats)
     {
@@ -1082,7 +1080,7 @@ ChangePicture (PicturePtr	pPicture,
 			pAlpha = 0;
 		    else
 		    {
-			error = dixLookupResource((pointer *)&pAlpha, pid,
+			error = dixLookupResource((void * *)&pAlpha, pid,
 						  PictureType, client,
 						  DixReadAccess);
 			if (error != Success)
@@ -1143,7 +1141,7 @@ ChangePicture (PicturePtr	pPicture,
 		    else
 		    {
 			clipType = CT_PIXMAP;
-			error = dixLookupResource((pointer *)&pPixmap, pid,
+			error = dixLookupResource((void * *)&pPixmap, pid,
 						  RT_PIXMAP, client,
 						  DixReadAccess);
 			if (error != Success)
