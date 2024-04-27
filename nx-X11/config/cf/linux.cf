@@ -910,6 +910,9 @@ XCOMM binutils:	(LinuxBinUtilsMajorVersion)
 
 #define HasGnuMake		YES
 
+/* Has stdint.h */
+#define HasStdInt               YES
+
 #define MakeNamedTargetSubdir(dir,flags,subname)\
 	$(MAKE) -C dir $(MFLAGS) $(PARALLELMFLAGS) flags subname
 

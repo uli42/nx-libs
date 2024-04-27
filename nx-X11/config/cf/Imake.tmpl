@@ -167,6 +167,9 @@ XCOMM the platform-specific parameters - edit site.def to change
 #ifndef HasGnuMake
 #define HasGnuMake		NO
 #endif
+#ifndef HasStdInt
+#define HasStdInt		NO
+#endif
 /*
  * The following fixes a glitch with GNU make -j
  */
@@ -1900,6 +1903,12 @@ XEXT_EXTRA_DEFINES = -DLEGACY_XEXT_PROTO
 XEXT_EXTRA_DEFINES =
 #endif
 
+/* Defines that where introduced in xorg after dropping imake. We backport them
+   here for now */
+#if HasStdInt
+AUTOMAKE_DEFINES=-DHAVE_STDINT_H
+#endif
+
 /*
  * Here we set up flags needed to produce position-independent code
  * when doing C and C++ compilation.  The default if you specify C
@@ -1998,7 +2007,7 @@ XEXT_EXTRA_DEFINES =
  * LOCAL_LDFLAGS contains client-specific ld flags flags set in Imakefile
  */
       ALLINCLUDES = $(INCLUDES) $(EXTRA_INCLUDES) $(TOP_INCLUDES) $(INSTALLED_INCLUDES) $(STD_INCLUDES)
-       ALLDEFINES = $(ALLINCLUDES) $(STD_DEFINES) $(SETITIMER_DEFINES) $(FONT_DEFINES) $(PROTO_DEFINES) $(XEXT_EXTRA_DEFINES) $(THREADS_DEFINES) $(MODULE_DEFINES) $(DEFINES) $(EXTRA_DEFINES)
+       ALLDEFINES = $(ALLINCLUDES) $(STD_DEFINES) $(SETITIMER_DEFINES) $(FONT_DEFINES) $(PROTO_DEFINES) $(XEXT_EXTRA_DEFINES) $(THREADS_DEFINES) $(MODULE_DEFINES) $(AUTOMAKE_DEFINES) $(DEFINES) $(EXTRA_DEFINES)
            CFLAGS = $(CDEBUGFLAGS) $(CCOPTIONS) $(THREADS_CFLAGS) $(MODULE_CFLAGS) $(ALLDEFINES)
         LINTFLAGS = $(LINTOPTS) -DLINT $(ALLDEFINES) $(DEPEND_DEFINES)
          LDPRELIB = LdPreLib $(INSTALLED_LIBS)

@@ -11,7 +11,6 @@
 #endif
 
     DEFINES =                   \
-              -DHAVE_STDINT_H   \
               $(NX_DEFINES)     \
               $(NULL)
 
