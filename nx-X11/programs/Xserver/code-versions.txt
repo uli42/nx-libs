@@ -6,7 +6,7 @@ then are mentioned here.
 
 module            xorg version
 composite         1.12 (~ 9838b70 2012-03-21 Introduce a consistent coding style [Keith Packard])
-damageext         1.5.0
+damageext         1.5.3
 dbe               1.5.0
 dix               1.5.0
 fb                1.5.3
