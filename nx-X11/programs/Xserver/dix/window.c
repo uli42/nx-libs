@@ -503,10 +503,7 @@ ClippedRegionFromBox(WindowPtr pWin, RegionPtr Rgn,
                      int x, int y,
                      int w, int h)
 {
-    ScreenPtr pScreen;
     BoxRec box;
-
-    pScreen = pWin->drawable.pScreen;
 
     box = *(RegionExtents(&pWin->winSize));
     /* we do these calculations to avoid overflows */
@@ -1637,9 +1634,6 @@ CreateUnclippedWinSize (WindowPtr pWin)
     pRgn = RegionCreate(&box, 1);
 #ifdef SHAPE
     if (wBoundingShape (pWin) || wClipShape (pWin)) {
-	ScreenPtr pScreen;
-        pScreen = pWin->drawable.pScreen;
-
 	RegionTranslate(pRgn, - pWin->drawable.x,
 			 - pWin->drawable.y);
 	if (wBoundingShape (pWin))
@@ -1678,9 +1672,6 @@ SetWinSize (WindowPtr pWin)
 			 (int)pWin->drawable.height);
 #ifdef SHAPE
     if (wBoundingShape (pWin) || wClipShape (pWin)) {
-	ScreenPtr pScreen;
-        pScreen = pWin->drawable.pScreen;
-
 	RegionTranslate(&pWin->winSize, - pWin->drawable.x,
 			 - pWin->drawable.y);
 	if (wBoundingShape (pWin))
@@ -1725,9 +1716,6 @@ SetBorderSize (WindowPtr pWin)
 		(int)(pWin->drawable.height + (bw<<1)));
 #ifdef SHAPE
 	if (wBoundingShape (pWin)) {
-	    ScreenPtr pScreen;
-            pScreen = pWin->drawable.pScreen;
-
 	    RegionTranslate(&pWin->borderSize, - pWin->drawable.x,
 			     - pWin->drawable.y);
 	    RegionIntersect(&pWin->borderSize, &pWin->borderSize,
@@ -1941,8 +1929,6 @@ MakeBoundingRegion (
     BoxPtr	pBox)
 {
     RegionPtr	pRgn;
-    ScreenPtr   pScreen;
-    pScreen = pWin->drawable.pScreen;
 
     pRgn = RegionCreate(pBox, 1);
     if (wBoundingShape (pWin)) {
@@ -1963,12 +1949,10 @@ ShapeOverlap (
     BoxPtr	pSibBox)
 {
     RegionPtr	pWinRgn, pSibRgn;
-    ScreenPtr	pScreen;
     Bool	ret;
 
     if (!IS_SHAPED(pWin) && !IS_SHAPED(pSib))
 	return TRUE;
-    pScreen = pWin->drawable.pScreen;
     pWinRgn = MakeBoundingRegion (pWin, pWinBox);
     pSibRgn = MakeBoundingRegion (pSib, pSibBox);
     RegionIntersect(pWinRgn, pWinRgn, pSibRgn);
@@ -2069,7 +2053,6 @@ WhereDoIGoInTheStack(
     int smode)
 {
     BoxRec box;
-    ScreenPtr pScreen;
     WindowPtr pHead, pFirst;
 
     if ((pWin == pWin->parent->firstChild) &&
@@ -2077,7 +2060,6 @@ WhereDoIGoInTheStack(
 	return((WindowPtr ) NULL);
     pHead = RealChildHead(pWin->parent);
     pFirst = pHead ? pHead->nextSib : pWin->parent->firstChild;
-    pScreen = pWin->drawable.pScreen;
     box.x1 = x;
     box.y1 = y;
     box.x2 = x + (int)w;
@@ -3234,10 +3216,8 @@ PointInWindowIsVisible(WindowPtr pWin, int x, int y)
 RegionPtr
 NotClippedByChildren(WindowPtr pWin)
 {
-    ScreenPtr pScreen;
     RegionPtr pReg;
 
-    pScreen = pWin->drawable.pScreen;
     pReg = RegionCreate(NullBox, 1);
     if (pWin->parent ||
 	screenIsSaved != SCREEN_SAVER_ON ||
