@@ -3463,6 +3463,9 @@ CloseDownClient(ClientPtr client)
 	    CallCallbacks((&ClientStateCallback), (void *)&clientinfo);
 	} 	
 	FreeClientResources(client);
+	/* Disable client ID tracking. This must be done after
+	 * ClientStateCallback. */
+	ReleaseClientIds(client);
 #ifdef XSERVER_DTRACE
 	XSERVER_CLIENT_DISCONNECT(client->index);
 #endif	
