@@ -304,7 +304,6 @@ ProcShapeRectangles (client)
     register ClientPtr client;
 {
     WindowPtr		pWin;
-    ScreenPtr		pScreen;
     REQUEST(xShapeRectanglesReq);
     xRectangle		*prects;
     int		        nrects, ctype, rc;
@@ -337,7 +336,6 @@ ProcShapeRectangles (client)
 	client->errorValue = stuff->ordering;
         return BadValue;
     }
-    pScreen = pWin->drawable.pScreen;
     nrects = ((stuff->length  << 2) - sizeof(xShapeRectanglesReq));
     if (nrects & 4)
 	return BadLength;
