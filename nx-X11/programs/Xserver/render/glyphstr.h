@@ -50,14 +50,13 @@ typedef struct _Glyph {
 
 #define GlyphPicture(glyph) ((PicturePtr *) ((glyph) + 1))
 
-#ifdef NXAGENT_SERVER
-#include "../hw/nxagent/NXglyphstr_GlyphRef.h"
-#else
 typedef struct _GlyphRef {
     CARD32	signature;
     GlyphPtr	glyph;
+#ifdef NXAGENT_SERVER
+    CARD16      corruptedGlyph;
+#endif
 } GlyphRefRec, *GlyphRefPtr;
-#endif /* NXAGENT_SERVER */
 
 #define DeletedGlyph	((GlyphPtr) 1)
 
@@ -73,9 +72,6 @@ typedef struct _GlyphHash {
     CARD32	    tableEntries;
 } GlyphHashRec, *GlyphHashPtr;
 
-#ifdef NXAGENT_SERVER
-#include "../hw/nxagent/NXglyphstr_GlyphSet.h"
-#else
 typedef struct _GlyphSet {
     CARD32	    refcnt;
     PictFormatPtr   format;
@@ -83,8 +79,10 @@ typedef struct _GlyphSet {
     GlyphHashRec    hash;
     int             maxPrivate;
     PrivateRec      *devPrivates;
+#ifdef NXAGENT_SERVER
+    CARD32          remoteID;
+#endif
 } GlyphSetRec, *GlyphSetPtr;
-#endif /* NXAGENT_SERVER */
 
 #define GlyphSetGetPrivate(pGlyphSet,k)					\
     dixLookupPrivate(&(pGlyphSet)->devPrivates, k)
