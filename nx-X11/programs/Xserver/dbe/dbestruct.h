@@ -161,7 +161,7 @@ typedef struct _DbeScreenPrivRec
     DevPrivateKey dbeWindowPrivKey;
 
     /* Wrapped functions
-     * It is the responsibilty of the DDX layer to wrap PositionWindow().
+     * It is the responsibility of the DDX layer to wrap PositionWindow().
      * DbeExtensionInit wraps DestroyWindow().
      */
     PositionWindowProcPtr PositionWindow;

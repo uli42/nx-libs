@@ -50,7 +50,6 @@
 #include "extnsionst.h"
 #include "gcstruct.h"
 #include "dixstruct.h"
-#define NEED_DBE_PROTOCOL
 #include "dbestruct.h"
 #include "midbe.h"
 #include "xace.h"
@@ -394,7 +393,7 @@ ProcDbeAllocateBackBufferName(ClientPtr client)
     {
 	pDbeWindowPriv->IDs[add_index] = stuff->buffer;
         if (!AddResource(stuff->buffer, dbeWindowPrivResType,
-                         (pointer)pDbeWindowPriv))
+                         (void *)pDbeWindowPriv))
 	{
             pDbeWindowPriv->IDs[add_index] = DBE_FREE_ID_ELEMENT;
 
