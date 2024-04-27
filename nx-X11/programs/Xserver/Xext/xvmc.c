@@ -773,7 +773,11 @@ xf86XvMCRegisterDRInfo(ScreenPtr pScreen, char *name,
 {
     XvMCScreenPtr pScreenPriv = XVMC_GET_PRIVATE(pScreen);
     strncpy(pScreenPriv->clientDriverName, name,
+#ifdef NXAGENT_SERVER
+	    DR_CLIENT_DRIVER_NAME_SIZE-1);
+#else
 	    DR_CLIENT_DRIVER_NAME_SIZE);
+#endif
     strncpy(pScreenPriv->busID, busID, DR_BUSID_SIZE);
     pScreenPriv->major = major;
     pScreenPriv->minor = minor;
