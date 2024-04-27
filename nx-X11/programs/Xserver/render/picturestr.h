@@ -69,15 +69,14 @@ typedef struct pixman_transform PictTransform, *PictTransformPtr;
 #define SourcePictClassHorizontal 1
 #define SourcePictClassVertical   2
 
-#ifdef NXAGENT_SERVER
-#include "../hw/nxagent/NXpicturestr_PictSolidFill.h"
-#else
 typedef struct _PictSolidFill {
     unsigned int type;
     unsigned int class;
     CARD32 color;
-} PictSolidFill, *PictSolidFillPtr;
+#ifdef NXAGENT_SERVER
+    xRenderColor fullColor;
 #endif
+} PictSolidFill, *PictSolidFillPtr;
 
 typedef struct _PictGradientStop {
     xFixed x;
