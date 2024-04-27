@@ -413,10 +413,6 @@ extern Bool miScreenInit(
     VisualPtr /*visuals*/
 );
 
-extern DevPrivateKey miAllocateGCPrivateIndex(
-    void
-);
-
 extern PixmapPtr miGetScreenPixmap(
     ScreenPtr pScreen
 );

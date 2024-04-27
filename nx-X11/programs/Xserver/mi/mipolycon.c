@@ -214,7 +214,7 @@ miFillConvexPoly(dst, pgc, count, ptsIn)
     return(TRUE);
 }
 
-
+
 /*
  *     Find the index of the point with the smallest y.
  */

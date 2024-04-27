@@ -127,7 +127,7 @@ typedef struct _ScanLineListBlock {
  */
 #define NUMPTSTOBUFFER 200
 
-
+
 /*
  *
  *     a few macros for the inner loops of the fill code where

@@ -217,12 +217,14 @@ extern void SecurityExtensionInit(void);
 extern void XFree86BigfontExtensionInit(void);
 #endif
 #ifdef GLXEXT
-// typedef struct __GLXprovider __GLXprovider;
-// extern __GLXprovider __glXMesaProvider;
-// extern void GlxPushProvider(__GLXprovider *impl);
+#if 0
+typedef struct __GLXprovider __GLXprovider;
+extern __GLXprovider __glXDRISWRastProvider;
+extern void GlxPushProvider(__GLXprovider *impl);
+#endif
 extern void GlxExtensionInit(void);
 extern void GlxWrapInitVisuals(miInitVisualsProcPtr *);
-#endif // GLXEXT
+#endif
 #ifdef XF86DRI
 extern void XFree86DRIExtensionInit(void);
 #endif
@@ -425,11 +427,6 @@ InitExtensions(argc, argv)
     if (!noXFree86DRIExtension) XFree86DRIExtensionInit();
 #endif
 #endif
-
-#ifdef GLXEXT
-    // GlxPushProvider(&__glXMesaProvider);
-    if (!noGlxExtension) GlxExtensionInit();
-#endif // GLXEXT
 #ifdef XFIXES
     /* must be before Render to layer DisplayCursor correctly */
     if (!noXFixesExtension) XFixesExtensionInit();
@@ -451,6 +448,12 @@ InitExtensions(argc, argv)
 #endif
 #ifdef DAMAGE
     if (!noDamageExtension) DamageExtensionInit();
+#endif
+#ifdef GLXEXT
+#if 0
+    GlxPushProvider(&__glXDRISWRastProvider);
+#endif
+    if (!noGlxExtension) GlxExtensionInit();
 #endif
 }
 

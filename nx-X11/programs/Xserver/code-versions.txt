@@ -11,7 +11,7 @@ dbe               1.5.0
 dix               1.5.3
 fb                1.5.3
 GL                6.9/7.0
-mi                1.5.0
+mi                1.5.3
 miext             1.5.0
 os                1.5.3 + many backports, some of them from 2019
 randr             1.18.0

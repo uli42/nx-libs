@@ -664,6 +664,7 @@ miClearDrawable(pDraw, pGC)
     XID fg = pGC->fgPixel;
     XID bg = pGC->bgPixel;
     xRectangle rect = {0};
+
     rect.x = 0;
     rect.y = 0;
     rect.width = pDraw->width;

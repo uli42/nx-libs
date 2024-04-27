@@ -51,7 +51,7 @@ from The Open Group.
  *     overhead is out of the question.
  *     See the author for a derivation if needed.
  */
-
+
 
 /*
  *  In scan converting polygons, we want to choose those pixels
@@ -97,7 +97,7 @@ from The Open Group.
         } \
     } \
 }
-
+
 #define BRESINCRPGON(d, minval, m, m1, incr1, incr2) { \
     if (m1 > 0) { \
         if (d > 0) { \
@@ -120,7 +120,7 @@ from The Open Group.
     } \
 }
 
-
+
 /*
  *     This structure contains all of the information needed
  *     to run the bresenham algorithm.

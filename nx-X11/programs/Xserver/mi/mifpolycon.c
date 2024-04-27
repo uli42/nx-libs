@@ -241,7 +241,7 @@ miFillSppPoly(dst, pgc, count, ptsIn, xTrans, yTrans, xFtrans, yFtrans)
     free(FirstPoint);
 }
 
-
+
 /* Find the index of the point with the smallest y.also return the
  * smallest and largest y */
 static

@@ -110,7 +110,7 @@ end of the line, we will find the largest number of Y steps that
 satisfies the inequality.  In that case, since we are representing
 the Y steps as (dy - N), we will actually want to solve for the
 smallest N in that equation.
-
+
 Case 1:  X major, starting X coordinate moved by M steps
 
 		-2dx <= 2Mdy - 2Ndx - dx - B < 0
@@ -158,7 +158,7 @@ steps, so we want the highest N, so we use the < inequality:
 	  = floor((2Mdy + dx + B + 2dx - 1) / 2dx) - 1
 	  = floor((2Mdy + dx + B + 2dx - 1 - 2dx) / 2dx)
 	  = floor((2Mdy + dx + B - 1) / 2dx)
-
+
 Case 3: Y major, starting X coordinate moved by M steps
 
 		-2dy <= 2Ndx - 2Mdy - dy - B < 0
@@ -204,7 +204,7 @@ Same analysis as Case 4, but we want the smallest number of Y steps
 which means the largest N, so we use the <= inequality:
 
 	N = floor((2Mdy + dy - B) / 2dx)
-
+
 Now let's try the Y coordinates, we have the same 4 cases.
 
 Case 5: X major, starting Y coordinate moved by N steps
@@ -249,7 +249,7 @@ Same derivations as Case 6, but we want the smallest # of X steps
 which means the largest M, so use the <= inequality:
 
 	M = floor((2Ndx + dx - B) / 2dy)
-
+
 Case 7: Y major, starting Y coordinate moved by N steps
 
 		-2dy <= 2Ndx - 2Mdy - dy - B < 0
@@ -294,7 +294,7 @@ steps which means the largest M, so we use the < inequality:
 	  = floor((2Ndx + dy + B + 2dy - 1) / 2dy) - 1
 	  = floor((2Ndx + dy + B + 2dy - 1 - 2dy) / 2dy)
 	  = floor((2Ndx + dy + B - 1) / 2dy)
-
+
 So, our equations are:
 
 	1:  X major move x1 to x1+M	floor((2Mdy + dx - B) / 2dx)

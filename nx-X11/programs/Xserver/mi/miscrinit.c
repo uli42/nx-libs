@@ -294,12 +294,6 @@ miScreenInit(pScreen, pbits, xsize, ysize, dpix, dpiy, width,
 
 static DevPrivateKey privateKey = &privateKey;
 
-DevPrivateKey
-miAllocateGCPrivateIndex()
-{
-    return privateKey;
-}
-
 DevPrivateKey miZeroLineScreenKey = &miZeroLineScreenKey;
 
 void

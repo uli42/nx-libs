@@ -63,7 +63,7 @@ SOFTWARE.
  *     needed to scan convert a polygon.
  *
  */
-
+
 /*
  *     InsertEdgeInET
  *
@@ -134,7 +134,7 @@ miInsertEdgeInET(EdgeTable *ET, EdgeTableEntry *ETE,  int scanline,
         pSLL->edgelist = ETE;
     return TRUE;
 }
-
+
 /*
  *     CreateEdgeTable
  *
@@ -246,7 +246,7 @@ miCreateETandAET(count, pts, ET, AET, pETEs, pSLLBlock)
     }
     return TRUE;
 }
-
+
 /*
  *     loadAET
  *
@@ -283,7 +283,7 @@ miloadAET(AET, ETEs)
         ETEs = tmp;
     }
 }
-
+
 /*
  *     computeWAET
  *
@@ -333,7 +333,7 @@ micomputeWAET(AET)
     }
     pWETE->nextWETE = (EdgeTableEntry *)NULL;
 }
-
+
 /*
  *     InsertionSort
  *
@@ -376,7 +376,7 @@ miInsertionSort(AET)
     }
     return(changed);
 }
-
+
 /*
  *     Clean up our act.
  */
