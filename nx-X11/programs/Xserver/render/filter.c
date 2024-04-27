@@ -353,42 +353,6 @@ SetPictureFilter (PicturePtr pPicture, char *name, int len, xFixed *params, int 
 }
 #else
 int
-SetPictureFilter (PicturePtr pPicture, char *name, int len, xFixed *params, int nparams)
-{
-    PictFilterPtr pFilter;
-    ScreenPtr     pScreen;
-
-    if (pPicture->pDrawable) {
-        pScreen = pPicture->pDrawable->pScreen;
-    }
-    else {
-        pScreen = screenInfo.screens[0];
-    }
-
-    pFilter = PictureFindFilter (pScreen, name, len);
-
-    if (!pFilter)
-        return BadName;
-
-    if (pPicture->pDrawable == NULL) {
-        int s;
-
-        /* For source pictures, the picture isn't tied to a screen.  So, ensure
-         * that all screens can handle a filter we set for the picture.
-         */
-        for (s = 1; s < screenInfo.numScreens; s++) {
-            PictFilterPtr pScreenFilter;
-
-            pScreenFilter = PictureFindFilter(screenInfo.screens[s], name, len);
-            if (!pScreenFilter || pScreenFilter->id != pFilter->id)
-                return BadMatch;
-        }
-    }
-
-    return SetPicturePictFilter (pPicture, pFilter, params, nparams);
-}
-
-int
 SetPicturePictFilter (PicturePtr pPicture, PictFilterPtr pFilter,
                      xFixed *params, int nparams)
 {
@@ -436,5 +400,41 @@ SetPicturePictFilter (PicturePtr pPicture, PictFilterPtr pFilter,
     pPicture->serialNumber |= GC_CHANGE_SERIAL_BIT;
 
     return Success;
+}
+
+int
+SetPictureFilter (PicturePtr pPicture, char *name, int len, xFixed *params, int nparams)
+{
+    PictFilterPtr pFilter;
+    ScreenPtr     pScreen;
+
+    if (pPicture->pDrawable) {
+        pScreen = pPicture->pDrawable->pScreen;
+    }
+    else {
+        pScreen = screenInfo.screens[0];
+    }
+
+    pFilter = PictureFindFilter (pScreen, name, len);
+
+    if (!pFilter)
+        return BadName;
+
+    if (pPicture->pDrawable == NULL) {
+        int s;
+
+        /* For source pictures, the picture isn't tied to a screen.  So, ensure
+         * that all screens can handle a filter we set for the picture.
+         */
+        for (s = 1; s < screenInfo.numScreens; s++) {
+            PictFilterPtr pScreenFilter;
+
+            pScreenFilter = PictureFindFilter(screenInfo.screens[s], name, len);
+            if (!pScreenFilter || pScreenFilter->id != pFilter->id)
+                return BadMatch;
+        }
+    }
+
+    return SetPicturePictFilter (pPicture, pFilter, params, nparams);
 }
 #endif
