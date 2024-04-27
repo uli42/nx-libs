@@ -301,7 +301,8 @@ miSetZeroLineBias(pScreen, bias)
     ScreenPtr pScreen;
     unsigned int bias;
 {
-    dixSetPrivate(&pScreen->devPrivates, miZeroLineScreenKey, (void *)bias);
+    dixSetPrivate(&pScreen->devPrivates, miZeroLineScreenKey, 
+                                       (unsigned long *)(unsigned long)bias);
 }
 
 PixmapPtr
