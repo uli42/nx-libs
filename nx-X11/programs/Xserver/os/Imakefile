@@ -133,6 +133,7 @@ TMEMCMP_OBJS = timingsafe_memcmp.o
 BOOTSTRAPCFLAGS = 
            SRCS = WaitFor.c		\
                   access.c		\
+                  backtrace.c		\
                   client.c		\
                   connection.c		\
                   io.c			\
@@ -156,6 +157,7 @@ BOOTSTRAPCFLAGS =
 
            OBJS = WaitFor.o		\
                   access.o		\
+                  backtrace.o		\
                   client.o		\
                   connection.o		\
                   io.o			\
