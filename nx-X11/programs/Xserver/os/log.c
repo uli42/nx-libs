@@ -523,6 +523,7 @@ AbortServer(void)
 #if defined(NX_TRANS_SOCKET) && defined(NX_TRANS_TEST)
     fprintf(stderr, "AbortServer: Going to abort the current server.\n");
 #endif
+    CloseWellKnownConnections();
     OsCleanup(TRUE);
     CloseDownDevices();
     AbortDDX();
