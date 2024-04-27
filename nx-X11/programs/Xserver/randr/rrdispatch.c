@@ -80,20 +80,11 @@ ProcRRSelectInput(ClientPtr client)
     int rc;
 
     REQUEST_SIZE_MATCH(xRRSelectInputReq);
-#ifndef NXAGENT_SERVER
     rc = dixLookupWindow(&pWin, stuff->window, client, DixReceiveAccess);
-#else
-    pWin = SecurityLookupWindow(stuff->window, client, DixWriteAccess);
-    rc = pWin ? Success : BadWindow;
-#endif
     if (rc != Success)
         return rc;
-#ifndef NXAGENT_SERVER
     rc = dixLookupResourceByType((void **) &pHead, pWin->drawable.id,
                                  RREventType, client, DixWriteAccess);
-#else                           /* !defined(NXAGENT_SERVER) */
-    pHead = (RREventPtr *) LookupIDByType(pWin->drawable.id, RREventType);
-#endif                          /* !defined(NXAGENT_SERVER) */
 
     if (rc != Success && rc != BadValue)
         return rc;

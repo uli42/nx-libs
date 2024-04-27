@@ -560,12 +560,7 @@ ProcRRSetOutputPrimary(ClientPtr client)
 
     REQUEST_SIZE_MATCH(xRRSetOutputPrimaryReq);
 
-#ifndef NXAGENT_SERVER
     ret = dixLookupWindow(&pWin, stuff->window, client, DixGetAttrAccess);
-#else
-    pWin = SecurityLookupWindow(stuff->window, client, DixReadAccess);
-    ret = pWin ? Success : BadWindow;
-#endif
 
     if (ret != Success)
         return ret;
@@ -618,12 +613,7 @@ ProcRRGetOutputPrimary(ClientPtr client)
 
     REQUEST_SIZE_MATCH(xRRGetOutputPrimaryReq);
 
-#ifndef NXAGENT_SERVER
     rc = dixLookupWindow(&pWin, stuff->window, client, DixGetAttrAccess);
-#else
-    pWin = SecurityLookupWindow(stuff->window, client, DixReadAccess);
-    rc = pWin ? Success : BadWindow;
-#endif
 
     if (rc != Success)
         return rc;

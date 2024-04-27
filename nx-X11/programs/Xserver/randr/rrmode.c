@@ -350,12 +350,7 @@ ProcRRCreateMode(ClientPtr client)
     RRModePtr mode;
 
     REQUEST_AT_LEAST_SIZE(xRRCreateModeReq);
-#ifndef NXAGENT_SERVER
     rc = dixLookupWindow(&pWin, stuff->window, client, DixGetAttrAccess);
-#else
-    pWin = SecurityLookupWindow(stuff->window, client, DixReadAccess);
-    rc = pWin ? Success : BadWindow;
-#endif
     if (rc != Success)
         return rc;
 

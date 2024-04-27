@@ -147,19 +147,14 @@ ProcRRXineramaGetState(ClientPtr client)
     Bool active = FALSE;
 
     REQUEST_SIZE_MATCH(xPanoramiXGetStateReq);
-#ifndef NXAGENT_SERVER
     rc = dixLookupWindow(&pWin, stuff->window, client, DixGetAttrAccess);
-#else
-    pWin = SecurityLookupWindow(stuff->window, client, DixReadAccess);
-    rc = pWin ? Success : BadWindow;
-#endif
-
     if (rc != Success)
         return rc;
 
     pScreen = pWin->drawable.pScreen;
     pScrPriv = rrGetScrPriv(pScreen);
-    if (pScrPriv) {
+    if (pScrPriv)
+    {
         /* XXX do we need more than this? */
         active = TRUE;
     }
@@ -201,13 +196,7 @@ ProcRRXineramaGetScreenCount(ClientPtr client)
     register int rc;
 
     REQUEST_SIZE_MATCH(xPanoramiXGetScreenCountReq);
-
-#ifndef NXAGENT_SERVER
     rc = dixLookupWindow(&pWin, stuff->window, client, DixGetAttrAccess);
-#else
-    pWin = SecurityLookupWindow(stuff->window, client, DixReadAccess);
-    rc = pWin ? Success : BadWindow;
-#endif
     if (rc != Success)
         return rc;
 
@@ -237,13 +226,7 @@ ProcRRXineramaGetScreenSize(ClientPtr client)
     register int rc;
 
     REQUEST_SIZE_MATCH(xPanoramiXGetScreenSizeReq);
-#ifndef NXAGENT_SERVER
     rc = dixLookupWindow(&pWin, stuff->window, client, DixGetAttrAccess);
-#else
-    pWin = SecurityLookupWindow(stuff->window, client, DixReadAccess);
-    rc = pWin ? Success : BadWindow;
-#endif
-
     if (rc != Success)
         return rc;
 

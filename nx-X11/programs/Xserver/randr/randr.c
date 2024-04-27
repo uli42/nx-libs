@@ -85,11 +85,9 @@ int RREventBase;
 int RRErrorBase;
 RESTYPE RRClientType, RREventType;      /* resource types for event masks */
 
-static int RRClientPrivateKeyIndex;
-DevPrivateKey RRClientPrivateKey = &RRClientPrivateKeyIndex;
+DevPrivateKey RRClientPrivateKey = &RRClientPrivateKey;
  
-static int rrPrivKeyIndex;
-DevPrivateKey rrPrivKey = &rrPrivKeyIndex;
+DevPrivateKey rrPrivKey = &rrPrivKey;
 
 static void
 RRClientCallback(CallbackListPtr *list, void *closure, void *data)
@@ -519,12 +517,8 @@ TellChanged(WindowPtr pWin, void *value)
     rrScrPriv(pScreen);
     int i;
 
-#ifndef NXAGENT_SERVER
     dixLookupResourceByType((void **) &pHead, pWin->drawable.id,
                             RREventType, serverClient, DixReadAccess);
-#else                           /* !defined(NXAGENT_SERVER) */
-    pHead = (RREventPtr *) LookupIDByType(pWin->drawable.id, RREventType);
-#endif                          /* !defined(NXAGENT_SERVER) */
     if (!pHead)
         return WT_WALKCHILDREN;
 

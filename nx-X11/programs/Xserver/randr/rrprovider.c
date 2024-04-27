@@ -67,12 +67,7 @@ ProcRRGetProviders(ClientPtr client)
 #endif
 
     REQUEST_SIZE_MATCH(xRRGetProvidersReq);
-#ifndef NXAGENT_SERVER
     rc = dixLookupWindow(&pWin, stuff->window, client, DixGetAttrAccess);
-#else
-    pWin = SecurityLookupWindow(stuff->window, client, DixReadAccess);
-    rc = pWin ? Success : BadWindow;
-#endif
 
     if (rc != Success)
         return rc;
@@ -451,16 +446,10 @@ RRProviderInit(void)
 extern _X_EXPORT Bool
 RRProviderLookup(XID id, RRProviderPtr * provider_p)
 {
-#ifndef NXAGENT_SERVER
     int rc = dixLookupResourceByType((void **) provider_p, id,
                                      RRProviderType, NullClient, DixReadAccess);
     if (rc == Success)
         return TRUE;
-#else                           /* !defined(NXAGENT_SERVER) */
-    provider_p = (RRProviderPtr *) LookupIDByType(id, RREventType);
-    if (provider_p)
-        return TRUE;
-#endif                          /* !defined(NXAGENT_SERVER) */
 
     return FALSE;
 }

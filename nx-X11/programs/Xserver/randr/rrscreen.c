@@ -222,12 +222,7 @@ ProcRRGetScreenSizeRange(ClientPtr client)
     int rc;
 
     REQUEST_SIZE_MATCH(xRRGetScreenSizeRangeReq);
-#ifndef NXAGENT_SERVER
     rc = dixLookupWindow(&pWin, stuff->window, client, DixGetAttrAccess);
-#else
-    pWin = SecurityLookupWindow(stuff->window, client, DixReadAccess);
-    rc = pWin ? Success : BadWindow;
-#endif
 
     if (rc != Success)
         return rc;
@@ -276,12 +271,7 @@ ProcRRSetScreenSize(ClientPtr client)
     int i, rc;
 
     REQUEST_SIZE_MATCH(xRRSetScreenSizeReq);
-#ifndef NXAGENT_SERVER
     rc = dixLookupWindow(&pWin, stuff->window, client, DixGetAttrAccess);
-#else
-    pWin = SecurityLookupWindow(stuff->window, client, DixReadAccess);
-    rc = pWin ? Success : BadWindow;
-#endif
     if (rc != Success)
         return rc;
 
@@ -532,12 +522,7 @@ rrGetScreenResources(ClientPtr client, Bool query)
 
     REQUEST_SIZE_MATCH(xRRGetScreenResourcesReq);
 
-#ifndef NXAGENT_SERVER
     rc = dixLookupWindow(&pWin, stuff->window, client, DixGetAttrAccess);
-#else
-    pWin = SecurityLookupWindow(stuff->window, client, DixReadAccess);
-    rc = pWin ? Success : BadWindow;
-#endif
     if (rc != Success)
         return rc;
 
@@ -806,12 +791,7 @@ ProcRRGetScreenInfo(ClientPtr client)
     RROutputPtr output;
 
     REQUEST_SIZE_MATCH(xRRGetScreenInfoReq);
-#ifndef NXAGENT_SERVER
     rc = dixLookupWindow(&pWin, stuff->window, client, DixGetAttrAccess);
-#else
-    pWin = SecurityLookupWindow(stuff->window, client, DixReadAccess);
-    rc = pWin ? Success : BadWindow;
-#endif
 
     if (rc != Success)
         return rc;
@@ -979,13 +959,7 @@ ProcRRSetScreenConfig(ClientPtr client)
         has_rate = FALSE;
     }
 
-#ifndef NXAGENT_SERVER
     rc = dixLookupDrawable(&pDraw, stuff->drawable, client, 0, DixWriteAccess);
-#else                           /* !defined(NXAGENT_SERVER) */
-    pDraw =
-        SecurityLookupDrawable(stuff->drawable, client, DixWriteAccess);
-    rc = pDraw ? Success : BadDrawable;
-#endif                          /* !defined(NXAGENT_SERVER) */
 
     if (rc != Success)
         return rc;

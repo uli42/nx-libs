@@ -1131,23 +1131,13 @@ ProcRRSetCrtcConfig(ClientPtr client)
 
     outputIds = (RROutput *) (stuff + 1);
     for (i = 0; i < numOutputs; i++) {
-#ifndef NXAGENT_SERVER
-        ret = dixLookupResourceByType((void **) (outputs + i), outputIds[i],
+        int ret = dixLookupResourceByType((void **) (outputs + i), outputIds[i],
                                       RROutputType, client, DixSetAttrAccess);
 
         if (ret != Success) {
             free(outputs);
             return ret;
         }
-#else                           /* !defined(NXAGENT_SERVER) */
-        outputs[i] = (RROutputPtr) LookupIDByType(outputIds[i], RROutputType);
-        if (!outputs[i]) {
-            client->errorValue = outputIds[i];
-            if (outputs)
-                free(outputs);
-            return RRErrorBase + BadRROutput;
-        }
-#endif                          /* !defined(NXAGENT_SERVER) */
         /* validate crtc for this output */
         for (j = 0; j < outputs[i]->numCrtcs; j++)
             if (outputs[i]->crtcs[j] == crtc)
