@@ -245,9 +245,11 @@ FreeFPE (FontPathElementPtr fpe)
     }
 }
 
-#ifndef NXAGENT_SERVER
 static Bool
 doOpenFont(ClientPtr client, OFclosurePtr c)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     FontPtr     pfont = NullFont;
     FontPathElementPtr fpe = NULL;
