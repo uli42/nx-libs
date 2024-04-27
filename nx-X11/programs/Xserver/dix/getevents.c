@@ -410,9 +410,6 @@ GetKeyboardValuatorEvents(xEvent *events, DeviceIntPtr pDev, int type,
     KeySym sym;
     deviceKeyButtonPointer *kbp = NULL;
 
-    sym = map[(key_code - pDev->key->curKeySyms.minKeyCode)
-              * pDev->key->curKeySyms.mapWidth];
-
     if (!events)
         return 0;
 
@@ -426,6 +423,9 @@ GetKeyboardValuatorEvents(xEvent *events, DeviceIntPtr pDev, int type,
 
     if (key_code < 8 || key_code > 255)
         return 0;
+
+    sym = map[(key_code - pDev->key->curKeySyms.minKeyCode)
+              * pDev->key->curKeySyms.mapWidth];
 
     if (pDev->coreEvents)
         numEvents = 2;
