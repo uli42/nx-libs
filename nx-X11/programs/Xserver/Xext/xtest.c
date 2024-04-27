@@ -122,7 +122,7 @@ ProcXTestCompareCursor(client)
     xXTestCompareCursorReply rep = {0};
     WindowPtr pWin;
     CursorPtr pCursor;
-    register int n, rc;
+    register int rc;
 
     REQUEST_SIZE_MATCH(xXTestCompareCursorReq);
     rc = dixLookupWindow(&pWin, stuff->window, client, DixGetAttrAccess);

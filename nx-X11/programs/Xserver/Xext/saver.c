@@ -523,9 +523,6 @@ SendScreenSaverNotify (pScreen, state, forced)
 	kind = ScreenSaverInternal;
     for (pEv = pPriv->events; pEv; pEv = pEv->next)
     {
-	client = pEv->client;
-	if (client->clientGone)
-	    continue;
 	if (!(pEv->mask & mask))
 	    continue;
 	ev.type = ScreenSaverNotify + ScreenSaverEventBase;
@@ -773,7 +770,7 @@ ProcScreenSaverQueryInfo (client)
 {
     REQUEST(xScreenSaverQueryInfoReq);
     xScreenSaverQueryInfoReply	rep;
-    register int		n, rc;
+    register int		rc;
     ScreenSaverStuffPtr		pSaver;
     DrawablePtr			pDraw;
     CARD32			lastInput;
