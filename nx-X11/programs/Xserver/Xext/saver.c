@@ -504,7 +504,6 @@ SendScreenSaverNotify (pScreen, state, forced)
     ScreenSaverEventPtr		pEv;
     unsigned long		mask;
     xScreenSaverNotifyEvent	ev;
-    ClientPtr			client;
     int				kind;
 
     UpdateCurrentTimeIf ();
@@ -527,7 +526,6 @@ SendScreenSaverNotify (pScreen, state, forced)
 	    continue;
 	ev.type = ScreenSaverNotify + ScreenSaverEventBase;
 	ev.state = state;
-	ev.sequenceNumber = client->sequence;
 	ev.timestamp = currentTime.milliseconds;
 	ev.root = pScreen->root->drawable.id;
 	ev.window = savedScreenInfo[pScreen->myNum].wid;
