@@ -1909,7 +1909,13 @@ XEXT_EXTRA_DEFINES =
 #define StdIntDefine -DHAVE_STDINT_H
 #endif
 
-AUTOMAKE_DEFINES = StdIntDefine
+#if UseRegistry
+#define RegistryDefine -DXREGISTRY
+#else
+#define RegistryDefine
+#endif
+
+AUTOMAKE_DEFINES = StdIntDefine RegistryDefine
 
 /*
  * Here we set up flags needed to produce position-independent code

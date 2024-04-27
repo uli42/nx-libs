@@ -376,3 +376,8 @@
  *
 #define X86EMU_LIBPATH /usr/local/lib
  */ 
+
+/*
+ * Use dix/registry.c for resource management
+ */
+#define UseRegistry		NO
