@@ -1,5 +1,5 @@
 /*
- * Copyright © 2003 Keith Packard
+ * Copyright Â© 2003 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -369,7 +369,7 @@ static void damageValidateGC(GCPtr, unsigned long, DrawablePtr);
 static void damageChangeGC(GCPtr, unsigned long);
 static void damageCopyGC(GCPtr, unsigned long, GCPtr);
 static void damageDestroyGC(GCPtr);
-static void damageChangeClip(GCPtr, int, pointer, int);
+static void damageChangeClip(GCPtr, int, void *, int);
 static void damageDestroyClip(GCPtr);
 static void damageCopyClip(GCPtr, GCPtr);
 
