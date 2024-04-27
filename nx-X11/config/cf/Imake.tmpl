@@ -1906,8 +1906,10 @@ XEXT_EXTRA_DEFINES =
 /* Defines that where introduced in xorg after dropping imake. We backport them
    here for now */
 #if HasStdInt
-AUTOMAKE_DEFINES=-DHAVE_STDINT_H
+#define StdIntDefine -DHAVE_STDINT_H
 #endif
+
+AUTOMAKE_DEFINES = StdIntDefine
 
 /*
  * Here we set up flags needed to produce position-independent code
