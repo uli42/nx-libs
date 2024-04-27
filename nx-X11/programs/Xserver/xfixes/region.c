@@ -1,5 +1,5 @@
 /*
- * Copyright © 2003 Keith Packard
+ * Copyright Â© 2003 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -114,7 +114,7 @@ ProcXFixesCreateRegionFromBitmap (ClientPtr client)
     REQUEST_SIZE_MATCH (xXFixesCreateRegionFromBitmapReq);
     LEGAL_NEW_RESOURCE (stuff->region, client);
 
-    rc = dixLookupResource((pointer *)&pPixmap, stuff->bitmap, RT_PIXMAP,
+    rc = dixLookupResource((void **)&pPixmap, stuff->bitmap, RT_PIXMAP,
 			   client, DixReadAccess);
     if (rc != Success)
     {
@@ -158,7 +158,7 @@ ProcXFixesCreateRegionFromWindow (ClientPtr client)
     
     REQUEST_SIZE_MATCH (xXFixesCreateRegionFromWindowReq);
     LEGAL_NEW_RESOURCE (stuff->region, client);
-    rc = dixLookupResource((pointer *)&pWin, stuff->window, RT_WINDOW,
+    rc = dixLookupResource((void **)&pWin, stuff->window, RT_WINDOW,
 			   client, DixGetAttrAccess);
     if (rc != Success)
     {
@@ -272,7 +272,7 @@ ProcXFixesCreateRegionFromPicture (ClientPtr client)
     REQUEST_SIZE_MATCH (xXFixesCreateRegionFromPictureReq);
     LEGAL_NEW_RESOURCE (stuff->region, client);
 
-    VERIFY_PICTURE(pPicture, stuff->picture, client, DixReadAccess,
+    VERIFY_PICTURE(pPicture, stuff->picture, client, DixGetAttrAccess,
 		   RenderErrBase + BadPicture);
     
     switch (pPicture->clientClipType) {
@@ -671,7 +671,7 @@ ProcXFixesSetWindowShapeRegion (ClientPtr client)
     REQUEST(xXFixesSetWindowShapeRegionReq);
 
     REQUEST_SIZE_MATCH(xXFixesSetWindowShapeRegionReq);
-    rc = dixLookupResource((pointer *)&pWin, stuff->dest, RT_WINDOW,
+    rc = dixLookupResource((void **)&pWin, stuff->dest, RT_WINDOW,
 			   client, DixSetAttrAccess);
     if (rc != Success)
     {

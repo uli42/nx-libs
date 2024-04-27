@@ -18,7 +18,7 @@ randr             1.18.0
 record            1.5.3
 render            1.5.0
 Xext              1.5.3
-xfixes            1.5.0
+xfixes            1.5.3
 Xi                1.5.0
 xkb               1.5.3
 

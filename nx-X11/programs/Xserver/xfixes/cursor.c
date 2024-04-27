@@ -1,5 +1,5 @@
 /*
- * Copyright ? 2006 Sun Microsystems
+ * Copyright © 2006 Sun Microsystems
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -19,7 +19,7 @@
  * TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
  * PERFORMANCE OF THIS SOFTWARE.
  *
- * Copyright ? 2002 Keith Packard
+ * Copyright © 2002 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -895,7 +895,7 @@ ProcXFixesShowCursor (ClientPtr client)
 
     REQUEST_SIZE_MATCH (xXFixesShowCursorReq);
 
-    rc = dixLookupResource((pointer *)&pWin, stuff->window, RT_WINDOW,
+    rc = dixLookupResource((void * *)&pWin, stuff->window, RT_WINDOW,
 			   client, DixGetAttrAccess);
     if (rc != Success) {
 	client->errorValue = stuff->window;
