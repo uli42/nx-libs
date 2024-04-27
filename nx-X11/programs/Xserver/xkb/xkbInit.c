@@ -231,6 +231,38 @@ XkbSetRulesUsed(XkbRF_VarDefsPtr defs)
     return;
 }
 
+/* backport xorg-xserver 6f44d672aa34d343f63f0ea81ad58154a66b57ec */
+void
+XkbDeleteRulesUsed(void)
+{
+    // free(XkbRulesUsed);
+    // XkbRulesUsed = NULL;
+    free(XkbModelUsed);
+    XkbModelUsed = NULL;
+    free(XkbLayoutUsed);
+    XkbLayoutUsed = NULL;
+    free(XkbVariantUsed);
+    XkbVariantUsed = NULL;
+    free(XkbOptionsUsed);
+    XkbOptionsUsed = NULL;
+}
+
+/* backport xorg-xserver 5a3d06b8f42473cea3741dc722a775deaa2b73f6 */
+void
+XkbDeleteRulesDflts()
+{
+    _XkbFree(XkbRulesFile);
+    XkbRulesFile = NULL;
+    _XkbFree(XkbModelDflt);
+    XkbModelDflt = NULL;
+    _XkbFree(XkbLayoutDflt);
+    XkbLayoutDflt = NULL;
+    _XkbFree(XkbVariantDflt);
+    XkbVariantDflt = NULL;
+    _XkbFree(XkbOptionsDflt);
+    XkbOptionsDflt = NULL;
+}
+
 /**
  * Set the default RMLVO for the next device to be initialised.
  * If a parameter is NULL, the previous setting will be used. Use empty
