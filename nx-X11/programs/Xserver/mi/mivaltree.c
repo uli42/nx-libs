@@ -228,7 +228,6 @@ miComputeClips (
     RegionRec		childUnion;
     Bool		overlap;
     RegionPtr		borderVisible;
-    Bool		resized;
     /*
      * Figure out the new visibility of this window.
      * The extent of the universe should be the same as the extent of
@@ -387,7 +386,6 @@ miComputeClips (
     }
 
     borderVisible = pParent->valdata->before.borderVisible;
-    resized = pParent->valdata->before.resized;
     RegionNull(&pParent->valdata->after.borderExposed);
     RegionNull(&pParent->valdata->after.exposed);
 
