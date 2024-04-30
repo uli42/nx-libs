@@ -1560,7 +1560,7 @@ void nxagentPolyFillRect(DrawablePtr pDrawable, GCPtr pGC,
     }
   }
 
-  if (inheritCorruptedRegion || nxagentDrawableStatus(pDrawable) == NotSynchronized)
+  if (nxagentRealPixmap((PixmapPtr)pDrawable) && (inheritCorruptedRegion || nxagentDrawableStatus(pDrawable) == NotSynchronized))
   {
     RegionPtr rectRegion = RegionFromRects(nRectangles, pRectangles, CT_REGION);
 
@@ -1647,7 +1647,8 @@ void nxagentPolyFillRect(DrawablePtr pDrawable, GCPtr pGC,
                           (XRectangle *) pRectangles, nRectangles);
     }
 
-    fbPolyFillRect(nxagentVirtualDrawable(pDrawable), pGC, nRectangles, pRectangles);
+    if (nxagentVirtualDrawable(pDrawable))
+      fbPolyFillRect(nxagentVirtualDrawable(pDrawable), pGC, nRectangles, pRectangles);
 
     return;
   }
