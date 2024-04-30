@@ -166,6 +166,8 @@ static Bool TileScreenSaver(int i, int kind);
 
 #define SubStrSend(pWin,pParent) (StrSend(pWin) || SubSend(pParent))
 
+extern void miPaintWindow(WindowPtr pWin, RegionPtr pRegion, int what);
+
 int numSaveUndersViewable = 0;
 int deltaSaveUndersViewable = 0;
 

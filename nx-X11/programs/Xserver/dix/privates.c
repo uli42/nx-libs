@@ -125,7 +125,7 @@ dixAllocatePrivate(PrivateRec **privates, const DevPrivateKey key)
 /*
  * Look up a private pointer.
  */
-pointer
+void *
 dixLookupPrivate(PrivateRec **privates, const DevPrivateKey key)
 {
     PrivateRec *rec = *privates;

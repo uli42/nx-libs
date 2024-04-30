@@ -82,7 +82,7 @@ LookupWindow(XID id, ClientPtr client)
 }
 
 /* replaced by dixLookupDrawable */
-pointer
+void *
 SecurityLookupDrawable(XID id, ClientPtr client, Mask access_mode)
 {
     DrawablePtr pDraw;
@@ -96,7 +96,7 @@ SecurityLookupDrawable(XID id, ClientPtr client, Mask access_mode)
 }
 
 /* replaced by dixLookupDrawable */
-pointer
+void *
 LookupDrawable(XID id, ClientPtr client)
 {
     return SecurityLookupDrawable(id, client, DixUnknownAccess);
@@ -116,7 +116,7 @@ LookupClient(XID id, ClientPtr client)
 }
 
 /* replaced by dixLookupResource */
-pointer
+void *
 SecurityLookupIDByType(ClientPtr client, XID id, RESTYPE rtype,
 		       Mask access_mode)
 {
@@ -131,7 +131,7 @@ SecurityLookupIDByType(ClientPtr client, XID id, RESTYPE rtype,
 }
 
 /* replaced by dixLookupResource */
-pointer
+void *
 SecurityLookupIDByClass(ClientPtr client, XID id, RESTYPE classes,
 			Mask access_mode)
 {
@@ -146,14 +146,14 @@ SecurityLookupIDByClass(ClientPtr client, XID id, RESTYPE classes,
 }
 
 /* replaced by dixLookupResource */
-pointer
+void *
 LookupIDByType(XID id, RESTYPE rtype)
 {
     return SecurityLookupIDByType(NullClient, id, rtype, DixUnknownAccess);
 }
 
 /* replaced by dixLookupResource */
-pointer
+void *
 LookupIDByClass(XID id, RESTYPE classes)
 {
     return SecurityLookupIDByClass(NullClient, id, classes, DixUnknownAccess);
