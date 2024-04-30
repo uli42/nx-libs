@@ -39,13 +39,13 @@ dixAllocatePrivate(PrivateRec **privates, const DevPrivateKey key);
 /*
  * Look up a private pointer.
  */
-pointer
+void *
 dixLookupPrivate(PrivateRec **privates, const DevPrivateKey key);
 
 /*
  * Look up the address of a private pointer.
  */
-pointer *
+void * *
 dixLookupPrivateAddr(PrivateRec **privates, const DevPrivateKey key);
 
 /*
