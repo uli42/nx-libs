@@ -234,31 +234,40 @@ void nxagentValidateGC(GCPtr pGC, unsigned long changes, DrawablePtr pDrawable)
   #ifdef TEST
   fprintf(stderr, "nxagentValidateGC: Drawable at [%p] has type [%s] virtual [%p] bits per pixel [%d].\n",
               (void *) pDrawable, (pDrawable -> type == DRAWABLE_PIXMAP) ? "PIXMAP" : "WINDOW",
-                  (void *) pVirtual, pVirtual -> bitsPerPixel);
+                  (void *) pVirtual, pVirtual ? pVirtual -> bitsPerPixel : -1);
   #endif
 
-  if (pVirtual -> bitsPerPixel == 0)
+  /*
+   * FIXME: We sometimes get a Drawable without virtual Pixmap. This
+   * did not happen before the xorg-1.5.0 update
+   *
+   * if (pVirtual -> bitsPerPixel == 0)
+   */
+  if (pVirtual)
   {
-    /*
-     * Don't enter fbValidateGC() with 0 bpp or agent will block in a
-     * endless loop.
-     */
+    if (pVirtual -> bitsPerPixel == 0)
+    {
+      /*
+       * Don't enter fbValidateGC() with 0 bpp or agent will block in a
+       * endless loop.
+       */
 
-    #ifdef WARNING
-    fprintf(stderr, "nxagentValidateGC: WARNING! Virtual drawable at [%p] has invalid bits per pixel.\n",
-                (void *) pVirtual);
+      #ifdef WARNING
+      fprintf(stderr, "nxagentValidateGC: WARNING! Virtual drawable at [%p] has invalid bits per pixel.\n",
+                  (void *) pVirtual);
 
-    fprintf(stderr, "nxagentValidateGC: WARNING! While validating GC at [%p] for drawable at [%p] with changes [%lx].\n",
-                (void *) pGC, (void *) pDrawable, changes);
+      fprintf(stderr, "nxagentValidateGC: WARNING! While validating GC at [%p] for drawable at [%p] with changes [%lx].\n",
+                  (void *) pGC, (void *) pDrawable, changes);
 
-    fprintf(stderr, "nxagentValidateGC: WARNING! Bad drawable at [%p] has type [%s] virtual [%p] bits per pixel [%d].\n",
-                (void *) pDrawable, (pDrawable -> type == DRAWABLE_PIXMAP) ? "PIXMAP" : "WINDOW",
-                    (void *) pVirtual, pVirtual -> bitsPerPixel);
-    #endif
-  }
-  else
-  {
-    fbValidateGC(pGC, changes, pVirtual);
+      fprintf(stderr, "nxagentValidateGC: WARNING! Bad drawable at [%p] has type [%s] virtual [%p] bits per pixel [%d].\n",
+                  (void *) pDrawable, (pDrawable -> type == DRAWABLE_PIXMAP) ? "PIXMAP" : "WINDOW",
+                      (void *) pVirtual, pVirtual ? pVirtual -> bitsPerPixel : -1);
+      #endif
+    }
+    else
+    {
+      fbValidateGC(pGC, changes, pVirtual);
+    }
   }
 
   if (pGC->tile.pixmap != lastTile)
