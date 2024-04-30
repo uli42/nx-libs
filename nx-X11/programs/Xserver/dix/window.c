@@ -929,7 +929,6 @@ DeleteWindow(void * value, XID wid)
 	if (pWin->prevSib)
 	    pWin->prevSib->nextSib = pWin->nextSib;
     }
-    xfree(dixLookupPrivate(&pWin->devPrivates, FocusPrivatesKey));
     dixFreePrivates(pWin->devPrivates);
     free(pWin);
     return Success;
