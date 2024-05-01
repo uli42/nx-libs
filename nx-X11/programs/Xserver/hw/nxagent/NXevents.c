@@ -325,12 +325,13 @@ ProcSendEvent(ClientPtr client)
 /*
  * called from XYToWindow to determine where XYToWindow() should start
  * going through the list.
+ * XYWINDOWCALLBACK needs to be defined for this to work, see dix/events.c.
+ * It is called from XYtoWindow().
  */
 
 static WindowPtr 
 GetXYStartWindow(WindowPtr pWin)
 {
-
     if (nxagentOption(Rootless))
     {
       /*
@@ -396,7 +397,7 @@ CheckMotion(xEvent *xE)
 
 #ifdef NXAGENT_SERVER
         /*
-         * This code force cursor position to be inside the
+         * This code forces the cursor position to be inside the
          * root window of the agent. We can't view a reason
          * to do this and it interacts in an undesirable way
          * with toggling fullscreen.
