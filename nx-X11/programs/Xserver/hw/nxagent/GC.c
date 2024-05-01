@@ -217,9 +217,22 @@ void nxagentValidateGC(GCPtr pGC, unsigned long changes, DrawablePtr pDrawable)
   pGC->lastWinOrg.x = pDrawable->x;
   pGC->lastWinOrg.y = pDrawable->y;
 
+  #ifdef DEBUG
+  if (!pGC->tileIsPixel)
+    fprintf(stderr, "nxagentValidateGC: no pixel, tile.pixmap [%p] PixmapIsVirtual [%d] virtual pixmap [%p].\n",
+	    (void *)pGC->tile.pixmap,
+	    pGC->tile.pixmap ? nxagentPixmapIsVirtual(pGC -> tile.pixmap) : 5555,
+	    pGC->tile.pixmap ? (void *)nxagentVirtualPixmap(pGC -> tile.pixmap) : NULL
+	    );
+  #endif
+
   if (!pGC -> tileIsPixel && !nxagentPixmapIsVirtual(pGC -> tile.pixmap))
   {
     pGC -> tile.pixmap = nxagentVirtualPixmap(pGC -> tile.pixmap); 
+
+    #ifdef DEBUG
+    fprintf(stderr, "%s: new tile.pixmap [%p]\n", __func__, (void *)pGC->tile.pixmap);
+    #endif
   }
 
   PixmapPtr lastTile = pGC -> tile.pixmap;
@@ -229,6 +242,11 @@ void nxagentValidateGC(GCPtr pGC, unsigned long changes, DrawablePtr pDrawable)
   if (lastStipple)
   {
     pGC->stipple = nxagentVirtualPixmap(pGC->stipple);
+  }
+
+  if (!pVirtual)
+  {
+    fprintf(stderr, "nxagentValidateGC: WARNING: pVirtual is empty (unexpectedly)\n");
   }
 
   #ifdef TEST
