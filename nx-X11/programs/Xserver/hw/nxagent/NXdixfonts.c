@@ -151,8 +151,7 @@ _NXGetFontPathError:
 
     return _NXFontPath;
 }
-
-#endif
+#endif /* NXAGENT_SERVER */
 
 static Bool
 doOpenFont(ClientPtr client, OFclosurePtr c)
