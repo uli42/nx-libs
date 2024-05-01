@@ -156,7 +156,7 @@ extern void nxagentInitViewportFrame(ScreenPtr, WindowPtr);
 extern int  nxagentShadowInit(ScreenPtr, WindowPtr);
 
 void
-ActivatePointerGrab(register DeviceIntPtr mouse, register GrabPtr grab,
+ActivatePointerGrab(DeviceIntPtr mouse, GrabPtr grab,
                     TimeStamp time, Bool autoGrab)
 {
     #ifdef DEBUG
@@ -220,7 +220,7 @@ ActivatePointerGrab(register DeviceIntPtr mouse, register GrabPtr grab,
 }
 
 void
-DeactivatePointerGrab(register DeviceIntPtr mouse)
+DeactivatePointerGrab(DeviceIntPtr mouse)
 {
     #ifdef DEBUG
     fprintf(stderr, "%s: called\n", __func__);
@@ -255,7 +255,7 @@ DeactivatePointerGrab(register DeviceIntPtr mouse)
 }
 
 int
-ProcAllowEvents(register ClientPtr client)
+ProcAllowEvents(ClientPtr client)
 {
     int rc = xorg_ProcAllowEvents(client);
 
@@ -276,9 +276,9 @@ ProcAllowEvents(register ClientPtr client)
 }
 
 void
-DefineInitialRootWindow(register WindowPtr win)
+DefineInitialRootWindow(WindowPtr win)
 {
-    register ScreenPtr pScreen = win->drawable.pScreen;
+    ScreenPtr pScreen = win->drawable.pScreen;
 
     xorg_DefineInitialRootWindow(win);
 
