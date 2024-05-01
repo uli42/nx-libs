@@ -444,18 +444,25 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
 
                 #endif
 #endif
-
 		client->sequence++;
+#ifdef DEBUG
+		if (client->requestLogIndex == MAX_REQUEST_LOG)
+		    client->requestLogIndex = 0;
+		client->requestLog[client->requestLogIndex] = MAJOROP;
+		client->requestLogIndex++;
+#endif
 #ifdef XSERVER_DTRACE
-		XSERVER_REQUEST_START(GetRequestName(MAJOROP), MAJOROP,
+		XSERVER_REQUEST_START(LookupMajorName(MAJOROP), MAJOROP,
 			      ((xReq *)client->requestBuffer)->length,
 			      client->index, client->requestBuffer);
 #endif
 		if (result > (maxBigRequestSize << 2))
 		    result = BadLength;
-		else
-                {
-                    result = (* client->requestVector[MAJOROP])(client);
+		else {
+		    result = XaceHookDispatch(client, MAJOROP);
+		    if (result == Success)
+		    result = (* client->requestVector[MAJOROP])(client);
+		    XaceHookAuditEnd(client, result);
 #ifdef NXAGENT_SERVER
                     #ifdef TEST
 
@@ -486,7 +493,7 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
                 }
 
 #ifdef XSERVER_DTRACE
-		XSERVER_REQUEST_DONE(GetRequestName(MAJOROP), MAJOROP,
+		XSERVER_REQUEST_DONE(LookupMajorName(MAJOROP), MAJOROP,
 			      client->sequence, client->index, result);
 #endif
 
