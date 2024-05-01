@@ -253,10 +253,10 @@ void nxagentValidateGC(GCPtr pGC, unsigned long changes, DrawablePtr pDrawable)
   #endif
 
   /*
-   * FIXME: We sometimes get a Drawable without virtual Pixmap. This
-   * did not happen before the xorg-1.5.0 update
-   *
-   * if (pVirtual -> bitsPerPixel == 0)
+   * FIXME: We sometimes get a Drawable without virtual Pixmap, which
+   * is the screen's pixmap (one that GetScreenPixmap returns). This did not happen
+   * before the xorg-1.5.0 update We also have to handle that in
+   * nxagentPolyFillRect.
    */
   if (pVirtual)
   {
@@ -265,6 +265,7 @@ void nxagentValidateGC(GCPtr pGC, unsigned long changes, DrawablePtr pDrawable)
       /*
        * Don't enter fbValidateGC() with 0 bpp or agent will block in a
        * endless loop.
+       * FIXME: unsure if that is still true, how to properly test?
        */
 
       #ifdef WARNING
