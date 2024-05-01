@@ -210,15 +210,15 @@ CreatePicture (Picture		pid,
 	return 0;
     }
 
-#ifdef NXAGENT_SERVER
-    nxagentPicturePriv(pPicture) -> picture = 0;
-#endif
-
     pPicture->id = pid;
     pPicture->pDrawable = pDrawable;
     pPicture->pFormat = pFormat;
     pPicture->format = pFormat->format | (pDrawable->bitsPerPixel << 24);
     pPicture->devPrivates = NULL;
+
+#ifdef NXAGENT_SERVER
+    nxagentPicturePriv(pPicture) -> picture = 0;
+#endif
 
     /* security creation/labeling check */
     *error = XaceHook(XACE_RESOURCE_ACCESS, client, pid, PictureType, pPicture,
