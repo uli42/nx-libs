@@ -384,6 +384,10 @@ ProcRenderQueryPictFormats (ClientPtr client)
 static int
 ProcRenderCreatePicture (ClientPtr client)
 {
+    #ifdef DEBUG
+    fprintf(stderr, "Entering %s...\n", __func__);
+    #endif
+
     PicturePtr	    pPicture;
     DrawablePtr	    pDrawable;
     PictFormatPtr   pFormat;
@@ -577,6 +581,10 @@ int nxagentCompositePredicate(PicturePtr pSrc, PicturePtr pDst)
 static int
 ProcRenderComposite (ClientPtr client)
 {
+    #ifdef DEBUG
+    fprintf(stderr, "%s: Entering...\n", __func__);
+    #endif
+
     PicturePtr	pSrc, pMask, pDst;
     REQUEST(xRenderCompositeReq);
 
@@ -614,18 +622,22 @@ ProcRenderComposite (ClientPtr client)
                       (void *) pSrc, (void *) pMask, (void *) pDst);
       #endif
 
-    CompositePicture (stuff->op,
-		      pSrc,
-		      pMask,
-		      pDst,
-		      stuff->xSrc,
-		      stuff->ySrc,
-		      stuff->xMask,
-		      stuff->yMask,
-		      stuff->xDst,
-		      stuff->yDst,
-		      stuff->width,
-		      stuff->height);
+      #ifdef DEBUG
+      fprintf(stderr, "%s: Calling CompositePicture()...\n", __func__);
+      #endif
+
+      CompositePicture (stuff->op,
+                        pSrc,
+                        pMask,
+                        pDst,
+                        stuff->xSrc,
+                        stuff->ySrc,
+                        stuff->xMask,
+                        stuff->yMask,
+                        stuff->xDst,
+                        stuff->yDst,
+                        stuff->width,
+                        stuff->height);
     }
 
     #else
@@ -668,6 +680,10 @@ ProcRenderComposite (ClientPtr client)
                           (void *) pVirtualPixmapDst);
       #endif
 
+      #ifdef DEBUG
+      fprintf(stderr, "%s: Calling CompositePicture()...\n", __func__);
+      #endif
+
       CompositePicture (stuff->op,
                         pVirtualPictureSrc,
                         pVirtualPictureMask,
@@ -683,6 +699,10 @@ ProcRenderComposite (ClientPtr client)
       }
     }
 
+    #endif
+
+    #ifdef DEBUG
+    fprintf(stderr, "%s: Calling nxagentComposite()...\n", __func__);
     #endif
 
     nxagentComposite (stuff -> op,
@@ -1204,6 +1224,10 @@ ProcRenderCompositeGlyphs (ClientPtr client)
                       (void *) pSrc, (void *) pDst);
       #endif
 
+      #ifdef DEBUG
+      fprintf(stderr, "%s: Calling CompositeGlyphs()...\n", __func__);
+      #endif
+
       CompositeGlyphs(stuff -> op,
                       pSrc,
                       pDst,
@@ -1220,6 +1244,10 @@ ProcRenderCompositeGlyphs (ClientPtr client)
     free(elementsBase);
 
 #else
+    #ifdef DEBUG
+    fprintf(stderr, "%s: Calling CompositeGlyphs()...\n", __func__);
+    #endif
+
     CompositeGlyphs (stuff->op,
 		     pSrc,
 		     pDst,
