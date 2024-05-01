@@ -138,10 +138,9 @@ ProcChangeProperty(ClientPtr client)
 
     if (pWin == NULL)
 #endif
-    pWin = (WindowPtr)SecurityLookupWindow(stuff->window, client,
-					   DixWriteAccess);
-    if (!pWin)
-	return(BadWindow);
+    err = dixLookupWindow(&pWin, stuff->window, client, DixSetPropAccess);
+    if (err != Success)
+	return err;
     if (!ValidAtom(stuff->property))
     {
 	client->errorValue = stuff->property;
@@ -266,16 +265,6 @@ ProcGetProperty(ClientPtr client)
     {
 	client->errorValue = stuff->type;
 	return(BadAtom);
-    }
-
-    pProp = wUserProps (pWin);
-    prevProp = (PropertyPtr)NULL;
-    while (pProp)
-    {
-	if (pProp->propertyName == stuff->property) 
-	    break;
-	prevProp = pProp;
-	pProp = pProp->next;
     }
 
     memset(&reply, 0, sizeof(xGetPropertyReply));
