@@ -1100,6 +1100,9 @@ void nxagentComposite(CARD8 op, PicturePtr pSrc, PicturePtr pMask, PicturePtr pD
                           INT16 xSrc, INT16 ySrc, INT16 xMask, INT16 yMask, INT16 xDst,
                               INT16 yDst, CARD16 width, CARD16 height)
 {
+  #ifdef DEBUG
+  fprintf(stderr, "%s: entering...\n", __func__);
+  #endif
   if (pSrc == NULL || pDst == NULL)
   {
     return;
@@ -1669,6 +1672,10 @@ void nxagentGlyphs(CARD8 op, PicturePtr pSrc, PicturePtr pDst,
 void nxagentCompositeRects(CARD8 op, PicturePtr pDst, xRenderColor *color,
                                int nRect, xRectangle *rects)
 {
+  #ifdef DEBUG
+  fprintf(stderr, "%s: entering...\n", __func__);
+  #endif
+
   if (pDst == NULL)
   {
     return;
@@ -2046,6 +2053,10 @@ void nxagentAddGlyphs(GlyphSetPtr glyphSet, Glyph *gids, xGlyphInfo *gi,
   }
 
   CARD8 *normalizedImages = NULL;
+
+  #ifdef DEBUG
+  fprintf(stderr, "%s: sizeImages [%d]\n", __func__, sizeImages);
+  #endif
 
   if (sizeImages > 0)
   {
