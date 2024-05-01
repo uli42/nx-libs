@@ -127,7 +127,7 @@ ShmExtensionInit(void)
   /*
    * reset shmFuncs array to the previous values if they have not
    * been altered by xorg_ShmExtensionInit. If the value has been
-   * NULL before we set it it &miFuncs, just like
+   * NULL before we set it in &miFuncs, just like
    * xorg_ShmExtensionInit would have done in that case.
    */
   if (!nxagentOption(SharedPixmaps))
@@ -163,9 +163,7 @@ doShmPutImage(DrawablePtr dst, GCPtr pGC,
     xorg_doShmPutImage(dst, pGC, depth, format, w, h, sx, sy, sw, sh, dx, dy, data);
 
     /*
-     * FIXME: Maybe add code previously in fbShmPutImage() with does
-     * is not longer being undes (but still exists within this
-     * file). See comment there
+     * FIXME: Maybe integrate nxagentShmPutImage here.
      */
      
     nxagentShmTrap = True;
@@ -173,16 +171,8 @@ doShmPutImage(DrawablePtr dst, GCPtr pGC,
     return;
 }
 
-
-/*
- * FIXME: fbShmPutImage() is no longer called/used with Xorg 1.5.0. However,
- * there's specail NX code here. We need to determine where to place
- * it now and/or if it is requried anymore at all!
- */
-
-#if 0
-  static void
-fbShmPutImage(dst, pGC, depth, format, w, h, sx, sy, sw, sh, dx, dy, data)
+static void
+nxagentShmPutImage(dst, pGC, depth, format, w, h, sx, sy, sw, sh, dx, dy, data)
     DrawablePtr dst;
     GCPtr	pGC;
     int		depth, w, h, sx, sy, sw, sh, dx, dy;
@@ -191,7 +181,7 @@ fbShmPutImage(dst, pGC, depth, format, w, h, sx, sy, sw, sh, dx, dy, data)
 {
 #ifdef NXAGENT_SERVER
     #ifdef TEST
-    fprintf(stderr, "fbShmPutImage: Called with drawable at [%p] GC at [%p] data at [%p].\n",
+    fprintf(stderr, "%s: Called with drawable at [%p] GC at [%p] data at [%p].\n", __func__,
                 (void *) dst, (void *) pGC, (void *) data);
     #endif
 #endif
@@ -212,15 +202,17 @@ fbShmPutImage(dst, pGC, depth, format, w, h, sx, sy, sw, sh, dx, dy, data)
 					sx, sy, sw, sh, dx, dy);
 
 #ifdef NXAGENT_SERVER
+	/* FIXME: I _think_ we can integrate that into nxagentCopyArea, which would
+	 * allow us of getting rid of this whole function */
         /*
          * We updated the internal framebuffer,
          * now we want to go on the real X.
          */
 
         #ifdef TEST
-        fprintf(stderr, "fbShmPutImage: Realizing the PutImage with depth [%d] "
+        fprintf(stderr, "%s: Realizing the PutImage with depth [%d] "
                     " format [%d] w [%d] h [%d] sx [%d] sy [%d] sw [%d] "
-                        " sh [%d] dx [%d].\n", depth, format, w, h,
+                        " sh [%d] dx [%d].\n", __func__, depth, format, w, h,
                             sx, sy, sw, sh, dx);
         #endif
 
@@ -236,7 +228,7 @@ fbShmPutImage(dst, pGC, depth, format, w, h, sx, sy, sw, sh, dx, dy, data)
         else
         {
           #ifdef WARNING
-          fprintf(stderr, "fbShmPutImage: WARNING! Data allocation failed.\n");
+          fprintf(stderr, "%s: WARNING! Data allocation failed.\n", __func__);
           #endif
         }
 
@@ -246,13 +238,12 @@ fbShmPutImage(dst, pGC, depth, format, w, h, sx, sy, sw, sh, dx, dy, data)
     else
     {
         #ifdef TEST
-        fprintf(stderr, "fbShmPutImage: Calling miShmPutImage().\n");
+        fprintf(stderr, "%s: Calling miShmPutImage().\n"; __func__);
         #endif
 	doShmPutImage(dst, pGC, depth, format, w, h, sx, sy, sw, sh, dx, dy,
 		      data);
     }
 }
-#endif
 
 static int
 ProcShmPutImage(client)
@@ -366,7 +357,13 @@ ProcShmPutImage(client)
         fprintf(stderr, "ProcShmPutImage: Calling (*shmFuncs[pDraw->pScreen->myNum]->PutImage)().\n");
         #endif
 
-	doShmPutImage(pDraw, pGC, stuff->depth, stuff->format,
+#ifdef NXAGENT_SERVER
+	/* nxagentShmPutImage will call doShmPutImage in certain situations */
+	nxagentShmPutImage
+#else
+	doShmPutImage
+#endif
+	  (pDraw, pGC, stuff->depth, stuff->format,
 			       stuff->totalWidth, stuff->totalHeight,
 			       stuff->srcX, stuff->srcY,
 			       stuff->srcWidth, stuff->srcHeight,
@@ -402,7 +399,7 @@ nxagent_fbShmCreatePixmap (pScreen, width, height, depth, addr)
     int		depth;
     char	*addr;
 {
-    register PixmapPtr pPixmap;
+    PixmapPtr pPixmap;
 
 #ifdef NXAGENT_SERVER
     pPixmap = (*pScreen->CreatePixmap)(pScreen, width, height, depth, 0);
