@@ -51,6 +51,7 @@
 #ifdef NXAGENT_SERVER
 
 #include "Render.h"
+#include "Drawable.h"
 
 #define PANIC
 #define WARNING
@@ -230,7 +231,6 @@ miGlyphs (CARD8		op,
 	  GlyphListPtr	list,
 	  GlyphPtr	*glyphs)
 {
-    PixmapPtr	pPixmap = 0;
     PicturePtr	pPicture;
     PixmapPtr   pMaskPixmap = 0;
     PicturePtr  pMask;
@@ -328,7 +328,7 @@ miGlyphs (CARD8		op,
              * number instead of the picture serial number, failing thus
              * the clip mask update.
              */
-            // FIXME: remove this, it is probably not longer necesseary anymore
+            // FIXME: remove this, it is probably no longer neccessary
             // with xorg 1.5.0 code
             // as we are not creating a Picture here but use an existing one
             // pPicture->pDrawable->serialNumber = NEXT_SERIAL_NUMBER;
