@@ -76,6 +76,8 @@ RESTYPE RT_NX_GC;
 #undef  TEST
 #undef  DEBUG
 
+#include "Literals.h"
+
 DevPrivateKey nxagentGCPrivateKey = &nxagentGCPrivateKey;
 
 nxagentGraphicContextsPtr nxagentGraphicContexts;
@@ -244,15 +246,10 @@ void nxagentValidateGC(GCPtr pGC, unsigned long changes, DrawablePtr pDrawable)
     pGC->stipple = nxagentVirtualPixmap(pGC->stipple);
   }
 
-  if (!pVirtual)
-  {
-    fprintf(stderr, "nxagentValidateGC: WARNING: pVirtual is empty (unexpectedly)\n");
-  }
-
   #ifdef TEST
-  fprintf(stderr, "nxagentValidateGC: Drawable at [%p] has type [%s] virtual [%p] bits per pixel [%d].\n",
-              (void *) pDrawable, (pDrawable -> type == DRAWABLE_PIXMAP) ? "PIXMAP" : "WINDOW",
-                  (void *) pVirtual, pVirtual ? pVirtual -> bitsPerPixel : -1);
+  fprintf(stderr, "nxagentValidateGC: Drawable at [%s:%p] virtual [%p] bits per pixel [%d].\n",
+              nxagentDrawableTypeLiteral[pDrawable->type], (void *) pDrawable,
+	          (void *) pVirtual, pVirtual ? pVirtual -> bitsPerPixel : -1);
   #endif
 
   /*
@@ -277,8 +274,8 @@ void nxagentValidateGC(GCPtr pGC, unsigned long changes, DrawablePtr pDrawable)
       fprintf(stderr, "nxagentValidateGC: WARNING! While validating GC at [%p] for drawable at [%p] with changes [%lx].\n",
                   (void *) pGC, (void *) pDrawable, changes);
 
-      fprintf(stderr, "nxagentValidateGC: WARNING! Bad drawable at [%p] has type [%s] virtual [%p] bits per pixel [%d].\n",
-                  (void *) pDrawable, (pDrawable -> type == DRAWABLE_PIXMAP) ? "PIXMAP" : "WINDOW",
+      fprintf(stderr, "nxagentValidateGC: WARNING! Bad drawable at [%s:%p] virtual [%p] bits per pixel [%d].\n",
+                  nxagentDrawableTypeLiteral[pDrawable->type], (void *) pDrawable,
                       (void *) pVirtual, pVirtual ? pVirtual -> bitsPerPixel : -1);
       #endif
     }
@@ -287,6 +284,13 @@ void nxagentValidateGC(GCPtr pGC, unsigned long changes, DrawablePtr pDrawable)
       fbValidateGC(pGC, changes, pVirtual);
     }
   }
+  #ifdef WARNING
+  else
+  {
+    fprintf(stderr, "nxagentValidateGC: WARNING: Drawable [%s:%p] has no virtual pixmap\n",
+                nxagentDrawableTypeLiteral[pDrawable->type], (void *)pDrawable);
+  }
+  #endif
 
   if (pGC->tile.pixmap != lastTile)
   {
