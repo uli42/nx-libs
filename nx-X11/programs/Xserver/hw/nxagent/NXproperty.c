@@ -108,9 +108,7 @@ ProcChangeProperty(ClientPtr client)
     WindowPtr pWin;
     char format, mode;
     unsigned long len;
-    int sizeInBytes;
-    int totalSize;
-    int err;
+    int sizeInBytes, totalSize, err;
     REQUEST(xChangePropertyReq);
 
     REQUEST_AT_LEAST_SIZE(xChangePropertyReq);
@@ -157,19 +155,20 @@ ProcChangeProperty(ClientPtr client)
 
 #ifdef NXAGENT_ARTSD
     {
-    /* Do not process MCOPGLOBALS property changes,
-      they are already set reflecting the server side settings.
-      Just return success.
-    */
-      if (stuff->property == mcop_local_atom)
-        return client->noClientException;
+	/*
+	 * Do not process MCOPGLOBALS property changes,
+	 * they are already set reflecting the server side settings.
+	 * Just return success.
+	 */
+	if (stuff->property == mcop_local_atom)
+	    return client->noClientException;
     }
 #endif
 
 #ifdef NXAGENT_SERVER
     /* prevent clients from changing the NX_AGENT_VERSION property */
     if (stuff->property == MakeAtom("NX_AGENT_VERSION", strlen("NX_AGENT_VERSION"), True))
-      return client->noClientException;
+	return client->noClientException;
 #endif
 
     err = dixChangeWindowProperty(client, pWin, stuff->property, stuff->type,
@@ -178,23 +177,26 @@ ProcChangeProperty(ClientPtr client)
     if (err != Success)
 	return err;
     else
+#ifdef NXAGENT_SERVER
     {
-      if (nxagentOption(Rootless))
-      {
-        nxagentExportProperty(pWin, stuff->property, stuff->type, (int) format,
-                                  (int) mode, len, (void *) &stuff[1]);
-      }
+	if (nxagentOption(Rootless))
+	{
+	    nxagentExportProperty(pWin, stuff->property, stuff->type, (int) format,
+				      (int) mode, len, (void *) &stuff[1]);
+	}
 
-      nxagentGuessClientHint(client, stuff->property, (char *) &stuff[1]);
+	nxagentGuessClientHint(client, stuff->property, (char *) &stuff[1]);
 
-      nxagentGuessShadowHint(client, stuff->property);
+	nxagentGuessShadowHint(client, stuff->property);
 
-      #ifdef NX_DEBUG_INPUT
-      nxagentGuessDumpInputInfo(client, stuff->property, (char *) &stuff[1]);
-      #endif
-
-      return client->noClientException;
+	#ifdef NX_DEBUG_INPUT
+	nxagentGuessDumpInputInfo(client, stuff->property, (char *) &stuff[1]);
+	#endif
+	return client->noClientException;
     }
+#else
+	return client->noClientException;
+#endif
 }
 
 int
@@ -340,7 +342,7 @@ ProcGetProperty(ClientPtr client)
 
       return(client->noClientException);
     }
-    #endif
+#endif
 
     /* If the request type and actual type don't match. Return the
     property information, but not the data. */
