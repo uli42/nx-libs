@@ -115,6 +115,10 @@ void nxagentCompositeExtensionInit(void)
 
 void nxagentRedirectDefaultWindows(void)
 {
+  #ifdef DEBUG
+  fprintf(stderr, "%s: entering...\n", __func__);
+  #endif
+
   if (nxagentOption(Rootless) || !nxagentCompositeEnable)
   {
     #ifdef TEST
@@ -153,6 +157,10 @@ void nxagentRedirectDefaultWindows(void)
 
 void nxagentRedirectWindow(WindowPtr pWin)
 {
+  #ifdef DEBUG
+  fprintf(stderr, "%s: running for window [0x%x]....\n", __func__, pWin->drawable.id);
+  #endif
+
   if (!nxagentOption(Rootless) || !nxagentCompositeEnable)
   {
     #ifdef TEST
@@ -178,6 +186,10 @@ void nxagentRedirectWindow(WindowPtr pWin)
 
 void nxagentUnredirectWindow(WindowPtr pWin)
 {
+  #ifdef DEBUG
+  fprintf(stderr, "%s: running for window [0x%x]....\n", __func__, pWin->drawable.id);
+  #endif
+
   if (nxagentWindowPriv(pWin) -> isRedirected == 1)
   {
     #ifdef TEST
