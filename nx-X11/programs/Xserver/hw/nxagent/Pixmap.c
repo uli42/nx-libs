@@ -126,17 +126,18 @@ PixmapPtr nxagentCreatePixmap(ScreenPtr pScreen, int width, int height,
 
   pPixmap -> drawable.type = DRAWABLE_PIXMAP;
   pPixmap -> drawable.class = 0;
-  pPixmap -> drawable.pScreen = pScreen;
   pPixmap -> drawable.depth = depth;
   pPixmap -> drawable.bitsPerPixel = BitsPerPixel(depth);
   pPixmap -> drawable.id = 0;
-  pPixmap -> drawable.serialNumber = NEXT_SERIAL_NUMBER;
   pPixmap -> drawable.x = 0;
   pPixmap -> drawable.y = 0;
   pPixmap -> drawable.width = width;
   pPixmap -> drawable.height = height;
-  pPixmap -> devKind = 0;
+  pPixmap -> drawable.pScreen = pScreen;
+  pPixmap -> drawable.serialNumber = NEXT_SERIAL_NUMBER;
   pPixmap -> refcnt = 1;
+  pPixmap -> devKind = PixmapBytePad(width, depth);
+  pPixmap -> devPrivate.ptr = NULL;
   pPixmap -> usage_hint = usage_hint;
 
   /*
