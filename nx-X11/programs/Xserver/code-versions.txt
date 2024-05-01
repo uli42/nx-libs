@@ -2,7 +2,7 @@ An overview of where we stand with upgrading to latest xorg-xserver
 code base. This ignores any security fixes that have been
 backported, it rather describes what functionality level the modules
 are at (roughly). Some modules have got backports added, not all of
-then are mentioned here.
+them are mentioned here.
 
 module            xorg version
 composite         1.12 (~ 9838b70 2012-03-21 Introduce a consistent coding style [Keith Packard])
