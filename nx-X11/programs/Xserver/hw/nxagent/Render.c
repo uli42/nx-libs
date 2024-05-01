@@ -1163,7 +1163,7 @@ void nxagentComposite(CARD8 op, PicturePtr pSrc, PicturePtr pMask, PicturePtr pD
   /*
    * Synchronize the content of the shared memory pixmap but pay
    * attention at not doing this more than once.  We need to wait
-   * until the image data has been recom- posed at the X server side
+   * until the image data has been recomposed at the X server side
    * or the operation will use the wrong data.
    */
 
@@ -1217,10 +1217,10 @@ void nxagentComposite(CARD8 op, PicturePtr pSrc, PicturePtr pMask, PicturePtr pD
   /*
    * The glyphs flag have to be propagated between drawables, in order
    * to avoid to encode the text with lossy algorithms (like
-   * JPEG). Unlu- ckily we have verified that if the render com-
-   * posite propagates the flag, the deferring of render trapezoids
-   * doesn't work well. Moreover, by commenting out this code we have
-   * not noticed any visual problems.
+   * JPEG). Unluckily we have verified that if the render composite
+   * propagates the flag, the deferring of render trapezoids doesn't
+   * work well. Moreover, by commenting out this code we have not
+   * noticed any visual problems.
    *
    *  if (nxagentDrawableContainGlyphs(pSrc -> pDrawable) == 1)
    *  {
@@ -1459,7 +1459,7 @@ void nxagentGlyphs(CARD8 op, PicturePtr pSrc, PicturePtr pDst,
 
   /*
    * We split glyphs lists here and recalculate the offsets of each
-   * list to make them ab- solute and not relatives to the prior list.
+   * list to make them absolute and not relatives to the prior list.
    * This way each time we call XRenderComposi- teText it has to deal
    * only with a list of glyphs. This is done to further improve
    * caching.
@@ -2010,6 +2010,7 @@ void nxagentFreeGlyphSet(GlyphSetPtr glyphSet)
   XRenderFreeGlyphSet(nxagentDisplay, glyphSet -> remoteID);
 }
 
+/* images must point to a ZPixmap, size to its calculated size. */
 void nxagentAddGlyphs(GlyphSetPtr glyphSet, Glyph *gids, xGlyphInfo *gi,
                           int nglyphs, CARD8 *images, int sizeImages)
 {
