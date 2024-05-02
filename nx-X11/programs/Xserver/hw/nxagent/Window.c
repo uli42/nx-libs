@@ -145,7 +145,6 @@ int GetWindowProperty(WindowPtr, Atom, long, long, Bool, Atom, Atom*, int*,
  */
 
 static Bool nxagentSomeWindowsAreMapped(void);
-static void nxagentFrameBufferPaintWindow(WindowPtr pWin, RegionPtr pRegion, int what);
 static void nxagentTraverseWindow(WindowPtr, void(*)(void *, XID, void *), void *);
 static void nxagentDisconnectWindow(void *, XID, void *);
 static Bool nxagentLoopOverWindows(void(*)(void *, XID, void *));
@@ -1980,14 +1979,6 @@ void miPaintWindow(WindowPtr pWin, RegionPtr pRegion, int what)
     }
     #endif
   }
-  nxagentFrameBufferPaintWindow(pWin, pRegion, what);
-}
-
-void nxagentFrameBufferPaintWindow(WindowPtr pWin, RegionPtr pRegion, int what)
-{
-  #ifdef DEBUG
-  fprintf(stderr, "%s: running for window [0x%x]....\n", __func__, pWin->drawable.id);
-  #endif
 
   if (pWin->backgroundState == BackgroundPixmap)
   {
