@@ -206,8 +206,6 @@ Bool nxagentCheckIllegalRootMonitoring(WindowPtr pWin, Mask mask);
 
 void nxagentWindowExposures(WindowPtr pWin, RegionPtr pRgn, RegionPtr other_exposed);
 
-void nxagentPaintWindowBackground(WindowPtr pWin, RegionPtr pRegion, int what);
-
 void nxagentCopyWindow(WindowPtr pWin, xPoint oldOrigin, RegionPtr oldRegion);
 
 void nxagentClipNotify(WindowPtr pWin, int dx, int dy);
