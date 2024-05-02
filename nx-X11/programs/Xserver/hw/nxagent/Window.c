@@ -1978,7 +1978,22 @@ void nxagentFrameBufferPaintWindow(WindowPtr pWin, RegionPtr pRegion, int what)
     pWin->border.pixmap = nxagentVirtualPixmap(pWin->border.pixmap);
   }
 
-  xorg_miPaintWindow(pWin, pRegion, what);
+  /*
+   * The framebuffer operations don't take care of clipping to the
+   * actual area of the framebuffer so we need to clip ourselves.
+   */
+
+  RegionRec temp;
+  RegionInit(&temp, NullBox, 1);
+
+  if (what == PW_BACKGROUND)
+    RegionIntersect(&temp, pRegion, &pWin -> clipList);
+  else
+    RegionIntersect(&temp, pRegion, &pWin -> borderClip);
+
+  xorg_miPaintWindow(pWin, &temp, what);
+
+  RegionUninit(&temp);
 
   if (pWin->backgroundState == BackgroundPixmap)
   {
@@ -2019,16 +2034,7 @@ void nxagentPaintWindowBackground(WindowPtr pWin, RegionPtr pRegion, int what)
   }
   #endif
 
-  /*
-   * The framebuffer operations don't take care of clipping to the
-   * actual area of the framebuffer so we need to clip ourselves.
-   */
-
-  RegionRec temp;
-  RegionInit(&temp, NullBox, 1);
-  RegionIntersect(&temp, pRegion, &pWin -> clipList);
-  nxagentFrameBufferPaintWindow(pWin, &temp, what);
-  RegionUninit(&temp);
+  nxagentFrameBufferPaintWindow(pWin, pRegion, what);
 }
 
 void nxagentPaintWindowBorder(WindowPtr pWin, RegionPtr pRegion, int what)
@@ -2037,16 +2043,7 @@ void nxagentPaintWindowBorder(WindowPtr pWin, RegionPtr pRegion, int what)
   fprintf(stderr, "%s: running for window [0x%x]....\n", __func__, pWin->drawable.id);
   #endif
 
-  /*
-   * The framebuffer operations don't take care of clipping to the
-   * actual area of the framebuffer so we need to clip ourselves.
-   */
-
-  RegionRec temp;
-  RegionInit(&temp, NullBox, 1);
-  RegionIntersect(&temp, pRegion, &pWin -> borderClip);
-  nxagentFrameBufferPaintWindow(pWin, &temp, what);
-  RegionUninit(&temp);
+  nxagentFrameBufferPaintWindow(pWin, pRegion, what);
 }
 
 /*
