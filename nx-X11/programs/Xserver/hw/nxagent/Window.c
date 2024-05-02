@@ -1957,9 +1957,30 @@ void miPaintWindow(WindowPtr pWin, RegionPtr pRegion, int what)
   #endif
 
   if (what == PW_BACKGROUND)
-      nxagentPaintWindowBackground(pWin, pRegion, what);
-  else
-      nxagentFrameBufferPaintWindow(pWin, pRegion, what);
+  {
+    if (pWin -> realized)
+    {
+      BoxPtr pBox = RegionRects(pRegion);
+
+      for (int i = 0; i < RegionNumRects(pRegion); i++)
+      {
+        XClearArea(nxagentDisplay, nxagentWindow(pWin),
+                   pBox[i].x1 - pWin->drawable.x,
+                   pBox[i].y1 - pWin->drawable.y,
+                   pBox[i].x2 - pBox[i].x1,
+                   pBox[i].y2 - pBox[i].y1,
+                   False);
+      }
+    }
+    #ifdef TEST
+    else
+    {
+      fprintf(stderr, "%s: Saving the operation with window "
+                  "at [%p] not realized.\n", __func__, (void *) pWin);
+    }
+    #endif
+  }
+  nxagentFrameBufferPaintWindow(pWin, pRegion, what);
 }
 
 void nxagentFrameBufferPaintWindow(WindowPtr pWin, RegionPtr pRegion, int what)
@@ -2004,37 +2025,6 @@ void nxagentFrameBufferPaintWindow(WindowPtr pWin, RegionPtr pRegion, int what)
   {
     pWin->border.pixmap = nxagentRealPixmap(pWin->border.pixmap);
   }
-}
-
-void nxagentPaintWindowBackground(WindowPtr pWin, RegionPtr pRegion, int what)
-{
-  #ifdef DEBUG
-  fprintf(stderr, "%s: running for window [0x%x]....\n", __func__, pWin->drawable.id);
-  #endif
-
-  if (pWin -> realized)
-  {
-    BoxPtr pBox = RegionRects(pRegion);
-
-    for (int i = 0; i < RegionNumRects(pRegion); i++)
-    {
-      XClearArea(nxagentDisplay, nxagentWindow(pWin),
-                 pBox[i].x1 - pWin->drawable.x,
-                 pBox[i].y1 - pWin->drawable.y,
-                 pBox[i].x2 - pBox[i].x1,
-                 pBox[i].y2 - pBox[i].y1,
-                 False);
-    }
-  }
-  #ifdef TEST
-  else
-  {
-    fprintf(stderr, "nxagentPaintWindowBackground: Saving the operation with window "
-                "at [%p] not realized.\n", (void *) pWin);
-  }
-  #endif
-
-  nxagentFrameBufferPaintWindow(pWin, pRegion, what);
 }
 
 /*
