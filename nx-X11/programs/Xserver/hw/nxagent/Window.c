@@ -1959,7 +1959,7 @@ void miPaintWindow(WindowPtr pWin, RegionPtr pRegion, int what)
   if (what == PW_BACKGROUND)
       nxagentPaintWindowBackground(pWin, pRegion, what);
   else
-      nxagentPaintWindowBorder(pWin, pRegion, what);
+      nxagentFrameBufferPaintWindow(pWin, pRegion, what);
 }
 
 void nxagentFrameBufferPaintWindow(WindowPtr pWin, RegionPtr pRegion, int what)
@@ -2032,15 +2032,6 @@ void nxagentPaintWindowBackground(WindowPtr pWin, RegionPtr pRegion, int what)
     fprintf(stderr, "nxagentPaintWindowBackground: Saving the operation with window "
                 "at [%p] not realized.\n", (void *) pWin);
   }
-  #endif
-
-  nxagentFrameBufferPaintWindow(pWin, pRegion, what);
-}
-
-void nxagentPaintWindowBorder(WindowPtr pWin, RegionPtr pRegion, int what)
-{
-  #ifdef DEBUG
-  fprintf(stderr, "%s: running for window [0x%x]....\n", __func__, pWin->drawable.id);
   #endif
 
   nxagentFrameBufferPaintWindow(pWin, pRegion, what);
