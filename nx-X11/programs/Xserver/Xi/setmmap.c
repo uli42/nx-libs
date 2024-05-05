@@ -56,6 +56,7 @@ SOFTWARE.
 
 #include "inputstr.h"	/* DeviceIntPtr      */
 #include <nx-X11/extensions/XI.h>
+#include <nx-X11/extensions/XI2.h>
 #include <nx-X11/extensions/XIproto.h>
 #include "exevents.h"
 #include "exglobals.h"
@@ -89,33 +90,39 @@ ProcXSetDeviceModifierMapping(ClientPtr client)
     int ret;
     xSetDeviceModifierMappingReply rep;
     DeviceIntPtr dev;
-    KeyClassPtr kp;
 
     REQUEST(xSetDeviceModifierMappingReq);
     REQUEST_AT_LEAST_SIZE(xSetDeviceModifierMappingReq);
 
-    ret = dixLookupDevice(&dev, stuff->deviceid, client, DixManageAccess);
-    if (ret != Success)
-	return ret;
+    if (stuff->length != bytes_to_int32(sizeof(xSetDeviceModifierMappingReq)) +
+                          (stuff->numKeyPerModifier << 1))
+        return BadLength;
 
     rep.repType = X_Reply;
     rep.RepType = X_SetDeviceModifierMapping;
     rep.length = 0;
     rep.sequenceNumber = client->sequence;
 
-    ret = SetModifierMapping(client, dev, stuff->length,
-			     (sizeof(xSetDeviceModifierMappingReq) >> 2),
-			     stuff->numKeyPerModifier, (BYTE *) & stuff[1],
-			     &kp);
+    ret = dixLookupDevice(&dev, stuff->deviceid, client, DixManageAccess);
+    if (ret != Success)
+        return ret;
+
+    ret = change_modmap(client, dev, (KeyCode *) &stuff[1],
+                        stuff->numKeyPerModifier);
+    if (ret == Success)
+        ret = MappingSuccess;
 
     if (ret == MappingSuccess || ret == MappingBusy || ret == MappingFailed) {
 	rep.success = ret;
-	if (ret == MappingSuccess)
-	    SendDeviceMappingNotify(client, MappingModifier, 0, 0, dev);
 	WriteReplyToClient(client, sizeof(xSetDeviceModifierMappingReply),
 			   &rep);
-    } else if (ret == -1)
+    }
+    else if (ret == -1) {
 	return BadValue;
+    }
+    else {
+        return ret;
+    }
 
     return Success;
 }

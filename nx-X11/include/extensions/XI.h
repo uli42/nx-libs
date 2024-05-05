@@ -49,8 +49,8 @@ SOFTWARE.
 #ifndef _XI_H_
 #define _XI_H_
 
-#define sz_xGetExtensionVersionReq		8
-#define sz_xGetExtensionVersionReply		32
+#define sz_xGetExtensionVersionReq             8
+#define sz_xGetExtensionVersionReply           32
 #define sz_xListInputDevicesReq			4
 #define sz_xListInputDevicesReply		32
 #define sz_xOpenDeviceReq			8
@@ -113,7 +113,7 @@ SOFTWARE.
 #define sz_xGetDevicePropertyReq                24
 #define sz_xGetDevicePropertyReply              32
 
-#define INAME 			"XInputExtension"
+#define INAME		"XInputExtension"
 
 #define XI_KEYBOARD	"KEYBOARD"
 #define XI_MOUSE	"MOUSE"
@@ -269,7 +269,7 @@ SOFTWARE.
 #define DeviceRemoved            1
 #define DeviceEnabled            2
 #define DeviceDisabled           3
-#define DeviceUnrecoverable      4  
+#define DeviceUnrecoverable      4
 #define DeviceControlChanged     5
 
 /* XI Errors */

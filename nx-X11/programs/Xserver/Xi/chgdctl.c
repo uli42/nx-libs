@@ -135,14 +135,13 @@ ProcXChangeDeviceControl(ClientPtr client)
     CARD32 *resolution;
     xDeviceAbsCalibCtl *calib;
     xDeviceAbsAreaCtl *area;
-    xDeviceCoreCtl *c;
     xDeviceEnableCtl *e;
     devicePresenceNotify dpn;
 
     REQUEST(xChangeDeviceControlReq);
     REQUEST_AT_LEAST_SIZE(xChangeDeviceControlReq);
 
-    len = stuff->length - (sizeof(xChangeDeviceControlReq) >> 2);
+    len = stuff->length - bytes_to_int32(sizeof(xChangeDeviceControlReq));
     ret = dixLookupDevice(&dev, stuff->deviceid, client, DixManageAccess);
     if (ret != Success)
         goto out;
@@ -155,8 +154,8 @@ ProcXChangeDeviceControl(ClientPtr client)
     switch (stuff->control) {
     case DEVICE_RESOLUTION:
 	r = (xDeviceResolutionCtl *) & stuff[1];
-	if ((len < (sizeof(xDeviceResolutionCtl) >> 2)) ||
-	    (len != (sizeof(xDeviceResolutionCtl) >> 2) + r->num_valuators)) {
+	if ((len < bytes_to_int32(sizeof(xDeviceResolutionCtl))) ||
+	    (len != bytes_to_int32(sizeof(xDeviceResolutionCtl)) + r->num_valuators)) {
             ret = BadLength;
             goto out;
 	}
@@ -164,7 +163,7 @@ ProcXChangeDeviceControl(ClientPtr client)
             ret = BadMatch;
             goto out;
 	}
-	if ((dev->grab) && !SameClient(dev->grab, client)) {
+	if ((dev->deviceGrab.grab) && !SameClient(dev->deviceGrab.grab, client)) {
 	    rep.status = AlreadyGrabbed;
             ret = Success;
             goto out;
@@ -242,20 +241,9 @@ ProcXChangeDeviceControl(ClientPtr client)
 
         break;
     case DEVICE_CORE:
-        c = (xDeviceCoreCtl *)&stuff[1];
-
-        status = ChangeDeviceControl(client, dev, (xDeviceCtl *) c);
-
-        if (status == Success) {
-            dev->coreEvents = c->status;
-            ret = Success;
-        } else if (status == DeviceBusy) {
-            rep.status = DeviceBusy;
-            ret = Success;
-        } else {
+        /* Sorry, no device core switching no more. If you want a device to
+         * send core events, attach it to a master device */
             ret = BadMatch;
-        }
-
         break;
     case DEVICE_ENABLE:
         e = (xDeviceEnableCtl *)&stuff[1];
@@ -264,9 +252,9 @@ ProcXChangeDeviceControl(ClientPtr client)
 
         if (status == Success) {
             if (e->enable)
-                EnableDevice(dev);
+                EnableDevice(dev, TRUE);
             else
-                DisableDevice(dev);
+                DisableDevice(dev, TRUE);
             ret = Success;
         } else if (status == DeviceBusy) {
             rep.status = DeviceBusy;

@@ -60,6 +60,7 @@ SOFTWARE.
 #include "XIstubs.h"
 #include "windowstr.h"	/* window structure  */
 #include "exglobals.h"
+#include "exevents.h"
 
 #include "opendev.h"
 
@@ -98,11 +99,8 @@ ProcXOpenDevice(ClientPtr client)
     REQUEST(xOpenDeviceReq);
     REQUEST_SIZE_MATCH(xOpenDeviceReq);
 
-    if (stuff->deviceid == inputInfo.pointer->id ||
-	stuff->deviceid == inputInfo.keyboard->id)
-	return BadDevice;
-
     status = dixLookupDevice(&dev, stuff->deviceid, client, DixUseAccess);
+
     if (status == BadDevice) {  /* not open */
 	for (dev = inputInfo.off_devices; dev; dev = dev->next)
 	    if (dev->id == stuff->deviceid)
@@ -112,10 +110,14 @@ ProcXOpenDevice(ClientPtr client)
     } else if (status != Success)
 	return status;
 
+    if (IsMaster(dev))
+            return BadDevice;
+
     OpenInputDevice(dev, client, &status);
     if (status != Success)
 	return status;
 
+    memset(&rep, 0, sizeof(xOpenDeviceReply));
     rep.repType = X_Reply;
     rep.RepType = X_OpenDevice;
     rep.sequenceNumber = client->sequence;
@@ -146,11 +148,11 @@ ProcXOpenDevice(ClientPtr client)
     }
     evbase[j].class = OtherClass;
     evbase[j++].event_type_base = event_base[OtherClass];
-    rep.length = (j * sizeof(xInputClassInfo) + 3) >> 2;
+    rep.length = bytes_to_int32(j * sizeof(xInputClassInfo));
     rep.num_classes = j;
     WriteReplyToClient(client, sizeof(xOpenDeviceReply), &rep);
     WriteToClient(client, j * sizeof(xInputClassInfo), (char *)evbase);
-    return (Success);
+    return Success;
 }
 
 /***********************************************************************

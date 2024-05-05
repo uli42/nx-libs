@@ -58,6 +58,7 @@ SOFTWARE.
 #include "inputstr.h"	/* DeviceIntPtr      */
 #include "windowstr.h"	/* window structure  */
 #include <nx-X11/extensions/XI.h>
+#include <nx-X11/extensions/XI2.h>
 #include <nx-X11/extensions/XIproto.h>
 #include "exevents.h"
 #include "exglobals.h"
@@ -66,7 +67,6 @@ SOFTWARE.
 #include "selectev.h"
 
 extern Mask ExtExclusiveMasks[];
-extern Mask ExtValidMasks[];
 
 static int
 HandleDevicePresenceMask(ClientPtr client, WindowPtr win,
@@ -104,10 +104,9 @@ HandleDevicePresenceMask(ClientPtr client, WindowPtr win,
     if (mask == 0)
         return Success;
 
-    /* We always only use mksidx = 0 for events not bound to
+    /* We always only use mksidx = AllDevices for events not bound to
      * devices */
-
-    if (AddExtensionClient (win, client, mask, 0) != Success)
+    if (AddExtensionClient (win, client, mask, XIAllDevices) != Success)
         return BadAlloc;
 
     RecalculateDeviceDeliverableEvents(win);
@@ -153,7 +152,7 @@ ProcXSelectExtensionEvent(ClientPtr client)
     REQUEST(xSelectExtensionEventReq);
     REQUEST_AT_LEAST_SIZE(xSelectExtensionEventReq);
 
-    if (stuff->length != (sizeof(xSelectExtensionEventReq) >> 2) + stuff->count)
+    if (stuff->length != bytes_to_int32(sizeof(xSelectExtensionEventReq)) + stuff->count)
 	return BadLength;
 
     ret = dixLookupWindow(&pWin, stuff->window, client, DixReceiveAccess);
@@ -171,10 +170,13 @@ ProcXSelectExtensionEvent(ClientPtr client)
 
     for (i = 0; i < EMASKSIZE; i++)
 	if (tmp[i].dev != NULL) {
+            if (tmp[i].mask & ~XIAllMasks) {
+                client->errorValue = tmp[i].mask;
+                return BadValue;
+            }
 	    if ((ret =
 		 SelectForWindow((DeviceIntPtr) tmp[i].dev, pWin, client,
-				 tmp[i].mask, ExtExclusiveMasks[i],
-				 ExtValidMasks[i])) != Success)
+				 tmp[i].mask, ExtExclusiveMasks[i]))!= Success)
 		return ret;
 	}
 

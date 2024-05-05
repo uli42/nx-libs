@@ -432,14 +432,14 @@ ProcXChangeFeedbackControl(ClientPtr client)
     REQUEST(xChangeFeedbackControlReq);
     REQUEST_AT_LEAST_SIZE(xChangeFeedbackControlReq);
 
-    len = stuff->length - (sizeof(xChangeFeedbackControlReq) >> 2);
+    len = stuff->length - bytes_to_int32(sizeof(xChangeFeedbackControlReq));
     rc = dixLookupDevice(&dev, stuff->deviceid, client, DixManageAccess);
     if (rc != Success)
 	return rc;
 
     switch (stuff->feedbackid) {
     case KbdFeedbackClass:
-	if (len != (sizeof(xKbdFeedbackCtl) >> 2))
+	if (len != bytes_to_int32(sizeof(xKbdFeedbackCtl)))
 	    return BadLength;
 
 	for (k = dev->kbdfeed; k; k = k->next)
@@ -448,7 +448,7 @@ ProcXChangeFeedbackControl(ClientPtr client)
 				  (xKbdFeedbackCtl *) & stuff[1]);
 	break;
     case PtrFeedbackClass:
-	if (len != (sizeof(xPtrFeedbackCtl) >> 2))
+	if (len != bytes_to_int32(sizeof(xPtrFeedbackCtl)))
 	    return BadLength;
 
 	for (p = dev->ptrfeed; p; p = p->next)
@@ -463,7 +463,7 @@ ProcXChangeFeedbackControl(ClientPtr client)
 	if (client->swapped) {
 	    swaps(&f->num_keysyms);
 	}
-	if (len != ((sizeof(xStringFeedbackCtl) >> 2) + f->num_keysyms))
+	if (len != (bytes_to_int32(sizeof(xStringFeedbackCtl)) + f->num_keysyms))
 	    return BadLength;
 
 	for (s = dev->stringfeed; s; s = s->next)
@@ -473,7 +473,7 @@ ProcXChangeFeedbackControl(ClientPtr client)
 	break;
     }
     case IntegerFeedbackClass:
-	if (len != (sizeof(xIntegerFeedbackCtl) >> 2))
+	if (len != bytes_to_int32(sizeof(xIntegerFeedbackCtl)))
 	    return BadLength;
 
 	for (i = dev->intfeed; i; i = i->next)
@@ -482,7 +482,7 @@ ProcXChangeFeedbackControl(ClientPtr client)
 				      (xIntegerFeedbackCtl *) & stuff[1]);
 	break;
     case LedFeedbackClass:
-	if (len != (sizeof(xLedFeedbackCtl) >> 2))
+	if (len != bytes_to_int32(sizeof(xLedFeedbackCtl)))
 	    return BadLength;
 
 	for (l = dev->leds; l; l = l->next)
@@ -491,7 +491,7 @@ ProcXChangeFeedbackControl(ClientPtr client)
 				  (xLedFeedbackCtl *) & stuff[1]);
 	break;
     case BellFeedbackClass:
-	if (len != (sizeof(xBellFeedbackCtl) >> 2))
+	if (len != bytes_to_int32(sizeof(xBellFeedbackCtl)))
 	    return BadLength;
 
 	for (b = dev->bell; b; b = b->next)

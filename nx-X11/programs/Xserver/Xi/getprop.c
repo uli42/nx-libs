@@ -118,7 +118,7 @@ ProcXGetDeviceDontPropagateList(ClientPtr client)
 	if (count) {
 	    rep.count = count;
 	    buf = (XEventClass *) malloc(rep.count * sizeof(XEventClass));
-	    rep.length = (rep.count * sizeof(XEventClass) + 3) >> 2;
+	    rep.length = bytes_to_int32(rep.count * sizeof(XEventClass));
 
 	    tbuf = buf;
 	    for (i = 0; i < EMASKSIZE; i++)
@@ -162,7 +162,7 @@ XEventClass
 			*buf++ = (id << 8) | EventInfo[j].type;
 		}
 	}
-    return (buf);
+    return buf;
 }
 
 /***********************************************************************

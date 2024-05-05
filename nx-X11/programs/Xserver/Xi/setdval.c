@@ -98,7 +98,7 @@ ProcXSetDeviceValuators(ClientPtr client)
     rep.status = Success;
     rep.sequenceNumber = client->sequence;
 
-    if (stuff->length != (sizeof(xSetDeviceValuatorsReq) >> 2) +
+    if (stuff->length != bytes_to_int32(sizeof(xSetDeviceValuatorsReq)) +
 	stuff->num_valuators)
 	return BadLength;
 
@@ -111,7 +111,7 @@ ProcXSetDeviceValuators(ClientPtr client)
     if (stuff->first_valuator + stuff->num_valuators > dev->valuator->numAxes)
 	return BadValue;
 
-    if ((dev->grab) && !SameClient(dev->grab, client))
+    if ((dev->deviceGrab.grab) && !SameClient(dev->deviceGrab.grab, client))
 	rep.status = AlreadyGrabbed;
     else
 	rep.status = SetDeviceValuators(client, dev, (int *)&stuff[1],

@@ -42,6 +42,8 @@ from The Open Group.
 #include <nx-X11/extensions/XIproto.h>
 #include "exevents.h"
 #include "exglobals.h"
+#include "xkbsrv.h"
+#include "xkbstr.h"
 
 #include "queryst.h"
 
@@ -80,7 +82,7 @@ ProcXQueryDeviceState(ClientPtr client)
     xValuatorState *tv;
     xQueryDeviceStateReply rep;
     DeviceIntPtr dev;
-    int *values;
+    double *values;
 
     REQUEST(xQueryDeviceStateReq);
     REQUEST_SIZE_MATCH(xQueryDeviceStateReq);
@@ -91,7 +93,7 @@ ProcXQueryDeviceState(ClientPtr client)
     rep.sequenceNumber = client->sequence;
 
     rc = dixLookupDevice(&dev, stuff->deviceid, client, DixReadAccess);
-    if (rc != Success)
+    if (rc != Success && rc != BadAccess)
 	return rc;
 
     v = dev->valuator;
@@ -114,7 +116,7 @@ ProcXQueryDeviceState(ClientPtr client)
 	total_length += (sizeof(xValuatorState) + (v->numAxes * sizeof(int)));
 	num_classes++;
     }
-    buf = (char *)malloc(total_length);
+    buf = (char *)calloc(total_length, 1);
     if (!buf)
 	return BadAlloc;
     savbuf = buf;
@@ -123,7 +125,9 @@ ProcXQueryDeviceState(ClientPtr client)
 	tk = (xKeyState *) buf;
 	tk->class = KeyClass;
 	tk->length = sizeof(xKeyState);
-	tk->num_keys = k->curKeySyms.maxKeyCode - k->curKeySyms.minKeyCode + 1;
+	tk->num_keys = k->xkbInfo->desc->max_key_code -
+                       k->xkbInfo->desc->min_key_code + 1;
+	if (rc != BadAccess)
 	for (i = 0; i < 32; i++)
 	    tk->keys[i] = k->down[i];
 	buf += sizeof(xKeyState);
@@ -134,20 +138,22 @@ ProcXQueryDeviceState(ClientPtr client)
 	tb->class = ButtonClass;
 	tb->length = sizeof(xButtonState);
 	tb->num_buttons = b->numButtons;
-	for (i = 0; i < 32; i++)
-	    tb->buttons[i] = b->down[i];
+	if (rc != BadAccess)
+	    memcpy(tb->buttons, b->down, sizeof(b->down));
 	buf += sizeof(xButtonState);
     }
 
     if (v != NULL) {
 	tv = (xValuatorState *) buf;
 	tv->class = ValuatorClass;
-	tv->length = sizeof(xValuatorState);
+	tv->length = sizeof(xValuatorState) + v->numAxes * 4;
 	tv->num_valuators = v->numAxes;
 	tv->mode = v->mode;
 	buf += sizeof(xValuatorState);
 	for (i = 0, values = v->axisVal; i < v->numAxes; i++) {
-	    *((int *)buf) = *values++;
+	    if (rc != BadAccess)
+		*((int *)buf) = *values;
+	    values++;
 	    if (client->swapped) {
 		swapl((int *)buf);	/* macro - braces needed */
 	    }
@@ -156,7 +162,7 @@ ProcXQueryDeviceState(ClientPtr client)
     }
 
     rep.num_classes = num_classes;
-    rep.length = (total_length + 3) >> 2;
+    rep.length = bytes_to_int32(total_length);
     WriteReplyToClient(client, sizeof(xQueryDeviceStateReply), &rep);
     if (total_length > 0)
 	WriteToClient(client, total_length, savbuf);

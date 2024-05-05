@@ -107,7 +107,7 @@ ProcXGetDeviceButtonMapping(ClientPtr client)
 	return BadMatch;
 
     rep.nElts = b->numButtons;
-    rep.length = (rep.nElts + (4 - 1)) / 4;
+    rep.length = bytes_to_int32(rep.nElts);
     WriteReplyToClient(client, sizeof(xGetDeviceButtonMappingReply), &rep);
     WriteToClient(client, rep.nElts, &b->map[1]);
     return Success;

@@ -50,7 +50,6 @@ SOFTWARE.
  *
  */
 
-#define EXTENSION_EVENT_BASE  64
 #ifdef HAVE_DIX_CONFIG_H
 #include <dix-config.h>
 #endif
@@ -89,15 +88,15 @@ SProcXSendExtensionEvent(ClientPtr client)
     swapl(&stuff->destination);
     swaps(&stuff->count);
 
-    if (stuff->length != (sizeof(xSendExtensionEventReq) >> 2) + stuff->count +
-       (stuff->num_events * (sizeof(xEvent) >> 2)))
+    if (stuff->length != bytes_to_int32(sizeof(xSendExtensionEventReq)) + stuff->count +
+       bytes_to_int32(stuff->num_events * sizeof(xEvent)))
        return BadLength;
 
     eventP = (xEvent *) & stuff[1];
     for (i = 0; i < stuff->num_events; i++, eventP++) {
 	proc = EventSwapVector[eventP->u.u.type & 0177];
 	if (proc == NotImplemented)	/* no swapping proc; invalid event type? */
-	    return (BadValue);
+	    return BadValue;
 	(*proc) (eventP, &eventT);
 	*eventP = eventT;
     }
@@ -126,8 +125,8 @@ ProcXSendExtensionEvent(ClientPtr client)
     REQUEST(xSendExtensionEventReq);
     REQUEST_AT_LEAST_SIZE(xSendExtensionEventReq);
 
-    if (stuff->length != (sizeof(xSendExtensionEventReq) >> 2) + stuff->count +
-	(stuff->num_events * (sizeof(xEvent) >> 2)))
+    if (stuff->length != bytes_to_int32(sizeof(xSendExtensionEventReq)) + stuff->count +
+	(stuff->num_events * bytes_to_int32(sizeof(xEvent))))
 	return BadLength;
 
     ret = dixLookupDevice(&dev, stuff->deviceid, client, DixWriteAccess);
@@ -138,9 +137,10 @@ ProcXSendExtensionEvent(ClientPtr client)
 
     first = ((xEvent *) & stuff[1]);
     if (!((EXTENSION_EVENT_BASE <= first->u.u.type) &&
-	  (first->u.u.type < lastEvent)))
+	  (first->u.u.type < lastEvent))) {
 	client->errorValue = first->u.u.type;
 	return BadValue;
+    }
 
     list = (XEventClass *) (first + stuff->num_events);
     if ((ret = CreateMaskFromList(client, list, stuff->count, tmp, dev,

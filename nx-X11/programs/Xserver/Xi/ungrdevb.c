@@ -116,7 +116,7 @@ ProcXUngrabDeviceButton(ClientPtr client)
 	if (mdev->key == NULL)
 	    return BadMatch;
     } else
-	mdev = inputInfo.keyboard;
+	mdev = PickKeyboard(client);
 
     rc = dixLookupWindow(&pWin, stuff->grabWindow, client, DixSetAttrAccess);
     if (rc != Success)
@@ -130,6 +130,7 @@ ProcXUngrabDeviceButton(ClientPtr client)
     temporaryGrab.device = dev;
     temporaryGrab.window = pWin;
     temporaryGrab.type = DeviceButtonPress;
+    temporaryGrab.grabtype = GRABTYPE_XI;
     temporaryGrab.modifierDevice = mdev;
     temporaryGrab.modifiersDetail.exact = stuff->modifiers;
     temporaryGrab.modifiersDetail.pMask = NULL;
