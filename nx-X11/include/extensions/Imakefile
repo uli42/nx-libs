@@ -64,6 +64,7 @@ HEADERS = \
 	sync.h syncstr.h \
 	dpms.h dpmsstr.h \
 	shapeconst.h \
+	dpmsconst.h \
 	$(NULL)
 
 all::
