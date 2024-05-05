@@ -97,7 +97,7 @@ CopySwap32Write(ClientPtr pClient, int size, CARD32 *pbuf)
     CARD32 tmpbuf[1];
 
     /* Allocate as big a buffer as we can... */
-    while (!(pbufT = (CARD32 *) malloc(bufsize)))
+    while (!(pbufT = malloc(bufsize)))
     {
         bufsize >>= 1;
 	if (bufsize == 4)
@@ -129,7 +129,7 @@ CopySwap32Write(ClientPtr pClient, int size, CARD32 *pbuf)
 	}
 
     if (pbufT != tmpbuf)
-	free ((char *) pbufT);
+	free(pbufT);
 }
 
 /**
@@ -145,7 +145,7 @@ CopySwap16Write(ClientPtr pClient, int size, short *pbuf)
     short tmpbuf[2];
 
     /* Allocate as big a buffer as we can... */
-    while (!(pbufT = (short *) malloc(bufsize)))
+    while (!(pbufT = malloc(bufsize)))
     {
         bufsize >>= 1;
 	if (bufsize == 4)
@@ -177,7 +177,7 @@ CopySwap16Write(ClientPtr pClient, int size, short *pbuf)
 	}
 
     if (pbufT != tmpbuf)
-	free ((char *) pbufT);
+	free(pbufT);
 }
 
 
@@ -395,7 +395,7 @@ SwapFont(xQueryFontReply *pr, Bool hasGlyphs)
      * they are always 2 4 byte values */
     for(i = 0; i < nprops; i++)
     {
-	swapl((int *)pby);
+      swapl((int *)pby);
 	pby += 4;
 	swapl((int *)pby);
 	pby += 4;
@@ -476,10 +476,7 @@ SListInstalledColormapsReply(ClientPtr pClient, int size,
 }
 
 void
-SAllocColorReply(pClient, size, pRep)
-    ClientPtr		pClient;
-    int			size;
-    xAllocColorReply	*pRep;
+SAllocColorReply(ClientPtr pClient, int size, xAllocColorReply *pRep)
 {
     swaps(&pRep->sequenceNumber);
     swaps(&pRep->red);
@@ -655,7 +652,7 @@ SLHostsExtend(ClientPtr pClient, int size, char *buf)
 	xHostEntry *host = (xHostEntry *) bufT;
 	int len = host->length;
 	swaps (&host->length);
-	bufT += sizeof (xHostEntry) + (((len + 3) >> 2) << 2);
+	bufT += sizeof (xHostEntry) + pad_to_int32(len);
 	}
     WriteToClient (pClient, size, buf);
 }
@@ -1144,7 +1141,7 @@ SwapConnSetupInfo(
     pInfoT += sizeof(xConnSetup);
 
     /* Copy the vendor string */
-    i = (pConnSetup->nbytesVendor + 3) & ~3;
+    i = pad_to_int32(pConnSetup->nbytesVendor);
     memcpy(pInfoT, pInfo, i);
     pInfo += i;
     pInfoT += i;
@@ -1184,7 +1181,7 @@ WriteSConnectionInfo(ClientPtr pClient, unsigned long size, char *pInfo)
 {
     char	*pInfoTBase;
 
-    pInfoTBase = (char *) malloc(size);
+    pInfoTBase = malloc(size);
     if (!pInfoTBase)
     {
 	pClient->noClientException = -1;
@@ -1213,3 +1210,18 @@ WriteSConnSetupPrefix(ClientPtr pClient, xConnSetupPrefix *pcsp)
     SwapConnSetupPrefix(pcsp, &cspT);
     WriteToClient(pClient, sizeof(cspT), &cspT);
 }
+
+/*
+ * Dummy entry for ReplySwapVector[]
+ */
+
+void
+ReplyNotSwappd(
+	ClientPtr pClient ,
+	int size ,
+	void * pbuf
+	)
+{
+    FatalError("Not implemented");
+}
+

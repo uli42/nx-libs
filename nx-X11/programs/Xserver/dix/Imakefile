@@ -38,14 +38,19 @@ SRCS =                          \
        deprecated.c             \
        devices.c                \
        dixutils.c               \
+       enterleave.c             \
+       eventconvert.c           \
        extension.c              \
        ffs.c                    \
        gc.c                     \
        getevents.c              \
        globals.c                \
        grabs.c                  \
+       inpututils.c             \
        main.c                   \
+       ptrveloc.c               \
        region.c                 \
+       registry.c               \
        swaprep.c                \
        swapreq.c                \
        tables.c                 \
@@ -63,14 +68,19 @@ OBJS =                          \
        deprecated.o             \
        devices.o                \
        dixutils.o               \
+       enterleave.o             \
+       eventconvert.o           \
        extension.o              \
        ffs.o                    \
        gc.o                     \
        getevents.o              \
        globals.o                \
        grabs.o                  \
+       inpututils.o             \
        main.o                   \
+       ptrveloc.o               \
        region.o                 \
+       registry.o               \
        swaprep.o                \
        swapreq.o                \
        tables.o                 \

@@ -27,13 +27,13 @@ Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts.
 
                         All Rights Reserved
 
-Permission to use, copy, modify, and distribute this software and its 
-documentation for any purpose and without fee is hereby granted, 
+Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose and without fee is hereby granted,
 provided that the above copyright notice appear in all copies and that
-both that copyright notice and this permission notice appear in 
+both that copyright notice and this permission notice appear in
 supporting documentation, and that the name of Digital not be
 used in advertising or publicity pertaining to distribution of the
-software without specific, written prior permission.  
+software without specific, written prior permission.
 
 DIGITAL DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING
 ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL
@@ -45,42 +45,43 @@ SOFTWARE.
 
 ******************************************************************/
 
-#ifndef PIXMAPSTRUCT_H
-#define PIXMAPSTRUCT_H
-#include "pixmap.h"
-#include "screenint.h"
-#include "regionstr.h"
-#include "privates.h"
+#ifndef CALLBACK_H
+#define CALLBACK_H
 
-typedef struct _Drawable {
-    unsigned char	type;	/* DRAWABLE_<type> */
-    unsigned char	class;	/* specific to type */
-    unsigned char	depth;
-    unsigned char	bitsPerPixel;
-    XID			id;	/* resource id */
-    short		x;	/* window: screen absolute, pixmap: 0 */
-    short		y;	/* window: screen absolute, pixmap: 0 */
-    unsigned short	width;
-    unsigned short	height;
-    ScreenPtr		pScreen;
-    unsigned long	serialNumber;
-} DrawableRec;
+#include <nx-X11/X.h>	/* for GContext, Mask */
+#include <nx-X11/Xdefs.h>	/* for Bool */
+#include <nx-X11/Xproto.h>
+#include <nx-X11/Xfuncproto.h>
 
 /*
- * PIXMAP -- device dependent 
+ *  callback manager stuff
  */
 
-typedef struct _Pixmap {
-    DrawableRec		drawable;
-    PrivateRec		*devPrivates;
-    int			refcnt;
-    int			devKind; /* This is the pitch of the pixmap, typically width*bpp/8. */
-    DevUnion		devPrivate; /* When !NULL, devPrivate.ptr points to the raw pixel data. */
-#ifdef COMPOSITE
-    short		screen_x;
-    short		screen_y;
+#ifndef _XTYPEDEF_CALLBACKLISTPTR
+typedef struct _CallbackList *CallbackListPtr; /* also in misc.h */
+#define _XTYPEDEF_CALLBACKLISTPTR
 #endif
-    unsigned		usage_hint;   /* see CREATE_PIXMAP_USAGE_* */
-} PixmapRec;
 
-#endif /* PIXMAPSTRUCT_H */
+typedef void (*CallbackProcPtr) (
+    CallbackListPtr *, void *, void *);
+
+extern _X_EXPORT Bool AddCallback(
+    CallbackListPtr * /*pcbl*/,
+    CallbackProcPtr /*callback*/,
+    void * /*data*/);
+
+extern _X_EXPORT Bool DeleteCallback(
+    CallbackListPtr * /*pcbl*/,
+    CallbackProcPtr /*callback*/,
+    void * /*data*/);
+
+extern _X_EXPORT void CallCallbacks(
+    CallbackListPtr * /*pcbl*/,
+    void * /*call_data*/);
+
+extern _X_EXPORT void DeleteCallbackList(
+    CallbackListPtr * /*pcbl*/);
+
+extern _X_EXPORT void InitCallbackManager(void);
+
+#endif /* CALLBACK_H */

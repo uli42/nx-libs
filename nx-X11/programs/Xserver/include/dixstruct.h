@@ -38,11 +38,7 @@ SOFTWARE.
  *      translation from client ids to server addresses.
  */
 
-#ifdef DEBUG
-#define MAX_REQUEST_LOG 100
-#endif
-
-extern CallbackListPtr ClientStateCallback;
+extern _X_EXPORT CallbackListPtr ClientStateCallback;
 
 typedef struct {
     ClientPtr 		client;
@@ -55,10 +51,10 @@ typedef void (*ReplySwapPtr) (
 		int		/* size */,
 		void *		/* pbuf */);
 
-extern void ReplyNotSwappd (
+extern _X_EXPORT void ReplyNotSwappd (
 		ClientPtr	/* pClient */,
 		int		/* size */,
-		void *		/* pbuf */);
+		void *		/* pbuf */) _X_NORETURN;
 
 typedef enum {ClientStateInitial,
 	      ClientStateAuthenticating,
@@ -72,22 +68,22 @@ typedef enum {ClientStateInitial,
 typedef struct _saveSet {
     struct _Window  *windowPtr;
     Bool	    toRoot;
-    Bool	    remap;
+    Bool	    map;
 } SaveSetElt;
 #define SaveSetWindow(ss)   ((ss).windowPtr)
 #define SaveSetToRoot(ss)   ((ss).toRoot)
-#define SaveSetRemap(ss)    ((ss).remap)
+#define SaveSetShouldMap(ss)	    ((ss).map)
 #define SaveSetAssignWindow(ss,w)   ((ss).windowPtr = (w))
 #define SaveSetAssignToRoot(ss,tr)  ((ss).toRoot = (tr))
-#define SaveSetAssignRemap(ss,rm)  ((ss).remap = (rm))
+#define SaveSetAssignMap(ss,m)      ((ss).map = (m))
 #else
 typedef struct _Window *SaveSetElt;
 #define SaveSetWindow(ss)   (ss)
 #define SaveSetToRoot(ss)   FALSE
-#define SaveSetRemap(ss)    TRUE
+#define SaveSetShouldMap(ss)	    TRUE
 #define SaveSetAssignWindow(ss,w)   ((ss) = (w))
 #define SaveSetAssignToRoot(ss,tr)
-#define SaveSetAssignRemap(ss,rm)
+#define SaveSetAssignMap(ss,m)
 #endif
 
 typedef struct _Client {
@@ -96,6 +92,7 @@ typedef struct _Client {
     void        *requestBuffer;
     void        *osPrivate;	/* for OS layer, including scheduler */
     Bool        swapped;
+    /* backport ff8e3ad8074cd2c8bed49b39c40c2b4892118270 */
     Bool        local;
     ReplySwapPtr pSwapReplyFunc;
     XID         errorValue;
@@ -104,9 +101,9 @@ typedef struct _Client {
     int         clientGone;
     int         noClientException;	/* this client died or needs to be
 					 * killed */
+    int         ignoreCount;		/* count for Attend/IgnoreClient */
     SaveSetElt	*saveSet;
     int         numSaved;
-    void        *screenPrivate[MAXSCREENS];
     int         (**requestVector) (
 		ClientPtr /* pClient */);
     CARD32	req_len;		/* length of current request */
@@ -114,48 +111,44 @@ typedef struct _Client {
     int		priority;
     ClientState clientState;
     PrivateRec	*devPrivates;
-#ifdef XKB
     unsigned short	xkbClientFlags;
     unsigned short	mapNotifyMask;
     unsigned short	newKeyboardNotifyMask;
     unsigned short	vMajor,vMinor;
     KeyCode		minKC,maxKC;
-#endif
 
-#ifdef DEBUG
-    unsigned char requestLog[MAX_REQUEST_LOG];
-    int         requestLogIndex;
-#endif
     unsigned long replyBytesRemaining;
-    struct _FontResolution * (*fontResFunc) (    /* no need for font.h */
-		ClientPtr	/* pClient */,
-		int *		/* num */);
     int	    smart_priority;
     long    smart_start_tick;
     long    smart_stop_tick;
     long    smart_check_tick;
-    ClientIdPtr clientIds;
-}           ClientRec;
+    
+    DeviceIntPtr clientPtr;
+    /* backport 1e933665bef26c74196bb7c59910e6a78bcacf0e */
+    ClientIdPtr  clientIds;
+} ClientRec;
 
 /*
  * Scheduling interface
  */
-extern long SmartScheduleTime;
-extern long SmartScheduleInterval;
-extern long SmartScheduleSlice;
-extern long SmartScheduleMaxSlice;
-extern Bool SmartScheduleDisable;
+extern _X_EXPORT long SmartScheduleTime;
+extern _X_EXPORT long SmartScheduleInterval;
+extern _X_EXPORT long SmartScheduleSlice;
+extern _X_EXPORT long SmartScheduleMaxSlice;
+extern _X_EXPORT Bool SmartScheduleDisable;
 #if HAVE_SETITIMER
 extern Bool SmartScheduleSignalEnable;
 #else
 #define SmartScheduleSignalEnable FALSE
 #endif
-extern void SmartScheduleStartTimer(void);
-extern void SmartScheduleStopTimer(void);
+extern _X_EXPORT void SmartScheduleStartTimer(void);
+extern _X_EXPORT void SmartScheduleStopTimer(void);
 #define SMART_MAX_PRIORITY  (20)
 #define SMART_MIN_PRIORITY  (-20)
 
-extern void SmartScheduleInit(void);
+/* backport 7d8cabd027cfc55e9921307e5b3dd7052de8496f */
+extern _X_EXPORT void SmartScheduleInit(void);
+
 
 /* This prototype is used pervasively in Xext, dix */
 #define DISPATCH_PROC(func) int func(ClientPtr /* client */)
@@ -170,14 +163,14 @@ typedef struct _WorkQueue {
     void        *closure;
 }           WorkQueueRec;
 
-extern TimeStamp currentTime;
-extern TimeStamp lastDeviceEventTime;
+extern _X_EXPORT TimeStamp currentTime;
+extern _X_EXPORT TimeStamp lastDeviceEventTime;
 
-extern int CompareTimeStamps(
+extern _X_EXPORT int CompareTimeStamps(
     TimeStamp /*a*/,
     TimeStamp /*b*/);
 
-extern TimeStamp ClientTimeToServerTime(CARD32 /*c*/);
+extern _X_EXPORT TimeStamp ClientTimeToServerTime(CARD32 /*c*/);
 
 typedef struct _CallbackRec {
   CallbackProcPtr proc;
@@ -195,14 +188,14 @@ typedef struct _CallbackList {
 
 /* proc vectors */
 
-extern int (* InitialVector[3]) (ClientPtr /*client*/);
+extern _X_EXPORT int (* InitialVector[3]) (ClientPtr /*client*/);
 
-extern int (* ProcVector[256]) (ClientPtr /*client*/);
+extern _X_EXPORT int (* ProcVector[256]) (ClientPtr /*client*/);
 
-extern int (* SwappedProcVector[256]) (ClientPtr /*client*/);
+extern _X_EXPORT int (* SwappedProcVector[256]) (ClientPtr /*client*/);
 
-extern ReplySwapPtr ReplySwapVector[256];
+extern _X_EXPORT ReplySwapPtr ReplySwapVector[256];
 
-extern int ProcBadRequest(ClientPtr /*client*/);
+extern _X_EXPORT int ProcBadRequest(ClientPtr /*client*/);
 
 #endif				/* DIXSTRUCT_H */

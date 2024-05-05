@@ -61,8 +61,6 @@ SOFTWARE.
 #include "registry.h"
 #include "xace.h"
 
-#define EXTENSION_BASE  128
-#define EXTENSION_EVENT_BASE  64
 #define LAST_EVENT  128
 #define LAST_ERROR 255
 
@@ -85,18 +83,25 @@ AddExtension(char *name, int NumEvents, int NumErrors,
     if (!MainProc || !SwappedMainProc || !MinorOpcodeProc)
         return((ExtensionEntry *) NULL);
     if ((lastEvent + NumEvents > LAST_EVENT) ||
-	        (unsigned)(lastError + NumErrors > LAST_ERROR))
+	        (unsigned)(lastError + NumErrors > LAST_ERROR)) {
+        LogMessage(X_ERROR, "Not enabling extension %s: maximum number of "
+                   "events or errors exceeded.\n", name);
         return((ExtensionEntry *) NULL);
+    }
 
-    ext = (ExtensionEntry *) malloc(sizeof(ExtensionEntry));
+    ext = calloc(sizeof (ExtensionEntry), 1);
     if (!ext)
-	return((ExtensionEntry *) NULL);
-    ext->name = (char *)malloc(strlen(name) + 1);
+	return NULL;
+    if (!dixAllocatePrivates(&ext->devPrivates, PRIVATE_EXTENSION)) {
+	free(ext);
+	return NULL;
+    }
+    ext->name = malloc(strlen(name) + 1);
     ext->num_aliases = 0;
     ext->aliases = (char **)NULL;
-    ext->devPrivates = NULL;
     if (!ext->name)
     {
+	dixFreePrivates(ext->devPrivates, PRIVATE_EXTENSION);
 	free(ext);
 	return((ExtensionEntry *) NULL);
     }
@@ -107,6 +112,7 @@ AddExtension(char *name, int NumEvents, int NumErrors,
     if (!newexts)
     {
 	free(ext->name);
+	dixFreePrivates(ext->devPrivates, PRIVATE_EXTENSION);
 	free(ext);
 	return((ExtensionEntry *) NULL);
     }
@@ -143,7 +149,7 @@ AddExtension(char *name, int NumEvents, int NumErrors,
     }
 
     RegisterExtensionNames(ext);
-    return(ext);
+    return ext;
 }
 
 Bool AddExtensionAlias(char *alias, ExtensionEntry *ext)
@@ -158,7 +164,7 @@ Bool AddExtensionAlias(char *alias, ExtensionEntry *ext)
     if (!aliases)
 	return FALSE;
     ext->aliases = aliases;
-    name = (char *)malloc(strlen(alias) + 1);
+    name = malloc(strlen(alias) + 1);
     if (!name)
 	return FALSE;
     strcpy(name,  alias);
@@ -246,13 +252,13 @@ CloseDownExtensions(void)
     for (i = NumExtensions - 1; i >= 0; i--)
     {
 	if (extensions[i]->CloseDown)
-	    (* extensions[i]->CloseDown)(extensions[i]);
+	    extensions[i]->CloseDown(extensions[i]);
 	NumExtensions = i;
 	free(extensions[i]->name);
 	for (j = extensions[i]->num_aliases; --j >= 0;)
 	    free(extensions[i]->aliases[j]);
 	free(extensions[i]->aliases);
-	dixFreePrivates(extensions[i]->devPrivates);
+	dixFreePrivates(extensions[i]->devPrivates, PRIVATE_EXTENSION);
 	free(extensions[i]);
     }
     free(extensions);
@@ -292,7 +298,7 @@ ProcQueryExtension(ClientPtr client)
 	}
     }
     WriteReplyToClient(client, sizeof(xQueryExtensionReply), &reply);
-    return(client->noClientException);
+    return Success;
 }
 
 int
@@ -326,10 +332,10 @@ ProcListExtensions(ClientPtr client)
 	    for (j = extensions[i]->num_aliases; --j >= 0;)
 		total_length += strlen(extensions[i]->aliases[j]) + 1;
 	}
-        reply.length = (total_length + 3) >> 2;
-	buffer = bufptr = (char *)malloc(total_length);
+        reply.length = bytes_to_int32(total_length);
+	buffer = bufptr = malloc(total_length);
 	if (!buffer)
-	    return(BadAlloc);
+	    return BadAlloc;
         for (i=0;  i<NumExtensions; i++)
         {
 	    int len;
@@ -353,5 +359,5 @@ ProcListExtensions(ClientPtr client)
         WriteToClient(client, total_length, buffer);
         free(buffer);
     }
-    return(client->noClientException);
+    return Success;
 }

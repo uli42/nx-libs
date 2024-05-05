@@ -78,7 +78,7 @@ PtrCtrl defaultPointerControl = {
 	DEFAULT_PTR_THRESHOLD,
 	0};
 
-ClientPtr *clients;
+ClientPtr  clients[MAXCLIENTS];
 ClientPtr  serverClient;
 int  currentMaxClients;   /* current size of clients array */
 long maxBigRequestSize = MAX_BIG_REQUEST_SIZE;
@@ -93,25 +93,8 @@ int ScreenSaverBlanking;
 int  ScreenSaverAllowExposures;
 
 #ifdef DPMSExtension
-# ifndef DEFAULT_STANDBY_TIME
-#  define DEFAULT_STANDBY_TIME DEFAULT_SCREEN_SAVER_TIME * 2
-# endif
-# ifndef DEFAULT_SUSPEND_TIME
-#  define DEFAULT_SUSPEND_TIME DEFAULT_SCREEN_SAVER_TIME * 3
-# endif
-# ifndef DEFAULT_OFF_TIME
-#  define DEFAULT_OFF_TIME DEFAULT_SCREEN_SAVER_TIME * 4
-# endif
-# ifndef DEFAULT_DPMS_ENABLED
-#  define DEFAULT_DPMS_ENABLED TRUE
-# endif
-CARD32 defaultDPMSStandbyTime = DEFAULT_STANDBY_TIME;
-CARD32 defaultDPMSSuspendTime = DEFAULT_SUSPEND_TIME;
-CARD32 defaultDPMSOffTime = DEFAULT_OFF_TIME;
 CARD16 DPMSPowerLevel = 0;
-Bool defaultDPMSEnabled = DEFAULT_DPMS_ENABLED;
-Bool DPMSEnabledSwitch = FALSE;  /* these denote the DPMS command */
-Bool DPMSDisabledSwitch = FALSE; /* line switch states */
+Bool DPMSDisabledSwitch = FALSE;
 Bool DPMSCapableFlag = FALSE;
 CARD32 DPMSStandbyTime;
 CARD32 DPMSSuspendTime;
@@ -134,12 +117,10 @@ Bool screenSaverSuspended = FALSE;
 char *defaultFontPath = COMPILEDDEFAULTFONTPATH;
 char *defaultTextFont = COMPILEDDEFAULTFONT;
 char *defaultCursorFont = COMPILEDCURSORFONT;
-char *defaultDisplayClass = COMPILEDDISPLAYCLASS;
 FontPtr defaultFont;   /* not declared in dix.h to avoid including font.h in
 			every compilation of dix code */
-Bool loadableFonts = FALSE;
 CursorPtr rootCursor;
-Bool blackRoot=FALSE;
+Bool party_like_its_1989 = FALSE;
 Bool whiteRoot=FALSE;
 
 TimeStamp currentTime;
@@ -151,9 +132,6 @@ int monitorResolution = 0;
 char *display;
 int displayfd = -1;
 Bool explicit_display = FALSE;
+char *ConnectionInfo;
 
 CARD32 TimeOutValue = DEFAULT_TIMEOUT * MILLI_PER_SECOND;
-int	argcGlobal;
-char	**argvGlobal;
-
-DDXPointRec dixScreenOrigins[MAXSCREENS];

@@ -92,6 +92,7 @@ Author:  Adobe Systems Incorporated
 #include "windowstr.h"
 #include "dixstruct.h"
 #include "pixmapstr.h"
+#include "gcstruct.h"
 #include "scrnintstr.h"
 #define  XK_LATIN1
 #include <nx-X11/keysymdef.h>
@@ -216,7 +217,7 @@ dixLookupDrawable(DrawablePtr *pDraw, XID id, ClientPtr client,
     if (id == INVALID)
 	return BadDrawable;
 
-    rc = dixLookupResource((void * *)&pTmp, id, RC_DRAWABLE, client, access);
+    rc = dixLookupResourceByClass((void * *)&pTmp, id, RC_DRAWABLE, client, access);
 
     if (rc == BadValue)
 	return BadDrawable;
@@ -240,14 +241,24 @@ dixLookupWindow(WindowPtr *pWin, XID id, ClientPtr client, Mask access)
 int
 dixLookupGC(GCPtr *pGC, XID id, ClientPtr client, Mask access)
 {
-    GCPtr pTmp = (GCPtr)SecurityLookupIDByType(client, id, RT_GC, access);
-    if (pTmp) {
-	*pGC = pTmp;
-	return Success;
+    return dixLookupResourceByType((void * *)pGC, id, RT_GC, client, access);
     }
-    client->errorValue = id;
-    *pGC = NULL;
-    return BadGC;
+
+int
+dixLookupFontable(FontPtr *pFont, XID id, ClientPtr client, Mask access)
+{
+    int rc;
+    GC *pGC;
+    client->errorValue = id;		/* EITHER font or gc */
+    rc = dixLookupResourceByType((void * *) pFont, id, RT_FONT, client, access);
+    if (rc != BadFont)
+	return rc;
+    rc = dixLookupResourceByType((void * *) &pGC, id, RT_GC, client, access);
+    if (rc == BadGC)
+	return BadFont;
+    if (rc == Success)
+	*pFont = pGC->font;
+    return rc;
 }
 
 int
@@ -259,7 +270,7 @@ dixLookupClient(ClientPtr *pClient, XID rid, ClientPtr client, Mask access)
     if (!clientIndex || !clients[clientIndex] || (rid & SERVER_BIT))
 	goto bad;
 
-    rc = dixLookupResource(&pRes, rid, RC_ANY, client, DixGetAttrAccess);
+    rc = dixLookupResourceByClass(&pRes, rid, RC_ANY, client, DixGetAttrAccess);
     if (rc != Success)
 	goto bad;
 
@@ -270,6 +281,7 @@ dixLookupClient(ClientPtr *pClient, XID rid, ClientPtr client, Mask access)
     *pClient = clients[clientIndex];
     return Success;
 bad:
+    if(client)
     client->errorValue = rid;
     *pClient = NULL;
     return rc;
@@ -277,7 +289,7 @@ bad:
 
 int
 AlterSaveSetForClient(ClientPtr client, WindowPtr pWin, unsigned mode,
-                      Bool toRoot, Bool remap)
+                      Bool toRoot, Bool map)
 {
     int numnow;
     SaveSetElt *pTmp = NULL;
@@ -294,17 +306,17 @@ AlterSaveSetForClient(ClientPtr client, WindowPtr pWin, unsigned mode,
     if (mode == SetModeInsert)
     {
 	if (j < numnow)         /* duplicate */
-	   return(Success);
+	   return Success;
 	numnow++;
 	pTmp = (SaveSetElt *)realloc(client->saveSet, sizeof(*pTmp) * numnow);
 	if (!pTmp)
-	    return(BadAlloc);
+	    return BadAlloc;
 	client->saveSet = pTmp;
        	client->numSaved = numnow;
 	SaveSetAssignWindow(client->saveSet[numnow - 1], pWin);
 	SaveSetAssignToRoot(client->saveSet[numnow - 1], toRoot);
-	SaveSetAssignRemap(client->saveSet[numnow - 1], remap);
-	return(Success);
+	SaveSetAssignMap(client->saveSet[numnow - 1], map);
+	return Success;
     }
     else if ((mode == SetModeDelete) && (j < numnow))
     {
@@ -326,9 +338,9 @@ AlterSaveSetForClient(ClientPtr client, WindowPtr pWin, unsigned mode,
 	    client->saveSet = (SaveSetElt *)NULL;
 	}
 	client->numSaved = numnow;
-	return(Success);
+	return Success;
     }
-    return(Success);
+    return Success;
 }
 
 void
@@ -566,7 +578,7 @@ QueueWorkProc (
 {
     WorkQueuePtr    q;
 
-    q = (WorkQueuePtr) malloc (sizeof *q);
+    q = malloc(sizeof *q);
     if (!q)
 	return FALSE;
     q->function = function;
@@ -600,7 +612,7 @@ ClientSleep (ClientPtr client, ClientSleepProcPtr function, void * closure)
 {
     SleepQueuePtr   q;
 
-    q = (SleepQueuePtr) malloc (sizeof *q);
+    q = malloc(sizeof *q);
     if (!q)
 	return FALSE;
 
@@ -680,7 +692,7 @@ _AddCallback(
 {
     CallbackPtr     cbr;
 
-    cbr = (CallbackPtr) malloc(sizeof(CallbackRec));
+    cbr = malloc(sizeof(CallbackRec));
     if (!cbr)
 	return FALSE;
     cbr->proc = callback;
@@ -823,7 +835,7 @@ CreateCallbackList(CallbackListPtr *pcbl)
     int i;
 
     if (!pcbl) return FALSE;
-    cbl = (CallbackListPtr) malloc(sizeof(CallbackListRec));
+    cbl = malloc(sizeof(CallbackListRec));
     if (!cbl) return FALSE;
     cbl->inCallback = 0;
     cbl->deleted = FALSE;
@@ -891,7 +903,7 @@ InitCallbackManager(void)
     {
 	DeleteCallbackList(listsToCleanup[i]);
     }
-    if (listsToCleanup) free(listsToCleanup);
+    free(listsToCleanup);
 
     numCallbackListsToCleanup = 0;
     listsToCleanup = NULL;

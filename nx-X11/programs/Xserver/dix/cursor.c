@@ -59,6 +59,7 @@ SOFTWARE.
 #include "cursorstr.h"
 #include "dixfontstr.h"
 #include "opaque.h"
+#include "inputstr.h"
 #include "xace.h"
 
 typedef struct _GlyphShare {
@@ -70,6 +71,8 @@ typedef struct _GlyphShare {
 } GlyphShare, *GlyphSharePtr;
 
 static GlyphSharePtr sharedGlyphs = (GlyphSharePtr)NULL;
+
+DevPrivateKeyRec cursorScreenDevPriv[MAXSCREENS];
 
 #ifdef XFIXES
 static CARD32	cursorSerial;
@@ -85,6 +88,7 @@ FreeCursorBits(CursorBitsPtr bits)
 #ifdef ARGB_CURSOR
     free(bits->argb);
 #endif
+    dixFiniPrivates(bits, PRIVATE_CURSOR_BITS);
     if (bits->refcnt == 0)
     {
 	GlyphSharePtr *prev, this;
@@ -99,7 +103,6 @@ FreeCursorBits(CursorBitsPtr bits)
 	    CloseFont(this->font, (Font)0);
 	    free(this);
 	}
-	dixFreePrivates(bits->devPrivates);
 	free(bits);
     }
 }
@@ -116,19 +119,20 @@ FreeCursor(void * value, XID cid)
     CursorPtr 	pCurs = (CursorPtr)value;
 
     ScreenPtr	pscr;
+    DeviceIntPtr pDev = NULL; /* unused anyway */
 
-    if ( --pCurs->refcnt > 0)
-	return(Success);
+    if ( --pCurs->refcnt != 0)
+	return Success;
 
     for (nscr = 0; nscr < screenInfo.numScreens; nscr++)
     {
 	pscr = screenInfo.screens[nscr];
-	(void)( *pscr->UnrealizeCursor)( pscr, pCurs);
+        (void)( *pscr->UnrealizeCursor)(pDev, pscr, pCurs);
     }
-    dixFreePrivates(pCurs->devPrivates);
     FreeCursorBits(pCurs->bits);
+    dixFiniPrivates(pCurs, PRIVATE_CURSOR);
     free( pCurs);
-    return(Success);
+    return Success;
 }
 
 
@@ -157,6 +161,65 @@ CheckForEmptyMask(CursorBitsPtr bits)
 }
 
 /**
+ * realize the cursor for every screen. Do not change the refcnt, this will be
+ * changed when ChangeToCursor actually changes the sprite.
+ *
+ * @return Success if all cursors realize on all screens, BadAlloc if realize
+ * failed for a device on a given screen.
+ */
+static int
+RealizeCursorAllScreens(CursorPtr pCurs)
+{
+    DeviceIntPtr pDev;
+    ScreenPtr   pscr;
+    int nscr;
+
+    for (nscr = 0; nscr < screenInfo.numScreens; nscr++)
+    {
+        pscr = screenInfo.screens[nscr];
+        for (pDev = inputInfo.devices; pDev; pDev = pDev->next)
+        {
+            if (DevHasCursor(pDev))
+            {
+                if (!( *pscr->RealizeCursor)(pDev, pscr, pCurs))
+                {
+                    /* Realize failed for device pDev on screen pscr.
+                     * We have to assume that for all devices before, realize
+                     * worked. We need to rollback all devices so far on the
+                     * current screen and then all devices on previous
+                     * screens.
+                     */
+                    DeviceIntPtr pDevIt = inputInfo.devices; /*dev iterator*/
+                    while(pDevIt && pDevIt != pDev)
+                    {
+                        if (DevHasCursor(pDevIt))
+                            ( *pscr->UnrealizeCursor)(pDevIt, pscr, pCurs);
+                        pDevIt = pDevIt->next;
+                    }
+                    while (--nscr >= 0)
+                    {
+                        pscr = screenInfo.screens[nscr];
+                        /* now unrealize all devices on previous screens */
+                        pDevIt = inputInfo.devices;
+                        while (pDevIt)
+                        {
+                            if (DevHasCursor(pDevIt))
+                                ( *pscr->UnrealizeCursor)(pDevIt, pscr, pCurs);
+                            pDevIt = pDevIt->next;
+                        }
+                        ( *pscr->UnrealizeCursor)(pDev, pscr, pCurs);
+                    }
+                    return BadAlloc;
+                }
+            }
+        }
+    }
+
+    return Success;
+}
+
+
+/**
  * does nothing about the resource table, just creates the data structure.
  * does not copy the src and mask bits
  *
@@ -173,18 +236,19 @@ AllocARGBCursor(unsigned char *psrcbits, unsigned char *pmaskbits,
 {
     CursorBitsPtr  bits;
     CursorPtr 	pCurs;
-    int		rc, nscr;
-    ScreenPtr 	pscr;
+    int rc;
 
     *ppCurs = NULL;
-    pCurs = (CursorPtr)malloc(sizeof(CursorRec) + sizeof(CursorBits));
+    pCurs = (CursorPtr)calloc(CURSOR_REC_SIZE + CURSOR_BITS_SIZE, 1);
     if (!pCurs)
     {
 	free(psrcbits);
 	free(pmaskbits);
 	return BadAlloc;
     }
-    bits = (CursorBitsPtr)((char *)pCurs + sizeof(CursorRec));
+    bits = (CursorBitsPtr)((char *)pCurs + CURSOR_REC_SIZE);
+    dixInitPrivates(pCurs, pCurs + 1, PRIVATE_CURSOR);
+    dixInitPrivates(bits, bits + 1, PRIVATE_CURSOR_BITS)
     bits->source = psrcbits;
     bits->mask = pmaskbits;
 #ifdef ARGB_CURSOR
@@ -194,11 +258,10 @@ AllocARGBCursor(unsigned char *psrcbits, unsigned char *pmaskbits,
     bits->height = cm->height;
     bits->xhot = cm->xhot;
     bits->yhot = cm->yhot;
-    bits->devPrivates = NULL;
+    pCurs->refcnt = 1;		
     bits->refcnt = -1;
     CheckForEmptyMask(bits);
     pCurs->bits = bits;
-    pCurs->refcnt = 1;		
 #ifdef XFIXES
     pCurs->serialNumber = ++cursorSerial;
     pCurs->name = None;
@@ -213,38 +276,25 @@ AllocARGBCursor(unsigned char *psrcbits, unsigned char *pmaskbits,
     pCurs->backBlue = backBlue;
 
     pCurs->id = cid;
-    pCurs->devPrivates = NULL;
 
     /* security creation/labeling check */
     rc = XaceHook(XACE_RESOURCE_ACCESS, client, cid, RT_CURSOR,
 		  pCurs, RT_NONE, NULL, DixCreateAccess);
-    if (rc != Success) {
-	dixFreePrivates(pCurs->devPrivates);
-	FreeCursorBits(bits);
-	free(pCurs);
-	return rc;
-    }
+    if (rc != Success)
+        goto error;
 	
-    /*
-     * realize the cursor for every screen
-     */
-    for (nscr = 0; nscr < screenInfo.numScreens; nscr++)
-    {
-	pscr = screenInfo.screens[nscr];
-        if (!( *pscr->RealizeCursor)( pscr, pCurs))
-	{
-	    while (--nscr >= 0)
-	    {
-		pscr = screenInfo.screens[nscr];
-		( *pscr->UnrealizeCursor)( pscr, pCurs);
-	    }
-	    dixFreePrivates(pCurs->devPrivates);
-	    FreeCursorBits(bits);
-	    free(pCurs);
-	    return BadAlloc;
-	}
-    }
+    rc = RealizeCursorAllScreens(pCurs);
+    if (rc != Success)
+        goto error;
+
     *ppCurs = pCurs;
+    return Success;
+
+error:
+	    FreeCursorBits(bits);
+    dixFiniPrivates(pCurs, PRIVATE_CURSOR);
+	    free(pCurs);
+
     return rc;
 }
 
@@ -261,23 +311,21 @@ AllocGlyphCursor(Font source, unsigned sourceChar, Font mask, unsigned maskChar,
     int rc;
     CursorBitsPtr  bits;
     CursorPtr 	pCurs;
-    int		nscr;
-    ScreenPtr 	pscr;
     GlyphSharePtr pShare;
 
-    rc = dixLookupResource((void * *)&sourcefont, source, RT_FONT, client,
+    rc = dixLookupResourceByType((void * *)&sourcefont, source, RT_FONT, client,
 			   DixUseAccess);
     if (rc != Success)
     {
 	client->errorValue = source;
-	return (rc == BadValue) ? BadFont : rc;
+	return rc;
     }
-    rc = dixLookupResource((void * *)&maskfont, mask, RT_FONT, client,
+    rc = dixLookupResourceByType((void * *)&maskfont, mask, RT_FONT, client,
 			   DixUseAccess);
     if (rc != Success && mask != None)
     {
 	client->errorValue = mask;
-	return (rc == BadValue) ? BadFont : rc;
+	return rc;
     }
     if (sourcefont != maskfont)
 	pShare = (GlyphSharePtr)NULL;
@@ -293,9 +341,10 @@ AllocGlyphCursor(Font source, unsigned sourceChar, Font mask, unsigned maskChar,
     }
     if (pShare)
     {
-	pCurs = (CursorPtr)malloc(sizeof(CursorRec));
+	pCurs = (CursorPtr)calloc(CURSOR_REC_SIZE, 1);
 	if (!pCurs)
 	    return BadAlloc;
+	dixInitPrivates(pCurs, pCurs + 1, PRIVATE_CURSOR);
 	bits = pShare->bits;
 	bits->refcnt++;
     }
@@ -312,7 +361,7 @@ AllocGlyphCursor(Font source, unsigned sourceChar, Font mask, unsigned maskChar,
 	    unsigned char *mskptr;
 
 	    n = BitmapBytePad(cm.width)*(long)cm.height;
-	    mskptr = mskbits = (unsigned char *)malloc(n);
+	    mskptr = mskbits = malloc(n);
 	    if (!mskptr)
 		return BadAlloc;
 	    while (--n >= 0)
@@ -335,17 +384,18 @@ AllocGlyphCursor(Font source, unsigned sourceChar, Font mask, unsigned maskChar,
 	}
 	if (sourcefont != maskfont)
 	{
-	    pCurs = (CursorPtr)malloc(sizeof(CursorRec) + sizeof(CursorBits));
+	    pCurs = 
+                (CursorPtr)calloc(CURSOR_REC_SIZE + CURSOR_BITS_SIZE, 1);
 	    if (pCurs)
-		bits = (CursorBitsPtr)((char *)pCurs + sizeof(CursorRec));
+		bits = (CursorBitsPtr)((char *)pCurs + CURSOR_REC_SIZE);
 	    else
 		bits = (CursorBitsPtr)NULL;
 	}
 	else
 	{
-	    pCurs = (CursorPtr)malloc(sizeof(CursorRec));
+	    pCurs = (CursorPtr)calloc(CURSOR_REC_SIZE, 1);
 	    if (pCurs)
-		bits = (CursorBitsPtr)malloc(sizeof(CursorBits));
+		bits = (CursorBitsPtr)calloc(CURSOR_BITS_SIZE, 1);
 	    else
 		bits = (CursorBitsPtr)NULL;
 	}
@@ -356,6 +406,8 @@ AllocGlyphCursor(Font source, unsigned sourceChar, Font mask, unsigned maskChar,
 	    free(srcbits);
 	    return BadAlloc;
 	}
+	dixInitPrivates(pCurs, pCurs + 1, PRIVATE_CURSOR);
+	dixInitPrivates(bits, bits + 1, PRIVATE_CURSOR_BITS);
 	bits->source = srcbits;
 	bits->mask = mskbits;
 #ifdef ARGB_CURSOR
@@ -365,17 +417,15 @@ AllocGlyphCursor(Font source, unsigned sourceChar, Font mask, unsigned maskChar,
 	bits->height = cm.height;
 	bits->xhot = cm.xhot;
 	bits->yhot = cm.yhot;
-	bits->devPrivates = NULL;
 	if (sourcefont != maskfont)
 	    bits->refcnt = -1;
 	else
 	{
 	    bits->refcnt = 1;
-	    pShare = (GlyphSharePtr)malloc(sizeof(GlyphShare));
+	    pShare = malloc(sizeof(GlyphShare));
 	    if (!pShare)
 	    {
 		FreeCursorBits(bits);
-		free(pCurs);
 		return BadAlloc;
 	    }
 	    pShare->font = sourcefont;
@@ -387,6 +437,7 @@ AllocGlyphCursor(Font source, unsigned sourceChar, Font mask, unsigned maskChar,
 	    sharedGlyphs = pShare;
 	}
     }
+
     CheckForEmptyMask(bits);
     pCurs->bits = bits;
     pCurs->refcnt = 1;
@@ -404,39 +455,26 @@ AllocGlyphCursor(Font source, unsigned sourceChar, Font mask, unsigned maskChar,
     pCurs->backBlue = backBlue;
 
     pCurs->id = cid;
-    pCurs->devPrivates = NULL;
 
     /* security creation/labeling check */
     rc = XaceHook(XACE_RESOURCE_ACCESS, client, cid, RT_CURSOR,
 		  pCurs, RT_NONE, NULL, DixCreateAccess);
-    if (rc != Success) {
-	dixFreePrivates(pCurs->devPrivates);
-	FreeCursorBits(bits);
-	free(pCurs);
-	return rc;
-    }
+    if (rc != Success)
+        goto error;
+
+    rc = RealizeCursorAllScreens(pCurs);
+    if (rc != Success)
+        goto error;
 	
-    /*
-     * realize the cursor for every screen
-     */
-    for (nscr = 0; nscr < screenInfo.numScreens; nscr++)
-    {
-	pscr = screenInfo.screens[nscr];
-        if (!( *pscr->RealizeCursor)( pscr, pCurs))
-	{
-	    while (--nscr >= 0)
-	    {
-		pscr = screenInfo.screens[nscr];
-		( *pscr->UnrealizeCursor)( pscr, pCurs);
-	    }
-	    dixFreePrivates(pCurs->devPrivates);
-	    FreeCursorBits(pCurs->bits);
-	    free(pCurs);
-	    return BadAlloc;
-	}
-    }
     *ppCurs = pCurs;
     return Success;
+
+error:
+    FreeCursorBits(bits);
+    dixFiniPrivates(pCurs, PRIVATE_CURSOR);
+    free(pCurs);
+
+    return rc;
 }
 
 /** CreateRootCursor
@@ -452,39 +490,23 @@ CursorPtr
 CreateRootCursor(char *unused1, unsigned int unused2)
 {
     CursorPtr 	curs;
-#ifdef NULL_ROOT_CURSOR
-    CursorMetricRec cm;
-#else
     FontPtr 	cursorfont;
     int	err;
     XID		fontID;
-#endif
 
-#ifdef NULL_ROOT_CURSOR
-    cm.width = 0;
-    cm.height = 0;
-    cm.xhot = 0;
-    cm.yhot = 0;
-
-    AllocARGBCursor(NULL, NULL, NULL, &cm, 0, 0, 0, 0, 0, 0,
-		    &curs, serverClient, (XID)0);
-
-    if (curs == NullCursor)
-        return NullCursor;
-#else
     fontID = FakeClientID(0);
     err = OpenFont(serverClient, fontID, FontLoadAll | FontOpenSync,
 	(unsigned)strlen(defaultCursorFont), defaultCursorFont);
     if (err != Success)
 	return NullCursor;
 
-    cursorfont = (FontPtr)LookupIDByType(fontID, RT_FONT);
-    if (!cursorfont)
+    err = dixLookupResourceByType((void * *)&cursorfont, fontID, RT_FONT,
+				  serverClient, DixReadAccess);
+    if (err != Success)
 	return NullCursor;
     if (AllocGlyphCursor(fontID, 0, fontID, 1, 0, 0, 0, ~0, ~0, ~0,
 			 &curs, serverClient, (XID)0) != Success)
 	return NullCursor;
-#endif
 
     if (!AddResource(FakeClientID(0), RT_CURSOR, (void *)curs))
 	return NullCursor;

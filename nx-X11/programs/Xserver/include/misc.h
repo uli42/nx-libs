@@ -72,15 +72,11 @@ OF THIS SOFTWARE.
  *
  */
 
-extern unsigned long globalSerialNumber;
-extern unsigned long serverGeneration;
-
 #include <nx-X11/Xosdefs.h>
 #include <nx-X11/Xfuncproto.h>
 #include <nx-X11/Xmd.h>
 #include <nx-X11/X.h>
 #include <stdint.h>
-
 #include <nx-X11/Xdefs.h>
 
 #include <stddef.h>
@@ -89,7 +85,12 @@ extern unsigned long serverGeneration;
 #define MAXSCREENS	16
 #endif
 #define MAXCLIENTS	256
+#define MAXEXTENSIONS   128
 #define MAXFORMATS	8
+#define MAXDEVICES	40 /* input devices */
+
+#define EXTENSION_EVENT_BASE 64
+#define EXTENSION_BASE 128
 
 typedef unsigned long PIXEL;
 typedef unsigned long ATOM;
@@ -185,7 +186,7 @@ typedef struct _xReq *xReqPtr;
  * @param bits The minimum number of bits needed.
  * @return The number of bytes needed to hold bits.
  */
-static __inline__ int
+static inline int
 bits_to_bytes(const int bits) {
     return ((bits + 7) >> 3);
 }
@@ -195,7 +196,7 @@ bits_to_bytes(const int bits) {
  * @param bytes The minimum number of bytes needed.
  * @return The number of 4-byte units needed to hold bytes.
  */
-static __inline__ int
+static inline int
 bytes_to_int32(const int bytes) {
     return (((bytes) + 3) >> 2);
 }
@@ -205,32 +206,13 @@ bytes_to_int32(const int bytes) {
  * @param bytes The minimum number of bytes needed.
  * @return The closest multiple of 4 that is equal or higher than bytes.
  */
-static __inline__ int
+static inline int
 pad_to_int32(const int bytes) {
     return (((bytes) + 3) & ~3);
 }
 
-/**
- * Compare the two version numbers comprising of major.minor.
- *
- * @return A value less than 0 if a is less than b, 0 if a is equal to b,
- * or a value greater than 0
- */
-static inline int
-version_compare(uint32_t a_major, uint32_t a_minor,
-                uint32_t b_major, uint32_t b_minor)
-{
-    if (a_major > b_major)
-        return 1;
-    if (a_major < b_major)
-        return -1;
-    if (a_minor > b_minor)
-        return 1;
-    if (a_minor < b_minor)
-        return -1;
-
-    return 0;
-}
+extern char**
+xstrtokenize(const char *str, const char* separators);
 
 /* some macros to help swap requests, replies, and events */
 
@@ -351,17 +333,17 @@ swap_uint16(uint16_t * x)
 	(dst) = lswaps((src)); \
     } while (0)
 
-extern void SwapLongs(
+extern _X_EXPORT void SwapLongs(
     CARD32 *list,
     unsigned long count);
 
-extern void SwapShorts(
+extern _X_EXPORT void SwapShorts(
     short *list,
     unsigned long count);
 
-extern void MakePredeclaredAtoms(void);
+extern _X_EXPORT void MakePredeclaredAtoms(void);
 
-extern int Ones(
+extern _X_EXPORT int Ones(
     unsigned long /*mask*/);
 
 typedef struct _xPoint *DDXPointPtr;
@@ -379,5 +361,8 @@ typedef struct _GrabRec *GrabPtr;
 typedef struct _CharInfo *CharInfoPtr; /* also in fonts/include/font.h */
 #define _XTYPEDEF_CHARINFOPTR
 #endif
+
+extern _X_EXPORT unsigned long globalSerialNumber;
+extern _X_EXPORT unsigned long serverGeneration;
 
 #endif /* MISC_H */

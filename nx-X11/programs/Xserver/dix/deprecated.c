@@ -115,48 +115,51 @@ LookupClient(XID id, ClientPtr client)
     return (i == Success) ? pClient : NULL;
 }
 
-/* replaced by dixLookupResource */
+/* replaced by dixLookupResourceByType */
 void *
 SecurityLookupIDByType(ClientPtr client, XID id, RESTYPE rtype,
 		       Mask access_mode)
 {
     void * retval;
-    int i = dixLookupResource(&retval, id, rtype, client, access_mode);
+    int i = dixLookupResourceByType(&retval, id, rtype, client, access_mode);
     static int warn = 1;
     if (warn > 0 && --warn)
 	ErrorF("Warning: LookupIDByType()/SecurityLookupIDByType() "
 	       "are deprecated.  Please convert your driver/module "
-	       "to use dixLookupResource().\n");
+	       "to use dixLookupResourceByType().\n");
     return (i == Success) ? retval : NULL;
 }
 
-/* replaced by dixLookupResource */
 void *
 SecurityLookupIDByClass(ClientPtr client, XID id, RESTYPE classes,
 			Mask access_mode)
 {
     void * retval;
-    int i = dixLookupResource(&retval, id, classes, client, access_mode);
+    int i = dixLookupResourceByClass(&retval, id, classes, client, access_mode);
     static int warn = 1;
     if (warn > 0 && --warn)
 	ErrorF("Warning: LookupIDByClass()/SecurityLookupIDByClass() "
 	       "are deprecated.  Please convert your driver/module "
-	       "to use dixLookupResource().\n");
+	       "to use dixLookupResourceByClass().\n");
     return (i == Success) ? retval : NULL;
 }
 
-/* replaced by dixLookupResource */
+/* replaced by dixLookupResourceByType */
 void *
 LookupIDByType(XID id, RESTYPE rtype)
 {
-    return SecurityLookupIDByType(NullClient, id, rtype, DixUnknownAccess);
+    void * val;
+    dixLookupResourceByType(&val, id, rtype, NullClient, DixUnknownAccess);
+    return val;
 }
 
-/* replaced by dixLookupResource */
+/* replaced by dixLookupResourceByClass */
 void *
 LookupIDByClass(XID id, RESTYPE classes)
 {
-    return SecurityLookupIDByClass(NullClient, id, classes, DixUnknownAccess);
+    void * val;
+    dixLookupResourceByClass(&val, id, classes, NullClient, DixUnknownAccess);
+    return val;
 }
 
 /* end deprecated functions */

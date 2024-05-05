@@ -92,11 +92,9 @@ ServerBitsFromGlyph(FontPtr pfont, unsigned ch, CursorMetricPtr cm, unsigned cha
 
     pScreen = screenInfo.screens[0];
     nby = BitmapBytePad(cm->width) * (long)cm->height;
-    pbits = (char *)malloc(nby);
+    pbits = calloc(1, nby);
     if (!pbits)
 	return BadAlloc;
-    /* zeroing the (pad) bits seems to help some ddx cursor handling */
-    bzero(pbits, nby);
 
     ppix = (PixmapPtr)(*pScreen->CreatePixmap)(pScreen, cm->width,
 					       cm->height, 1,
@@ -121,14 +119,13 @@ ServerBitsFromGlyph(FontPtr pfont, unsigned ch, CursorMetricPtr cm, unsigned cha
     gcval[0].val = GXcopy;
     gcval[1].val = 0;
     gcval[2].ptr = (void *)pfont;
-    dixChangeGC(NullClient, pGC, GCFunction | GCForeground | GCFont,
-		NULL, gcval);
+    ChangeGC(NullClient, pGC, GCFunction | GCForeground | GCFont, gcval);
     ValidateGC((DrawablePtr)ppix, pGC);
     (*pGC->ops->PolyFillRect)((DrawablePtr)ppix, pGC, 1, &rect);
 
     /* draw the glyph */
     gcval[0].val = 1;
-    dixChangeGC(NullClient, pGC, GCForeground, NULL, gcval);
+    ChangeGC(NullClient, pGC, GCForeground, gcval);
     ValidateGC((DrawablePtr)ppix, pGC);
     (*pGC->ops->PolyText16)((DrawablePtr)ppix, pGC, cm->xhot, cm->yhot,
 			    1, (unsigned short *)char2b);

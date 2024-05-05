@@ -79,23 +79,22 @@ Equipment Corporation.
 #include <dix-config.h>
 #endif
 
-#include <pixman.h>
-
 #include "regionstr.h"
 #include <nx-X11/Xprotostr.h>
+#include <nx-X11/Xfuncproto.h>
 #include "gc.h"
-
-#if defined (__GNUC__) && !defined (NO_INLINES)
-#define INLINE	__inline
-#else
-#define INLINE
-#endif
+#include <pixman.h>
 
 #undef assert
-#ifdef DEBUG
-#define assert(expr) {if (!(expr)) \
-		FatalError("Assertion failed file %s, line %d: expr\n", \
-			__FILE__, __LINE__); }
+#ifdef REGION_DEBUG
+#define assert(expr) { \
+            CARD32 *foo = NULL; \
+            if (!(expr)) { \
+                ErrorF("Assertion failed file %s, line %d: %s\n", \
+                       __FILE__, __LINE__, #expr); \
+                *foo = 0xdeadbeef; /* to get a backtrace */ \
+            } \
+        }
 #else
 #define assert(expr)
 #endif
@@ -170,7 +169,8 @@ Equipment Corporation.
         ((r1)->y1 <= (r2)->y1) && \
         ((r1)->y2 >= (r2)->y2) )
 
-#define xfreeData(reg) if ((reg)->data && (reg)->data->size) free((reg)->data)
+#define mallocData(n) malloc(RegionSizeof(n))
+#define freeData(reg) if ((reg)->data && (reg)->data->size) free((reg)->data)
 
 #define RECTALLOC_BAIL(pReg,n,bail) \
 if (!(pReg)->data || (((pReg)->data->numRects + (n)) > (pReg)->data->size)) \
@@ -206,9 +206,8 @@ if (!(pReg)->data || (((pReg)->data->numRects + (n)) > (pReg)->data->size)) \
 #define DOWNSIZE(reg,numRects)						 \
 if (((numRects) < ((reg)->data->size >> 1)) && ((reg)->data->size > 50)) \
 {									 \
-    size_t NewSize = RegionSizeof(numRects);				 \
-    RegDataPtr NewData =						 \
-	(NewSize > 0) ? (RegDataPtr)realloc((reg)->data, NewSize) : NULL;	 \
+    RegDataPtr NewData;							 \
+    NewData = (RegDataPtr)realloc((reg)->data, RegionSizeof(numRects));	 \
     if (NewData)							 \
     {									 \
 	NewData->size = (numRects);					 \
@@ -217,23 +216,48 @@ if (((numRects) < ((reg)->data->size >> 1)) && ((reg)->data->size > 50)) \
 }
 
 
-pixman_box16_t RegionEmptyBox = {0, 0, 0, 0};
+BoxRec RegionEmptyBox = {0, 0, 0, 0};
 RegDataRec RegionEmptyData = {0, 0};
 
 RegDataRec  RegionBrokenData = {0, 0};
-RegionRec   RegionBrokenRegion = { { 0, 0, 0, 0 }, &RegionBrokenData };
+static RegionRec   RegionBrokenRegion = { { 0, 0, 0, 0 }, &RegionBrokenData };
 
 void
 InitRegions(void)
 {
-  pixman_region_set_static_pointers(&RegionEmptyBox, &RegionEmptyData,
-				    &RegionBrokenData);
+    pixman_region_set_static_pointers (&RegionEmptyBox, &RegionEmptyData, &RegionBrokenData);
 }
 
-#ifdef DEBUG
-int
-RegionPrint(rgn)
-    RegionPtr rgn;
+/*****************************************************************
+ *   RegionCreate(rect, size)
+ *     This routine does a simple malloc to make a structure of
+ *     REGION of "size" number of rectangles.
+ *****************************************************************/
+
+RegionPtr
+RegionCreate(BoxPtr rect, int size)
+{
+    RegionPtr pReg;
+   
+    pReg = (RegionPtr)malloc(sizeof(RegionRec));
+    if (!pReg)
+	return &RegionBrokenRegion;
+
+    RegionInit (pReg, rect, size);
+    
+    return pReg;
+}
+
+void
+RegionDestroy(RegionPtr pReg)
+{
+    pixman_region_fini (pReg);
+    if (pReg != &RegionBrokenRegion)
+	free(pReg);
+}
+
+void
+RegionPrint(RegionPtr rgn)
 {
     int num, size;
     int i;
@@ -242,21 +266,18 @@ RegionPrint(rgn)
     num = RegionNumRects(rgn);
     size = RegionSize(rgn);
     rects = RegionRects(rgn);
-    ErrorF("num: %d size: %d\n", num, size);
-    ErrorF("extents: %d %d %d %d\n",
+    ErrorF("[mi] num: %d size: %d\n", num, size);
+    ErrorF("[mi] extents: %d %d %d %d\n",
 	   rgn->extents.x1, rgn->extents.y1, rgn->extents.x2, rgn->extents.y2);
     for (i = 0; i < num; i++)
-      ErrorF("%d %d %d %d \n",
+      ErrorF("[mi] %d %d %d %d \n",
 	     rects[i].x1, rects[i].y1, rects[i].x2, rects[i].y2);
-    ErrorF("\n");
-    return(num);
+    ErrorF("[mi] \n");
 }
-#endif /* DEBUG */
 
 #ifdef DEBUG
 Bool
-RegionIsValid(reg)
-    RegionPtr reg;
+RegionIsValid(RegionPtr reg)
 {
     int i, numRects;
 
@@ -269,7 +290,7 @@ RegionIsValid(reg)
 		(reg->extents.y1 == reg->extents.y2) &&
 		(reg->data->size || (reg->data == &RegionEmptyData)));
     else if (numRects == 1)
-	return (!reg->data);
+	return !reg->data;
     else
     {
 	BoxPtr pboxP, pboxN;
@@ -299,80 +320,26 @@ RegionIsValid(reg)
 		(box.y2 == reg->extents.y2));
     }
 }
-
 #endif /* DEBUG */
 
-
-/*****************************************************************
- *   RegionCreate(rect, size)
- *     This routine does a simple malloc to make a structure of
- *     REGION of "size" number of rectangles.
- *****************************************************************/
-
-RegionPtr
-RegionCreate(rect, size)
-    BoxPtr rect;
-    int size;
-{
-    RegionPtr pReg;
-    size_t newSize;
-    pReg = (RegionPtr)malloc(sizeof(RegionRec));
-    if (!pReg)
-	return &RegionBrokenRegion;
-    if (rect)
-    {
-	pReg->extents = *rect;
-	pReg->data = (RegDataPtr)NULL;
-    }
-    else
-    {
-	pReg->extents = RegionEmptyBox;
-	newSize = RegionSizeof(size);
-	if ((size > 1) && (newSize > 0) &&
-	    (pReg->data = malloc(newSize)))
-	{
-	    pReg->data->size = size;
-	    pReg->data->numRects = 0;
-	}
-	else
-	    pReg->data = &RegionEmptyData;
-    }
-    return(pReg);
-}
-
-void
-RegionDestroy(pReg)
-    RegionPtr pReg;
-{
-    good(pReg);
-    xfreeData(pReg);
-    if (pReg != &RegionBrokenRegion)
-	free(pReg);
-}
-
 Bool
-RegionBreak (pReg)
-    RegionPtr pReg;
+RegionBreak (RegionPtr pReg)
 {
-    xfreeData (pReg);
+    freeData (pReg);
     pReg->extents = RegionEmptyBox;
     pReg->data = &RegionBrokenData;
     return FALSE;
 }
 
 Bool
-RegionRectAlloc(
-    RegionPtr pRgn,
-    int n)
+RegionRectAlloc(RegionPtr pRgn, int n)
 {
     RegDataPtr	data;
-    size_t rgnSize;
 
     if (!pRgn->data)
     {
 	n++;
-	rgnSize = RegionSizeof(n);
-	pRgn->data = (rgnSize > 0) ? malloc(rgnSize) : NULL;
+	pRgn->data = mallocData(n);
 	if (!pRgn->data)
 	    return RegionBreak (pRgn);
 	pRgn->data->numRects = 1;
@@ -380,8 +347,7 @@ RegionRectAlloc(
     }
     else if (!pRgn->data->size)
     {
-	rgnSize = RegionSizeof(n);
-	pRgn->data = (rgnSize > 0) ? malloc(rgnSize) : NULL;
+	pRgn->data = mallocData(n);
 	if (!pRgn->data)
 	    return RegionBreak (pRgn);
 	pRgn->data->numRects = 0;
@@ -395,8 +361,7 @@ RegionRectAlloc(
 		n = 250;
 	}
 	n += pRgn->data->numRects;
-	rgnSize = RegionSizeof(n);
-	data = (rgnSize > 0) ? realloc(pRgn->data, rgnSize) : NULL;
+	data = (RegDataPtr)realloc(pRgn->data, RegionSizeof(n));
 	if (!data)
 	    return RegionBreak (pRgn);
 	pRgn->data = data;
@@ -404,8 +369,6 @@ RegionRectAlloc(
     pRgn->data->size = n;
     return TRUE;
 }
-
-
 
 /*======================================================================
  *	    Generic Region Operator
@@ -429,7 +392,7 @@ RegionRectAlloc(
  *
  *-----------------------------------------------------------------------
  */
-INLINE static int
+_X_INLINE static int
 RegionCoalesce (
     RegionPtr	pReg,	    	/* Region to coalesce		     */
     int	    	  	prevStart,  	/* Index of start of previous band   */
@@ -465,7 +428,7 @@ RegionCoalesce (
 
     do {
 	if ((pPrevBox->x1 != pCurBox->x1) || (pPrevBox->x2 != pCurBox->x2)) {
-	    return (curStart);
+	    return curStart;
 	}
 	pPrevBox++;
 	pCurBox++;
@@ -513,7 +476,7 @@ RegionCoalesce (
  *-----------------------------------------------------------------------
  */
 
-INLINE static Bool
+_X_INLINE static Bool
 RegionAppendNonO (
     RegionPtr	pReg,
     BoxPtr	r,
@@ -657,7 +620,7 @@ RegionOp(
     assert(r1 != r1End);
     assert(r2 != r2End);
 
-    oldData = (RegDataPtr)NULL;
+    oldData = NULL;
     if (((newReg == reg1) && (newSize > 1)) ||
 	((newReg == reg2) && (numRects > 1)))
     {
@@ -799,19 +762,18 @@ RegionOp(
 	AppendRegions(newReg, r2BandEnd, r2End);
     }
 
-    if (oldData)
 	free(oldData);
 
     if (!(numRects = newReg->data->numRects))
     {
-	xfreeData(newReg);
+	freeData(newReg);
 	newReg->data = &RegionEmptyData;
     }
     else if (numRects == 1)
     {
 	newReg->extents = *RegionBoxptr(newReg);
-	xfreeData(newReg);
-	newReg->data = (RegDataPtr)NULL;
+	freeData(newReg);
+	newReg->data = NULL;
     }
     else
     {
@@ -825,8 +787,8 @@ RegionOp(
  *-----------------------------------------------------------------------
  * RegionSetExtents --
  *	Reset the extents of a region to what they should be. Called by
- *	RegionSubtract and RegionIntersect as they can't figure it out along the
- *	way or do so easily, as RegionUnion can.
+ *	Subtract and Intersect as they can't figure it out along the
+ *	way or do so easily, as Union can.
  *
  * Results:
  *	None.
@@ -836,9 +798,8 @@ RegionOp(
  *
  *-----------------------------------------------------------------------
  */
-void
-RegionSetExtents (pReg)
-    RegionPtr pReg;
+static void
+RegionSetExtents (RegionPtr pReg)
 {
     BoxPtr pBox, pBoxEnd;
 
@@ -877,6 +838,24 @@ RegionSetExtents (pReg)
 
     assert(pReg->extents.x1 < pReg->extents.x2);
 }
+
+/*======================================================================
+ *	    Region Intersection
+ *====================================================================*/
+/*-
+ *-----------------------------------------------------------------------
+ * RegionIntersectO --
+ *	Handle an overlapping band for RegionIntersect.
+ *
+ * Results:
+ *	TRUE if successful.
+ *
+ * Side Effects:
+ *	Rectangles may be added to the region.
+ *
+ *-----------------------------------------------------------------------
+ */
+/*ARGSUSED*/
 
 #define MERGERECT(r)						\
 {								\
@@ -994,9 +973,7 @@ RegionUnionO (
  *
  */
 Bool
-RegionAppend(dstrgn, rgn)
-    RegionPtr dstrgn;
-    RegionPtr rgn;
+RegionAppend(RegionPtr dstrgn, RegionPtr rgn)
 {
     int numRects, dnumRects, size;
     BoxPtr new, old;
@@ -1008,7 +985,7 @@ RegionAppend(dstrgn, rgn)
     if (!rgn->data && (dstrgn->data == &RegionEmptyData))
     {
 	dstrgn->extents = rgn->extents;
-	dstrgn->data = (RegDataPtr)NULL;
+	dstrgn->data = NULL;
 	return TRUE;
     }
 
@@ -1173,16 +1150,14 @@ QuickSortRects(
  *		or a coalescing into 1 box (ala Menus).
  *
  *	Step 3. Merge the separate regions down to a single region by calling
- *		RegionUnion.  Maximize the work each RegionUnion call does by using
+ *		Union.  Maximize the work each Union call does by using
  *		a binary merge.
  *
  *-----------------------------------------------------------------------
  */
 
 Bool
-RegionValidate(badreg, pOverlap)
-    RegionPtr badreg;
-    Bool *pOverlap;
+RegionValidate(RegionPtr badreg, Bool *pOverlap)
 {
     /* Descriptor for regions under construction  in Step 2. */
     typedef struct {
@@ -1222,7 +1197,7 @@ RegionValidate(badreg, pOverlap)
     {
 	if ((numRects) == 1)
 	{
-	    xfreeData(badreg);
+	    freeData(badreg);
 	    badreg->data = (RegDataPtr) NULL;
 	}
 	else
@@ -1314,7 +1289,7 @@ RegionValidate(badreg, pOverlap)
 	rit->prevBand = 0;
 	rit->curBand = 0;
 	rit->reg.extents = *box;
-	rit->reg.data = (RegDataPtr)NULL;
+	rit->reg.data = NULL;
 	if (!RegionRectAlloc(&rit->reg, (i+numRI) / numRI)) /* MUST force allocation */
 	    goto bail;
 NextRect: ;
@@ -1332,8 +1307,8 @@ NextRect: ;
 	Coalesce(reg, rit->prevBand, rit->curBand);
 	if (reg->data->numRects == 1) /* keep unions happy below */
 	{
-	    xfreeData(reg);
-	    reg->data = (RegDataPtr)NULL;
+	    freeData(reg);
+	    reg->data = NULL;
 	}
     }
 
@@ -1355,7 +1330,7 @@ NextRect: ;
 		reg->extents.x2 = hreg->extents.x2;
 	    if (hreg->extents.y2 > reg->extents.y2)
 		reg->extents.y2 = hreg->extents.y2;
-	    xfreeData(hreg);
+	    freeData(hreg);
 	}
 	numRI -= half;
     }
@@ -1365,23 +1340,20 @@ NextRect: ;
     return ret;
 bail:
     for (i = 0; i < numRI; i++)
-	xfreeData(&ri[i].reg);
+	freeData(&ri[i].reg);
     free (ri);
     return RegionBreak (badreg);
 }
 
 RegionPtr
-RegionFromRects(nrects, prect, ctype)
-    int			nrects;
-    xRectangle	*prect;
-    int			ctype;
+RegionFromRects(int nrects, xRectangle *prect, int ctype)
 {
+    
     RegionPtr	pRgn;
     RegDataPtr	pData;
     BoxPtr	pBox;
     int        i;
     int			x1, y1, x2, y2;
-    size_t newSize;
 
     pRgn = RegionCreate(NullBox, 0);
     if (RegionNar (pRgn))
@@ -1402,12 +1374,11 @@ RegionFromRects(nrects, prect, ctype)
 	    pRgn->extents.y1 = y1;
 	    pRgn->extents.x2 = x2;
 	    pRgn->extents.y2 = y2;
-	    pRgn->data = (RegDataPtr)NULL;
+	    pRgn->data = NULL;
 	}
 	return pRgn;
     }
-    newSize = RegionSizeof(nrects);
-    pData = newSize > 0 ? malloc(newSize) : NULL;
+    pData = mallocData(nrects);
     if (!pData)
     {
 	RegionBreak (pRgn);
@@ -1451,36 +1422,6 @@ RegionFromRects(nrects, prect, ctype)
 	free (pData);
     }
     return pRgn;
-}
-
-Bool
-miRegionDataCopy(
-    RegionPtr dst,
-    RegionPtr src)
-{
-    good(dst);
-    good(src);
-    if (dst->data)
-	return TRUE;
-    if (dst == src)
-	return TRUE;
-    if (!src->data || !src->data->size)
-    {
-	xfreeData(dst);
-	dst->data = (RegDataPtr)NULL;
-	return TRUE;
-    }
-    if (!dst->data || (dst->data->size < src->data->numRects))
-    {
-	size_t newSize = RegionSizeof(src->data->numRects);
-	xfreeData(dst);
-	dst->data = newSize > 0 ? malloc(newSize) : NULL;
-	if (!dst->data)
-	    return RegionBreak (dst);
-    }
-    dst->data->size = src->data->size;
-    dst->data->numRects = src->data->numRects;
-    return TRUE;
 }
 
 #define ExchangeSpans(a, b)				    \
@@ -1622,7 +1563,7 @@ RegionClipSpans(
 
     if (!prgnDst->data)
     {
-	/* Do special fast code with clip boundaries in s(?) */
+	/* Do special fast code with clip boundaries in registers(?) */
 	/* It doesn't pay much to make use of fSorted in this case,
 	   so we lump everything together. */
 
@@ -1714,36 +1655,5 @@ RegionClipSpans(
 	    }
 	}
     }
-    return (pwidthNew - pwidthNewStart);
-}
-
-/* find the band in a region with the most rectangles */
-int
-miFindMaxBand(prgn)
-    RegionPtr prgn;
-{
-    int nbox;
-    BoxPtr pbox;
-    int nThisBand;
-    int nMaxBand = 0;
-    short yThisBand;
-
-    good(prgn);
-    nbox = RegionNumRects(prgn);
-    pbox = RegionRects(prgn);
-
-    while(nbox > 0)
-    {
-	yThisBand = pbox->y1;
-	nThisBand = 0;
-	while((nbox > 0) && (pbox->y1 == yThisBand))
-	{
-	    nbox--;
-	    pbox++;
-	    nThisBand++;
-	}
-	if (nThisBand > nMaxBand)
-	    nMaxBand = nThisBand;
-    }
-    return (nMaxBand);
+    return pwidthNew - pwidthNewStart;
 }

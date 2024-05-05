@@ -107,7 +107,7 @@ of the copyright holder.
 
 ******************************************************************/
 
-/** @file
+/** @file events.c
  * This file handles event delivery and a big part of the server-side protocol
  * handling (the parts for input devices).
  */
@@ -133,11 +133,9 @@ of the copyright holder.
 #endif
 #include "globals.h"
 
-#ifdef XKB
 #include <nx-X11/extensions/XKBproto.h>
 #include <xkbsrv.h>
 extern Bool XkbFilterEvents(ClientPtr, int, xEvent *);
-#endif
 
 #include "xace.h"
 
@@ -147,8 +145,10 @@ typedef const char *string;
 #include "Xserver-dtrace.h"
 #endif
 
-
 #include <nx-X11/extensions/XIproto.h>
+#include <nx-X11/extensions/XI2proto.h>
+#include <nx-X11/extensions/XI.h>
+#include <nx-X11/extensions/XI2.h>
 #include "exglobals.h"
 #include "exevents.h"
 #include "exglobals.h"
@@ -157,11 +157,16 @@ typedef const char *string;
 #include "dixevents.h"
 #include "dixgrabs.h"
 #include "dispatch.h"
-/**
- * Extension events type numbering starts at EXTENSION_EVENT_BASE.
- */
-#define EXTENSION_EVENT_BASE  64
 
+#include <nx-X11/extensions/ge.h>
+#include "geext.h"
+#include "geint.h"
+
+#include "eventstr.h"
+#include "enterleave.h"
+#include "eventconvert.h"
+
+/* Extension events type numbering starts at EXTENSION_EVENT_BASE.  */
 #define NoSuchEvent 0x80000000	/* so doesn't match NoEventMask */
 #define StructureAndSubMask ( StructureNotifyMask | SubstructureNotifyMask )
 #define AllButtonsMask ( \
@@ -181,14 +186,22 @@ typedef const char *string;
 #define AllModifiersMask ( \
 	ShiftMask | LockMask | ControlMask | Mod1Mask | Mod2Mask | \
 	Mod3Mask | Mod4Mask | Mod5Mask )
-#define AllEventMasks (lastEventMask|(lastEventMask-1))
-/*
- * The following relies on the fact that the Button<n>MotionMasks are equal
- * to the corresponding Button<n>Masks from the current modifier/button state.
- */
-#define Motion_Filter(class) (PointerMotionMask | \
-			      (class)->state | (class)->motionMask)
+#define LastEventMask OwnerGrabButtonMask
+#define AllEventMasks (LastEventMask|(LastEventMask-1))
 
+
+#define CORE_EVENT(event) \
+    (!((event)->u.u.type & EXTENSION_EVENT_BASE) && \
+      (event)->u.u.type != GenericEvent)
+#define XI2_EVENT(event) \
+    (((event)->u.u.type == GenericEvent) && \
+    ((xGenericEvent*)(event))->extension == IReqCode)
+
+/**
+ * Used to indicate a implicit passive grab created by a ButtonPress event.
+ * See DeliverEventsToWindow().
+ */
+#define ImplicitGrabMask (1 << 7)
 
 #define WID(w) ((w) ? ((w)->drawable.id) : 0)
 
@@ -205,83 +218,137 @@ CallbackListPtr DeviceEventCallback;
 Mask DontPropagateMasks[DNPMCOUNT];
 static int DontPropagateRefCnts[DNPMCOUNT];
 
+static void CheckVirtualMotion( DeviceIntPtr pDev, QdEventPtr qe, WindowPtr pWin);
+static void CheckPhysLimits(DeviceIntPtr pDev,
+                            CursorPtr cursor,
+                            Bool generateEvents,
+                            Bool confineToScreen,
+                            ScreenPtr pScreen);
+static Bool CheckPassiveGrabsOnWindow(WindowPtr pWin,
+                                      DeviceIntPtr device,
+                                      DeviceEvent *event,
+                                      BOOL checkCore);
+
+/** Key repeat hack. Do not use but in TryClientEvents */
+extern BOOL EventIsKeyRepeat(xEvent *event);
+
 /**
  * Main input device struct.
  *     inputInfo.pointer
  *     is the core pointer. Referred to as "virtual core pointer", "VCP",
- *     "core pointer" or inputInfo.pointer. There is exactly one core pointer,
- *     but multiple devices may send core events. If a device generates core
- *     events, those events will appear to originate from the core pointer.
+ *     "core pointer" or inputInfo.pointer. The VCP is the first master
+ *     void * device and cannot be deleted.
  *
  *     inputInfo.keyboard
  *     is the core keyboard ("virtual core keyboard", "VCK", "core keyboard").
  *     See inputInfo.pointer.
  *
  *     inputInfo.devices
- *     linked list containing all devices including VCK and VCP. The VCK will
- *     always be the first entry, the VCP the second entry in the device list.
+ *     linked list containing all devices including VCP and VCK.
  *
  *     inputInfo.off_devices
  *     Devices that have not been initialized and are thus turned off.
  *
  *     inputInfo.numDevices
  *     Total number of devices.
+ *
+ *     inputInfo.all_devices
+ *     Virtual device used for XIAllDevices passive grabs. This device is
+ *     not part of the inputInfo.devices list and mostly unset except for
+ *     the deviceid. It exists because passivegrabs need a valid device
+ *     reference.
+ *
+ *     inputInfo.all_master_devices
+ *     Virtual device used for XIAllMasterDevices passive grabs. This device
+ *     is not part of the inputInfo.devices list and mostly unset except for
+ *     the deviceid. It exists because passivegrabs need a valid device
+ *     reference.
  */
 InputInfo inputInfo;
 
-static struct {
-    QdEventPtr		pending, *pendtail;
-    DeviceIntPtr	replayDev;	/* kludgy rock to put flag for */
-    WindowPtr		replayWin;	/*   ComputeFreezes            */
-    Bool		playingEvents;
-    TimeStamp		time;
-} syncEvents;
-
-/*
- * The window trace information is used to avoid having to compute all the
- * windows between the root and the current pointer window each time a button
- * or key goes down. The grabs on each of those windows must be checked.
- *
- * @see XYToWindow() for a documentation on how the array is set up.
- */
-static WindowPtr *spriteTrace = (WindowPtr *)NULL;
-#define ROOT spriteTrace[0]
-static int spriteTraceSize = 0;
-static int spriteTraceGood;
+EventSyncInfoRec syncEvents;
 
 /**
- * DIX sprite information. This is the sprite as seen from the DIX. It does
- * not represent the actual sprite rendered to the screen.
- *
+ * The root window the given device is currently on.
  */
-static  struct {
-    CursorPtr	current;
-    BoxRec	hotLimits;	/* logical constraints of hot spot */
-    Bool	confined;	/* confined to screen */
-#if defined(SHAPE) || defined(PANORAMIX)
-    RegionPtr	hotShape;	/* additional logical shape constraint */
-#endif
-    BoxRec	physLimits;	/* physical constraints of hot spot */
-    WindowPtr	win;		/* window of logical position */
-    HotSpot	hot;		/* logical void * position */
-    HotSpot	hotPhys;	/* physical void * position */
-#ifdef PANORAMIX
-    ScreenPtr	screen;		/* all others are in Screen 0 coordinates */
-    RegionRec   Reg1;	        /* Region 1 for confining motion */
-    RegionRec   Reg2;		/* Region 2 for confining virtual motion */
-    WindowPtr   windows[MAXSCREENS];
-    WindowPtr	confineWin;	/* confine window */
-#endif
-} sprite;			/* info about the cursor sprite */
+#define RootWindow(dev) dev->spriteInfo->sprite->spriteTrace[0]
 
+static xEvent* swapEvent = NULL;
+static int swapEventLen = 0;
 
-static void DoEnterLeaveEvents(
-    WindowPtr fromWin,
-    WindowPtr toWin,
-    int mode
-);
+void
+NotImplemented(xEvent *from, xEvent *to)
+{
+    FatalError("Not implemented");
+}
+
+/**
+ * Convert the given event type from an XI event to a core event.
+ * @param[in] The XI 1.x event type.
+ * @return The matching core event type or 0 if there is none.
+ */
+int
+XItoCoreType(int xitype)
+{
+    int coretype = 0;
+    if (xitype == DeviceMotionNotify)
+        coretype = MotionNotify;
+    else if (xitype == DeviceButtonPress)
+        coretype = ButtonPress;
+    else if (xitype == DeviceButtonRelease)
+        coretype = ButtonRelease;
+    else if (xitype == DeviceKeyPress)
+        coretype = KeyPress;
+    else if (xitype == DeviceKeyRelease)
+        coretype = KeyRelease;
+
+    return coretype;
+}
+
+/**
+ * @return true if the device owns a cursor, false if device shares a cursor
+ * sprite with another device.
+ */
+Bool
+DevHasCursor(DeviceIntPtr pDev)
+{
+    return pDev->spriteInfo->spriteOwner;
+}
+
+/*
+ * @return true if a device is a pointer, check is the same as used by XI to
+ * fill the 'use' field.
+ */
+Bool
+IsPointerDevice(DeviceIntPtr dev)
+{
+    return (dev->type == MASTER_POINTER) ||
+            (dev->valuator && dev->button) ||
+            (dev->valuator && !dev->key);
+}
+
+/*
+ * @return true if a device is a keyboard, check is the same as used by XI to
+ * fill the 'use' field.
+ *
+ * Some void * devices have keys as well (e.g. multimedia keys). Try to not
+ * count them as keyboard devices.
+ */
+Bool
+IsKeyboardDevice(DeviceIntPtr dev)
+{
+    return (dev->type == MASTER_KEYBOARD) ||
+            ((dev->key && dev->kbdfeed) && !IsPointerDevice(dev));
+}
+
+Bool
+IsMaster(DeviceIntPtr dev)
+{
+    return dev->type == MASTER_POINTER || dev->type == MASTER_KEYBOARD;
+}
 
 static WindowPtr XYToWindow(
+    DeviceIntPtr pDev,
     int x,
     int y
 );
@@ -291,14 +358,23 @@ static WindowPtr XYToWindow(
  */
 extern int lastEvent;
 
-static Mask lastEventMask;
-
-#ifdef XINPUT
 extern int DeviceMotionNotify;
-#endif
 
 #define CantBeFiltered NoEventMask
-static Mask filters[128] =
+/**
+ * Event masks for each event type.
+ *
+ * One set of filters for each device, but only the first layer
+ * is initialized. The rest is memcpy'd in InitEvents.
+ *
+ * Filters are used whether a given event may be delivered to a client,
+ * usually in the form of if (window-event-mask & filter); then deliver event.
+ *
+ * One notable filter is for PointerMotion/DevicePointerMotion events. Each
+ * time a button is pressed, the filter is modified to also contain the
+ * matching ButtonXMotion mask.
+ */
+static Mask filters[MAXDEVICES][128] = {
 {
 	NoSuchEvent,		       /* 0 */
 	NoSuchEvent,		       /* 1 */
@@ -335,50 +411,126 @@ static Mask filters[128] =
 	ColormapChangeMask,	       /* ColormapNotify */
 	CantBeFiltered,		       /* ClientMessage */
 	CantBeFiltered		       /* MappingNotify */
-};
+}};
+
+/**
+ * For the given event, return the matching event filter. This filter may then
+ * be AND'ed with the selected event mask.
+ *
+ * For XI2 events, the returned filter is simply the byte containing the event
+ * mask we're interested in. E.g. for a mask of (1 << 13), this would be
+ * byte[1].
+ *
+ * @param[in] dev The device the event belongs to, may be NULL.
+ * @param[in] event The event to get the filter for. Only the type of the
+ *                  event matters, or the extension + evtype for GenericEvents.
+ * @return The filter mask for the given event.
+ *
+ * @see GetEventMask
+ */
+Mask
+GetEventFilter(DeviceIntPtr dev, xEvent *event)
+{
+    if (event->u.u.type != GenericEvent)
+        return filters[dev ? dev->id : 0][event->u.u.type];
+    else if (XI2_EVENT(event))
+        return (1 << (((xXIDeviceEvent*)event)->evtype % 8));
+    ErrorF("[dix] Unknown device type %d. No filter\n", event->u.u.type);
+    return 0;
+}
+
+/**
+ * Return the windows complete XI2 mask for the given XI2 event type.
+ */
+Mask
+GetWindowXI2Mask(DeviceIntPtr dev, WindowPtr win, xEvent* ev)
+{
+    OtherInputMasks *inputMasks = wOtherInputMasks(win);
+    int filter;
+    int evtype;
+
+    if (!inputMasks || !XI2_EVENT(ev))
+        return 0;
+
+    evtype = ((xGenericEvent*)ev)->evtype;
+    filter = GetEventFilter(dev, ev);
+
+    return ((inputMasks->xi2mask[dev->id][evtype/8] & filter) ||
+            inputMasks->xi2mask[XIAllDevices][evtype/8] ||
+            (inputMasks->xi2mask[XIAllMasterDevices][evtype/8] && IsMaster(dev)));
+}
+
+static Mask
+GetEventMask(DeviceIntPtr dev, xEvent *event, InputClients* other)
+{
+    /* XI2 filters are only ever 8 bit, so let's return a 8 bit mask */
+    if (XI2_EVENT(event))
+    {
+        int byte = ((xGenericEvent*)event)->evtype / 8;
+        return (other->xi2mask[dev->id][byte] |
+                other->xi2mask[XIAllDevices][byte] |
+                (IsMaster(dev)? other->xi2mask[XIAllMasterDevices][byte] : 0));
+    } else if (CORE_EVENT(event))
+        return other->mask[XIAllDevices];
+    else
+        return other->mask[dev->id];
+}
+
 
 static CARD8 criticalEvents[32] =
 {
-    0x7c				/* key and button events */
+    0x7c, 0x30, 0x40			/* key, button, expose, and configure events */
 };
 
-#ifdef PANORAMIX
-static void ConfineToShape(RegionPtr shape, int *px, int *py);
-static void PostNewCursor(void);
+static void
+SyntheticMotion(DeviceIntPtr dev, int x, int y) {
+    int screenno = 0;
 
-#define SyntheticMotion(x, y) \
-    PostSyntheticMotion(x, y, noPanoramiXExtension ? 0 : \
-                              sprite.screen->myNum, \
-                        syncEvents.playingEvents ? \
-                          syncEvents.time.milliseconds : \
-                          currentTime.milliseconds);
+#ifdef PANORAMIX
+    if (!noPanoramiXExtension)
+        screenno = dev->spriteInfo->sprite->screen->myNum;
+#endif
+    PostSyntheticMotion(dev, x, y, screenno,
+            (syncEvents.playingEvents) ?  syncEvents.time.milliseconds : currentTime.milliseconds);
+
+}
+
+#ifdef PANORAMIX
+static void PostNewCursor(DeviceIntPtr pDev);
+
+static Bool
+pointOnScreen(ScreenPtr pScreen, int x, int y)
+{
+    return x >= pScreen->x && x < pScreen->x + pScreen->width &&
+           y >= pScreen->y && y < pScreen->y + pScreen->height;
+}
 
 static Bool
 XineramaSetCursorPosition(
+    DeviceIntPtr pDev,
     int x,
     int y,
     Bool generateEvent
 ){
     ScreenPtr pScreen;
-    BoxRec box;
     int i;
+    SpritePtr pSprite = pDev->spriteInfo->sprite;
 
     /* x,y are in Screen 0 coordinates.  We need to decide what Screen
        to send the message too and what the coordinates relative to
        that screen are. */
 
-    pScreen = sprite.screen;
-    x += panoramiXdataPtr[0].x;
-    y += panoramiXdataPtr[0].y;
+    pScreen = pSprite->screen;
+    x += screenInfo.screens[0]->x;
+    y += screenInfo.screens[0]->y;
 
-    if(!RegionContainsPoint(&XineramaScreenRegions[pScreen->myNum],
-								x, y, &box))
+    if(!pointOnScreen(pScreen, x, y))
     {
 	FOR_NSCREENS(i)
 	{
 	    if(i == pScreen->myNum)
 		continue;
-	    if(RegionContainsPoint(&XineramaScreenRegions[i], x, y, &box))
+	    if(pointOnScreen(screenInfo.screens[i], x, y))
 	    {
 		pScreen = screenInfo.screens[i];
 		break;
@@ -386,93 +538,59 @@ XineramaSetCursorPosition(
 	}
     }
 
-    sprite.screen = pScreen;
-    sprite.hotPhys.x = x - panoramiXdataPtr[0].x;
-    sprite.hotPhys.y = y - panoramiXdataPtr[0].y;
-    x -= panoramiXdataPtr[pScreen->myNum].x;
-    y -= panoramiXdataPtr[pScreen->myNum].y;
+    pSprite->screen = pScreen;
+    pSprite->hotPhys.x = x - screenInfo.screens[0]->x;
+    pSprite->hotPhys.y = y - screenInfo.screens[0]->y;
+    x -= pScreen->x;
+    y -= pScreen->y;
 
-    return (*pScreen->SetCursorPosition)(pScreen, x, y, generateEvent);
+    return (*pScreen->SetCursorPosition)(pDev, pScreen, x, y, generateEvent);
 }
 
 
 static void
-XineramaConstrainCursor(void)
+XineramaConstrainCursor(DeviceIntPtr pDev)
 {
-    ScreenPtr pScreen = sprite.screen;
-    BoxRec newBox = sprite.physLimits;
+    SpritePtr pSprite = pDev->spriteInfo->sprite;
+    ScreenPtr pScreen;
+    BoxRec newBox;
+
+    pScreen = pSprite->screen;
+    newBox = pSprite->physLimits;
 
     /* Translate the constraining box to the screen
        the sprite is actually on */
-    newBox.x1 += panoramiXdataPtr[0].x - panoramiXdataPtr[pScreen->myNum].x;
-    newBox.x2 += panoramiXdataPtr[0].x - panoramiXdataPtr[pScreen->myNum].x;
-    newBox.y1 += panoramiXdataPtr[0].y - panoramiXdataPtr[pScreen->myNum].y;
-    newBox.y2 += panoramiXdataPtr[0].y - panoramiXdataPtr[pScreen->myNum].y;
+    newBox.x1 += screenInfo.screens[0]->x - pScreen->x;
+    newBox.x2 += screenInfo.screens[0]->x - pScreen->x;
+    newBox.y1 += screenInfo.screens[0]->y - pScreen->y;
+    newBox.y2 += screenInfo.screens[0]->y - pScreen->y;
 
-    (* pScreen->ConstrainCursor)(pScreen, &newBox);
-}
-
-static void
-XineramaCheckPhysLimits(
-    CursorPtr cursor,
-    Bool generateEvents
-){
-    HotSpot new;
-
-    if (!cursor)
-	return;
-
-    new = sprite.hotPhys;
-
-    /* I don't care what the DDX has to say about it */
-    sprite.physLimits = sprite.hotLimits;
-
-    /* constrain the pointer to those limits */
-    if (new.x < sprite.physLimits.x1)
-	new.x = sprite.physLimits.x1;
-    else
-	if (new.x >= sprite.physLimits.x2)
-	    new.x = sprite.physLimits.x2 - 1;
-    if (new.y < sprite.physLimits.y1)
-	new.y = sprite.physLimits.y1;
-    else
-	if (new.y >= sprite.physLimits.y2)
-	    new.y = sprite.physLimits.y2 - 1;
-
-    if (sprite.hotShape)  /* more work if the shape is a mess */
-	ConfineToShape(sprite.hotShape, &new.x, &new.y);
-
-    if((new.x != sprite.hotPhys.x) || (new.y != sprite.hotPhys.y))
-    {
-	XineramaSetCursorPosition (new.x, new.y, generateEvents);
-	if (!generateEvents)
-	    SyntheticMotion(new.x, new.y);
-    }
-
-    /* Tell DDX what the limits are */
-    XineramaConstrainCursor();
+    (* pScreen->ConstrainCursor)(pDev, pScreen, &newBox);
 }
 
 
 static Bool
-XineramaSetWindowPntrs(WindowPtr pWin)
+XineramaSetWindowPntrs(DeviceIntPtr pDev, WindowPtr pWin)
 {
+    SpritePtr pSprite = pDev->spriteInfo->sprite;
+
     if(pWin == screenInfo.screens[0]->root) {
 	int i;
 	for (i = 0; i < PanoramiXNumScreens; i++)
-	   sprite.windows[i] = screenInfo.screens[i]->root;
+	    pSprite->windows[i] = screenInfo.screens[i]->root;
     } else {
 	PanoramiXRes *win;
-	int i;
+	int rc, i;
 
-	win = (PanoramiXRes*)LookupIDByType(pWin->drawable.id, XRT_WINDOW);
-
-	if(!win)
+	rc = dixLookupResourceByType((void * *)&win, pWin->drawable.id,
+				     XRT_WINDOW, serverClient, DixReadAccess);
+	if (rc != Success)
 	    return FALSE;
 
 	for(i = 0; i < PanoramiXNumScreens; i++) {
-	   sprite.windows[i] = LookupIDByType(win->info[i].id, RT_WINDOW);
-	   if(!sprite.windows[i])  /* window is being unmapped */
+	    rc = dixLookupWindow(pSprite->windows + i, win->info[i].id,
+				 serverClient, DixReadAccess);
+	    if (rc != Success)  /* window is being unmapped */
 		return FALSE;
 	}
     }
@@ -480,210 +598,73 @@ XineramaSetWindowPntrs(WindowPtr pWin)
 }
 
 static void
-XineramaCheckVirtualMotion(
-   QdEventPtr qe,
-   WindowPtr pWin
-){
+XineramaConfineCursorToWindow(DeviceIntPtr pDev,
+                              WindowPtr pWin,
+                              Bool generateEvents)
+{
+    SpritePtr pSprite = pDev->spriteInfo->sprite;
 
-    if (qe)
-    {
-	sprite.hot.pScreen = qe->pScreen;  /* should always be Screen 0 */
-	sprite.hot.x = qe->event->u.keyButtonPointer.rootX;
-	sprite.hot.y = qe->event->u.keyButtonPointer.rootY;
-	pWin = inputInfo.pointer->grab ? inputInfo.pointer->grab->confineTo :
-					 NullWindow;
-    }
-    if (pWin)
-    {
 	int x, y, off_x, off_y, i;
-	BoxRec lims;
 
-	if(!XineramaSetWindowPntrs(pWin))
+    if(!XineramaSetWindowPntrs(pDev, pWin))
 	    return;
 
 	i = PanoramiXNumScreens - 1;
 
-	RegionCopy(&sprite.Reg2,
-					&sprite.windows[i]->borderSize);
-	off_x = panoramiXdataPtr[i].x;
-	off_y = panoramiXdataPtr[i].y;
+    RegionCopy(&pSprite->Reg1,
+            &pSprite->windows[i]->borderSize);
+    off_x = screenInfo.screens[i]->x;
+    off_y = screenInfo.screens[i]->y;
 
 	while(i--) {
-	    x = off_x - panoramiXdataPtr[i].x;
-	    y = off_y - panoramiXdataPtr[i].y;
+        x = off_x - screenInfo.screens[i]->x;
+        y = off_y - screenInfo.screens[i]->y;
 
 	    if(x || y)
-		RegionTranslate(&sprite.Reg2, x, y);
+            RegionTranslate(&pSprite->Reg1, x, y);
 
-	    RegionUnion(&sprite.Reg2, &sprite.Reg2,
-					&sprite.windows[i]->borderSize);
+        RegionUnion(&pSprite->Reg1, &pSprite->Reg1,
+                &pSprite->windows[i]->borderSize);
 
-	    off_x = panoramiXdataPtr[i].x;
-	    off_y = panoramiXdataPtr[i].y;
+        off_x = screenInfo.screens[i]->x;
+        off_y = screenInfo.screens[i]->y;
 	}
 
-	lims = *RegionExtents(&sprite.Reg2);
+    pSprite->hotLimits = *RegionExtents(&pSprite->Reg1);
 
-        if (sprite.hot.x < lims.x1)
-            sprite.hot.x = lims.x1;
-        else if (sprite.hot.x >= lims.x2)
-            sprite.hot.x = lims.x2 - 1;
-        if (sprite.hot.y < lims.y1)
-            sprite.hot.y = lims.y1;
-        else if (sprite.hot.y >= lims.y2)
-            sprite.hot.y = lims.y2 - 1;
-
-	if (RegionNumRects(&sprite.Reg2) > 1)
-	    ConfineToShape(&sprite.Reg2, &sprite.hot.x, &sprite.hot.y);
-
-	if (qe)
-	{
-	    qe->pScreen = sprite.hot.pScreen;
-	    qe->event->u.keyButtonPointer.rootX = sprite.hot.x;
-	    qe->event->u.keyButtonPointer.rootY = sprite.hot.y;
-	}
-    }
-}
-
-
-static Bool
-XineramaCheckMotion(xEvent *xE)
-{
-    WindowPtr prevSpriteWin = sprite.win;
-
-    if (xE && !syncEvents.playingEvents)
-    {
-	/* Motion events entering DIX get translated to Screen 0
-	   coordinates.  Replayed events have already been
-	   translated since they've entered DIX before */
-	XE_KBPTR.rootX += panoramiXdataPtr[sprite.screen->myNum].x -
-			  panoramiXdataPtr[0].x;
-	XE_KBPTR.rootY += panoramiXdataPtr[sprite.screen->myNum].y -
-			  panoramiXdataPtr[0].y;
-	sprite.hot.x = XE_KBPTR.rootX;
-	sprite.hot.y = XE_KBPTR.rootY;
-	if (sprite.hot.x < sprite.physLimits.x1)
-	    sprite.hot.x = sprite.physLimits.x1;
-	else if (sprite.hot.x >= sprite.physLimits.x2)
-	    sprite.hot.x = sprite.physLimits.x2 - 1;
-	if (sprite.hot.y < sprite.physLimits.y1)
-	    sprite.hot.y = sprite.physLimits.y1;
-	else if (sprite.hot.y >= sprite.physLimits.y2)
-	    sprite.hot.y = sprite.physLimits.y2 - 1;
-
-	if (sprite.hotShape)
-	    ConfineToShape(sprite.hotShape, &sprite.hot.x, &sprite.hot.y);
-
-	sprite.hotPhys = sprite.hot;
-	if ((sprite.hotPhys.x != XE_KBPTR.rootX) ||
-	    (sprite.hotPhys.y != XE_KBPTR.rootY))
-	{
-	    XineramaSetCursorPosition(
-			sprite.hotPhys.x, sprite.hotPhys.y, FALSE);
-	}
-	XE_KBPTR.rootX = sprite.hot.x;
-	XE_KBPTR.rootY = sprite.hot.y;
-    }
-
-    sprite.win = XYToWindow(sprite.hot.x, sprite.hot.y);
-
-    if (sprite.win != prevSpriteWin)
-    {
-	if (prevSpriteWin != NullWindow) {
-	    if (!xE)
-		UpdateCurrentTimeIf();
-	    DoEnterLeaveEvents(prevSpriteWin, sprite.win, NotifyNormal);
-	}
-	PostNewCursor();
-        return FALSE;
-    }
-    return TRUE;
-}
-
-
-static void
-XineramaConfineCursorToWindow(WindowPtr pWin, Bool generateEvents)
-{
-
-    if (syncEvents.playingEvents)
-    {
-	XineramaCheckVirtualMotion((QdEventPtr)NULL, pWin);
-	SyntheticMotion(sprite.hot.x, sprite.hot.y);
-    }
-    else
-    {
-	int x, y, off_x, off_y, i;
-
-	if(!XineramaSetWindowPntrs(pWin))
-	    return;
-
-	i = PanoramiXNumScreens - 1;
-
-	RegionCopy(&sprite.Reg1,
-					&sprite.windows[i]->borderSize);
-	off_x = panoramiXdataPtr[i].x;
-	off_y = panoramiXdataPtr[i].y;
-
-	while(i--) {
-	    x = off_x - panoramiXdataPtr[i].x;
-	    y = off_y - panoramiXdataPtr[i].y;
-
-	    if(x || y)
-		RegionTranslate(&sprite.Reg1, x, y);
-
-	    RegionUnion(&sprite.Reg1, &sprite.Reg1,
-					&sprite.windows[i]->borderSize);
-
-	    off_x = panoramiXdataPtr[i].x;
-	    off_y = panoramiXdataPtr[i].y;
-	}
-
-	sprite.hotLimits = *RegionExtents(&sprite.Reg1);
-
-	if(RegionNumRects(&sprite.Reg1) > 1)
-	   sprite.hotShape = &sprite.Reg1;
+    if(RegionNumRects(&pSprite->Reg1) > 1)
+        pSprite->hotShape = &pSprite->Reg1;
 	else
-	   sprite.hotShape = NullRegion;
+        pSprite->hotShape = NullRegion;
 
-	sprite.confined = FALSE;
-	sprite.confineWin = (pWin == screenInfo.screens[0]->root) ? NullWindow : pWin;
+    pSprite->confined = FALSE;
+    pSprite->confineWin = (pWin == screenInfo.screens[0]->root) ? NullWindow : pWin;
 
-	XineramaCheckPhysLimits(sprite.current, generateEvents);
+    CheckPhysLimits(pDev, pSprite->current, generateEvents, FALSE, NULL);
     }
-}
-
-
-static void
-XineramaChangeToCursor(CursorPtr cursor)
-{
-    if (cursor != sprite.current)
-    {
-	if ((sprite.current->bits->xhot != cursor->bits->xhot) ||
-		(sprite.current->bits->yhot != cursor->bits->yhot))
-	    XineramaCheckPhysLimits(cursor, FALSE);
-    	(*sprite.screen->DisplayCursor)(sprite.screen, cursor);
-	FreeCursor(sprite.current, (Cursor)0);
-	sprite.current = cursor;
-	sprite.current->refcnt++;
-    }
-}
-
-#else
-#define SyntheticMotion(x, y) \
-     PostSyntheticMotion(x, y, \
-                         0, \
-                         syncEvents.playingEvents ? \
-                           syncEvents.time.milliseconds : \
-                           currentTime.milliseconds);
 
 #endif  /* PANORAMIX */
 
+/**
+ * Modifies the filter for the given protocol event type to the given masks.
+ *
+ * There's only two callers: UpdateDeviceState() and XI's SetMaskForExtEvent().
+ * The latter initialises masks for the matching XI events, it's a once-off
+ * setting.
+ * UDS however changes the mask for MotionNotify and DeviceMotionNotify each
+ * time a button is pressed to include the matching ButtonXMotion mask in the
+ * filter.
+ *
+ * @param[in] deviceid The device to modify the filter for.
+ * @param[in] mask The new filter mask.
+ * @param[in] event Protocol event type.
+ */
 void
-SetMaskForEvent(Mask mask, int event)
+SetMaskForEvent(int deviceid, Mask mask, int event)
 {
-    if ((event < LASTEvent) || (event >= 128))
-	FatalError("SetMaskForEvent: bogus event number");
-    filters[event] = mask;
+    if (deviceid < 0 || deviceid >= MAXDEVICES)
+        FatalError("SetMaskForEvent: bogus device id");
+    filters[deviceid][event] = mask;
 }
 
 void
@@ -694,14 +675,15 @@ SetCriticalEvent(int event)
     criticalEvents[event >> 3] |= 1 << (event & 7);
 }
 
-#ifdef SHAPE
-static void
-ConfineToShape(RegionPtr shape, int *px, int *py)
+void
+ConfineToShape(DeviceIntPtr pDev, RegionPtr shape, int *px, int *py)
 {
     BoxRec box;
     int x = *px, y = *py;
     int incx = 1, incy = 1;
+    SpritePtr pSprite;
 
+    pSprite = pDev->spriteInfo->sprite;
     if (RegionContainsPoint(shape, x, y, &box))
 	return;
     box = *RegionExtents(shape);
@@ -730,137 +712,221 @@ ConfineToShape(RegionPtr shape, int *px, int *py)
     *px = x;
     *py = y;
 }
-#endif
 
 static void
 CheckPhysLimits(
+    DeviceIntPtr pDev,
     CursorPtr cursor,
     Bool generateEvents,
-    Bool confineToScreen,
-    ScreenPtr pScreen)
+    Bool confineToScreen, /* unused if PanoramiX on */
+    ScreenPtr pScreen)    /* unused if PanoramiX on */
 {
     HotSpot new;
+    SpritePtr pSprite = pDev->spriteInfo->sprite;
 
     if (!cursor)
 	return;
-    new = sprite.hotPhys;
+    new = pSprite->hotPhys;
+#ifdef PANORAMIX
+    if (!noPanoramiXExtension)
+        /* I don't care what the DDX has to say about it */
+        pSprite->physLimits = pSprite->hotLimits;
+    else
+#endif
+    {
     if (pScreen)
 	new.pScreen = pScreen;
     else
 	pScreen = new.pScreen;
-    (*pScreen->CursorLimits) (pScreen, cursor, &sprite.hotLimits,
-			      &sprite.physLimits);
-    sprite.confined = confineToScreen;
-    (* pScreen->ConstrainCursor)(pScreen, &sprite.physLimits);
-    if (new.x < sprite.physLimits.x1)
-	new.x = sprite.physLimits.x1;
-    else
-	if (new.x >= sprite.physLimits.x2)
-	    new.x = sprite.physLimits.x2 - 1;
-    if (new.y < sprite.physLimits.y1)
-	new.y = sprite.physLimits.y1;
-    else
-	if (new.y >= sprite.physLimits.y2)
-	    new.y = sprite.physLimits.y2 - 1;
-#ifdef SHAPE
-    if (sprite.hotShape)
-	ConfineToShape(sprite.hotShape, &new.x, &new.y);
-#endif
-    if ((pScreen != sprite.hotPhys.pScreen) ||
-	(new.x != sprite.hotPhys.x) || (new.y != sprite.hotPhys.y))
-    {
-	if (pScreen != sprite.hotPhys.pScreen)
-	    sprite.hotPhys = new;
-	(*pScreen->SetCursorPosition) (pScreen, new.x, new.y, generateEvents);
-	if (!generateEvents)
-	    SyntheticMotion(new.x, new.y);
+        (*pScreen->CursorLimits) (pDev, pScreen, cursor, &pSprite->hotLimits,
+                &pSprite->physLimits);
+        pSprite->confined = confineToScreen;
+        (* pScreen->ConstrainCursor)(pDev, pScreen, &pSprite->physLimits);
     }
+
+    /* constrain the void * to those limits */
+    if (new.x < pSprite->physLimits.x1)
+	new.x = pSprite->physLimits.x1;
+    else
+	if (new.x >= pSprite->physLimits.x2)
+	    new.x = pSprite->physLimits.x2 - 1;
+    if (new.y < pSprite->physLimits.y1)
+	new.y = pSprite->physLimits.y1;
+    else
+	if (new.y >= pSprite->physLimits.y2)
+	    new.y = pSprite->physLimits.y2 - 1;
+    if (pSprite->hotShape)
+	ConfineToShape(pDev, pSprite->hotShape, &new.x, &new.y);
+    if ((
+#ifdef PANORAMIX
+            noPanoramiXExtension &&
+#endif
+            (pScreen != pSprite->hotPhys.pScreen)) ||
+	(new.x != pSprite->hotPhys.x) || (new.y != pSprite->hotPhys.y))
+    {
+#ifdef PANORAMIX
+        if (!noPanoramiXExtension)
+            XineramaSetCursorPosition (pDev, new.x, new.y, generateEvents);
+        else
+#endif
+        {
+            if (pScreen != pSprite->hotPhys.pScreen)
+                pSprite->hotPhys = new;
+            (*pScreen->SetCursorPosition)
+                (pDev, pScreen, new.x, new.y, generateEvents);
+        }
+	if (!generateEvents)
+            SyntheticMotion(pDev, new.x, new.y);
+    }
+
+#ifdef PANORAMIX
+    /* Tell DDX what the limits are */
+    if (!noPanoramiXExtension)
+        XineramaConstrainCursor(pDev);
+#endif
 }
 
 static void
 CheckVirtualMotion(
+    DeviceIntPtr pDev,
     QdEventPtr qe,
     WindowPtr pWin)
 {
-#ifdef PANORAMIX
-    if(!noPanoramiXExtension) {
-	XineramaCheckVirtualMotion(qe, pWin);
-	return;
-    }
-#endif
+    SpritePtr pSprite = pDev->spriteInfo->sprite;
+    RegionPtr reg = NULL;
+    DeviceEvent *ev = NULL;
+
     if (qe)
     {
-	sprite.hot.pScreen = qe->pScreen;
-	sprite.hot.x = qe->event->u.keyButtonPointer.rootX;
-	sprite.hot.y = qe->event->u.keyButtonPointer.rootY;
-	pWin = inputInfo.pointer->grab ? inputInfo.pointer->grab->confineTo :
-					 NullWindow;
+        ev = &qe->event->device_event;
+        switch(ev->type)
+        {
+            case ET_Motion:
+            case ET_ButtonPress:
+            case ET_ButtonRelease:
+            case ET_KeyPress:
+            case ET_KeyRelease:
+            case ET_ProximityIn:
+            case ET_ProximityOut:
+                pSprite->hot.pScreen = qe->pScreen;
+                pSprite->hot.x = ev->root_x;
+                pSprite->hot.y = ev->root_y;
+                pWin = pDev->deviceGrab.grab ? pDev->deviceGrab.grab->confineTo : NullWindow;
+                break;
+            default:
+                break;
+        }
     }
     if (pWin)
     {
 	BoxRec lims;
 
-	if (sprite.hot.pScreen != pWin->drawable.pScreen)
-	{
-	    sprite.hot.pScreen = pWin->drawable.pScreen;
-	    sprite.hot.x = sprite.hot.y = 0;
-	}
-	lims = *RegionExtents(&pWin->borderSize);
-	if (sprite.hot.x < lims.x1)
-	    sprite.hot.x = lims.x1;
-	else if (sprite.hot.x >= lims.x2)
-	    sprite.hot.x = lims.x2 - 1;
-	if (sprite.hot.y < lims.y1)
-	    sprite.hot.y = lims.y1;
-	else if (sprite.hot.y >= lims.y2)
-	    sprite.hot.y = lims.y2 - 1;
-#ifdef SHAPE
-	if (wBoundingShape(pWin))
-	    ConfineToShape(&pWin->borderSize, &sprite.hot.x, &sprite.hot.y);
+#ifdef PANORAMIX
+        if (!noPanoramiXExtension) {
+            int x, y, off_x, off_y, i;
+
+            if(!XineramaSetWindowPntrs(pDev, pWin))
+                return;
+
+            i = PanoramiXNumScreens - 1;
+
+            RegionCopy(&pSprite->Reg2,
+                    &pSprite->windows[i]->borderSize);
+            off_x = screenInfo.screens[i]->x;
+            off_y = screenInfo.screens[i]->y;
+
+            while(i--) {
+                x = off_x - screenInfo.screens[i]->x;
+                y = off_y - screenInfo.screens[i]->y;
+
+                if(x || y)
+                    RegionTranslate(&pSprite->Reg2, x, y);
+
+                RegionUnion(&pSprite->Reg2, &pSprite->Reg2,
+                        &pSprite->windows[i]->borderSize);
+
+                off_x = screenInfo.screens[i]->x;
+                off_y = screenInfo.screens[i]->y;
+            }
+        } else
 #endif
-	if (qe)
 	{
-	    qe->pScreen = sprite.hot.pScreen;
-	    qe->event->u.keyButtonPointer.rootX = sprite.hot.x;
-	    qe->event->u.keyButtonPointer.rootY = sprite.hot.y;
+            if (pSprite->hot.pScreen != pWin->drawable.pScreen)
+            {
+                pSprite->hot.pScreen = pWin->drawable.pScreen;
+                pSprite->hot.x = pSprite->hot.y = 0;
+            }
+	}
+
+	lims = *RegionExtents(&pWin->borderSize);
+	if (pSprite->hot.x < lims.x1)
+	    pSprite->hot.x = lims.x1;
+	else if (pSprite->hot.x >= lims.x2)
+	    pSprite->hot.x = lims.x2 - 1;
+	if (pSprite->hot.y < lims.y1)
+	    pSprite->hot.y = lims.y1;
+	else if (pSprite->hot.y >= lims.y2)
+	    pSprite->hot.y = lims.y2 - 1;
+
+#ifdef PANORAMIX
+        if (!noPanoramiXExtension)
+        {
+            if (RegionNumRects(&pSprite->Reg2) > 1)
+                reg = &pSprite->Reg2;
+
+        } else
+#endif
+	{
+            if (wBoundingShape(pWin))
+                reg = &pWin->borderSize;
+        }
+
+        if (reg)
+            ConfineToShape(pDev, reg, &pSprite->hot.x, &pSprite->hot.y);
+
+	if (qe && ev)
+	{
+	    qe->pScreen = pSprite->hot.pScreen;
+	    ev->root_x = pSprite->hot.x;
+	    ev->root_y = pSprite->hot.y;
 	}
     }
-    ROOT = sprite.hot.pScreen->root;
+#ifdef PANORAMIX
+    if (noPanoramiXExtension) /* No typo. Only set the root win if disabled */
+#endif
+        RootWindow(pDev) = pSprite->hot.pScreen->root;
 }
 
 static void
-ConfineCursorToWindow(WindowPtr pWin, Bool generateEvents, Bool confineToScreen)
+ConfineCursorToWindow(DeviceIntPtr pDev, WindowPtr pWin, Bool generateEvents, Bool confineToScreen)
 {
-    ScreenPtr pScreen = pWin->drawable.pScreen;
-
-#ifdef PANORAMIX
-    if(!noPanoramiXExtension) {
-	XineramaConfineCursorToWindow(pWin, generateEvents);
-	return;
-    }
-#endif
+    SpritePtr pSprite = pDev->spriteInfo->sprite;
 
     if (syncEvents.playingEvents)
     {
-	CheckVirtualMotion((QdEventPtr)NULL, pWin);
-	SyntheticMotion(sprite.hot.x, sprite.hot.y);
+	CheckVirtualMotion(pDev, (QdEventPtr)NULL, pWin);
+	SyntheticMotion(pDev, pSprite->hot.x, pSprite->hot.y);
     }
     else
     {
-	sprite.hotLimits = *RegionExtents(&pWin->borderSize);
-#ifdef SHAPE
-	sprite.hotShape = wBoundingShape(pWin) ? &pWin->borderSize
-					       : NullRegion;
+#ifdef PANORAMIX
+        if(!noPanoramiXExtension) {
+            XineramaConfineCursorToWindow(pDev, pWin, generateEvents);
+            return;
+        }
 #endif
-	CheckPhysLimits(sprite.current, generateEvents, confineToScreen,
-			pScreen);
+	pSprite->hotLimits = *RegionExtents(&pWin->borderSize);
+	pSprite->hotShape = wBoundingShape(pWin) ? &pWin->borderSize
+					       : NullRegion;
+        CheckPhysLimits(pDev, pSprite->current, generateEvents,
+                        confineToScreen, pWin->drawable.pScreen);
     }
 }
 
 Bool
-PointerConfinedToScreen(void)
+PointerConfinedToScreen(DeviceIntPtr pDev)
 {
-    return sprite.confined;
+    return pDev->spriteInfo->sprite->confined;
 }
 
 /**
@@ -871,26 +937,29 @@ PointerConfinedToScreen(void)
  * happens.
  */
 static void
-ChangeToCursor(CursorPtr cursor)
+ChangeToCursor(DeviceIntPtr pDev, CursorPtr cursor)
 {
-#ifdef PANORAMIX
-    if(!noPanoramiXExtension) {
-	XineramaChangeToCursor(cursor);
-	return;
-    }
-#endif
+    SpritePtr pSprite = pDev->spriteInfo->sprite;
+    ScreenPtr pScreen;
 
-    if (cursor != sprite.current)
+    if (cursor != pSprite->current)
     {
-	if ((sprite.current->bits->xhot != cursor->bits->xhot) ||
-		(sprite.current->bits->yhot != cursor->bits->yhot))
-	    CheckPhysLimits(cursor, FALSE, sprite.confined,
+	if ((pSprite->current->bits->xhot != cursor->bits->xhot) ||
+		(pSprite->current->bits->yhot != cursor->bits->yhot))
+	    CheckPhysLimits(pDev, cursor, FALSE, pSprite->confined,
 			    (ScreenPtr)NULL);
-	(*sprite.hotPhys.pScreen->DisplayCursor) (sprite.hotPhys.pScreen,
-						  cursor);
-	FreeCursor(sprite.current, (Cursor)0);
-	sprite.current = cursor;
-	sprite.current->refcnt++;
+#ifdef PANORAMIX
+        /* XXX: is this really necessary?? (whot) */
+        if (!noPanoramiXExtension)
+            pScreen = pSprite->screen;
+        else
+#endif
+            pScreen = pSprite->hotPhys.pScreen;
+
+        (*pScreen->DisplayCursor)(pDev, pScreen, cursor);
+	FreeCursor(pSprite->current, (Cursor)0);
+	pSprite->current = cursor;
+	pSprite->current->refcnt++;
     }
 }
 
@@ -911,10 +980,12 @@ IsParent(WindowPtr a, WindowPtr b)
  * Called whenever a cursor may have changed shape or position.
  */
 static void
-PostNewCursor(void)
+PostNewCursor(DeviceIntPtr pDev)
 {
     WindowPtr win;
-    GrabPtr grab = inputInfo.pointer->grab;
+    GrabPtr grab = pDev->deviceGrab.grab;
+    SpritePtr   pSprite = pDev->spriteInfo->sprite;
+    CursorPtr   pCursor;
 
     if (syncEvents.playingEvents)
 	return;
@@ -922,67 +993,78 @@ PostNewCursor(void)
     {
 	if (grab->cursor)
 	{
-	    ChangeToCursor(grab->cursor);
+	    ChangeToCursor(pDev, grab->cursor);
 	    return;
 	}
-	if (IsParent(grab->window, sprite.win))
-	    win = sprite.win;
+	if (IsParent(grab->window, pSprite->win))
+	    win = pSprite->win;
 	else
 	    win = grab->window;
     }
     else
-	win = sprite.win;
+	win = pSprite->win;
     for (; win; win = win->parent)
-	if (win->optional && win->optional->cursor != NullCursor)
 	{
-	    ChangeToCursor(win->optional->cursor);
+	if (win->optional)
+        {
+            pCursor = WindowGetDeviceCursor(win, pDev);
+            if (!pCursor && win->optional->cursor != NullCursor)
+                pCursor = win->optional->cursor;
+            if (pCursor)
+            {
+                ChangeToCursor(pDev, pCursor);
 	    return;
 	}
 }
+    }
+}
+
 
 /**
- * @return root window of current active screen.
+ * @param dev device which you want to know its current root window
+ * @return root window where dev's sprite is located
  */
 WindowPtr
-GetCurrentRootWindow(void)
+GetCurrentRootWindow(DeviceIntPtr dev)
 {
-    return ROOT;
+    return RootWindow(dev);
 }
 
 /**
  * @return window underneath the cursor sprite.
  */
 WindowPtr
-GetSpriteWindow(void)
+GetSpriteWindow(DeviceIntPtr pDev)
 {
-    return sprite.win;
+    return pDev->spriteInfo->sprite->win;
 }
 
 /**
  * @return current sprite cursor.
  */
 CursorPtr
-GetSpriteCursor(void)
+GetSpriteCursor(DeviceIntPtr pDev)
 {
-    return sprite.current;
+    return pDev->spriteInfo->sprite->current;
 }
 
 /**
  * Set x/y current sprite position in screen coordinates.
  */
 void
-GetSpritePosition(int *px, int *py)
+GetSpritePosition(DeviceIntPtr pDev, int *px, int *py)
 {
-    *px = sprite.hotPhys.x;
-    *py = sprite.hotPhys.y;
+    SpritePtr pSprite = pDev->spriteInfo->sprite;
+    *px = pSprite->hotPhys.x;
+    *py = pSprite->hotPhys.y;
 }
 
 #ifdef PANORAMIX
 int
-XineramaGetCursorScreen(void)
+XineramaGetCursorScreen(DeviceIntPtr pDev)
 {
     if(!noPanoramiXExtension) {
-	return sprite.screen->myNum;
+	return pDev->spriteInfo->sprite->screen->myNum;
     } else {
 	return 0;
     }
@@ -992,54 +1074,63 @@ XineramaGetCursorScreen(void)
 #define TIMESLOP (5 * 60 * 1000) /* 5 minutes */
 
 static void
-MonthChangedOrBadTime(xEvent *xE)
+MonthChangedOrBadTime(InternalEvent *ev)
 {
     /* If the ddx/OS is careless about not processing timestamped events from
      * different sources in sorted order, then it's possible for time to go
      * backwards when it should not.  Here we ensure a decent time.
      */
-    if ((currentTime.milliseconds - XE_KBPTR.time) > TIMESLOP)
+    if ((currentTime.milliseconds - ev->any.time) > TIMESLOP)
 	currentTime.months++;
     else
-	XE_KBPTR.time = currentTime.milliseconds;
+        ev->any.time = currentTime.milliseconds;
 }
 
-#define NoticeTime(xE) { \
-    if ((xE)->u.keyButtonPointer.time < currentTime.milliseconds) \
-	MonthChangedOrBadTime(xE); \
-    currentTime.milliseconds = (xE)->u.keyButtonPointer.time; \
-    lastDeviceEventTime = currentTime; }
+static void
+NoticeTime(InternalEvent *ev)
+{
+    if (ev->any.time < currentTime.milliseconds)
+        MonthChangedOrBadTime(ev);
+    currentTime.milliseconds = ev->any.time;
+    lastDeviceEventTime = currentTime;
+}
 
 void
-NoticeEventTime(xEvent *xE)
+NoticeEventTime(InternalEvent *ev)
 {
     if (!syncEvents.playingEvents)
-	NoticeTime(xE);
+	NoticeTime(ev);
 }
 
 /**************************************************************************
  *            The following procedures deal with synchronous events       *
  **************************************************************************/
 
+/**
+ * EnqueueEvent is a device's processInputProc if a device is frozen.
+ * Instead of delivering the events to the client, the event is tacked onto a
+ * linked list for later delivery.
+ */
 void
-EnqueueEvent(xEvent *xE, DeviceIntPtr device, int count)
+EnqueueEvent(InternalEvent *ev, DeviceIntPtr device)
 {
     QdEventPtr tail = *syncEvents.pendtail;
     QdEventPtr qe;
-    xEvent		*qxE;
+    SpritePtr	pSprite = device->spriteInfo->sprite;
+    int		eventlen;
+    DeviceEvent *event = &ev->device_event;
 
-    NoticeTime(xE);
+    NoticeTime((InternalEvent*)event);
 
-#ifdef XKB
     /* Fix for key repeating bug. */
     if (device->key != NULL && device->key->xkbInfo != NULL &&
-	xE->u.u.type == KeyRelease)
-	AccessXCancelRepeatKey(device->key->xkbInfo, xE->u.u.detail);
-#endif
+        event->type == ET_KeyRelease)
+	AccessXCancelRepeatKey(device->key->xkbInfo, event->detail.key);
 
     if (DeviceEventCallback)
     {
 	DeviceEventInfoRec eventinfo;
+
 	/*  The RECORD spec says that the root window field of motion events
 	 *  must be valid.  At this point, it hasn't been filled in yet, so
 	 *  we do it here.  The long expression below is necessary to get
@@ -1049,89 +1140,113 @@ EnqueueEvent(xEvent *xE, DeviceIntPtr device, int count)
 	 *  the data that GetCurrentRootWindow relies on hasn't been
 	 *  updated yet.
 	 */
-	if (xE->u.u.type == MotionNotify)
-	    XE_KBPTR.root =
-		sprite.hotPhys.pScreen->root->drawable.id;
-	eventinfo.events = xE;
-	eventinfo.count = count;
+	if (ev->any.type == ET_Motion)
+	    ev->device_event.root = pSprite->hotPhys.pScreen->root->drawable.id;
+
+	eventinfo.event = ev;
+	eventinfo.device = device;
 	CallCallbacks(&DeviceEventCallback, (void *)&eventinfo);
     }
-    if (xE->u.u.type == MotionNotify)
+
+    if (event->type == ET_Motion)
     {
 #ifdef PANORAMIX
 	if(!noPanoramiXExtension) {
-	    XE_KBPTR.rootX += panoramiXdataPtr[sprite.screen->myNum].x -
-			      panoramiXdataPtr[0].x;
-	    XE_KBPTR.rootY += panoramiXdataPtr[sprite.screen->myNum].y -
-			      panoramiXdataPtr[0].y;
+	    event->root_x += pSprite->screen->x - screenInfo.screens[0]->x;
+	    event->root_y += pSprite->screen->y - screenInfo.screens[0]->y;
 	}
 #endif
-	sprite.hotPhys.x = XE_KBPTR.rootX;
-	sprite.hotPhys.y = XE_KBPTR.rootY;
+	pSprite->hotPhys.x = event->root_x;
+	pSprite->hotPhys.y = event->root_y;
 	/* do motion compression, but not if from different devices */
 	if (tail &&
-	    (tail->event->u.u.type == MotionNotify) &&
+	    (tail->event->any.type == ET_Motion) &&
             (tail->device == device) &&
-	    (tail->pScreen == sprite.hotPhys.pScreen))
+	    (tail->pScreen == pSprite->hotPhys.pScreen))
 	{
-	    tail->event->u.keyButtonPointer.rootX = sprite.hotPhys.x;
-	    tail->event->u.keyButtonPointer.rootY = sprite.hotPhys.y;
-	    tail->event->u.keyButtonPointer.time = XE_KBPTR.time;
+            DeviceEvent *tailev = &tail->event->device_event;
+	    tailev->root_x = pSprite->hotPhys.x;
+	    tailev->root_y = pSprite->hotPhys.y;
+	    tailev->time = event->time;
 	    tail->months = currentTime.months;
 	    return;
 	}
     }
-    qe = (QdEventPtr)calloc(1, sizeof(QdEventRec) + (count * sizeof(xEvent)));
+
+    eventlen = event->length;
+
+    qe = malloc(sizeof(QdEventRec) + eventlen);
     if (!qe)
 	return;
     qe->next = (QdEventPtr)NULL;
     qe->device = device;
-    qe->pScreen = sprite.hotPhys.pScreen;
+    qe->pScreen = pSprite->hotPhys.pScreen;
     qe->months = currentTime.months;
-    qe->event = (xEvent *)(qe + 1);
-    qe->evcount = count;
-    for (qxE = qe->event; --count >= 0; qxE++, xE++)
-	*qxE = *xE;
+    qe->event = (InternalEvent *)(qe + 1);
+    memcpy(qe->event, event, eventlen);
     if (tail)
 	syncEvents.pendtail = &tail->next;
     *syncEvents.pendtail = qe;
 }
 
+/**
+ * Run through the list of events queued up in syncEvents.
+ * For each event do:
+ * If the device for this event is not frozen anymore, take it and process it
+ * as usually.
+ * After that, check if there's any devices in the list that are not frozen.
+ * If there is none, we're done. If there is at least one device that is not
+ * frozen, then re-run from the beginning of the event queue.
+ */
 static void
 PlayReleasedEvents(void)
 {
     QdEventPtr *prev, qe;
     DeviceIntPtr dev;
+    DeviceIntPtr pDev;
 
     prev = &syncEvents.pending;
     while ( (qe = *prev) )
     {
-	if (!qe->device->sync.frozen)
+	if (!qe->device->deviceGrab.sync.frozen)
 	{
 	    *prev = qe->next;
+            pDev = qe->device;
 	    if (*syncEvents.pendtail == *prev)
 		syncEvents.pendtail = prev;
-	    if (qe->event->u.u.type == MotionNotify)
-		CheckVirtualMotion(qe, NullWindow);
+	    if (qe->event->any.type == ET_Motion)
+		CheckVirtualMotion(pDev, qe, NullWindow);
 	    syncEvents.time.months = qe->months;
-	    syncEvents.time.milliseconds = qe->event->u.keyButtonPointer.time;
+            syncEvents.time.milliseconds = qe->event->any.time;
 #ifdef PANORAMIX
 	   /* Translate back to the sprite screen since processInputProc
 	      will translate from sprite screen to screen 0 upon reentry
 	      to the DIX layer */
 	    if(!noPanoramiXExtension) {
-		qe->event->u.keyButtonPointer.rootX +=
-			panoramiXdataPtr[0].x -
-			panoramiXdataPtr[sprite.screen->myNum].x;
-		qe->event->u.keyButtonPointer.rootY +=
-			panoramiXdataPtr[0].y -
-			panoramiXdataPtr[sprite.screen->myNum].y;
+                DeviceEvent *ev = &qe->event->device_event;
+                switch(ev->type)
+                {
+                    case ET_Motion:
+                    case ET_ButtonPress:
+                    case ET_ButtonRelease:
+                    case ET_KeyPress:
+                    case ET_KeyRelease:
+                    case ET_ProximityIn:
+                    case ET_ProximityOut:
+                        ev->root_x += screenInfo.screens[0]->x -
+                            pDev->spriteInfo->sprite->screen->x;
+                        ev->root_y += screenInfo.screens[0]->y -
+                            pDev->spriteInfo->sprite->screen->y;
+                        break;
+                    default:
+                        break;
+                }
+
 	    }
 #endif
-	    (*qe->device->public.processInputProc)(qe->event, qe->device,
-						   qe->evcount);
+	    (*qe->device->public.processInputProc)(qe->event, qe->device);
 	    free(qe);
-	    for (dev = inputInfo.devices; dev && dev->sync.frozen; dev = dev->next)
+	    for (dev = inputInfo.devices; dev && dev->deviceGrab.sync.frozen; dev = dev->next)
 		;
 	    if (!dev)
 		break;
@@ -1144,80 +1259,107 @@ PlayReleasedEvents(void)
     }
 }
 
+/**
+ * Freeze or thaw the given devices. The device's processing proc is
+ * switched to either the real processing proc (in case of thawing) or an
+ * enqueuing processing proc (usually EnqueueEvent()).
+ *
+ * @param dev The device to freeze/thaw
+ * @param frozen True to freeze or false to thaw.
+ */
 static void
 FreezeThaw(DeviceIntPtr dev, Bool frozen)
 {
-    dev->sync.frozen = frozen;
+    dev->deviceGrab.sync.frozen = frozen;
     if (frozen)
 	dev->public.processInputProc = dev->public.enqueueInputProc;
     else
 	dev->public.processInputProc = dev->public.realInputProc;
 }
 
+/**
+ * Unfreeze devices and replay all events to the respective clients.
+ *
+ * ComputeFreezes takes the first event in the device's frozen event queue. It
+ * runs up the sprite tree (spriteTrace) and searches for the window to replay
+ * the events from. If it is found, it checks for passive grabs one down from
+ * the window or delivers the events.
+ */
 static void
 ComputeFreezes(void)
 {
     DeviceIntPtr replayDev = syncEvents.replayDev;
     int i;
     WindowPtr w;
-    xEvent *xE;
-    int count;
     GrabPtr grab;
     DeviceIntPtr dev;
 
     for (dev = inputInfo.devices; dev; dev = dev->next)
-	FreezeThaw(dev, dev->sync.other || (dev->sync.state >= FROZEN));
+	FreezeThaw(dev, dev->deviceGrab.sync.other ||
+                (dev->deviceGrab.sync.state >= FROZEN));
     if (syncEvents.playingEvents || (!replayDev && !syncEvents.pending))
 	return;
     syncEvents.playingEvents = TRUE;
     if (replayDev)
     {
-	xE = replayDev->sync.event;
-	count = replayDev->sync.evcount;
+        DeviceEvent* event = replayDev->deviceGrab.sync.event;
+
 	syncEvents.replayDev = (DeviceIntPtr)NULL;
 
-        w = XYToWindow( XE_KBPTR.rootX, XE_KBPTR.rootY);
-	for (i = 0; i < spriteTraceGood; i++)
+        w = XYToWindow(replayDev, event->root_x, event->root_y);
+	for (i = 0; i < replayDev->spriteInfo->sprite->spriteTraceGood; i++)
 	{
-	    if (syncEvents.replayWin == spriteTrace[i])
+	    if (syncEvents.replayWin ==
+		replayDev->spriteInfo->sprite->spriteTrace[i])
 	    {
-		if (!CheckDeviceGrabs(replayDev, xE, i+1, count)) {
-		    if (replayDev->focus)
-			DeliverFocusedEvent(replayDev, xE, w, count);
+		if (!CheckDeviceGrabs(replayDev, event, i+1)) {
+		    if (replayDev->focus && !IsPointerEvent((InternalEvent*)event))
+			DeliverFocusedEvent(replayDev, (InternalEvent*)event, w);
 		    else
-			DeliverDeviceEvents(w, xE, NullGrab, NullWindow,
-					        replayDev, count);
+			DeliverDeviceEvents(w, (InternalEvent*)event, NullGrab,
+                                            NullWindow, replayDev);
 		}
 		goto playmore;
 	    }
 	}
 	/* must not still be in the same stack */
-	if (replayDev->focus)
-	    DeliverFocusedEvent(replayDev, xE, w, count);
+	if (replayDev->focus && !IsPointerEvent((InternalEvent*)event))
+	    DeliverFocusedEvent(replayDev, (InternalEvent*)event, w);
 	else
-	    DeliverDeviceEvents(w, xE, NullGrab, NullWindow, replayDev, count);
+	    DeliverDeviceEvents(w, (InternalEvent*)event, NullGrab,
+                                NullWindow, replayDev);
     }
 playmore:
     for (dev = inputInfo.devices; dev; dev = dev->next)
     {
-	if (!dev->sync.frozen)
+	if (!dev->deviceGrab.sync.frozen)
 	{
 	    PlayReleasedEvents();
 	    break;
 	}
     }
     syncEvents.playingEvents = FALSE;
-    /* the following may have been skipped during replay, so do it now */
-    if ((grab = inputInfo.pointer->grab) && grab->confineTo)
+    for (dev = inputInfo.devices; dev; dev = dev->next)
     {
-	if (grab->confineTo->drawable.pScreen != sprite.hotPhys.pScreen)
-	    sprite.hotPhys.x = sprite.hotPhys.y = 0;
-	ConfineCursorToWindow(grab->confineTo, TRUE, TRUE);
+        if (DevHasCursor(dev))
+    {
+            /* the following may have been skipped during replay,
+              so do it now */
+            if ((grab = dev->deviceGrab.grab) && grab->confineTo)
+            {
+                if (grab->confineTo->drawable.pScreen !=
+                        dev->spriteInfo->sprite->hotPhys.pScreen)
+                    dev->spriteInfo->sprite->hotPhys.x =
+                        dev->spriteInfo->sprite->hotPhys.y = 0;
+                ConfineCursorToWindow(dev, grab->confineTo, TRUE, TRUE);
     }
     else
-	ConfineCursorToWindow(sprite.hotPhys.pScreen->root,
+                ConfineCursorToWindow(dev,
+                        dev->spriteInfo->sprite->hotPhys.pScreen->root,
 			      TRUE, FALSE);
-    PostNewCursor();
+            PostNewCursor(dev);
+        }
+    }
 }
 
 #ifdef RANDR
@@ -1225,60 +1367,109 @@ void
 ScreenRestructured (ScreenPtr pScreen)
 {
     GrabPtr grab;
+    DeviceIntPtr pDev;
 
-    if ((grab = inputInfo.pointer->grab) && grab->confineTo)
+    for (pDev = inputInfo.devices; pDev; pDev = pDev->next)
     {
-	if (grab->confineTo->drawable.pScreen != sprite.hotPhys.pScreen)
-	    sprite.hotPhys.x = sprite.hotPhys.y = 0;
-	ConfineCursorToWindow(grab->confineTo, TRUE, TRUE);
+        if (!DevHasCursor(pDev))
+            continue;
+
+        /* GrabDevice doesn't have a confineTo field, so we don't need to
+         * worry about it. */
+        if ((grab = pDev->deviceGrab.grab) && grab->confineTo)
+        {
+            if (grab->confineTo->drawable.pScreen
+                    != pDev->spriteInfo->sprite->hotPhys.pScreen)
+                pDev->spriteInfo->sprite->hotPhys.x = pDev->spriteInfo->sprite->hotPhys.y = 0;
+            ConfineCursorToWindow(pDev, grab->confineTo, TRUE, TRUE);
     }
     else
-	ConfineCursorToWindow(sprite.hotPhys.pScreen->root,
+            ConfineCursorToWindow(pDev,
+                    pDev->spriteInfo->sprite->hotPhys.pScreen->root,
 			      TRUE, FALSE);
+}
 }
 #endif
 
 static void
 CheckGrabForSyncs(DeviceIntPtr thisDev, Bool thisMode, Bool otherMode)
 {
-    GrabPtr grab = thisDev->grab;
+    GrabPtr grab = thisDev->deviceGrab.grab;
     DeviceIntPtr dev;
 
     if (thisMode == GrabModeSync)
-	thisDev->sync.state = FROZEN_NO_EVENT;
+	thisDev->deviceGrab.sync.state = FROZEN_NO_EVENT;
     else
     {	/* free both if same client owns both */
-	thisDev->sync.state = THAWED;
-	if (thisDev->sync.other &&
-	    (CLIENT_BITS(thisDev->sync.other->resource) ==
+	thisDev->deviceGrab.sync.state = THAWED;
+	if (thisDev->deviceGrab.sync.other &&
+	    (CLIENT_BITS(thisDev->deviceGrab.sync.other->resource) ==
 	     CLIENT_BITS(grab->resource)))
-	    thisDev->sync.other = NullGrab;
+	    thisDev->deviceGrab.sync.other = NullGrab;
     }
-    for (dev = inputInfo.devices; dev; dev = dev->next)
-    {
-	if (dev != thisDev)
+
+    if (IsMaster(thisDev))
 	{
+        dev = GetPairedDevice(thisDev);
 	    if (otherMode == GrabModeSync)
-		dev->sync.other = grab;
+            dev->deviceGrab.sync.other = grab;
 	    else
 	    {	/* free both if same client owns both */
-		if (dev->sync.other &&
-		    (CLIENT_BITS(dev->sync.other->resource) ==
+            if (dev->deviceGrab.sync.other &&
+                    (CLIENT_BITS(dev->deviceGrab.sync.other->resource) ==
 		     CLIENT_BITS(grab->resource)))
-		    dev->sync.other = NullGrab;
-	    }
+                dev->deviceGrab.sync.other = NullGrab;
 	}
     }
     ComputeFreezes();
 }
 
 /**
- * Activate a void * grab on the given device. A pointer grab will cause all
- * core void * events to be delivered to the grabbing client only. Can cause
- * the cursor to change if a grab cursor is set.
+ * Save the device's master device id. This needs to be done
+ * if a client directly grabs a slave device that is attached to a master. For
+ * the duration of the grab, the device is detached, ungrabbing re-attaches it
+ * though.
  *
- * As a void * grab can only be issued on the core devices, mouse is always
- * inputInfo.pointer. Extension devices are set up for ActivateKeyboardGrab().
+ * We store the ID of the master device only in case the master disappears
+ * while the device has a grab.
+ */
+static void
+DetachFromMaster(DeviceIntPtr dev)
+{
+    if (!dev->u.master)
+        return;
+
+    dev->saved_master_id = dev->u.master->id;
+
+    AttachDevice(NULL, dev, NULL);
+}
+
+static void
+ReattachToOldMaster(DeviceIntPtr dev)
+{
+    DeviceIntPtr master = NULL;
+
+    if (IsMaster(dev))
+        return;
+
+    dixLookupDevice(&master, dev->saved_master_id, serverClient, DixUseAccess);
+
+    if (master)
+    {
+        AttachDevice(serverClient, dev, master);
+	dev->saved_master_id = 0;
+    }
+}
+
+/**
+ * Activate a void * grab on the given device. A void * grab will cause all
+ * core void * events of this device to be delivered to the grabbing client only.
+ * No other device will send core events to the grab client while the grab is
+ * on, but core events will be sent to other clients.
+ * Can cause the cursor to change if a grab cursor is set.
+ *
+ * Note that parameter autoGrab may be (True & ImplicitGrabMask) if the grab
+ * is an implicit grab caused by a ButtonPress event.
  *
  * @param mouse The device to grab.
  * @param grab The grab structure, needs to be setup.
@@ -1294,35 +1485,45 @@ ActivatePointerGrab(DeviceIntPtr mouse, GrabPtr grab,
                     TimeStamp time, Bool autoGrab)
 #endif
 {
-    WindowPtr oldWin = (mouse->grab) ? mouse->grab->window
-				     : sprite.win;
+    GrabInfoPtr grabinfo = &mouse->deviceGrab;
+    WindowPtr oldWin = (grabinfo->grab) ?
+                        grabinfo->grab->window
+                        : mouse->spriteInfo->sprite->win;
+    Bool isPassive = autoGrab & ~ImplicitGrabMask;
+
+    /* slave devices need to float for the duration of the grab. */
+    if (grab->grabtype == GRABTYPE_XI2 &&
+        !(autoGrab & ImplicitGrabMask) && !IsMaster(mouse))
+        DetachFromMaster(mouse);
 
     if (grab->confineTo)
     {
-	if (grab->confineTo->drawable.pScreen != sprite.hotPhys.pScreen)
-	    sprite.hotPhys.x = sprite.hotPhys.y = 0;
-	ConfineCursorToWindow(grab->confineTo, FALSE, TRUE);
+	if (grab->confineTo->drawable.pScreen
+                != mouse->spriteInfo->sprite->hotPhys.pScreen)
+	    mouse->spriteInfo->sprite->hotPhys.x =
+                mouse->spriteInfo->sprite->hotPhys.y = 0;
+	ConfineCursorToWindow(mouse, grab->confineTo, FALSE, TRUE);
     }
-    DoEnterLeaveEvents(oldWin, grab->window, NotifyGrab);
+    DoEnterLeaveEvents(mouse, mouse->id, oldWin, grab->window, NotifyGrab);
     mouse->valuator->motionHintWindow = NullWindow;
     if (syncEvents.playingEvents)
-	mouse->grabTime = syncEvents.time;
+        grabinfo->grabTime = syncEvents.time;
     else
-	mouse->grabTime = time;
+	grabinfo->grabTime = time;
     if (grab->cursor)
 	grab->cursor->refcnt++;
-    mouse->activeGrab = *grab;
-    mouse->grab = &mouse->activeGrab;
-    mouse->fromPassiveGrab = autoGrab;
-    PostNewCursor();
+    grabinfo->activeGrab = *grab;
+    grabinfo->grab = &grabinfo->activeGrab;
+    grabinfo->fromPassiveGrab = isPassive;
+    grabinfo->implicitGrab = autoGrab & ImplicitGrabMask;
+    PostNewCursor(mouse);
     CheckGrabForSyncs(mouse,(Bool)grab->pointerMode, (Bool)grab->keyboardMode);
 }
 
 /**
  * Delete grab on given device, update the sprite.
  *
- * As a void * grab can only be issued on the core devices, mouse is always
- * inputInfo.pointer. Extension devices are set up for ActivateKeyboardGrab().
+ * Extension devices are set up for ActivateKeyboardGrab().
  */
 void
 #ifdef NXAGENT_SERVER
@@ -1331,24 +1532,32 @@ xorg_DeactivatePointerGrab(DeviceIntPtr mouse)
 DeactivatePointerGrab(DeviceIntPtr mouse)
 #endif
 {
-    GrabPtr grab = mouse->grab;
+    GrabPtr grab = mouse->deviceGrab.grab;
     DeviceIntPtr dev;
+    Bool wasImplicit = (mouse->deviceGrab.fromPassiveGrab &&
+                        mouse->deviceGrab.implicitGrab);
 
     mouse->valuator->motionHintWindow = NullWindow;
-    mouse->grab = NullGrab;
-    mouse->sync.state = NOT_GRABBED;
-    mouse->fromPassiveGrab = FALSE;
+    mouse->deviceGrab.grab = NullGrab;
+    mouse->deviceGrab.sync.state = NOT_GRABBED;
+    mouse->deviceGrab.fromPassiveGrab = FALSE;
+
     for (dev = inputInfo.devices; dev; dev = dev->next)
     {
-	if (dev->sync.other == grab)
-	    dev->sync.other = NullGrab;
+	if (dev->deviceGrab.sync.other == grab)
+	    dev->deviceGrab.sync.other = NullGrab;
     }
-    DoEnterLeaveEvents(grab->window, sprite.win, NotifyUngrab);
+    DoEnterLeaveEvents(mouse, mouse->id, grab->window,
+                       mouse->spriteInfo->sprite->win, NotifyUngrab);
     if (grab->confineTo)
-	ConfineCursorToWindow(ROOT, FALSE, FALSE);
-    PostNewCursor();
+	ConfineCursorToWindow(mouse, RootWindow(mouse), FALSE, FALSE);
+    PostNewCursor(mouse);
     if (grab->cursor)
 	FreeCursor(grab->cursor, (Cursor)0);
+
+    if (!wasImplicit && grab->grabtype == GRABTYPE_XI2)
+        ReattachToOldMaster(mouse);
+
     ComputeFreezes();
 }
 
@@ -1360,26 +1569,34 @@ DeactivatePointerGrab(DeviceIntPtr mouse)
 void
 ActivateKeyboardGrab(DeviceIntPtr keybd, GrabPtr grab, TimeStamp time, Bool passive)
 {
+    GrabInfoPtr grabinfo = &keybd->deviceGrab;
     WindowPtr oldWin;
 
-    if (keybd->grab)
-	oldWin = keybd->grab->window;
+    /* slave devices need to float for the duration of the grab. */
+    if (grab->grabtype == GRABTYPE_XI2 &&
+        !(passive & ImplicitGrabMask) &&
+        !IsMaster(keybd))
+        DetachFromMaster(keybd);
+
+    if (grabinfo->grab)
+	oldWin = grabinfo->grab->window;
     else if (keybd->focus)
 	oldWin = keybd->focus->win;
     else
-	oldWin = sprite.win;
+	oldWin = keybd->spriteInfo->sprite->win;
     if (oldWin == FollowKeyboardWin)
-	oldWin = inputInfo.keyboard->focus->win;
+	oldWin = keybd->focus->win;
     if (keybd->valuator)
 	keybd->valuator->motionHintWindow = NullWindow;
     DoFocusEvents(keybd, oldWin, grab->window, NotifyGrab);
     if (syncEvents.playingEvents)
-	keybd->grabTime = syncEvents.time;
+	grabinfo->grabTime = syncEvents.time;
     else
-	keybd->grabTime = time;
-    keybd->activeGrab = *grab;
-    keybd->grab = &keybd->activeGrab;
-    keybd->fromPassiveGrab = passive;
+	grabinfo->grabTime = time;
+    grabinfo->activeGrab = *grab;
+    grabinfo->grab = &grabinfo->activeGrab;
+    grabinfo->fromPassiveGrab = passive;
+    grabinfo->implicitGrab = passive & ImplicitGrabMask;
     CheckGrabForSyncs(keybd, (Bool)grab->keyboardMode, (Bool)grab->pointerMode);
 }
 
@@ -1389,58 +1606,70 @@ ActivateKeyboardGrab(DeviceIntPtr keybd, GrabPtr grab, TimeStamp time, Bool pass
 void
 DeactivateKeyboardGrab(DeviceIntPtr keybd)
 {
-    GrabPtr grab = keybd->grab;
+    GrabPtr grab = keybd->deviceGrab.grab;
     DeviceIntPtr dev;
     WindowPtr focusWin = keybd->focus ? keybd->focus->win
-					       : sprite.win;
+                                           : keybd->spriteInfo->sprite->win;
+    Bool wasImplicit = (keybd->deviceGrab.fromPassiveGrab &&
+                        keybd->deviceGrab.implicitGrab);
 
     if (focusWin == FollowKeyboardWin)
 	focusWin = inputInfo.keyboard->focus->win;
     if (keybd->valuator)
 	keybd->valuator->motionHintWindow = NullWindow;
-    keybd->grab = NullGrab;
-    keybd->sync.state = NOT_GRABBED;
-    keybd->fromPassiveGrab = FALSE;
+    keybd->deviceGrab.grab = NullGrab;
+    keybd->deviceGrab.sync.state = NOT_GRABBED;
+    keybd->deviceGrab.fromPassiveGrab = FALSE;
+
     for (dev = inputInfo.devices; dev; dev = dev->next)
     {
-	if (dev->sync.other == grab)
-	    dev->sync.other = NullGrab;
+	if (dev->deviceGrab.sync.other == grab)
+	    dev->deviceGrab.sync.other = NullGrab;
     }
     DoFocusEvents(keybd, grab->window, focusWin, NotifyUngrab);
+
+    if (!wasImplicit && grab->grabtype == GRABTYPE_XI2)
+        ReattachToOldMaster(keybd);
+
     ComputeFreezes();
 }
 
 void
-AllowSome(ClientPtr client, TimeStamp time, DeviceIntPtr thisDev, int newState)
+AllowSome(ClientPtr client,
+          TimeStamp time,
+          DeviceIntPtr thisDev,
+          int newState)
 {
     Bool thisGrabbed, otherGrabbed, othersFrozen, thisSynced;
     TimeStamp grabTime;
     DeviceIntPtr dev;
+    GrabInfoPtr devgrabinfo,
+                grabinfo = &thisDev->deviceGrab;
 
-    thisGrabbed = thisDev->grab && SameClient(thisDev->grab, client);
+    thisGrabbed = grabinfo->grab && SameClient(grabinfo->grab, client);
     thisSynced = FALSE;
     otherGrabbed = FALSE;
-    othersFrozen = TRUE;
-    grabTime = thisDev->grabTime;
+    othersFrozen = FALSE;
+    grabTime = grabinfo->grabTime;
     for (dev = inputInfo.devices; dev; dev = dev->next)
     {
+        devgrabinfo = &dev->deviceGrab;
+
 	if (dev == thisDev)
 	    continue;
-	if (dev->grab && SameClient(dev->grab, client))
+	if (devgrabinfo->grab && SameClient(devgrabinfo->grab, client))
 	{
 	    if (!(thisGrabbed || otherGrabbed) ||
-		(CompareTimeStamps(dev->grabTime, grabTime) == LATER))
-		grabTime = dev->grabTime;
+		(CompareTimeStamps(devgrabinfo->grabTime, grabTime) == LATER))
+		grabTime = devgrabinfo->grabTime;
 	    otherGrabbed = TRUE;
-	    if (thisDev->sync.other == dev->grab)
+	    if (grabinfo->sync.other == devgrabinfo->grab)
 		thisSynced = TRUE;
-	    if (dev->sync.state < FROZEN)
-		othersFrozen = FALSE;
+	    if (devgrabinfo->sync.state >= FROZEN)
+		othersFrozen = TRUE;
 	}
-	else if (!dev->sync.other || !SameClient(dev->sync.other, client))
-	    othersFrozen = FALSE;
     }
-    if (!((thisGrabbed && thisDev->sync.state >= FROZEN) || thisSynced))
+    if (!((thisGrabbed && grabinfo->sync.state >= FROZEN) || thisSynced))
 	return;
     if ((CompareTimeStamps(time, currentTime) == LATER) ||
 	(CompareTimeStamps(time, grabTime) == EARLIER))
@@ -1449,17 +1678,17 @@ AllowSome(ClientPtr client, TimeStamp time, DeviceIntPtr thisDev, int newState)
     {
 	case THAWED:	 	       /* Async */
 	    if (thisGrabbed)
-		thisDev->sync.state = THAWED;
+		grabinfo->sync.state = THAWED;
 	    if (thisSynced)
-		thisDev->sync.other = NullGrab;
+		grabinfo->sync.other = NullGrab;
 	    ComputeFreezes();
 	    break;
 	case FREEZE_NEXT_EVENT:		/* Sync */
 	    if (thisGrabbed)
 	    {
-		thisDev->sync.state = FREEZE_NEXT_EVENT;
+		grabinfo->sync.state = FREEZE_NEXT_EVENT;
 		if (thisSynced)
-		    thisDev->sync.other = NullGrab;
+		    grabinfo->sync.other = NullGrab;
 		ComputeFreezes();
 	    }
 	    break;
@@ -1468,10 +1697,13 @@ AllowSome(ClientPtr client, TimeStamp time, DeviceIntPtr thisDev, int newState)
 	    {
 		for (dev = inputInfo.devices; dev; dev = dev->next)
 		{
-		    if (dev->grab && SameClient(dev->grab, client))
-			dev->sync.state = THAWED;
-		    if (dev->sync.other && SameClient(dev->sync.other, client))
-			dev->sync.other = NullGrab;
+                    devgrabinfo = &dev->deviceGrab;
+		    if (devgrabinfo->grab
+                            && SameClient(devgrabinfo->grab, client))
+			devgrabinfo->sync.state = THAWED;
+		    if (devgrabinfo->sync.other &&
+                            SameClient(devgrabinfo->sync.other, client))
+			devgrabinfo->sync.other = NullGrab;
 		}
 		ComputeFreezes();
 	    }
@@ -1481,22 +1713,25 @@ AllowSome(ClientPtr client, TimeStamp time, DeviceIntPtr thisDev, int newState)
 	    {
 		for (dev = inputInfo.devices; dev; dev = dev->next)
 		{
-		    if (dev->grab && SameClient(dev->grab, client))
-			dev->sync.state = FREEZE_BOTH_NEXT_EVENT;
-		    if (dev->sync.other && SameClient(dev->sync.other, client))
-			dev->sync.other = NullGrab;
+                    devgrabinfo = &dev->deviceGrab;
+		    if (devgrabinfo->grab
+                            && SameClient(devgrabinfo->grab, client))
+			devgrabinfo->sync.state = FREEZE_BOTH_NEXT_EVENT;
+		    if (devgrabinfo->sync.other
+                            && SameClient(devgrabinfo->sync.other, client))
+			devgrabinfo->sync.other = NullGrab;
 		}
 		ComputeFreezes();
 	    }
 	    break;
 	case NOT_GRABBED:		/* Replay */
-	    if (thisGrabbed && thisDev->sync.state == FROZEN_WITH_EVENT)
+	    if (thisGrabbed && grabinfo->sync.state == FROZEN_WITH_EVENT)
 	    {
 		if (thisSynced)
-		    thisDev->sync.other = NullGrab;
+		    grabinfo->sync.other = NullGrab;
 		syncEvents.replayDev = thisDev;
-		syncEvents.replayWin = thisDev->grab->window;
-		(*thisDev->DeactivateGrab)(thisDev);
+		syncEvents.replayWin = grabinfo->grab->window;
+		(*grabinfo->DeactivateGrab)(thisDev);
 		syncEvents.replayDev = (DeviceIntPtr)NULL;
 	    }
 	    break;
@@ -1507,10 +1742,13 @@ AllowSome(ClientPtr client, TimeStamp time, DeviceIntPtr thisDev, int newState)
 		{
 		    if (dev == thisDev)
 			continue;
-		    if (dev->grab && SameClient(dev->grab, client))
-			dev->sync.state = THAWED;
-		    if (dev->sync.other && SameClient(dev->sync.other, client))
-			dev->sync.other = NullGrab;
+                    devgrabinfo = &dev->deviceGrab;
+		    if (devgrabinfo->grab
+                            && SameClient(devgrabinfo->grab, client))
+			devgrabinfo->sync.state = THAWED;
+		    if (devgrabinfo->sync.other
+                            && SameClient(devgrabinfo->sync.other, client))
+			devgrabinfo->sync.other = NullGrab;
 		}
 		ComputeFreezes();
 	    }
@@ -1521,7 +1759,7 @@ AllowSome(ClientPtr client, TimeStamp time, DeviceIntPtr thisDev, int newState)
 /**
  * Server-side protocol handling for AllowEvents request.
  *
- * Release some events from a frozen device. Only applicable for core devices.
+ * Release some events from a frozen device.
  */
 int
 #ifdef NXAGENT_SERVER
@@ -1531,12 +1769,16 @@ ProcAllowEvents(ClientPtr client)
 #endif
 {
     TimeStamp		time;
-    DeviceIntPtr	mouse = inputInfo.pointer;
-    DeviceIntPtr	keybd = inputInfo.keyboard;
+    DeviceIntPtr	mouse = NULL;
+    DeviceIntPtr	keybd = NULL;
     REQUEST(xAllowEventsReq);
 
     REQUEST_SIZE_MATCH(xAllowEventsReq);
     time = ClientTimeToServerTime(stuff->time);
+
+    mouse = PickPointer(client);
+    keybd = PickKeyboard(client);
+
     switch (stuff->mode)
     {
 	case ReplayPointer:
@@ -1586,9 +1828,9 @@ ReleaseActiveGrabs(ClientPtr client)
     	done = TRUE;
     	for (dev = inputInfo.devices; dev; dev = dev->next)
     	{
-	    if (dev->grab && SameClient(dev->grab, client))
+	    if (dev->deviceGrab.grab && SameClient(dev->deviceGrab.grab, client))
 	    {
-	    	(*dev->DeactivateGrab)(dev);
+		(*dev->deviceGrab.DeactivateGrab)(dev);
 	    	done = FALSE;
 	    }
     	}
@@ -1614,6 +1856,7 @@ ReleaseActiveGrabs(ClientPtr client)
  *
  *
  * @param client The target client to deliver to.
+ * @param dev The device the event came from. May be NULL.
  * @param pEvents The events to be delivered.
  * @param count Number of elements in pEvents.
  * @param mask Event mask as set by the window.
@@ -1624,31 +1867,52 @@ ReleaseActiveGrabs(ClientPtr client)
  * client.
  */
 int
-TryClientEvents (ClientPtr client, xEvent *pEvents, int count, Mask mask,
-                 Mask filter, GrabPtr grab)
+TryClientEvents (ClientPtr client, DeviceIntPtr dev, xEvent *pEvents,
+                 int count, Mask mask, Mask filter, GrabPtr grab)
 {
     int type;
 
 #ifdef DEBUG_EVENTS
-    ErrorF("Event([%d, %d], mask=0x%x), client=%d",
-	pEvents->u.u.type, pEvents->u.u.detail, mask, client->index);
+    ErrorF("[dix] Event([%d, %d], mask=0x%lx), client=%d%s",
+           pEvents->u.u.type, pEvents->u.u.detail, mask,
+           client ? client->index : -1,
+           (client && client->clientGone) ? " (gone)" : "");
 #endif
-    if ((client) && (client != serverClient) && (!client->clientGone) &&
-	((filter == CantBeFiltered) || (mask & filter)))
+
+    if (!client || client == serverClient || client->clientGone) {
+#ifdef DEBUG_EVENTS
+        ErrorF(" not delivered to fake/dead client\n");
+#endif
+        return 0;
+    }
+
+    if (filter != CantBeFiltered && !(mask & filter))
     {
+ #ifdef DEBUG_EVENTS
+        ErrorF(" filtered\n");
+ #endif
+        return 0;
+    }
+
 	if (grab && !SameClient(grab, client))
+    {
+#ifdef DEBUG_EVENTS
+        ErrorF(" not delivered due to grab\n");
+#endif
 	    return -1; /* don't send, but notify caller */
+    }
+
 	type = pEvents->u.u.type;
 	if (type == MotionNotify)
 	{
 	    if (mask & PointerMotionHintMask)
 	    {
-		if (WID(inputInfo.pointer->valuator->motionHintWindow) ==
+            if (WID(dev->valuator->motionHintWindow) ==
 		    pEvents->u.keyButtonPointer.event)
 		{
 #ifdef DEBUG_EVENTS
-		    ErrorF("\n");
-	    ErrorF("motionHintWindow == keyButtonPointer.event\n");
+                ErrorF("[dix] \n");
+                ErrorF("[dix] motionHintWindow == keyButtonPointer.event\n");
 #endif
 		    return 1; /* don't send, but pretend we did */
 		}
@@ -1659,15 +1923,52 @@ TryClientEvents (ClientPtr client, xEvent *pEvents, int count, Mask mask,
 		pEvents->u.u.detail = NotifyNormal;
 	    }
 	}
-#ifdef XINPUT
-	else
+    else if (type == DeviceMotionNotify)
 	{
-	    if ((type == DeviceMotionNotify) &&
-		MaybeSendDeviceMotionNotifyHint
-			((deviceKeyButtonPointer*)pEvents, mask) != 0)
+        if (MaybeSendDeviceMotionNotifyHint((deviceKeyButtonPointer*)pEvents,
+                                            mask) != 0)
 		return 1;
-	}
+    } else if (type == KeyPress)
+    {
+        if (EventIsKeyRepeat(pEvents))
+        {
+            if (!_XkbWantsDetectableAutoRepeat(client))
+            {
+                xEvent release = *pEvents;
+                release.u.u.type = KeyRelease;
+                WriteEventsToClient(client, 1, &release);
+#ifdef DEBUG_EVENTS
+                ErrorF(" (plus fake core release for repeat)");
 #endif
+            } else
+            {
+#ifdef DEBUG_EVENTS
+                ErrorF(" (detectable autorepeat for core)");
+#endif
+            }
+	}
+
+    } else if (type == DeviceKeyPress)
+    {
+        if (EventIsKeyRepeat(pEvents))
+        {
+            if (!_XkbWantsDetectableAutoRepeat(client))
+            {
+                deviceKeyButtonPointer release = *(deviceKeyButtonPointer *)pEvents;
+                release.type = DeviceKeyRelease;
+#ifdef DEBUG_EVENTS
+                ErrorF(" (plus fake xi1 release for repeat)");
+#endif
+                WriteEventsToClient(client, 1, (xEvent *) &release);
+            }
+            else {
+#ifdef DEBUG_EVENTS
+                ErrorF(" (detectable autorepeat for core)");
+#endif
+            }
+        }
+    }
+
 	if (BitIsOn(criticalEvents, type))
 	{
 	    if (client->smart_priority < SMART_MAX_PRIORITY)
@@ -1677,23 +1978,19 @@ TryClientEvents (ClientPtr client, xEvent *pEvents, int count, Mask mask,
 
 	WriteEventsToClient(client, count, pEvents);
 #ifdef DEBUG_EVENTS
-	ErrorF(  " delivered\n");
+    ErrorF("[dix]  delivered\n");
 #endif
 	return 1;
     }
-    else
-    {
-#ifdef DEBUG_EVENTS
-	ErrorF("\n");
-#endif
-	return 0;
-    }
-}
 
 /**
  * Deliver events to a window. At this point, we do not yet know if the event
  * actually needs to be delivered. May activate a grab if the event is a
  * button press.
+ *
+ * Core events are always delivered to the window owner. If the filter is
+ * something other than CantBeFiltered, the event is also delivered to other
+ * clients with the matching mask on the window.
  *
  * More than one event may be delivered at a time. This is the case with
  * DeviceMotionNotifies which may be followed by DeviceValuator events.
@@ -1703,13 +2000,12 @@ TryClientEvents (ClientPtr client, xEvent *pEvents, int count, Mask mask,
  * @param count Number of elements in pEvents.
  * @param filter Mask based on event type.
  * @param grab Possible grab on the device that caused the event.
- * @param mskidx Mask index, depending on device that caused event.
  *
  * @return Number of events delivered to various clients.
  */
 int
-DeliverEventsToWindow(WindowPtr pWin, xEvent *pEvents, int count,
-                      Mask filter, GrabPtr grab, int mskidx)
+DeliverEventsToWindow(DeviceIntPtr pDev, WindowPtr pWin, xEvent
+        *pEvents, int count, Mask filter, GrabPtr grab)
 {
     int deliveries = 0, nondeliveries = 0;
     int attempt;
@@ -1719,17 +2015,23 @@ DeliverEventsToWindow(WindowPtr pWin, xEvent *pEvents, int count,
 		              this mask is the mask of the grab. */
     int type = pEvents->u.u.type;
 
-    /* CantBeFiltered means only window owner gets the event */
-    if ((filter == CantBeFiltered) || !(type & EXTENSION_EVENT_BASE))
+
+    /* Deliver to window owner */
+    if ((filter == CantBeFiltered) || CORE_EVENT(pEvents))
     {
 	/* if nobody ever wants to see this event, skip some work */
 	if (filter != CantBeFiltered &&
 	    !((wOtherEventMasks(pWin)|pWin->eventMask) & filter))
 	    return 0;
+
+        if (IsInterferingGrab(wClient(pWin), pDev, pEvents))
+                return 0;
+
 	if (XaceHook(XACE_RECEIVE_ACCESS, wClient(pWin), pWin, pEvents, count))
 	    /* do nothing */;
-	else if ( (attempt = TryClientEvents(wClient(pWin), pEvents, count,
-					     pWin->eventMask, filter, grab)) )
+        else if ( (attempt = TryClientEvents(wClient(pWin), pDev, pEvents,
+                                             count, pWin->eventMask,
+                                             filter, grab)) )
 	{
 	    if (attempt > 0)
 	    {
@@ -1740,43 +2042,69 @@ DeliverEventsToWindow(WindowPtr pWin, xEvent *pEvents, int count,
 		nondeliveries--;
 	}
     }
+
+    /* CantBeFiltered means only window owner gets the event */
     if (filter != CantBeFiltered)
     {
-	if (type & EXTENSION_EVENT_BASE)
+        if (CORE_EVENT(pEvents))
+            other = (InputClients *)wOtherClients(pWin);
+        else if (XI2_EVENT(pEvents))
 	{
-	    OtherInputMasks *inputMasks;
-
-	    inputMasks = wOtherInputMasks(pWin);
+            OtherInputMasks *inputMasks = wOtherInputMasks(pWin);
+            /* Has any client selected for the event? */
+            if (!GetWindowXI2Mask(pDev, pWin, pEvents))
+                return 0;
+            other = inputMasks->inputClients;
+        } else {
+            OtherInputMasks *inputMasks = wOtherInputMasks(pWin);
+            /* Has any client selected for the event? */
 	    if (!inputMasks ||
-		!(inputMasks->inputEvents[mskidx] & filter))
+                !(inputMasks->inputEvents[pDev->id] & filter))
 		return 0;
+
 	    other = inputMasks->inputClients;
 	}
-	else
-	    other = (InputClients *)wOtherClients(pWin);
+
 	for (; other; other = other->next)
 	{
-	    if (XaceHook(XACE_RECEIVE_ACCESS, rClient(other), pWin, pEvents,
-			 count))
+            Mask mask;
+            if (IsInterferingGrab(rClient(other), pDev, pEvents))
+                continue;
+
+            mask = GetEventMask(pDev, pEvents, other);
+
+            if (XaceHook(XACE_RECEIVE_ACCESS, rClient(other), pWin,
+                        pEvents, count))
 		/* do nothing */;
-	    else if ( (attempt = TryClientEvents(rClient(other), pEvents, count,
-					  other->mask[mskidx], filter, grab)) )
+            else if ( (attempt = TryClientEvents(rClient(other), pDev,
+                            pEvents, count,
+                            mask, filter, grab)) )
 	    {
 		if (attempt > 0)
 		{
 		    deliveries++;
 		    client = rClient(other);
-		    deliveryMask = other->mask[mskidx];
+                    deliveryMask = mask;
 		} else
 		    nondeliveries--;
 	    }
 	}
     }
-    if ((type == ButtonPress) && deliveries && (!grab))
+    /*
+     * Note that since core events are delivered first, an implicit grab may
+     * be activated on a core grab, stopping the XI events.
+     */
+    if ((type == DeviceButtonPress || type == ButtonPress ||
+        ((XI2_EVENT(pEvents) && ((xGenericEvent*)pEvents)->evtype == XI_ButtonPress)))
+            && deliveries
+            && (!grab))
     {
 	GrabRec tempGrab;
+        OtherInputMasks *inputMasks;
 
-	tempGrab.device = inputInfo.pointer;
+        memset(&tempGrab, 0, sizeof(GrabRec));
+        tempGrab.next = NULL;
+	tempGrab.device = pDev;
 	tempGrab.resource = client->clientAsMask;
 	tempGrab.window = pWin;
 	tempGrab.ownerEvents = (deliveryMask & OwnerGrabButtonMask) ? TRUE : FALSE;
@@ -1785,24 +2113,38 @@ DeliverEventsToWindow(WindowPtr pWin, xEvent *pEvents, int count,
 	tempGrab.pointerMode = GrabModeAsync;
 	tempGrab.confineTo = NullWindow;
 	tempGrab.cursor = NullCursor;
-	(*inputInfo.pointer->ActivateGrab)(inputInfo.pointer, &tempGrab,
-					   currentTime, TRUE);
+        tempGrab.type = type;
+        if (type == ButtonPress)
+            tempGrab.grabtype = GRABTYPE_CORE;
+        else if (type == DeviceButtonPress)
+            tempGrab.grabtype = GRABTYPE_XI;
+        else
+        {
+            tempGrab.type = ((xGenericEvent*)pEvents)->evtype;
+            tempGrab.grabtype = GRABTYPE_XI2;
+        }
+
+        /* get the XI and XI2 device mask */
+        inputMasks = wOtherInputMasks(pWin);
+        tempGrab.deviceMask = (inputMasks) ? inputMasks->inputEvents[pDev->id]: 0;
+
+        if (inputMasks)
+            memcpy(tempGrab.xi2mask, inputMasks->xi2mask,
+                    sizeof(tempGrab.xi2mask));
+
+	(*pDev->deviceGrab.ActivateGrab)(pDev, &tempGrab,
+                                        currentTime, TRUE | ImplicitGrabMask);
     }
     else if ((type == MotionNotify) && deliveries)
-	inputInfo.pointer->valuator->motionHintWindow = pWin;
-#ifdef XINPUT
+	pDev->valuator->motionHintWindow = pWin;
     else
     {
-	if (((type == DeviceMotionNotify)
-#ifdef XKB
-	     || (type == DeviceButtonPress)
-#endif
-	    ) && deliveries)
+	if ((type == DeviceMotionNotify || type == DeviceButtonPress) &&
+	    deliveries)
 	    CheckDeviceGrabAndHintWindow (pWin, type,
 					  (deviceKeyButtonPointer*) pEvents,
 					  grab, client, deliveryMask);
     }
-#endif
     if (deliveries)
 	return deliveries;
     return nondeliveries;
@@ -1858,7 +2200,7 @@ MaybeDeliverEventsToClient(WindowPtr pWin, xEvent *pEvents,
 #endif
 	if (XaceHook(XACE_RECEIVE_ACCESS, wClient(pWin), pWin, pEvents, count))
 	    return 1; /* don't send, but pretend we did */
-	return TryClientEvents(wClient(pWin), pEvents, count,
+	return TryClientEvents(wClient(pWin), NULL, pEvents, count,
 			       pWin->eventMask, filter, NullGrab);
     }
     for (other = wOtherClients(pWin); other; other = other->next)
@@ -1875,12 +2217,43 @@ MaybeDeliverEventsToClient(WindowPtr pWin, xEvent *pEvents,
 	    if (XaceHook(XACE_RECEIVE_ACCESS, rClient(other), pWin, pEvents,
 			 count))
 		return 1; /* don't send, but pretend we did */
-	    return TryClientEvents(rClient(other), pEvents, count,
+	    return TryClientEvents(rClient(other), NULL, pEvents, count,
 				   other->mask, filter, NullGrab);
 	}
     }
     return 2;
 }
+
+static Window FindChildForEvent(DeviceIntPtr dev, WindowPtr event)
+    {
+    SpritePtr pSprite = dev->spriteInfo->sprite;
+    WindowPtr w = pSprite->spriteTrace[pSprite->spriteTraceGood-1];
+    Window child = None;
+
+	/* If the search ends up past the root should the child field be
+	 	set to none or should the value in the argument be passed
+		through. It probably doesn't matter since everyone calls
+		this function with child == None anyway. */
+        while (w)
+        {
+            /* If the source window is same as event window, child should be
+		none.  Don't bother going all all the way back to the root. */
+
+        if (w == event)
+	    {
+   		child = None;
+ 		break;
+	    }
+
+        if (w->parent == event)
+	    {
+		child = w->drawable.id;
+		break;
+            }
+ 	    w = w->parent;
+        }
+    return child;
+    }
 
 /**
  * Adjust event fields to comply with the window properties.
@@ -1890,43 +2263,57 @@ MaybeDeliverEventsToClient(WindowPtr pWin, xEvent *pEvents,
  * @param child Child window setting for event (if applicable)
  * @param calcChild If True, calculate the child window.
  */
-static void
+void
 FixUpEventFromWindow(
+    DeviceIntPtr pDev,
     xEvent *xE,
     WindowPtr pWin,
     Window child,
     Bool calcChild)
 {
+    SpritePtr pSprite = pDev->spriteInfo->sprite;
+
     if (calcChild)
+        child = FindChildForEvent(pDev, pWin);
+
+    if (XI2_EVENT(xE))
     {
-        WindowPtr w=spriteTrace[spriteTraceGood-1];
-	/* If the search ends up past the root should the child field be
-	 	set to none or should the value in the argument be passed
-		through. It probably doesn't matter since everyone calls
-		this function with child == None anyway. */
+        xXIDeviceEvent* event = (xXIDeviceEvent*)xE;
 
-        while (w)
+        if (event->evtype == XI_RawKeyPress ||
+            event->evtype == XI_RawKeyRelease ||
+            event->evtype == XI_RawButtonPress ||
+            event->evtype == XI_RawButtonRelease ||
+            event->evtype == XI_RawMotion ||
+            event->evtype == XI_DeviceChanged ||
+            event->evtype == XI_HierarchyChanged ||
+            event->evtype == XI_PropertyEvent)
+            return;
+
+        event->root = RootWindow(pDev)->drawable.id;
+        event->event = pWin->drawable.id;
+        if (pSprite->hot.pScreen == pWin->drawable.pScreen)
         {
-            /* If the source window is same as event window, child should be
-		none.  Don't bother going all all the way back to the root. */
-
- 	    if (w == pWin)
-	    {
-   		child = None;
- 		break;
-	    }
-
-	    if (w->parent == pWin)
-	    {
-		child = w->drawable.id;
-		break;
-            }
- 	    w = w->parent;
+            event->event_x = event->root_x - FP1616(pWin->drawable.x, 0);
+            event->event_y = event->root_y - FP1616(pWin->drawable.y, 0);
+            event->child = child;
+        } else
+        {
+            event->event_x = 0;
+            event->event_y = 0;
+            event->child = None;
         }
-    }
-    XE_KBPTR.root = ROOT->drawable.id;
+
+        if (event->evtype == XI_Enter || event->evtype == XI_Leave ||
+            event->evtype == XI_FocusIn || event->evtype == XI_FocusOut)
+            ((xXIEnterEvent*)event)->same_screen =
+                (pSprite->hot.pScreen == pWin->drawable.pScreen);
+
+    } else
+    {
+        XE_KBPTR.root = RootWindow(pDev)->drawable.id;
     XE_KBPTR.event = pWin->drawable.id;
-    if (sprite.hot.pScreen == pWin->drawable.pScreen)
+        if (pSprite->hot.pScreen == pWin->drawable.pScreen)
     {
 	XE_KBPTR.sameScreen = xTrue;
 	XE_KBPTR.child = child;
@@ -1943,88 +2330,193 @@ FixUpEventFromWindow(
 	XE_KBPTR.eventY = 0;
     }
 }
+}
 
 /**
- * Deliver events caused by input devices. Called for all core input events
- * and XI events. No filtering of events happens before DeliverDeviceEvents(),
- * it will be called for any event that comes out of the event queue.
+ * Return masks for EventIsDeliverable.
+ * @defgroup EventIsDeliverable return flags
+ * @{
+ */
+#define XI_MASK                 (1 << 0) /**< XI mask set on window */
+#define CORE_MASK               (1 << 1) /**< Core mask set on window */
+#define DONT_PROPAGATE_MASK     (1 << 2) /**< DontPropagate mask set on window */
+#define XI2_MASK                (1 << 3) /**< XI2 mask set on window */
+/* @} */
+
+/**
+ * Check if a given event is deliverable at all on a given window.
  *
- * For all core events, dev is either inputInfo.pointer or inputInfo.keyboard.
- * For all extension events, dev is the device that caused the event.
+ * This function only checks if any client wants it, not for a specific
+ * client.
+ *
+ * @param[in] dev The device this event is being sent for.
+ * @param[in] event The event that is to be sent.
+ * @param[in] win The current event window.
+ *
+ * @return Bitmask of ::XI2_MASK, ::XI_MASK, ::CORE_MASK, and
+ * ::DONT_PROPAGATE_MASK.
+ */
+static int
+EventIsDeliverable(DeviceIntPtr dev, InternalEvent* event, WindowPtr win)
+{
+    int rc = 0;
+    int filter = 0;
+    int type;
+    OtherInputMasks *inputMasks = wOtherInputMasks(win);
+    xEvent ev;
+
+    /* XXX: this makes me gag */
+    type = GetXI2Type(event);
+    ev.u.u.type = GenericEvent; /* GetEventFilter only cares about type and evtype*/
+    ((xGenericEvent*)&ev)->extension = IReqCode;
+    ((xGenericEvent*)&ev)->evtype = type;
+    filter = GetEventFilter(dev, &ev);
+    if (type && inputMasks &&
+        ((inputMasks->xi2mask[XIAllDevices][type/8] & filter) ||
+         ((inputMasks->xi2mask[XIAllMasterDevices][type/8] & filter) && IsMaster(dev)) ||
+         (inputMasks->xi2mask[dev->id][type/8] & filter)))
+        rc |= XI2_MASK;
+
+    type = GetXIType(event);
+    ev.u.u.type = type;
+    filter = GetEventFilter(dev, &ev);
+
+    /* Check for XI mask */
+    if (type && inputMasks &&
+        (inputMasks->deliverableEvents[dev->id] & filter) &&
+        (inputMasks->inputEvents[dev->id] & filter))
+        rc |= XI_MASK;
+
+    /* Check for XI DontPropagate mask */
+    if (type && inputMasks &&
+        (inputMasks->dontPropagateMask[dev->id] & filter))
+        rc |= DONT_PROPAGATE_MASK;
+
+    /* Check for core mask */
+    type = GetCoreType(event);
+    if (type && (win->deliverableEvents & filter) &&
+        ((wOtherEventMasks(win) | win->eventMask) & filter))
+        rc |= CORE_MASK;
+
+    /* Check for core DontPropagate mask */
+    if (type && (filter & wDontPropagateMask(win)))
+        rc |= DONT_PROPAGATE_MASK;
+
+    return rc;
+}
+
+/**
+ * Deliver events caused by input devices.
+ *
+ * For events from a non-grabbed, non-focus device, DeliverDeviceEvents is
+ * called directly from the processInputProc.
+ * For grabbed devices, DeliverGrabbedEvent is called first, and _may_ call
+ * DeliverDeviceEvents.
+ * For focused events, DeliverFocusedEvent is called first, and _may_ call
+ * DeliverDeviceEvents.
  *
  * @param pWin Window to deliver event to.
- * @param xE Events to deliver.
+ * @param event The events to deliver, not yet in wire format.
  * @param grab Possible grab on a device.
  * @param stopAt Don't recurse up to the root window.
  * @param dev The device that is responsible for the event.
- * @param count number of events in xE.
  *
+ * @see DeliverGrabbedEvent
+ * @see DeliverFocusedEvent
  */
 int
-DeliverDeviceEvents(WindowPtr pWin, xEvent *xE, GrabPtr grab,
-                    WindowPtr stopAt, DeviceIntPtr dev, int count)
+DeliverDeviceEvents(WindowPtr pWin, InternalEvent *event, GrabPtr grab,
+                    WindowPtr stopAt, DeviceIntPtr dev)
 {
     Window child = None;
-    int type = xE->u.u.type;
-    Mask filter = filters[type];
+    Mask filter;
     int deliveries = 0;
+    xEvent core;
+    xEvent *xE = NULL;
+    int rc, mask, count = 0;
 
-    if (XaceHook(XACE_SEND_ACCESS, NULL, dev, pWin, xE, count))
-	return 0;
+    CHECKEVENT(event);
 
-    if (type & EXTENSION_EVENT_BASE)
-    {
-	OtherInputMasks *inputMasks;
-	int mskidx = dev->id;
-
-	inputMasks = wOtherInputMasks(pWin);
-	if (inputMasks && !(filter & inputMasks->deliverableEvents[mskidx]))
-	    return 0;
 	while (pWin)
 	{
-	    if (inputMasks && (inputMasks->inputEvents[mskidx] & filter))
+        if ((mask = EventIsDeliverable(dev, event, pWin)))
+        {
+            /* XI2 events first */
+            if (mask & XI2_MASK)
 	    {
-		FixUpEventFromWindow(xE, pWin, child, FALSE);
-		deliveries = DeliverEventsToWindow(pWin, xE, count, filter,
-						   grab, mskidx);
+                xEvent *xi2 = NULL;
+                rc = EventToXI2(event, &xi2);
+                if (rc == Success)
+                {
+                    /* XXX: XACE */
+                    filter = GetEventFilter(dev, xi2);
+                    FixUpEventFromWindow(dev, xi2, pWin, child, FALSE);
+                    deliveries = DeliverEventsToWindow(dev, pWin, xi2, 1,
+                                                       filter, grab);
+                    free(xi2);
 		if (deliveries > 0)
-		    return deliveries;
+                        goto unwind;
+                } else if (rc != BadMatch)
+                    ErrorF("[dix] %s: XI2 conversion failed in DDE (%d).\n",
+                            dev->name, rc);
+            }
+
+            /* XI events */
+            if (mask & XI_MASK)
+            {
+                rc = EventToXI(event, &xE, &count);
+                if (rc == Success) {
+                    if (XaceHook(XACE_SEND_ACCESS, NULL, dev, pWin, xE, count) == Success) {
+                        filter = GetEventFilter(dev, xE);
+                        FixUpEventFromWindow(dev, xE, pWin, child, FALSE);
+                        deliveries = DeliverEventsToWindow(dev, pWin, xE, count,
+                                                           filter, grab);
+                        if (deliveries > 0)
+                            goto unwind;
 	    }
-	    if ((deliveries < 0) ||
-		(pWin == stopAt) ||
-		(inputMasks &&
-		 (filter & inputMasks->dontPropagateMask[mskidx])))
-		return 0;
+                } else if (rc != BadMatch)
+                    ErrorF("[dix] %s: XI conversion failed in DDE (%d, %d). Skipping delivery.\n",
+                            dev->name, event->any.type, rc);
+            }
+
+            /* Core event */
+            if ((mask & CORE_MASK) && IsMaster(dev) && dev->coreEvents)
+            {
+                rc = EventToCore(event, &core);
+                if (rc == Success) {
+                    if (XaceHook(XACE_SEND_ACCESS, NULL, dev, pWin, &core, 1) == Success) {
+                        filter = GetEventFilter(dev, &core);
+                        FixUpEventFromWindow(dev, &core, pWin, child, FALSE);
+                        deliveries = DeliverEventsToWindow(dev, pWin, &core, 1,
+                                                           filter, grab);
+                        if (deliveries > 0)
+                            goto unwind;
+	}
+                } else if (rc != BadMatch)
+                        ErrorF("[dix] %s: Core conversion failed in DDE (%d, %d).\n",
+                                dev->name, event->any.type, rc);
+    }
+
+            if ((deliveries < 0) || (pWin == stopAt) ||
+                (mask & DONT_PROPAGATE_MASK))
+	    {
+                deliveries = 0;
+                goto unwind;
+	    }
+        }
+
 	    child = pWin->drawable.id;
 	    pWin = pWin->parent;
-	    if (pWin)
-		inputMasks = wOtherInputMasks(pWin);
 	}
-    }
-    else
-    {
-	if (!(filter & pWin->deliverableEvents))
-	    return 0;
-	while (pWin)
-	{
-	    if ((wOtherEventMasks(pWin)|pWin->eventMask) & filter)
-	    {
-		FixUpEventFromWindow(xE, pWin, child, FALSE);
-		deliveries = DeliverEventsToWindow(pWin, xE, count, filter,
-						   grab, 0);
-		if (deliveries > 0)
-		    return deliveries;
-	    }
-	    if ((deliveries < 0) ||
-		(pWin == stopAt) ||
-		(filter & wDontPropagateMask(pWin)))
-		return 0;
-	    child = pWin->drawable.id;
-	    pWin = pWin->parent;
-	}
-    }
-    return 0;
+
+unwind:
+    free(xE);
+    return deliveries;
 }
+
+#undef XI_MASK
+#undef CORE_MASK
+#undef DONT_PROPAGATE_MASK
 
 /**
  * Deliver event to a window and it's immediate parent. Used for most window
@@ -2045,6 +2537,7 @@ DeliverEvents(WindowPtr pWin, xEvent *xE, int count,
 {
     Mask filter;
     int     deliveries;
+    DeviceIntRec dummy;
 
 #ifdef PANORAMIX
     if(!noPanoramiXExtension && pWin->drawable.pScreen->myNum)
@@ -2053,25 +2546,26 @@ DeliverEvents(WindowPtr pWin, xEvent *xE, int count,
 
     if (!count)
 	return 0;
-    filter = filters[xE->u.u.type];
+
+    dummy.id = XIAllDevices;
+    filter = GetEventFilter(&dummy, xE);
     if ((filter & SubstructureNotifyMask) && (xE->u.u.type != CreateNotify))
 	xE->u.destroyNotify.event = pWin->drawable.id;
     if (filter != StructureAndSubMask)
-	return DeliverEventsToWindow(pWin, xE, count, filter, NullGrab, 0);
-    deliveries = DeliverEventsToWindow(pWin, xE, count, StructureNotifyMask,
-				       NullGrab, 0);
+	return DeliverEventsToWindow(&dummy, pWin, xE, count, filter, NullGrab);
+    deliveries = DeliverEventsToWindow(&dummy, pWin, xE, count,
+                                       StructureNotifyMask, NullGrab);
     if (pWin->parent)
     {
 	xE->u.destroyNotify.event = pWin->parent->drawable.id;
-	deliveries += DeliverEventsToWindow(pWin->parent, xE, count,
-					    SubstructureNotifyMask, NullGrab,
-					    0);
+	deliveries += DeliverEventsToWindow(&dummy, pWin->parent, xE, count,
+					    SubstructureNotifyMask, NullGrab);
 	if (xE->u.u.type == ReparentNotify)
 	{
 	    xE->u.destroyNotify.event = otherParent->drawable.id;
-	    deliveries += DeliverEventsToWindow(otherParent, xE, count,
-						SubstructureNotifyMask,
-						NullGrab, 0);
+            deliveries += DeliverEventsToWindow(&dummy,
+                    otherParent, xE, count, SubstructureNotifyMask,
+						NullGrab);
 	}
     }
     return deliveries;
@@ -2087,14 +2581,15 @@ PointInBorderSize(WindowPtr pWin, int x, int y)
 	return TRUE;
 
 #ifdef PANORAMIX
-    if(!noPanoramiXExtension && XineramaSetWindowPntrs(pWin)) {
+    if(!noPanoramiXExtension &&
+            XineramaSetWindowPntrs(inputInfo.pointer, pWin)) {
+	SpritePtr pSprite = inputInfo.pointer->spriteInfo->sprite;
 	int i;
 
 	for(i = 1; i < PanoramiXNumScreens; i++) {
-	   if(RegionContainsPoint(
-			&sprite.windows[i]->borderSize,
-			x + panoramiXdataPtr[0].x - panoramiXdataPtr[i].x,
-			y + panoramiXdataPtr[0].y - panoramiXdataPtr[i].y,
+	   if(RegionContainsPoint(&pSprite->windows[i]->borderSize,
+				  x + screenInfo.screens[0]->x - screenInfo.screens[i]->x,
+				  y + screenInfo.screens[0]->y - screenInfo.screens[i]->y,
 			&box))
 		return TRUE;
 	}
@@ -2102,17 +2597,6 @@ PointInBorderSize(WindowPtr pWin, int x, int y)
 #endif
     return FALSE;
 }
-
-/* define XYWINDOWCALLBACK if your DDX provides this callback */
-
-static WindowPtr GetXYStartWindow(WindowPtr pWin);
-
-#ifndef XYWINDOWCALLBACK
-static WindowPtr GetXYStartWindow(WindowPtr pWin)
-{
-  return pWin;
-}
-#endif
 
 /**
  * Traversed from the root window to the window at the position x/y. While
@@ -2126,13 +2610,15 @@ static WindowPtr GetXYStartWindow(WindowPtr pWin)
  * @returns the window at the given coordinates.
  */
 static WindowPtr
-XYToWindow(int x, int y)
+XYToWindow(DeviceIntPtr pDev, int x, int y)
 {
     WindowPtr  pWin;
     BoxRec		box;
+    SpritePtr pSprite;
 
-    spriteTraceGood = 1;	/* root window still there */
-    pWin = GetXYStartWindow(ROOT->firstChild);
+    pSprite = pDev->spriteInfo->sprite;
+    pSprite->spriteTraceGood = 1;	/* root window still there */
+    pWin = RootWindow(pDev)->firstChild;
     while (pWin)
     {
 	if ((pWin->mapped) &&
@@ -2142,33 +2628,116 @@ XYToWindow(int x, int y)
 	    (y >= pWin->drawable.y - wBorderWidth (pWin)) &&
 	    (y < pWin->drawable.y + (int)pWin->drawable.height +
 	     wBorderWidth (pWin))
-#ifdef SHAPE
 	    /* When a window is shaped, a further check
 	     * is made to see if the point is inside
 	     * borderSize
 	     */
 	    && (!wBoundingShape(pWin) || PointInBorderSize(pWin, x, y))
 	    && (!wInputShape(pWin) ||
-		RegionContainsPoint(
-				wInputShape(pWin),
+		RegionContainsPoint(wInputShape(pWin),
 				x - pWin->drawable.x,
 				y - pWin->drawable.y, &box))
+#ifdef ROOTLESS
+    /* In rootless mode windows may be offscreen, even when
+     * they're in X's stack. (E.g. if the native window system
+     * implements some form of virtual desktop system).
+     */
+		&& !pWin->rootlessUnhittable
 #endif
 	    )
 	{
-	    if (spriteTraceGood >= spriteTraceSize)
+	    if (pSprite->spriteTraceGood >= pSprite->spriteTraceSize)
 	    {
-		spriteTraceSize += 10;
-		spriteTrace = realloc(
-		    spriteTrace, spriteTraceSize*sizeof(WindowPtr));
+		pSprite->spriteTraceSize += 10;
+		pSprite->spriteTrace = realloc(pSprite->spriteTrace,
+		                    pSprite->spriteTraceSize*sizeof(WindowPtr));
 	    }
-	    spriteTrace[spriteTraceGood++] = pWin;
+	    pSprite->spriteTrace[pSprite->spriteTraceGood++] = pWin;
 	    pWin = pWin->firstChild;
 	}
 	else
 	    pWin = pWin->nextSib;
     }
-    return spriteTrace[spriteTraceGood-1];
+    return pSprite->spriteTrace[pSprite->spriteTraceGood-1];
+}
+
+/**
+ * Ungrab a currently FocusIn grabbed device and grab the device on the
+ * given window. If the win given is the NoneWin, the device is ungrabbed if
+ * applicable and FALSE is returned.
+ *
+ * @returns TRUE if the device has been grabbed, or FALSE otherwise.
+ */
+BOOL
+ActivateFocusInGrab(DeviceIntPtr dev, WindowPtr old, WindowPtr win)
+{
+    BOOL rc = FALSE;
+    DeviceEvent event;
+
+    if (dev->deviceGrab.grab &&
+        dev->deviceGrab.fromPassiveGrab &&
+        dev->deviceGrab.grab->type == XI_Enter)
+    {
+        if (dev->deviceGrab.grab->window == win ||
+            IsParent(dev->deviceGrab.grab->window, win))
+            return FALSE;
+        DoEnterLeaveEvents(dev, dev->id, old, win, XINotifyPassiveUngrab);
+        (*dev->deviceGrab.DeactivateGrab)(dev);
+    }
+
+    if (win == NoneWin || win == PointerRootWin)
+        return FALSE;
+
+    memset(&event, 0, sizeof(DeviceEvent));
+    event.header = ET_Internal;
+    event.type = ET_FocusIn;
+    event.length = sizeof(DeviceEvent);
+    event.time = GetTimeInMillis();
+    event.deviceid = dev->id;
+    event.sourceid = dev->id;
+    event.detail.button = 0;
+    rc = CheckPassiveGrabsOnWindow(win, dev, &event, FALSE);
+    if (rc)
+        DoEnterLeaveEvents(dev, dev->id, old, win, XINotifyPassiveUngrab);
+    return rc;
+}
+
+/**
+ * Ungrab a currently Enter grabbed device and grab the device for the given
+ * window.
+ *
+ * @returns TRUE if the device has been grabbed, or FALSE otherwise.
+ */
+static BOOL
+ActivateEnterGrab(DeviceIntPtr dev, WindowPtr old, WindowPtr win)
+{
+    BOOL rc = FALSE;
+    DeviceEvent event;
+
+    if (dev->deviceGrab.grab &&
+        dev->deviceGrab.fromPassiveGrab &&
+        dev->deviceGrab.grab->type == XI_Enter)
+    {
+        if (dev->deviceGrab.grab->window == win ||
+            IsParent(dev->deviceGrab.grab->window, win))
+            return FALSE;
+        DoEnterLeaveEvents(dev, dev->id, old, win, XINotifyPassiveUngrab);
+        (*dev->deviceGrab.DeactivateGrab)(dev);
+    }
+
+    memset(&event, 0, sizeof(DeviceEvent));
+    event.header = ET_Internal;
+    event.type = ET_Enter;
+    event.length = sizeof(DeviceEvent);
+    event.time = GetTimeInMillis();
+    event.deviceid = dev->id;
+    event.sourceid = dev->id;
+    event.detail.button = 0;
+    rc = CheckPassiveGrabsOnWindow(win, dev, &event, FALSE);
+    if (rc)
+        DoEnterLeaveEvents(dev, dev->id, old, win, XINotifyPassiveGrab);
+
+    return rc;
 }
 
 /**
@@ -2176,6 +2745,11 @@ XYToWindow(int x, int y)
  * position, then update the event with the new coordinates that may have been
  * changed. If the window underneath the sprite has changed, change to new
  * cursor and send enter/leave events.
+ *
+ * CheckMotion() will not do anything and return FALSE if the event is not a
+ * void * event.
+ *
+ * @return TRUE if the sprite has moved or FALSE otherwise.
  */
 static Bool
 CheckMotion(xEvent *xE)
@@ -2183,63 +2757,103 @@ CheckMotion(xEvent *xE)
   ;
 #else
 {
-    WindowPtr prevSpriteWin = sprite.win;
+    WindowPtr prevSpriteWin, newSpriteWin;
+    SpritePtr pSprite = pDev->spriteInfo->sprite;
+
+    CHECKEVENT(ev);
+
+    prevSpriteWin = pSprite->win;
+
+    if (ev && !syncEvents.playingEvents)
+    {
+        /* GetPointerEvents() guarantees that void * events have the correct
+           rootX/Y set already. */
+        switch (ev->type)
+        {
+            case ET_ButtonPress:
+            case ET_ButtonRelease:
+            case ET_Motion:
+                break;
+            default:
+                /* all other events return FALSE */
+                return FALSE;
+        }
+
 
 #ifdef PANORAMIX
     if(!noPanoramiXExtension)
-	return XineramaCheckMotion(xE);
+        {
+            /* Motion events entering DIX get translated to Screen 0
+               coordinates.  Replayed events have already been
+               translated since they've entered DIX before */
+            ev->root_x += pSprite->screen->x - screenInfo.screens[0]->x;
+            ev->root_y += pSprite->screen->y - screenInfo.screens[0]->y;
+        } else
 #endif
-
-    if (xE && !syncEvents.playingEvents)
     {
-	if (sprite.hot.pScreen != sprite.hotPhys.pScreen)
+            if (pSprite->hot.pScreen != pSprite->hotPhys.pScreen)
 	{
-	    sprite.hot.pScreen = sprite.hotPhys.pScreen;
-	    ROOT = sprite.hot.pScreen->root;
+                pSprite->hot.pScreen = pSprite->hotPhys.pScreen;
+                RootWindow(pDev) = pSprite->hot.pScreen->root;
 	}
-	sprite.hot.x = XE_KBPTR.rootX;
-	sprite.hot.y = XE_KBPTR.rootY;
-	if (sprite.hot.x < sprite.physLimits.x1)
-	    sprite.hot.x = sprite.physLimits.x1;
-	else if (sprite.hot.x >= sprite.physLimits.x2)
-	    sprite.hot.x = sprite.physLimits.x2 - 1;
-	if (sprite.hot.y < sprite.physLimits.y1)
-	    sprite.hot.y = sprite.physLimits.y1;
-	else if (sprite.hot.y >= sprite.physLimits.y2)
-	    sprite.hot.y = sprite.physLimits.y2 - 1;
-#ifdef SHAPE
-	if (sprite.hotShape)
-	    ConfineToShape(sprite.hotShape, &sprite.hot.x, &sprite.hot.y);
+        }
+
+        pSprite->hot.x = ev->root_x;
+        pSprite->hot.y = ev->root_y;
+        if (pSprite->hot.x < pSprite->physLimits.x1)
+            pSprite->hot.x = pSprite->physLimits.x1;
+        else if (pSprite->hot.x >= pSprite->physLimits.x2)
+            pSprite->hot.x = pSprite->physLimits.x2 - 1;
+        if (pSprite->hot.y < pSprite->physLimits.y1)
+            pSprite->hot.y = pSprite->physLimits.y1;
+        else if (pSprite->hot.y >= pSprite->physLimits.y2)
+            pSprite->hot.y = pSprite->physLimits.y2 - 1;
+	if (pSprite->hotShape)
+	    ConfineToShape(pDev, pSprite->hotShape, &pSprite->hot.x, &pSprite->hot.y);
+	pSprite->hotPhys = pSprite->hot;
+
+	if ((pSprite->hotPhys.x != ev->root_x) ||
+	    (pSprite->hotPhys.y != ev->root_y))
+	{
+#ifdef PANORAMIX
+            if (!noPanoramiXExtension)
+            {
+                XineramaSetCursorPosition(
+                        pDev, pSprite->hotPhys.x, pSprite->hotPhys.y, FALSE);
+            } else
 #endif
-	sprite.hotPhys = sprite.hot;
-	if ((sprite.hotPhys.x != XE_KBPTR.rootX) ||
-	    (sprite.hotPhys.y != XE_KBPTR.rootY))
 	{
-	    (*sprite.hotPhys.pScreen->SetCursorPosition)(
-		sprite.hotPhys.pScreen,
-		sprite.hotPhys.x, sprite.hotPhys.y, FALSE);
+                (*pSprite->hotPhys.pScreen->SetCursorPosition)(
+                        pDev, pSprite->hotPhys.pScreen,
+                        pSprite->hotPhys.x, pSprite->hotPhys.y, FALSE);
 	}
-	XE_KBPTR.rootX = sprite.hot.x;
-	XE_KBPTR.rootY = sprite.hot.y;
     }
 
-    sprite.win = XYToWindow(sprite.hot.x, sprite.hot.y);
-#ifdef notyet
-    if (!(sprite.win->deliverableEvents &
-	  Motion_Filter(inputInfo.pointer->button))
-	!syncEvents.playingEvents)
-    {
-	/* XXX Do PointerNonInterestBox here */
+	ev->root_x = pSprite->hot.x;
+	ev->root_y = pSprite->hot.y;
     }
-#endif
-    if (sprite.win != prevSpriteWin)
+
+    newSpriteWin = XYToWindow(pDev, pSprite->hot.x, pSprite->hot.y);
+
+    if (newSpriteWin != prevSpriteWin)
     {
-	if (prevSpriteWin != NullWindow) {
-	    if (!xE)
+        int sourceid;
+        if (!ev) {
 		UpdateCurrentTimeIf();
-	    DoEnterLeaveEvents(prevSpriteWin, sprite.win, NotifyNormal);
-	}
-	PostNewCursor();
+            sourceid = pDev->id; /* when from WindowsRestructured */
+        } else
+            sourceid = ev->sourceid;
+
+	if (prevSpriteWin != NullWindow) {
+            if (!ActivateEnterGrab(pDev, prevSpriteWin, newSpriteWin))
+                DoEnterLeaveEvents(pDev, sourceid, prevSpriteWin,
+                                   newSpriteWin, NotifyNormal);
+        }
+        /* set pSprite->win after ActivateEnterGrab, otherwise
+           sprite window == grab_window and no enter/leave events are
+           sent. */
+        pSprite->win = newSpriteWin;
+        PostNewCursor(pDev);
         return FALSE;
     }
     return TRUE;
@@ -2253,94 +2867,186 @@ CheckMotion(xEvent *xE)
 void
 WindowsRestructured(void)
 {
-    (void) CheckMotion((xEvent *)NULL);
+    DeviceIntPtr pDev = inputInfo.devices;
+    while(pDev)
+    {
+        if (IsMaster(pDev) || !pDev->u.master)
+            CheckMotion(NULL, pDev);
+        pDev = pDev->next;
+    }
 }
 
 #ifdef PANORAMIX
 /* This was added to support reconfiguration under Xdmx.  The problem is
- * that if the 0th screen (i.e., screenInfo.screens[0]->root) is moved to an origin
+ * that if the 0th screen (i.e., screenInfo.screens[0]) is moved to an origin
  * other than 0,0, the information in the private sprite structure must
  * be updated accordingly, or XYToWindow (and other routines) will not
  * compute correctly. */
 void ReinitializeRootWindow(WindowPtr win, int xoff, int yoff)
 {
     GrabPtr   grab;
+    DeviceIntPtr pDev;
+    SpritePtr pSprite;
 
     if (noPanoramiXExtension) return;
 
-    sprite.hot.x        -= xoff;
-    sprite.hot.y        -= yoff;
+    pDev = inputInfo.devices;
+    while(pDev)
+    {
+        if (DevHasCursor(pDev))
+        {
+            pSprite = pDev->spriteInfo->sprite;
+            pSprite->hot.x        -= xoff;
+            pSprite->hot.y        -= yoff;
 
-    sprite.hotPhys.x    -= xoff;
-    sprite.hotPhys.y    -= yoff;
+            pSprite->hotPhys.x    -= xoff;
+            pSprite->hotPhys.y    -= yoff;
 
-    sprite.hotLimits.x1 -= xoff;
-    sprite.hotLimits.y1 -= yoff;
-    sprite.hotLimits.x2 -= xoff;
-    sprite.hotLimits.y2 -= yoff;
+            pSprite->hotLimits.x1 -= xoff;
+            pSprite->hotLimits.y1 -= yoff;
+            pSprite->hotLimits.x2 -= xoff;
+            pSprite->hotLimits.y2 -= yoff;
 
-    if (RegionNotEmpty(&sprite.Reg1))
-        RegionTranslate(&sprite.Reg1,    xoff, yoff);
-    if (RegionNotEmpty(&sprite.Reg2))
-        RegionTranslate(&sprite.Reg2,    xoff, yoff);
+            if (RegionNotEmpty(&pSprite->Reg1))
+                RegionTranslate(&pSprite->Reg1, xoff, yoff);
+            if (RegionNotEmpty(&pSprite->Reg2))
+                RegionTranslate(&pSprite->Reg2, xoff, yoff);
 
     /* FIXME: if we call ConfineCursorToWindow, must we do anything else? */
-    if ((grab = inputInfo.pointer->grab) && grab->confineTo) {
-	if (grab->confineTo->drawable.pScreen != sprite.hotPhys.pScreen)
-	    sprite.hotPhys.x = sprite.hotPhys.y = 0;
-	ConfineCursorToWindow(grab->confineTo, TRUE, TRUE);
+            if ((grab = pDev->deviceGrab.grab) && grab->confineTo) {
+                if (grab->confineTo->drawable.pScreen
+                        != pSprite->hotPhys.pScreen)
+                    pSprite->hotPhys.x = pSprite->hotPhys.y = 0;
+                ConfineCursorToWindow(pDev, grab->confineTo, TRUE, TRUE);
     } else
-	ConfineCursorToWindow(sprite.hotPhys.pScreen->root,
+                ConfineCursorToWindow(
+                        pDev,
+                        pSprite->hotPhys.pScreen->root,
 			      TRUE, FALSE);
+
+        }
+        pDev = pDev->next;
+    }
 }
 #endif
 
 /**
- * Set the given window to sane values, display the cursor in the center of
- * the screen. Called from main() with the root window on the first screen.
+ * Initialize a sprite for the given device and set it to some sane values. If
+ * the device already has a sprite alloc'd, don't realloc but just reset to
+ * default values.
+ * If a window is supplied, the sprite will be initialized with the window's
+ * cursor and positioned in the center of the window's screen. The root window
+ * is a good choice to pass in here.
+ *
+ * It's a good idea to call it only for void * devices, unless you have a
+ * really talented keyboard.
+ *
+ * @param pDev The device to initialize.
+ * @param pWin The window where to generate the sprite in.
+ *
  */
 void
-#ifdef NXAGENT_SERVER
-xorg_DefineInitialRootWindow(WindowPtr win)
-#else
-DefineInitialRootWindow(WindowPtr win)
-#endif
+InitializeSprite(DeviceIntPtr pDev, WindowPtr pWin)
 {
-    ScreenPtr pScreen = win->drawable.pScreen;
+    SpritePtr pSprite;
+    ScreenPtr pScreen;
+    CursorPtr pCursor;
 
-    sprite.hotPhys.pScreen = pScreen;
-    sprite.hotPhys.x = pScreen->width / 2;
-    sprite.hotPhys.y = pScreen->height / 2;
-    sprite.hot = sprite.hotPhys;
-    sprite.hotLimits.x2 = pScreen->width;
-    sprite.hotLimits.y2 = pScreen->height;
-    sprite.win = win;
-    sprite.current = wCursor (win);
-    sprite.current->refcnt++;
-    spriteTraceGood = 1;
-    ROOT = win;
-    (*pScreen->CursorLimits) (
-	pScreen, sprite.current, &sprite.hotLimits, &sprite.physLimits);
-    sprite.confined = FALSE;
-    (*pScreen->ConstrainCursor) (pScreen, &sprite.physLimits);
-    (*pScreen->SetCursorPosition) (pScreen, sprite.hot.x, sprite.hot.y, FALSE);
-    (*pScreen->DisplayCursor) (pScreen, sprite.current);
+    if (!pDev->spriteInfo->sprite)
+    {
+        DeviceIntPtr it;
 
+        pDev->spriteInfo->sprite = (SpritePtr)calloc(1, sizeof(SpriteRec));
+        if (!pDev->spriteInfo->sprite)
+            FatalError("InitializeSprite: failed to allocate sprite struct");
+
+        /* We may have paired another device with this device before our
+         * device had a actual sprite. We need to check for this and reset the
+         * sprite field for all paired devices.
+         *
+         * The VCK is always paired with the VCP before the VCP has a sprite.
+         */
+        for (it = inputInfo.devices; it; it = it->next)
+        {
+            if (it->spriteInfo->paired == pDev)
+                it->spriteInfo->sprite = pDev->spriteInfo->sprite;
+        }
+        if (inputInfo.keyboard->spriteInfo->paired == pDev)
+            inputInfo.keyboard->spriteInfo->sprite = pDev->spriteInfo->sprite;
+    }
+
+    pSprite = pDev->spriteInfo->sprite;
+    pDev->spriteInfo->spriteOwner = TRUE;
+
+    pScreen = (pWin) ? pWin->drawable.pScreen : (ScreenPtr)NULL;
+    pSprite->hot.pScreen = pScreen;
+    pSprite->hotPhys.pScreen = pScreen;
+    if (pScreen)
+    {
+        pSprite->hotPhys.x = pScreen->width / 2;
+        pSprite->hotPhys.y = pScreen->height / 2;
+        pSprite->hotLimits.x2 = pScreen->width;
+        pSprite->hotLimits.y2 = pScreen->height;
+    }
+
+    pSprite->hot = pSprite->hotPhys;
+    pSprite->win = pWin;
+
+    if (pWin)
+    {
+	pCursor = wCursor(pWin);
+	pSprite->spriteTrace = (WindowPtr *)calloc(1, 32*sizeof(WindowPtr));
+	if (!pSprite->spriteTrace)
+	    FatalError("Failed to allocate spriteTrace");
+	pSprite->spriteTraceSize = 32;
+
+	RootWindow(pDev) = pWin;
+	pSprite->spriteTraceGood = 1;
+
+	pSprite->pEnqueueScreen = pScreen;
+	pSprite->pDequeueScreen = pSprite->pEnqueueScreen;
+
+    } else {
+        pCursor = NullCursor;
+	pSprite->spriteTrace = NULL;
+	pSprite->spriteTraceSize = 0;
+	pSprite->spriteTraceGood = 0;
+	pSprite->pEnqueueScreen = screenInfo.screens[0];
+	pSprite->pDequeueScreen = pSprite->pEnqueueScreen;
+    }
+    if (pCursor)
+	pCursor->refcnt++;
+    if (pSprite->current)
+	FreeCursor(pSprite->current, None);
+    pSprite->current = pCursor;
+
+    if (pScreen)
+    {
+        (*pScreen->RealizeCursor) ( pDev, pScreen, pSprite->current);
+        (*pScreen->CursorLimits) ( pDev, pScreen, pSprite->current,
+                                   &pSprite->hotLimits, &pSprite->physLimits);
+        pSprite->confined = FALSE;
+
+        (*pScreen->ConstrainCursor) (pDev, pScreen,
+                                     &pSprite->physLimits);
+        (*pScreen->SetCursorPosition) (pDev, pScreen, pSprite->hot.x,
+                                       pSprite->hot.y,
+                                       FALSE);
+        (*pScreen->DisplayCursor) (pDev, pScreen, pSprite->current);
+    }
 #ifdef PANORAMIX
     if(!noPanoramiXExtension) {
-	sprite.hotLimits.x1 = -panoramiXdataPtr[0].x;
-	sprite.hotLimits.y1 = -panoramiXdataPtr[0].y;
-	sprite.hotLimits.x2 = PanoramiXPixWidth  - panoramiXdataPtr[0].x;
-	sprite.hotLimits.y2 = PanoramiXPixHeight - panoramiXdataPtr[0].y;
-	sprite.physLimits = sprite.hotLimits;
-	sprite.confineWin = NullWindow;
-#ifdef SHAPE
-        sprite.hotShape = NullRegion;
-#endif
-	sprite.screen = pScreen;
+        pSprite->hotLimits.x1 = -screenInfo.screens[0]->x;
+        pSprite->hotLimits.y1 = -screenInfo.screens[0]->y;
+        pSprite->hotLimits.x2 = PanoramiXPixWidth  - screenInfo.screens[0]->x;
+        pSprite->hotLimits.y2 = PanoramiXPixHeight - screenInfo.screens[0]->y;
+        pSprite->physLimits = pSprite->hotLimits;
+        pSprite->confineWin = NullWindow;
+        pSprite->hotShape = NullRegion;
+        pSprite->screen = pScreen;
 	/* gotta UNINIT these someplace */
-	RegionNull(&sprite.Reg1);
-	RegionNull(&sprite.Reg2);
+        RegionNull(&pSprite->Reg1);
+        RegionNull(&pSprite->Reg2);
     }
 #endif
 }
@@ -2361,38 +3067,51 @@ DefineInitialRootWindow(WindowPtr win)
  * @param win must be the new pScreen we are switching to.
  */
 void
-UpdateSpriteForScreen(ScreenPtr pScreen)
+UpdateSpriteForScreen(DeviceIntPtr pDev, ScreenPtr pScreen)
 {
+    SpritePtr pSprite = NULL;
     WindowPtr win = NULL;
+    CursorPtr pCursor;
     if (!pScreen)
         return ;
+
+    if (!pDev->spriteInfo->sprite)
+        return;
+
+    pSprite = pDev->spriteInfo->sprite;
+
     win = pScreen->root;
 
-    sprite.hotPhys.pScreen = pScreen;
-    sprite.hot = sprite.hotPhys;
-    sprite.hotLimits.x2 = pScreen->width;
-    sprite.hotLimits.y2 = pScreen->height;
-    sprite.win = win;
-    sprite.current = wCursor (win);
-    sprite.current->refcnt++;
-    spriteTraceGood = 1;
-    ROOT = win;
-    (*pScreen->CursorLimits) (pScreen,
-                              sprite.current,
-                              &sprite.hotLimits,
-                              &sprite.physLimits);
-    sprite.confined = FALSE;
-    (*pScreen->ConstrainCursor) (pScreen, &sprite.physLimits);
-    (*pScreen->DisplayCursor) (pScreen, sprite.current);
+    pSprite->hotPhys.pScreen = pScreen;
+    pSprite->hot = pSprite->hotPhys;
+    pSprite->hotLimits.x2 = pScreen->width;
+    pSprite->hotLimits.y2 = pScreen->height;
+    pSprite->win = win;
+    pCursor = wCursor(win);
+    if (pCursor)
+	pCursor->refcnt++;
+    if (pSprite->current)
+	FreeCursor(pSprite->current, 0);
+    pSprite->current = pCursor;
+    pSprite->spriteTraceGood = 1;
+    pSprite->spriteTrace[0] = win;
+    (*pScreen->CursorLimits) (pDev,
+                              pScreen,
+                              pSprite->current,
+                              &pSprite->hotLimits,
+                              &pSprite->physLimits);
+    pSprite->confined = FALSE;
+    (*pScreen->ConstrainCursor) (pDev, pScreen, &pSprite->physLimits);
+    (*pScreen->DisplayCursor) (pDev, pScreen, pSprite->current);
 
 #ifdef PANORAMIX
     if(!noPanoramiXExtension) {
-        sprite.hotLimits.x1 = -panoramiXdataPtr[0].x;
-        sprite.hotLimits.y1 = -panoramiXdataPtr[0].y;
-        sprite.hotLimits.x2 = PanoramiXPixWidth  - panoramiXdataPtr[0].x;
-        sprite.hotLimits.y2 = PanoramiXPixHeight - panoramiXdataPtr[0].y;
-        sprite.physLimits = sprite.hotLimits;
-        sprite.screen = pScreen;
+        pSprite->hotLimits.x1 = -screenInfo.screens[0]->x;
+        pSprite->hotLimits.y1 = -screenInfo.screens[0]->y;
+        pSprite->hotLimits.x2 = PanoramiXPixWidth  - screenInfo.screens[0]->x;
+        pSprite->hotLimits.y2 = PanoramiXPixHeight - screenInfo.screens[0]->y;
+        pSprite->physLimits = pSprite->hotLimits;
+        pSprite->screen = pScreen;
     }
 #endif
 }
@@ -2407,40 +3126,47 @@ UpdateSpriteForScreen(ScreenPtr pScreen)
 void
 WindowHasNewCursor(WindowPtr pWin)
 {
-    PostNewCursor();
+    DeviceIntPtr pDev;
+
+    for(pDev = inputInfo.devices; pDev; pDev = pDev->next)
+        if (DevHasCursor(pDev))
+            PostNewCursor(pDev);
 }
 
 void
-NewCurrentScreen(ScreenPtr newScreen, int x, int y)
+NewCurrentScreen(DeviceIntPtr pDev, ScreenPtr newScreen, int x, int y)
 {
-    sprite.hotPhys.x = x;
-    sprite.hotPhys.y = y;
+    SpritePtr pSprite = pDev->spriteInfo->sprite;
+
+    pSprite->hotPhys.x = x;
+    pSprite->hotPhys.y = y;
 #ifdef PANORAMIX
     if(!noPanoramiXExtension) {
-	sprite.hotPhys.x += panoramiXdataPtr[newScreen->myNum].x -
-			    panoramiXdataPtr[0].x;
-	sprite.hotPhys.y += panoramiXdataPtr[newScreen->myNum].y -
-			    panoramiXdataPtr[0].y;
-	if (newScreen != sprite.screen) {
-	    sprite.screen = newScreen;
+	pSprite->hotPhys.x += newScreen->x - screenInfo.screens[0]->x;
+	pSprite->hotPhys.y += newScreen->y - screenInfo.screens[0]->y;
+	if (newScreen != pSprite->screen) {
+	    pSprite->screen = newScreen;
 	    /* Make sure we tell the DDX to update its copy of the screen */
-	    if(sprite.confineWin)
-		XineramaConfineCursorToWindow(sprite.confineWin, TRUE);
+	    if(pSprite->confineWin)
+		XineramaConfineCursorToWindow(pDev,
+                        pSprite->confineWin, TRUE);
 	    else
-		XineramaConfineCursorToWindow(screenInfo.screens[0]->root, TRUE);
-	    /* if the pointer wasn't confined, the DDX won't get
-	       told of the pointer warp so we reposition it here */
+		XineramaConfineCursorToWindow(pDev, screenInfo.screens[0]->root, TRUE);
+	    /* if the void * wasn't confined, the DDX won't get
+	       told of the void * warp so we reposition it here */
 	    if(!syncEvents.playingEvents)
-		(*sprite.screen->SetCursorPosition)(sprite.screen,
-		    sprite.hotPhys.x + panoramiXdataPtr[0].x -
-			panoramiXdataPtr[sprite.screen->myNum].x,
-		    sprite.hotPhys.y + panoramiXdataPtr[0].y -
-			panoramiXdataPtr[sprite.screen->myNum].y, FALSE);
+		(*pSprite->screen->SetCursorPosition)(
+                                                      pDev,
+                                                      pSprite->screen,
+		    pSprite->hotPhys.x + screenInfo.screens[0]->x -
+			pSprite->screen->x,
+		    pSprite->hotPhys.y + screenInfo.screens[0]->y -
+			pSprite->screen->y, FALSE);
 	}
     } else
 #endif
-    if (newScreen != sprite.hotPhys.pScreen)
-	ConfineCursorToWindow(newScreen->root, TRUE, FALSE);
+    if (newScreen != pSprite->hotPhys.pScreen)
+	ConfineCursorToWindow(pDev, newScreen->root, TRUE, FALSE);
 }
 
 #ifdef PANORAMIX
@@ -2460,20 +3186,19 @@ XineramaPointInWindowIsVisible(
     if (RegionContainsPoint(&pWin->borderClip, x, y, &box))
         return TRUE;
 
-    if(!XineramaSetWindowPntrs(pWin)) return FALSE;
+    if(!XineramaSetWindowPntrs(inputInfo.pointer, pWin)) return FALSE;
 
-    xoff = x + panoramiXdataPtr[0].x;
-    yoff = y + panoramiXdataPtr[0].y;
+    xoff = x + screenInfo.screens[0]->x;
+    yoff = y + screenInfo.screens[0]->y;
 
     for(i = 1; i < PanoramiXNumScreens; i++) {
-	pWin = sprite.windows[i];
-	x = xoff - panoramiXdataPtr[i].x;
-	y = yoff - panoramiXdataPtr[i].y;
+	pWin = inputInfo.pointer->spriteInfo->sprite->windows[i];
+	x = xoff - screenInfo.screens[i]->x;
+	y = yoff - screenInfo.screens[i]->y;
 
 	if(RegionContainsPoint(&pWin->borderClip, x, y, &box)
 	   && (!wInputShape(pWin) ||
-	       RegionContainsPoint(
-			       wInputShape(pWin),
+	       RegionContainsPoint(wInputShape(pWin),
 			       x - pWin->drawable.x,
 			       y - pWin->drawable.y, &box)))
             return TRUE;
@@ -2488,6 +3213,7 @@ XineramaWarpPointer(ClientPtr client)
 {
     WindowPtr	dest = NULL;
     int		x, y, rc;
+    SpritePtr   pSprite = PickPointer(client)->spriteInfo->sprite;
 
     REQUEST(xWarpPointerReq);
 
@@ -2497,8 +3223,8 @@ XineramaWarpPointer(ClientPtr client)
 	if (rc != Success)
 	    return rc;
     }
-    x = sprite.hotPhys.x;
-    y = sprite.hotPhys.y;
+    x = pSprite->hotPhys.x;
+    y = pSprite->hotPhys.y;
 
     if (stuff->srcWid != None)
     {
@@ -2513,8 +3239,8 @@ XineramaWarpPointer(ClientPtr client)
 	winX = source->drawable.x;
 	winY = source->drawable.y;
 	if(source == screenInfo.screens[0]->root) {
-	    winX -= panoramiXdataPtr[0].x;
-	    winY -= panoramiXdataPtr[0].y;
+	    winX -= screenInfo.screens[0]->x;
+	    winY -= screenInfo.screens[0]->y;
 	}
 	if (x < winX + stuff->srcX ||
 	    y < winY + stuff->srcY ||
@@ -2529,26 +3255,26 @@ XineramaWarpPointer(ClientPtr client)
 	x = dest->drawable.x;
 	y = dest->drawable.y;
 	if(dest == screenInfo.screens[0]->root) {
-	    x -= panoramiXdataPtr[0].x;
-	    y -= panoramiXdataPtr[0].y;
+	    x -= screenInfo.screens[0]->x;
+	    y -= screenInfo.screens[0]->y;
 	}
     }
 
     x += stuff->dstX;
     y += stuff->dstY;
 
-    if (x < sprite.physLimits.x1)
-	x = sprite.physLimits.x1;
-    else if (x >= sprite.physLimits.x2)
-	x = sprite.physLimits.x2 - 1;
-    if (y < sprite.physLimits.y1)
-	y = sprite.physLimits.y1;
-    else if (y >= sprite.physLimits.y2)
-	y = sprite.physLimits.y2 - 1;
-    if (sprite.hotShape)
-	ConfineToShape(sprite.hotShape, &x, &y);
+    if (x < pSprite->physLimits.x1)
+	x = pSprite->physLimits.x1;
+    else if (x >= pSprite->physLimits.x2)
+	x = pSprite->physLimits.x2 - 1;
+    if (y < pSprite->physLimits.y1)
+	y = pSprite->physLimits.y1;
+    else if (y >= pSprite->physLimits.y2)
+	y = pSprite->physLimits.y2 - 1;
+    if (pSprite->hotShape)
+	ConfineToShape(PickPointer(client), pSprite->hotShape, &x, &y);
 
-    XineramaSetCursorPosition(x, y, TRUE);
+    XineramaSetCursorPosition(PickPointer(client), x, y, TRUE);
 
     return Success;
 }
@@ -2566,17 +3292,26 @@ ProcWarpPointer(ClientPtr client)
     WindowPtr	dest = NULL;
     int		x, y, rc;
     ScreenPtr	newScreen;
-    DeviceIntPtr dev;
+    DeviceIntPtr dev, tmp;
+    SpritePtr   pSprite;
+
     REQUEST(xWarpPointerReq);
     REQUEST_SIZE_MATCH(xWarpPointerReq);
 
-    for (dev = inputInfo.devices; dev; dev = dev->next) {
-        if ((dev->coreEvents || dev == inputInfo.pointer) && dev->button) {
+    dev = PickPointer(client);
+
+    for (tmp = inputInfo.devices; tmp; tmp = tmp->next) {
+        if ((tmp == dev) || (!IsMaster(tmp) && tmp->u.master == dev)) {
 	    rc = XaceHook(XACE_DEVICE_ACCESS, client, dev, DixWriteAccess);
 	    if (rc != Success)
 		return rc;
 	}
     }
+
+    if (dev->u.lastSlave)
+        dev = dev->u.lastSlave;
+    pSprite = dev->spriteInfo->sprite;
+
 #ifdef PANORAMIX
     if(!noPanoramiXExtension)
 	return XineramaWarpPointer(client);
@@ -2587,8 +3322,8 @@ ProcWarpPointer(ClientPtr client)
 	if (rc != Success)
 	    return rc;
     }
-    x = sprite.hotPhys.x;
-    y = sprite.hotPhys.y;
+    x = pSprite->hotPhys.x;
+    y = pSprite->hotPhys.y;
 
     if (stuff->srcWid != None)
     {
@@ -2602,7 +3337,7 @@ ProcWarpPointer(ClientPtr client)
 
 	winX = source->drawable.x;
 	winY = source->drawable.y;
-	if (source->drawable.pScreen != sprite.hotPhys.pScreen ||
+	if (source->drawable.pScreen != pSprite->hotPhys.pScreen ||
 	    x < winX + stuff->srcX ||
 	    y < winY + stuff->srcY ||
 	    (stuff->srcWidth != 0 &&
@@ -2618,7 +3353,7 @@ ProcWarpPointer(ClientPtr client)
 	y = dest->drawable.y;
 	newScreen = dest->drawable.pScreen;
     } else
-	newScreen = sprite.hotPhys.pScreen;
+	newScreen = pSprite->hotPhys.pScreen;
 
     x += stuff->dstX;
     y += stuff->dstY;
@@ -2632,41 +3367,39 @@ ProcWarpPointer(ClientPtr client)
     else if (y >= newScreen->height)
 	y = newScreen->height - 1;
 
-    if (newScreen == sprite.hotPhys.pScreen)
+    if (newScreen == pSprite->hotPhys.pScreen)
     {
-	if (x < sprite.physLimits.x1)
-	    x = sprite.physLimits.x1;
-	else if (x >= sprite.physLimits.x2)
-	    x = sprite.physLimits.x2 - 1;
-	if (y < sprite.physLimits.y1)
-	    y = sprite.physLimits.y1;
-	else if (y >= sprite.physLimits.y2)
-	    y = sprite.physLimits.y2 - 1;
-#if defined(SHAPE)
-	if (sprite.hotShape)
-	    ConfineToShape(sprite.hotShape, &x, &y);
-#endif
-	(*newScreen->SetCursorPosition)(newScreen, x, y, TRUE);
+	if (x < pSprite->physLimits.x1)
+	    x = pSprite->physLimits.x1;
+	else if (x >= pSprite->physLimits.x2)
+	    x = pSprite->physLimits.x2 - 1;
+	if (y < pSprite->physLimits.y1)
+	    y = pSprite->physLimits.y1;
+	else if (y >= pSprite->physLimits.y2)
+	    y = pSprite->physLimits.y2 - 1;
+	if (pSprite->hotShape)
+	    ConfineToShape(dev, pSprite->hotShape, &x, &y);
+        (*newScreen->SetCursorPosition)(dev, newScreen, x, y, TRUE);
     }
-    else if (!PointerConfinedToScreen())
+    else if (!PointerConfinedToScreen(dev))
     {
-	NewCurrentScreen(newScreen, x, y);
+	NewCurrentScreen(dev, newScreen, x, y);
     }
     return Success;
 }
 
 static Bool
-BorderSizeNotEmpty(WindowPtr pWin)
+BorderSizeNotEmpty(DeviceIntPtr pDev, WindowPtr pWin)
 {
      if(RegionNotEmpty(&pWin->borderSize))
 	return TRUE;
 
 #ifdef PANORAMIX
-     if(!noPanoramiXExtension && XineramaSetWindowPntrs(pWin)) {
+     if(!noPanoramiXExtension && XineramaSetWindowPntrs(pDev, pWin)) {
 	int i;
 
 	for(i = 1; i < PanoramiXNumScreens; i++) {
-	    if(RegionNotEmpty(&sprite.windows[i]->borderSize))
+	    if(RegionNotEmpty(&pDev->spriteInfo->sprite->windows[i]->borderSize))
 		return TRUE;
 	}
      }
@@ -2681,95 +3414,207 @@ BorderSizeNotEmpty(WindowPtr pWin)
  *
  * @param pWin The window that may be subject to a passive grab.
  * @param device Device that caused the event.
- * @param xE List of events (multiple ones for DeviceMotionNotify)
- * @count number of elements in xE.
+ * @param event The current device event.
+ * @param checkCore Check for core grabs too.
  */
 
 static Bool
 CheckPassiveGrabsOnWindow(
     WindowPtr pWin,
     DeviceIntPtr device,
-    xEvent *xE,
-    int count)
+    DeviceEvent *event,
+    BOOL checkCore)
 {
     GrabPtr grab = wPassiveGrabs(pWin);
     GrabRec tempGrab;
-    xEvent *dxE;
+    GrabInfoPtr grabinfo;
+#define CORE_MATCH      0x1
+#define XI_MATCH        0x2
+#define XI2_MATCH        0x4
+    int match = 0;
+
+    if (device->deviceGrab.grab)
+        return FALSE;
 
     if (!grab)
 	return FALSE;
+    /* Fill out the grab details, but leave the type for later before
+     * comparing */
     tempGrab.window = pWin;
     tempGrab.device = device;
-    tempGrab.type = xE->u.u.type;
-    tempGrab.detail.exact = xE->u.u.detail;
+    tempGrab.detail.exact = event->detail.key;
     tempGrab.detail.pMask = NULL;
     tempGrab.modifiersDetail.pMask = NULL;
+    tempGrab.next = NULL;
     for (; grab; grab = grab->next)
     {
-#ifdef XKB
 	DeviceIntPtr	gdev;
-	XkbSrvInfoPtr	xkbi;
+	XkbSrvInfoPtr	xkbi = NULL;
 
 	gdev= grab->modifierDevice;
+        if (grab->grabtype == GRABTYPE_CORE)
+        {
+            if (IsPointerDevice(device))
+                gdev = GetPairedDevice(device);
+            else
+                gdev = device;
+        } else if (grab->grabtype == GRABTYPE_XI2)
+        {
+            /* if the device is an attached slave device, gdev must be the
+             * attached master keyboard. Since the slave may have been
+             * reattached after the grab, the modifier device may not be the
+             * same. */
+            if (!IsMaster(grab->device) && device->u.master)
+                gdev = GetMaster(device, MASTER_KEYBOARD);
+        }
+
+
+        if (gdev && gdev->key)
 	xkbi= gdev->key->xkbInfo;
-#endif
 	tempGrab.modifierDevice = grab->modifierDevice;
-	if ((device == grab->modifierDevice) &&
-	    ((xE->u.u.type == KeyPress)
-#if defined(XINPUT) && defined(XKB)
-	     || (xE->u.u.type == DeviceKeyPress)
-#endif
-	     ))
-	    tempGrab.modifiersDetail.exact =
-#ifdef XKB
-		(noXkbExtension?gdev->key->prev_state:xkbi->state.grab_mods);
-#else
-		grab->modifierDevice->key->prev_state;
-#endif
-	else
-	    tempGrab.modifiersDetail.exact =
-#ifdef XKB
-		(noXkbExtension ? gdev->key->state : xkbi->state.grab_mods);
-#else
-		grab->modifierDevice->key->state;
-#endif
-	if (GrabMatchesSecond(&tempGrab, grab) &&
-	    (!grab->confineTo ||
+        tempGrab.modifiersDetail.exact = xkbi ? xkbi->state.grab_mods : 0;
+
+        /* Check for XI2 and XI grabs first */
+        tempGrab.type = GetXI2Type((InternalEvent*)event);
+        tempGrab.grabtype = GRABTYPE_XI2;
+        if (GrabMatchesSecond(&tempGrab, grab, FALSE))
+            match = XI2_MATCH;
+
+        tempGrab.detail.exact = event->detail.key;
+        if (!match)
+        {
+            tempGrab.type = GetXIType((InternalEvent*)event);
+            tempGrab.grabtype = GRABTYPE_XI;
+            if (GrabMatchesSecond(&tempGrab, grab, FALSE))
+                match = XI_MATCH;
+        }
+
+        /* Check for a core grab (ignore the device when comparing) */
+        if (!match && checkCore)
+        {
+            tempGrab.grabtype = GRABTYPE_CORE;
+            if ((tempGrab.type = GetCoreType((InternalEvent*)event)) &&
+                (GrabMatchesSecond(&tempGrab, grab, TRUE)))
+                match = CORE_MATCH;
+        }
+
+        if (match && (!grab->confineTo ||
 	     (grab->confineTo->realized &&
-				BorderSizeNotEmpty(grab->confineTo))))
+				BorderSizeNotEmpty(device, grab->confineTo))))
 	{
-#ifdef XKB
-	    if (!noXkbExtension) {
-		XE_KBPTR.state &= 0x1f00;
-		XE_KBPTR.state |=
-				tempGrab.modifiersDetail.exact&(~0x1f00);
+            int rc, count = 0;
+            xEvent *xE = NULL;
+            xEvent core;
+
+            event->corestate &= 0x1f00;
+            event->corestate |= tempGrab.modifiersDetail.exact & (~0x1f00);
+            grabinfo = &device->deviceGrab;
+            /* In some cases a passive core grab may exist, but the client
+             * already has a core grab on some other device. In this case we
+             * must not get the grab, otherwise we may never ungrab the
+             * device.
+             */
+
+            if (grab->grabtype == GRABTYPE_CORE)
+            {
+                DeviceIntPtr other;
+                BOOL interfering = FALSE;
+
+                /* A passive grab may have been created for a different device
+                   than it is assigned to at this point in time.
+                   Update the grab's device and modifier device to reflect the
+                   current state.
+                   Since XGrabDeviceButton requires to specify the
+                   modifierDevice explicitly, we don't override this choice.
+                   */
+                if (tempGrab.type < GenericEvent)
+	{
+                    grab->device = device;
+                    grab->modifierDevice = GetPairedDevice(device);
 	    }
-#endif
-	    (*device->ActivateGrab)(device, grab, currentTime, TRUE);
 
-	    FixUpEventFromWindow(xE, grab->window, None, TRUE);
-
-	    (void) TryClientEvents(rClient(grab), xE, count,
-				   filters[xE->u.u.type],
-				   filters[xE->u.u.type],  grab);
-
-	    if (device->sync.state == FROZEN_NO_EVENT)
-	    {
-		if (device->sync.evcount < count)
-		{
-		    device->sync.event = (xEvent *)realloc(device->sync.event,
-							    count*
-							    sizeof(xEvent));
-		}
-		device->sync.evcount = count;
-		for (dxE = device->sync.event; --count >= 0; dxE++, xE++)
-		    *dxE = *xE;
-	    	device->sync.state = FROZEN_WITH_EVENT;
+                for (other = inputInfo.devices; other; other = other->next)
+                {
+                    GrabPtr othergrab = other->deviceGrab.grab;
+                    if (othergrab && othergrab->grabtype == GRABTYPE_CORE &&
+                        SameClient(grab, rClient(othergrab)) &&
+                        ((IsPointerDevice(grab->device) &&
+                         IsPointerDevice(othergrab->device)) ||
+                         (IsKeyboardDevice(grab->device) &&
+                          IsKeyboardDevice(othergrab->device))))
+                    {
+                        interfering = TRUE;
+                        break;
+                    }
+                }
+                if (interfering)
+                    continue;
             }
+
+
+            if (match & CORE_MATCH)
+	    {
+                rc = EventToCore((InternalEvent*)event, &core);
+                if (rc != Success)
+		{
+                    if (rc != BadMatch)
+                        ErrorF("[dix] %s: core conversion failed in CPGFW "
+                                "(%d, %d).\n", device->name, event->type, rc);
+                    continue;
+		}
+                xE = &core;
+                count = 1;
+            } else if (match & XI2_MATCH)
+            {
+                rc = EventToXI2((InternalEvent*)event, &xE);
+                if (rc != Success)
+                {
+                    if (rc != BadMatch)
+                        ErrorF("[dix] %s: XI2 conversion failed in CPGFW "
+                                "(%d, %d).\n", device->name, event->type, rc);
+                    continue;
+                }
+                count = 1;
+            } else
+            {
+                rc = EventToXI((InternalEvent*)event, &xE, &count);
+                if (rc != Success)
+                {
+                    if (rc != BadMatch)
+                        ErrorF("[dix] %s: XI conversion failed in CPGFW "
+                                "(%d, %d).\n", device->name, event->type, rc);
+                    continue;
+            }
+            }
+
+	    (*grabinfo->ActivateGrab)(device, grab, currentTime, TRUE);
+
+            if (xE)
+            {
+                FixUpEventFromWindow(device, xE, grab->window, None, TRUE);
+
+                TryClientEvents(rClient(grab), device, xE, count,
+                                       GetEventFilter(device, xE),
+                                       GetEventFilter(device, xE), grab);
+            }
+
+	    if (grabinfo->sync.state == FROZEN_NO_EVENT)
+	    {
+                if (!grabinfo->sync.event)
+                    grabinfo->sync.event = calloc(1, sizeof(InternalEvent));
+                *grabinfo->sync.event = *event;
+		grabinfo->sync.state = FROZEN_WITH_EVENT;
+            }
+
+            if (match & (XI_MATCH | XI2_MATCH))
+                free(xE); /* on core match xE == &core */
 	    return TRUE;
 	}
     }
     return FALSE;
+#undef CORE_MATCH
+#undef XI_MATCH
+#undef XI2_MATCH
 }
 
 /**
@@ -2789,25 +3634,29 @@ CheckPassiveGrabsOnWindow(
  *
  * If a grab is activated, the event has been sent to the client already!
  *
+ * The event we pass in must always be an XI event. From this, we then emulate
+ * the core event and then check for grabs.
+ *
  * @param device The device that caused the event.
- * @param xE The event to handle (most likely {Device}ButtonPress).
+ * @param xE The event to handle (Device{Button|Key}Press).
  * @param count Number of events in list.
  * @return TRUE if a grab has been activated or false otherwise.
 */
 
 Bool
-CheckDeviceGrabs(DeviceIntPtr device, xEvent *xE,
-                 int checkFirst, int count)
+CheckDeviceGrabs(DeviceIntPtr device, DeviceEvent *event, int checkFirst)
 {
     int i;
     WindowPtr pWin = NULL;
-    FocusClassPtr focus = device->focus;
+    FocusClassPtr focus = IsPointerEvent((InternalEvent*)event) ? NULL : device->focus;
+    BOOL sendCore = (IsMaster(device) && device->coreEvents);
 
-    if (((xE->u.u.type == ButtonPress)
-#if defined(XINPUT) && defined(XKB)
-	 || (xE->u.u.type == DeviceButtonPress)
-#endif
-	 ) && (device->button->buttonsDown != 1))
+    if (event->type != ET_ButtonPress &&
+        event->type != ET_KeyPress)
+        return FALSE;
+
+    if (event->type == ET_ButtonPress
+        && (device->button->buttonsDown != 1))
 	return FALSE;
 
     i = checkFirst;
@@ -2818,21 +3667,22 @@ CheckDeviceGrabs(DeviceIntPtr device, xEvent *xE,
 	{
 	    pWin = focus->trace[i];
 	    if (pWin->optional &&
-		CheckPassiveGrabsOnWindow(pWin, device, xE, count))
+	        CheckPassiveGrabsOnWindow(pWin, device, event, sendCore))
 		return TRUE;
 	}
 
 	if ((focus->win == NoneWin) ||
-	    (i >= spriteTraceGood) ||
-	    ((i > checkFirst) && (pWin != spriteTrace[i-1])))
+	    (i >= device->spriteInfo->sprite->spriteTraceGood) ||
+	    ((i > checkFirst) &&
+             (pWin != device->spriteInfo->sprite->spriteTrace[i-1])))
 	    return FALSE;
     }
 
-    for (; i < spriteTraceGood; i++)
+    for (; i < device->spriteInfo->sprite->spriteTraceGood; i++)
     {
-	pWin = spriteTrace[i];
+	pWin = device->spriteInfo->sprite->spriteTrace[i];
 	if (pWin->optional &&
-	    CheckPassiveGrabsOnWindow(pWin, device, xE, count))
+	    CheckPassiveGrabsOnWindow(pWin, device, event, sendCore))
 	    return TRUE;
     }
 
@@ -2841,19 +3691,25 @@ CheckDeviceGrabs(DeviceIntPtr device, xEvent *xE,
 
 /**
  * Called for keyboard events to deliver event to whatever client owns the
- * focus. Event is delivered to the keyboard's focus window, the root window
- * or to the window owning the input focus.
+ * focus.
+ *
+ * The event is delivered to the keyboard's focus window, the root window or
+ * to the window owning the input focus.
  *
  * @param keybd The keyboard originating the event.
- * @param xE The event list.
+ * @param event The event, not yet in wire format.
  * @param window Window underneath the sprite.
- * @param count number of events in xE.
  */
 void
-DeliverFocusedEvent(DeviceIntPtr keybd, xEvent *xE, WindowPtr window, int count)
+DeliverFocusedEvent(DeviceIntPtr keybd, InternalEvent *event, WindowPtr window)
 {
+    DeviceIntPtr ptr;
     WindowPtr focus = keybd->focus->win;
-    int mskidx = 0;
+    BOOL sendCore = (IsMaster(keybd) && keybd->coreEvents);
+    xEvent core;
+    xEvent *xE = NULL, *xi2 = NULL;
+    int count, rc;
+    int deliveries = 0;
 
     if (focus == FollowKeyboardWin)
 	focus = inputInfo.keyboard->focus->win;
@@ -2861,22 +3717,67 @@ DeliverFocusedEvent(DeviceIntPtr keybd, xEvent *xE, WindowPtr window, int count)
 	return;
     if (focus == PointerRootWin)
     {
-	DeliverDeviceEvents(window, xE, NullGrab, NullWindow, keybd, count);
+	DeliverDeviceEvents(window, event, NullGrab, NullWindow, keybd);
 	return;
     }
     if ((focus == window) || IsParent(focus, window))
     {
-	if (DeliverDeviceEvents(window, xE, NullGrab, focus, keybd, count))
+	if (DeliverDeviceEvents(window, event, NullGrab, focus, keybd))
 	    return;
     }
-    if (XaceHook(XACE_SEND_ACCESS, NULL, keybd, focus, xE, count))
-	return;
+
     /* just deliver it to the focus window */
-    FixUpEventFromWindow(xE, focus, None, FALSE);
-    if (xE->u.u.type & EXTENSION_EVENT_BASE)
-	mskidx = keybd->id;
-    (void)DeliverEventsToWindow(focus, xE, count, filters[xE->u.u.type],
-				NullGrab, mskidx);
+    ptr = GetPairedDevice(keybd);
+
+
+    rc = EventToXI2(event, &xi2);
+    if (rc == Success)
+    {
+        /* XXX: XACE */
+        int filter = GetEventFilter(keybd, xi2);
+        FixUpEventFromWindow(ptr, xi2, focus, None, FALSE);
+        deliveries = DeliverEventsToWindow(keybd, focus, xi2, 1,
+                                           filter, NullGrab);
+        if (deliveries > 0)
+            goto unwind;
+    } else if (rc != BadMatch)
+        ErrorF("[dix] %s: XI2 conversion failed in DFE (%d, %d). Skipping delivery.\n",
+               keybd->name, event->any.type, rc);
+
+    rc = EventToXI(event, &xE, &count);
+    if (rc == Success &&
+        XaceHook(XACE_SEND_ACCESS, NULL, keybd, focus, xE, count) == Success)
+    {
+        FixUpEventFromWindow(ptr, xE, focus, None, FALSE);
+        deliveries = DeliverEventsToWindow(keybd, focus, xE, count,
+                GetEventFilter(keybd, xE),
+                NullGrab);
+
+        if (deliveries > 0)
+            goto unwind;
+    } else if (rc != BadMatch)
+        ErrorF("[dix] %s: XI conversion failed in DFE (%d, %d). Skipping delivery.\n",
+               keybd->name, event->any.type, rc);
+
+    if (sendCore)
+    {
+        rc = EventToCore(event, &core);
+        if (rc == Success) {
+            if (XaceHook(XACE_SEND_ACCESS, NULL, keybd, focus, &core, 1) == Success) {
+                FixUpEventFromWindow(keybd, &core, focus, None, FALSE);
+                deliveries = DeliverEventsToWindow(keybd, focus, &core, 1,
+                                                   GetEventFilter(keybd, &core),
+                                                   NullGrab);
+            }
+        } else if (rc != BadMatch)
+            ErrorF("[dix] %s: core conversion failed DFE (%d, %d). Skipping delivery.\n",
+                    keybd->name, event->any.type, rc);
+    }
+
+unwind:
+    free(xE);
+    free(xi2);
+    return;
 }
 
 /**
@@ -2887,19 +3788,33 @@ DeliverFocusedEvent(DeviceIntPtr keybd, xEvent *xE, WindowPtr window, int count)
  * @param deactivateGrab True if the device's grab should be deactivated.
  */
 void
-DeliverGrabbedEvent(xEvent *xE, DeviceIntPtr thisDev,
-                    Bool deactivateGrab, int count)
+DeliverGrabbedEvent(InternalEvent *event, DeviceIntPtr thisDev,
+                    Bool deactivateGrab)
 {
-    GrabPtr grab = thisDev->grab;
+    GrabPtr grab;
+    GrabInfoPtr grabinfo;
     int deliveries = 0;
     DeviceIntPtr dev;
-    xEvent *dxE;
+    SpritePtr pSprite = thisDev->spriteInfo->sprite;
+    BOOL sendCore = FALSE;
+    int rc, count = 0;
+    xEvent *xi = NULL;
+    xEvent *xi2 = NULL;
+
+    grabinfo = &thisDev->deviceGrab;
+    grab = grabinfo->grab;
 
     if (grab->ownerEvents)
     {
 	WindowPtr focus;
 
-	if (thisDev->focus)
+        /* Hack: Some void * device have a focus class. So we need to check
+         * for the type of event, to see if we really want to deliver it to
+         * the focus window. For void * events, the answer is no.
+         */
+        if (IsPointerEvent(event))
+            focus = PointerRootWin;
+        else if (thisDev->focus)
 	{
 	    focus = thisDev->focus->win;
 	    if (focus == FollowKeyboardWin)
@@ -2908,322 +3823,163 @@ DeliverGrabbedEvent(xEvent *xE, DeviceIntPtr thisDev,
 	else
 	    focus = PointerRootWin;
 	if (focus == PointerRootWin)
-	    deliveries = DeliverDeviceEvents(sprite.win, xE, grab, NullWindow,
-					     thisDev, count);
-	else if (focus && (focus == sprite.win || IsParent(focus, sprite.win)))
-	    deliveries = DeliverDeviceEvents(sprite.win, xE, grab, focus,
-					     thisDev, count);
+	    deliveries = DeliverDeviceEvents(pSprite->win, event, grab,
+                                             NullWindow, thisDev);
+	else if (focus && (focus == pSprite->win ||
+                    IsParent(focus, pSprite->win)))
+	    deliveries = DeliverDeviceEvents(pSprite->win, event, grab, focus,
+					     thisDev);
 	else if (focus)
-	    deliveries = DeliverDeviceEvents(focus, xE, grab, focus,
-					     thisDev, count);
+	    deliveries = DeliverDeviceEvents(focus, event, grab, focus,
+					     thisDev);
     }
     if (!deliveries)
     {
-	FixUpEventFromWindow(xE, grab->window, None, TRUE);
-	if (XaceHook(XACE_SEND_ACCESS, 0, thisDev, grab->window, xE, count) ||
-	    XaceHook(XACE_RECEIVE_ACCESS, rClient(grab), grab->window, xE,
-		     count))
-	    deliveries = 1; /* don't send, but pretend we did */
-	else
-	    deliveries = TryClientEvents(rClient(grab), xE, count,
-					 (Mask)grab->eventMask,
-					 filters[xE->u.u.type], grab);
-	if (deliveries && (xE->u.u.type == MotionNotify
-#ifdef XINPUT
-			   || xE->u.u.type == DeviceMotionNotify
-#endif
-			   ))
-	    thisDev->valuator->motionHintWindow = grab->window;
-    }
-    if (deliveries && !deactivateGrab && (xE->u.u.type != MotionNotify
-#ifdef XINPUT
-					  && xE->u.u.type != DeviceMotionNotify
-#endif
-					  ))
-	switch (thisDev->sync.state)
+        Mask mask;
+
+        /* XXX: In theory, we could pass the internal events through to
+         * everything and only convert just before hitting the wire. We can't
+         * do that yet, so DGE is the last stop for internal events. From here
+         * onwards, we deal with core/XI events.
+         */
+
+        mask = grab->eventMask;
+
+        sendCore = (IsMaster(thisDev) && thisDev->coreEvents);
+        /* try core event */
+        if (sendCore && grab->grabtype == GRABTYPE_CORE)
 	{
+            xEvent core;
+
+            rc = EventToCore(event, &core);
+            if (rc == Success)
+	    {
+                FixUpEventFromWindow(thisDev, &core, grab->window,
+                        None, TRUE);
+                if (XaceHook(XACE_SEND_ACCESS, 0, thisDev,
+                            grab->window, &core, 1) ||
+                        XaceHook(XACE_RECEIVE_ACCESS, rClient(grab),
+                            grab->window, &core, 1))
+                    deliveries = 1; /* don't send, but pretend we did */
+                else if (!IsInterferingGrab(rClient(grab), thisDev, &core))
+	    {
+                    deliveries = TryClientEvents(rClient(grab), thisDev,
+                            &core, 1, mask,
+                            GetEventFilter(thisDev, &core),
+                            grab);
+	}
+            } else if (rc != BadMatch)
+                ErrorF("[dix] DeliverGrabbedEvent. Core conversion failed.\n");
+}
+
+        if (!deliveries)
+    {
+            rc = EventToXI2(event, &xi2);
+            if (rc == Success)
+	{
+                int evtype = ((xGenericEvent*)xi2)->evtype;
+                mask = grab->xi2mask[XIAllDevices][evtype/8] |
+                    grab->xi2mask[XIAllMasterDevices][evtype/8] |
+                    grab->xi2mask[thisDev->id][evtype/8];
+                /* try XI2 event */
+                FixUpEventFromWindow(thisDev, xi2, grab->window, None, TRUE);
+                /* XXX: XACE */
+                deliveries = TryClientEvents(rClient(grab), thisDev, xi2, 1, mask,
+                        GetEventFilter(thisDev, xi2), grab);
+            } else if (rc != BadMatch)
+                ErrorF("[dix] %s: XI2 conversion failed in DGE (%d, %d). Skipping delivery.\n",
+                        thisDev->name, event->any.type, rc);
+    }
+
+        if (!deliveries)
+    {
+            rc = EventToXI(event, &xi, &count);
+            if (rc == Success)
+	    {
+                /* try XI event */
+                if (grabinfo->fromPassiveGrab  &&
+                        grabinfo->implicitGrab)
+                    mask = grab->deviceMask;
+                else
+                    mask = grab->eventMask;
+
+                FixUpEventFromWindow(thisDev, xi, grab->window,
+                        None, TRUE);
+
+                if (XaceHook(XACE_SEND_ACCESS, 0, thisDev,
+                            grab->window, xi, count) ||
+                        XaceHook(XACE_RECEIVE_ACCESS, rClient(grab),
+                            grab->window, xi, count))
+                    deliveries = 1; /* don't send, but pretend we did */
+                else
+		{
+                    deliveries =
+                        TryClientEvents(rClient(grab), thisDev,
+                                xi, count,
+                                mask,
+                                GetEventFilter(thisDev, xi),
+                                grab);
+                }
+            } else if (rc != BadMatch)
+                ErrorF("[dix] %s: XI conversion failed in DGE (%d, %d). Skipping delivery.\n",
+                        thisDev->name, event->any.type, rc);
+		}
+
+        if (deliveries && (event->any.type == ET_Motion))
+            thisDev->valuator->motionHintWindow = grab->window;
+	    }
+    if (deliveries && !deactivateGrab && event->any.type != ET_Motion)
+	    {
+	switch (grabinfo->sync.state)
+		{
 	case FREEZE_BOTH_NEXT_EVENT:
 	    for (dev = inputInfo.devices; dev; dev = dev->next)
 	    {
 		if (dev == thisDev)
 		    continue;
 		FreezeThaw(dev, TRUE);
-		if ((dev->sync.state == FREEZE_BOTH_NEXT_EVENT) &&
-		    (CLIENT_BITS(dev->grab->resource) ==
-		     CLIENT_BITS(thisDev->grab->resource)))
-		    dev->sync.state = FROZEN_NO_EVENT;
+		if ((dev->deviceGrab.sync.state == FREEZE_BOTH_NEXT_EVENT) &&
+		    (CLIENT_BITS(grab->resource) ==
+		     CLIENT_BITS(dev->deviceGrab.grab->resource)))
+		    dev->deviceGrab.sync.state = FROZEN_NO_EVENT;
 		else
-		    dev->sync.other = thisDev->grab;
+                    dev->deviceGrab.sync.other = grab;
 	    }
 	    /* fall through */
 	case FREEZE_NEXT_EVENT:
-	    thisDev->sync.state = FROZEN_WITH_EVENT;
+	    grabinfo->sync.state = FROZEN_WITH_EVENT;
 	    FreezeThaw(thisDev, TRUE);
-	    if (thisDev->sync.evcount < count)
-	    {
-		thisDev->sync.event = (xEvent *)realloc(thisDev->sync.event,
-							 count*sizeof(xEvent));
-	    }
-	    thisDev->sync.evcount = count;
-	    for (dxE = thisDev->sync.event; --count >= 0; dxE++, xE++)
-		*dxE = *xE;
+	    if (!grabinfo->sync.event)
+		grabinfo->sync.event = calloc(1, sizeof(InternalEvent));
+	    *grabinfo->sync.event = event->device_event;
 	    break;
-	}
+		}
+	    }
+
+    free(xi);
+    free(xi2);
 }
 
-/**
- * Main keyboard event processing function for core keyboard events.
- * Updates the events fields from the current void * state and delivers the
- * event.
- *
- * For key events, xE will always be a single event.
- *
- * @param xE Event list
- * @param keybd The device that caused an event.
- * @param count Number of elements in xE.
- */
-void
-#ifdef XKB
-CoreProcessKeyboardEvent (xEvent *xE, DeviceIntPtr keybd, int count)
-#else
-ProcessKeyboardEvent (xEvent *xE, DeviceIntPtr keybd, int count)
-#endif
-{
-    int             key, bit;
-    BYTE   *kptr;
-    int    i;
-    CARD8  modifiers;
-    CARD16 mask;
-    GrabPtr         grab = keybd->grab;
-    Bool            deactivateGrab = FALSE;
-    KeyClassPtr keyc = keybd->key;
-
-    if (!syncEvents.playingEvents)
-    {
-	NoticeTime(xE);
-	if (DeviceEventCallback)
-	{
-	    DeviceEventInfoRec eventinfo;
-	    eventinfo.events = xE;
-	    eventinfo.count = count;
-	    CallCallbacks(&DeviceEventCallback, (void *)&eventinfo);
-	}
-    }
-    XE_KBPTR.state = (keyc->state | inputInfo.pointer->button->state);
-    XE_KBPTR.rootX = sprite.hot.x;
-    XE_KBPTR.rootY = sprite.hot.y;
-    key = xE->u.u.detail;
-    kptr = &keyc->down[key >> 3];
-    bit = 1 << (key & 7);
-    modifiers = keyc->modifierMap[key];
-
-    switch (xE->u.u.type)
-    {
-	case KeyPress:
-	    if (*kptr & bit) /* allow ddx to generate multiple downs */
-	    {
-		if (!modifiers)
-		{
-		    xE->u.u.type = KeyRelease;
-		    (*keybd->public.processInputProc)(xE, keybd, count);
-		    xE->u.u.type = KeyPress;
-		    /* release can have side effects, don't fall through */
-		    (*keybd->public.processInputProc)(xE, keybd, count);
-		}
-		return;
-	    }
-	    inputInfo.pointer->valuator->motionHintWindow = NullWindow;
-	    *kptr |= bit;
-	    keyc->prev_state = keyc->state;
-	    for (i = 0, mask = 1; modifiers; i++, mask <<= 1)
-	    {
-		if (mask & modifiers)
-		{
-		    /* This key affects modifier "i" */
-		    keyc->modifierKeyCount[i]++;
-		    keyc->state |= mask;
-		    modifiers &= ~mask;
-		}
-	    }
-	    if (!grab && CheckDeviceGrabs(keybd, xE, 0, count))
-	    {
-		keybd->activatingKey = key;
-		return;
-	    }
-	    break;
-	case KeyRelease:
-	    if (!(*kptr & bit)) /* guard against duplicates */
-		return;
-	    inputInfo.pointer->valuator->motionHintWindow = NullWindow;
-	    *kptr &= ~bit;
-	    keyc->prev_state = keyc->state;
-	    for (i = 0, mask = 1; modifiers; i++, mask <<= 1)
-	    {
-		if (mask & modifiers) {
-		    /* This key affects modifier "i" */
-		    if (--keyc->modifierKeyCount[i] <= 0) {
-			keyc->state &= ~mask;
-			keyc->modifierKeyCount[i] = 0;
-		    }
-		    modifiers &= ~mask;
-		}
-	    }
-	    if (keybd->fromPassiveGrab && (key == keybd->activatingKey))
-		deactivateGrab = TRUE;
-	    break;
-	default:
-	    FatalError("Impossible keyboard event");
-    }
-    if (grab)
-	DeliverGrabbedEvent(xE, keybd, deactivateGrab, count);
-    else
-	DeliverFocusedEvent(keybd, xE, sprite.win, count);
-    if (deactivateGrab)
-        (*keybd->DeactivateGrab)(keybd);
-
-    XaceHook(XACE_KEY_AVAIL, xE, keybd, count);
-}
-
-#ifdef XKB
 /* This function is used to set the key pressed or key released state -
    this is only used when the pressing of keys does not cause
    the device's processInputProc to be called, as in for example Mouse Keys.
 */
 void
-FixKeyState (xEvent *xE, DeviceIntPtr keybd)
+FixKeyState (DeviceEvent *event, DeviceIntPtr keybd)
 {
-    int             key, bit;
-    BYTE   *kptr;
-    KeyClassPtr keyc = keybd->key;
+    int key = event->detail.key;
 
-    key = xE->u.u.detail;
-    kptr = &keyc->down[key >> 3];
-    bit = 1 << (key & 7);
-
-    if (((xE->u.u.type==KeyPress)||(xE->u.u.type==KeyRelease)||
-         (xE->u.u.type==DeviceKeyPress)||(xE->u.u.type==DeviceKeyRelease))
-            ) {
+    if (event->type == ET_KeyPress) {
 	DebugF("FixKeyState: Key %d %s\n",key,
-               (((xE->u.u.type==KeyPress)||(xE->u.u.type==DeviceKeyPress))?"down":"up"));
+               ((event->type == ET_KeyPress) ? "down" : "up"));
     }
 
-    if (xE->u.u.type == KeyPress || xE->u.u.type == DeviceKeyPress)
-	    *kptr |= bit;
-    else if (xE->u.u.type == KeyRelease || xE->u.u.type == DeviceKeyRelease)
-	    *kptr &= ~bit;
+    if (event->type == ET_KeyPress)
+        set_key_down(keybd, key, KEY_PROCESSED);
+    else if (event->type == ET_KeyRelease)
+        set_key_up(keybd, key, KEY_PROCESSED);
     else
         FatalError("Impossible keyboard event");
-}
-#endif
-
-/**
- * Main void * event processing function for core pointer events.
- * For motion events: update the sprite.
- * For all other events: Update the event fields based on the current sprite
- * state.
- *
- * For core void * events, xE will always be a single event.
- *
- * @param xE Event list
- * @param mouse The device that caused an event.
- * @param count Number of elements in xE.
- */
-void
-#ifdef XKB
-CoreProcessPointerEvent (xEvent *xE, DeviceIntPtr mouse, int count)
-#else
-ProcessPointerEvent (xEvent *xE, DeviceIntPtr mouse, int count)
-#endif
-{
-    GrabPtr	grab = mouse->grab;
-    Bool                deactivateGrab = FALSE;
-    ButtonClassPtr butc = mouse->button;
-#ifdef XKB
-    XkbSrvInfoPtr xkbi= inputInfo.keyboard->key->xkbInfo;
-#endif
-
-    if (!syncEvents.playingEvents)
-	NoticeTime(xE)
-    XE_KBPTR.state = (butc->state | (
-#ifdef XKB
-			(noXkbExtension ?
-				inputInfo.keyboard->key->state :
-				xkbi->state.grab_mods)
-#else
-			inputInfo.keyboard->key->state
-#endif
-				    ));
-    {
-	NoticeTime(xE);
-	if (DeviceEventCallback)
-	{
-	    DeviceEventInfoRec eventinfo;
-	    /* see comment in EnqueueEvents regarding the next three lines */
-	    if (xE->u.u.type == MotionNotify)
-		XE_KBPTR.root =
-		    sprite.hotPhys.pScreen->root->drawable.id;
-	    eventinfo.events = xE;
-	    eventinfo.count = count;
-	    CallCallbacks(&DeviceEventCallback, (void *)&eventinfo);
-	}
-    }
-    if (xE->u.u.type != MotionNotify)
-    {
-	int  key;
-	BYTE *kptr;
-	int           bit;
-
-	XE_KBPTR.rootX = sprite.hot.x;
-	XE_KBPTR.rootY = sprite.hot.y;
-
-	key = xE->u.u.detail;
-	kptr = &butc->down[key >> 3];
-	bit = 1 << (key & 7);
-	switch (xE->u.u.type)
-	{
-	case ButtonPress:
-	    mouse->valuator->motionHintWindow = NullWindow;
-	    if (!(*kptr & bit))
-		butc->buttonsDown++;
-	    butc->motionMask = ButtonMotionMask;
-	    *kptr |= bit;
-	    if (xE->u.u.detail == 0)
-		return;
-	    if (xE->u.u.detail <= 5)
-		butc->state |= (Button1Mask >> 1) << xE->u.u.detail;
-	    filters[MotionNotify] = Motion_Filter(butc);
-	    if (!grab)
-		if (CheckDeviceGrabs(mouse, xE, 0, count))
-		    return;
-	    break;
-	case ButtonRelease:
-	    mouse->valuator->motionHintWindow = NullWindow;
-	    if (*kptr & bit)
-		--butc->buttonsDown;
-	    if (!butc->buttonsDown)
-		butc->motionMask = 0;
-	    *kptr &= ~bit;
-	    if (xE->u.u.detail == 0)
-		return;
-	    if (xE->u.u.detail <= 5)
-		butc->state &= ~((Button1Mask >> 1) << xE->u.u.detail);
-	    filters[MotionNotify] = Motion_Filter(butc);
-	    if (!butc->state && mouse->fromPassiveGrab)
-		deactivateGrab = TRUE;
-	    break;
-	default:
-	    FatalError("bogus pointer event from ddx");
-	}
-    }
-    else if (!CheckMotion(xE))
-	return;
-    if (grab)
-	DeliverGrabbedEvent(xE, mouse, deactivateGrab, count);
-    else
-	DeliverDeviceEvents(sprite.win, xE, NullGrab, NullWindow,
-			    mouse, count);
-    if (deactivateGrab)
-        (*mouse->DeactivateGrab)(mouse);
 }
 
 #define AtMostOneClient \
@@ -3239,13 +3995,12 @@ ProcessPointerEvent (xEvent *xE, DeviceIntPtr mouse, int count)
  * The otherEventMasks on a WindowOptional is the combination of all event
  * masks set by all clients on the window.
  * deliverableEventMask is the combination of the eventMask and the
- * otherEventMask.
+ * otherEventMask plus the events that may be propagated to the parent.
  *
  * Traverses to siblings and parents of the window.
  */
 void
-RecalculateDeliverableEvents(pWin)
-    WindowPtr pWin;
+RecalculateDeliverableEvents(WindowPtr pWin)
 {
     OtherClients *others;
     WindowPtr pChild;
@@ -3304,7 +4059,7 @@ OtherClientGone(void * value, XID id)
 	    }
 	    free(other);
 	    RecalculateDeliverableEvents(pWin);
-	    return(Success);
+	    return Success;
 	}
 	prev = other;
     }
@@ -3318,6 +4073,7 @@ EventSelectForWindow(WindowPtr pWin, ClientPtr client, Mask mask)
 {
     Mask check;
     OtherClients * others;
+    DeviceIntPtr dev;
     int rc;
 
     if (mask & ~AllEventMasks)
@@ -3373,7 +4129,7 @@ EventSelectForWindow(WindowPtr pWin, ClientPtr client, Mask mask)
 	check = 0;
 	if (!pWin->optional && !MakeWindowOptional (pWin))
 	    return BadAlloc;
-	others = (OtherClients *) malloc(sizeof(OtherClients));
+	others = malloc(sizeof(OtherClients));
 	if (!others)
 	    return BadAlloc;
 	others->mask = mask;
@@ -3384,11 +4140,14 @@ EventSelectForWindow(WindowPtr pWin, ClientPtr client, Mask mask)
 	    return BadAlloc;
     }
 maskSet:
-    if ((inputInfo.pointer->valuator->motionHintWindow == pWin) &&
-	(mask & PointerMotionHintMask) &&
-	!(check & PointerMotionHintMask) &&
-	!inputInfo.pointer->grab)
-	inputInfo.pointer->valuator->motionHintWindow = NullWindow;
+    if ((mask & PointerMotionHintMask) && !(check & PointerMotionHintMask))
+    {
+        for (dev = inputInfo.devices; dev; dev = dev->next)
+        {
+            if (dev->valuator && dev->valuator->motionHintWindow == pWin)
+                dev->valuator->motionHintWindow = NullWindow;
+        }
+    }
     RecalculateDeliverableEvents(pWin);
     return Success;
 }
@@ -3450,35 +4209,25 @@ EventSuppressForWindow(WindowPtr pWin, ClientPtr client,
 }
 
 /**
- * @return The window that is the first ancestor of both a and b.
- */
-static WindowPtr
-CommonAncestor(
-    WindowPtr a,
-    WindowPtr b)
-{
-    for (b = b->parent; b; b = b->parent)
-	if (IsParent(b, a)) return b;
-    return NullWindow;
-}
-
-/**
  * Assembles an EnterNotify or LeaveNotify and sends it event to the client.
- * The core devices are used to fill in the event fields.
+ * Uses the paired keyboard to get some additional information.
  */
-static void
-EnterLeaveEvent(
+void
+CoreEnterLeaveEvent(
+    DeviceIntPtr mouse,
     int type,
     int mode,
     int detail,
     WindowPtr pWin,
     Window child)
 {
-    DeviceIntPtr keybd = inputInfo.keyboard;
+    xEvent              event;
     WindowPtr		focus;
-    DeviceIntPtr mouse = inputInfo.pointer;
-    GrabPtr	grab = mouse->grab;
+    DeviceIntPtr        keybd;
+    GrabPtr	        grab = mouse->deviceGrab.grab;
     Mask		mask;
+
+    keybd = GetPairedDevice(mouse);
 
     if ((pWin == mouse->valuator->motionHintWindow) &&
 	(detail != NotifyInferior))
@@ -3493,334 +4242,163 @@ EnterLeaveEvent(
     {
 	mask = pWin->eventMask | wOtherEventMasks(pWin);
     }
-    if (mask & filters[type])
-    {
-	xEvent event;
+
 	memset(&event, 0, sizeof(xEvent));
 	event.u.u.type = type;
 	event.u.u.detail = detail;
 	event.u.enterLeave.time = currentTime.milliseconds;
-	event.u.enterLeave.rootX = sprite.hot.x;
-	event.u.enterLeave.rootY = sprite.hot.y;
+    event.u.enterLeave.rootX = mouse->spriteInfo->sprite->hot.x;
+    event.u.enterLeave.rootY = mouse->spriteInfo->sprite->hot.y;
 	/* Counts on the same initial structure of crossing & button events! */
-	FixUpEventFromWindow(&event, pWin, None, FALSE);
+    FixUpEventFromWindow(mouse, &event, pWin, None, FALSE);
 	/* Enter/Leave events always set child */
 	event.u.enterLeave.child = child;
 	event.u.enterLeave.flags = event.u.keyButtonPointer.sameScreen ?
 					    ELFlagSameScreen : 0;
-#ifdef XKB
-	if (!noXkbExtension) {
-	    event.u.enterLeave.state = mouse->button->state & 0x1f00;
+    event.u.enterLeave.state = mouse->button ? (mouse->button->state & 0x1f00) : 0;
+    if (keybd)
 	    event.u.enterLeave.state |=
 			XkbGrabStateFromRec(&keybd->key->xkbInfo->state);
-	} else
-#endif
-	event.u.enterLeave.state = keybd->key->state | mouse->button->state;
 	event.u.enterLeave.mode = mode;
-	focus = keybd->focus->win;
+    focus = (keybd) ? keybd->focus->win : None;
 	if ((focus != NoneWin) &&
 	    ((pWin == focus) || (focus == PointerRootWin) ||
 	     IsParent(focus, pWin)))
 	    event.u.enterLeave.flags |= ELFlagFocus;
+
+    if ((mask & GetEventFilter(mouse, &event)))
+    {
 	if (grab)
-	    (void)TryClientEvents(rClient(grab), &event, 1, mask,
-				  filters[type], grab);
+            TryClientEvents(rClient(grab), mouse, &event, 1, mask,
+                            GetEventFilter(mouse, &event), grab);
 	else
-	    (void)DeliverEventsToWindow(pWin, &event, 1, filters[type],
-					NullGrab, 0);
+            DeliverEventsToWindow(mouse, pWin, &event, 1,
+                                  GetEventFilter(mouse, &event),
+                                  NullGrab);
     }
+
     if ((type == EnterNotify) && (mask & KeymapStateMask))
     {
 	xKeymapEvent ke;
-	ClientPtr client = grab ? rClient(grab)
-				: clients[CLIENT_ID(pWin->drawable.id)];
+        ClientPtr client = grab ? rClient(grab) : wClient(pWin);
 	if (XaceHook(XACE_DEVICE_ACCESS, client, keybd, DixReadAccess))
-	    bzero((char *)&ke.map[0], 31);
+            memset((char *)&ke.map[0], 0, 31);
 	else
 	    memmove((char *)&ke.map[0], (char *)&keybd->key->down[1], 31);
 
 	ke.type = KeymapNotify;
 	if (grab)
-	    (void)TryClientEvents(rClient(grab), (xEvent *)&ke, 1, mask,
-				  KeymapStateMask, grab);
+            TryClientEvents(rClient(grab), keybd, (xEvent *)&ke, 1,
+                            mask, KeymapStateMask, grab);
 	else
-	    (void)DeliverEventsToWindow(pWin, (xEvent *)&ke, 1,
-					KeymapStateMask, NullGrab, 0);
+            DeliverEventsToWindow(mouse, pWin, (xEvent *)&ke, 1,
+                                  KeymapStateMask, NullGrab);
     }
 }
 
-/**
- * Send enter notifies to all parent windows up to ancestor.
- * This function recurses.
- */
-static void
-EnterNotifies(WindowPtr ancestor, WindowPtr child, int mode, int detail)
+void
+DeviceEnterLeaveEvent(
+    DeviceIntPtr mouse,
+    int sourceid,
+    int type,
+    int mode,
+    int detail,
+    WindowPtr pWin,
+    Window child)
 {
-    WindowPtr	parent = child->parent;
+    GrabPtr             grab = mouse->deviceGrab.grab;
+    xXIEnterEvent       *event;
+    int                 filter;
+    int                 btlen, len, i;
+    DeviceIntPtr        kbd;
 
-    if (ancestor == parent)
+    if ((mode == XINotifyPassiveGrab && type == XI_Leave) ||
+        (mode == XINotifyPassiveUngrab && type == XI_Enter))
 	return;
-    EnterNotifies(ancestor, parent, mode, detail);
-    EnterLeaveEvent(EnterNotify, mode, detail, parent, child->drawable.id);
+
+    btlen = (mouse->button) ? bits_to_bytes(mouse->button->numButtons) : 0;
+    btlen = bytes_to_int32(btlen);
+    len = sizeof(xXIEnterEvent) + btlen * 4;
+
+    event = calloc(1, len);
+    event->type         = GenericEvent;
+    event->extension    = IReqCode;
+    event->evtype       = type;
+    event->length       = (len - sizeof(xEvent))/4;
+    event->buttons_len  = btlen;
+    event->detail       = detail;
+    event->time         = currentTime.milliseconds;
+    event->deviceid     = mouse->id;
+    event->sourceid     = sourceid;
+    event->mode         = mode;
+    event->root_x       = FP1616(mouse->spriteInfo->sprite->hot.x, 0);
+    event->root_y       = FP1616(mouse->spriteInfo->sprite->hot.y, 0);
+
+    for (i = 0; mouse && mouse->button && i < mouse->button->numButtons; i++)
+        if (BitIsOn(mouse->button->down, i))
+            SetBit(&event[1], i);
+
+    kbd = (IsMaster(mouse) || mouse->u.master) ? GetPairedDevice(mouse) : NULL;
+    if (kbd && kbd->key)
+    {
+        event->mods.base_mods = kbd->key->xkbInfo->state.base_mods;
+        event->mods.latched_mods = kbd->key->xkbInfo->state.latched_mods;
+        event->mods.locked_mods = kbd->key->xkbInfo->state.locked_mods;
+
+        event->group.base_group = kbd->key->xkbInfo->state.base_group;
+        event->group.latched_group = kbd->key->xkbInfo->state.latched_group;
+        event->group.locked_group = kbd->key->xkbInfo->state.locked_group;
 }
 
+    FixUpEventFromWindow(mouse, (xEvent*)event, pWin, None, FALSE);
 
-/**
- * Send leave notifies to all parent windows up to ancestor.
- * This function recurses.
- */
-static void
-LeaveNotifies(WindowPtr child, WindowPtr ancestor, int mode, int detail)
-{
-    WindowPtr  pWin;
+    filter = GetEventFilter(mouse, (xEvent*)event);
 
-    if (ancestor == child)
-	return;
-    for (pWin = child->parent; pWin != ancestor; pWin = pWin->parent)
+    if (grab)
     {
-	EnterLeaveEvent(LeaveNotify, mode, detail, pWin, child->drawable.id);
-	child = pWin;
-    }
+        Mask mask;
+        mask = grab->xi2mask[XIAllDevices][type/8] |
+               grab->xi2mask[XIAllMasterDevices][type/8] |
+               grab->xi2mask[mouse->id][type/8];
+        TryClientEvents(rClient(grab), mouse, (xEvent*)event, 1, mask,
+                        filter, grab);
+    } else {
+        if (!GetWindowXI2Mask(mouse, pWin, (xEvent*)event))
+            goto out;
+        DeliverEventsToWindow(mouse, pWin, (xEvent*)event, 1, filter,
+                              NullGrab);
 }
 
-/**
- * Figure out if enter/leave events are necessary and send them to the
- * appropriate windows.
- *
- * @param fromWin Window the sprite moved out of.
- * @param toWin Window the sprite moved into.
- */
-static void
-DoEnterLeaveEvents(WindowPtr fromWin, WindowPtr toWin, int mode)
-{
-    if (fromWin == toWin)
-	return;
-    if (IsParent(fromWin, toWin))
-    {
-	EnterLeaveEvent(LeaveNotify, mode, NotifyInferior, fromWin, None);
-	EnterNotifies(fromWin, toWin, mode, NotifyVirtual);
-	EnterLeaveEvent(EnterNotify, mode, NotifyAncestor, toWin, None);
-    }
-    else if (IsParent(toWin, fromWin))
-    {
-	EnterLeaveEvent(LeaveNotify, mode, NotifyAncestor, fromWin, None);
-	LeaveNotifies(fromWin, toWin, mode, NotifyVirtual);
-	EnterLeaveEvent(EnterNotify, mode, NotifyInferior, toWin, None);
-    }
-    else
-    { /* neither fromWin nor toWin is descendent of the other */
-	WindowPtr common = CommonAncestor(toWin, fromWin);
-	/* common == NullWindow ==> different screens */
-	EnterLeaveEvent(LeaveNotify, mode, NotifyNonlinear, fromWin, None);
-	LeaveNotifies(fromWin, common, mode, NotifyNonlinearVirtual);
-	EnterNotifies(common, toWin, mode, NotifyNonlinearVirtual);
-	EnterLeaveEvent(EnterNotify, mode, NotifyNonlinear, toWin, None);
-    }
+out:
+    free(event);
 }
 
-static void
-FocusEvent(DeviceIntPtr dev, int type, int mode, int detail, WindowPtr pWin)
+void
+CoreFocusEvent(DeviceIntPtr dev, int type, int mode, int detail, WindowPtr pWin)
 {
     xEvent event;
 
-#ifdef XINPUT
-    if (dev != inputInfo.keyboard)
-    {
-	DeviceFocusEvent(dev, type, mode, detail, pWin);
-	return;
-    }
-#endif
     memset(&event, 0, sizeof(xEvent));
     event.u.focus.mode = mode;
     event.u.u.type = type;
     event.u.u.detail = detail;
     event.u.focus.window = pWin->drawable.id;
-    (void)DeliverEventsToWindow(pWin, &event, 1, filters[type], NullGrab,
-				0);
+
+    DeliverEventsToWindow(dev, pWin, &event, 1,
+                          GetEventFilter(dev, &event), NullGrab);
     if ((type == FocusIn) &&
 	((pWin->eventMask | wOtherEventMasks(pWin)) & KeymapStateMask))
     {
 	xKeymapEvent ke;
-	ClientPtr client = clients[CLIENT_ID(pWin->drawable.id)];
+        ClientPtr client = wClient(pWin);
 	if (XaceHook(XACE_DEVICE_ACCESS, client, dev, DixReadAccess))
-	    bzero((char *)&ke.map[0], 31);
+            memset((char *)&ke.map[0], 0, 31);
 	else
 	    memmove((char *)&ke.map[0], (char *)&dev->key->down[1], 31);
 
 	ke.type = KeymapNotify;
-	(void)DeliverEventsToWindow(pWin, (xEvent *)&ke, 1,
-				    KeymapStateMask, NullGrab, 0);
-    }
-}
-
- /*
-  * recursive because it is easier
-  * no-op if child not descended from ancestor
-  */
-static Bool
-FocusInEvents(
-    DeviceIntPtr dev,
-    WindowPtr ancestor, WindowPtr child, WindowPtr skipChild,
-    int mode, int detail,
-    Bool doAncestor)
-{
-    if (child == NullWindow)
-	return ancestor == NullWindow;
-    if (ancestor == child)
-    {
-	if (doAncestor)
-	    FocusEvent(dev, FocusIn, mode, detail, child);
-	return TRUE;
-    }
-    if (FocusInEvents(dev, ancestor, child->parent, skipChild, mode, detail,
-		      doAncestor))
-    {
-	if (child != skipChild)
-	    FocusEvent(dev, FocusIn, mode, detail, child);
-	return TRUE;
-    }
-    return FALSE;
-}
-
-/* dies horribly if ancestor is not an ancestor of child */
-static void
-FocusOutEvents(
-    DeviceIntPtr dev,
-    WindowPtr child, WindowPtr ancestor,
-    int mode, int detail,
-    Bool doAncestor)
-{
-    WindowPtr  pWin;
-
-    for (pWin = child; pWin != ancestor; pWin = pWin->parent)
-	FocusEvent(dev, FocusOut, mode, detail, pWin);
-    if (doAncestor)
-	FocusEvent(dev, FocusOut, mode, detail, ancestor);
-}
-
-void
-DoFocusEvents(DeviceIntPtr dev, WindowPtr fromWin, WindowPtr toWin, int mode)
-{
-    int     out, in;		       /* for holding details for to/from
-				          PointerRoot/None */
-    int     i;
-
-    if (fromWin == toWin)
-	return;
-    out = (fromWin == NoneWin) ? NotifyDetailNone : NotifyPointerRoot;
-    in = (toWin == NoneWin) ? NotifyDetailNone : NotifyPointerRoot;
- /* wrong values if neither, but then not referenced */
-
-    if ((toWin == NullWindow) || (toWin == PointerRootWin))
-    {
-	if ((fromWin == NullWindow) || (fromWin == PointerRootWin))
-   	{
-	    if (fromWin == PointerRootWin)
-		FocusOutEvents(dev, sprite.win, ROOT, mode, NotifyPointer,
-			       TRUE);
-	    /* Notify all the roots */
-#ifdef PANORAMIX
- 	    if ( !noPanoramiXExtension )
-	        FocusEvent(dev, FocusOut, mode, out, screenInfo.screens[0]->root);
-	    else
-#endif
-	        for (i=0; i<screenInfo.numScreens; i++)
-	            FocusEvent(dev, FocusOut, mode, out, screenInfo.screens[i]->root);
-	}
-	else
-	{
-	    if (IsParent(fromWin, sprite.win))
-	      FocusOutEvents(dev, sprite.win, fromWin, mode, NotifyPointer,
-			     FALSE);
-	    FocusEvent(dev, FocusOut, mode, NotifyNonlinear, fromWin);
-	    /* next call catches the root too, if the screen changed */
-	    FocusOutEvents(dev, fromWin->parent, NullWindow, mode,
-			   NotifyNonlinearVirtual, FALSE);
-	}
-	/* Notify all the roots */
-#ifdef PANORAMIX
-	if ( !noPanoramiXExtension )
-	    FocusEvent(dev, FocusIn, mode, in, screenInfo.screens[0]->root);
-	else
-#endif
-	    for (i=0; i<screenInfo.numScreens; i++)
-	        FocusEvent(dev, FocusIn, mode, in, screenInfo.screens[i]->root);
-	if (toWin == PointerRootWin)
-	    (void)FocusInEvents(dev, ROOT, sprite.win, NullWindow, mode,
-				NotifyPointer, TRUE);
-    }
-    else
-    {
-	if ((fromWin == NullWindow) || (fromWin == PointerRootWin))
-	{
-	    if (fromWin == PointerRootWin)
-		FocusOutEvents(dev, sprite.win, ROOT, mode, NotifyPointer,
-			       TRUE);
-#ifdef PANORAMIX
- 	    if ( !noPanoramiXExtension )
-	        FocusEvent(dev, FocusOut, mode, out, screenInfo.screens[0]->root);
-	    else
-#endif
-	        for (i=0; i<screenInfo.numScreens; i++)
-	            FocusEvent(dev, FocusOut, mode, out, screenInfo.screens[i]->root);
-	    if (toWin->parent != NullWindow)
-	      (void)FocusInEvents(dev, ROOT, toWin, toWin, mode,
-				  NotifyNonlinearVirtual, TRUE);
-	    FocusEvent(dev, FocusIn, mode, NotifyNonlinear, toWin);
-	    if (IsParent(toWin, sprite.win))
-    	       (void)FocusInEvents(dev, toWin, sprite.win, NullWindow, mode,
-				   NotifyPointer, FALSE);
-	}
-	else
-	{
-	    if (IsParent(toWin, fromWin))
-	    {
-		FocusEvent(dev, FocusOut, mode, NotifyAncestor, fromWin);
-		FocusOutEvents(dev, fromWin->parent, toWin, mode,
-			       NotifyVirtual, FALSE);
-		FocusEvent(dev, FocusIn, mode, NotifyInferior, toWin);
-		if ((IsParent(toWin, sprite.win)) &&
-			(sprite.win != fromWin) &&
-			(!IsParent(fromWin, sprite.win)) &&
-			(!IsParent(sprite.win, fromWin)))
-		    (void)FocusInEvents(dev, toWin, sprite.win, NullWindow,
-					mode, NotifyPointer, FALSE);
-	    }
-	    else
-		if (IsParent(fromWin, toWin))
-		{
-		    if ((IsParent(fromWin, sprite.win)) &&
-			    (sprite.win != fromWin) &&
-			    (!IsParent(toWin, sprite.win)) &&
-			    (!IsParent(sprite.win, toWin)))
-			FocusOutEvents(dev, sprite.win, fromWin, mode,
-				       NotifyPointer, FALSE);
-		    FocusEvent(dev, FocusOut, mode, NotifyInferior, fromWin);
-		    (void)FocusInEvents(dev, fromWin, toWin, toWin, mode,
-					NotifyVirtual, FALSE);
-		    FocusEvent(dev, FocusIn, mode, NotifyAncestor, toWin);
-		}
-		else
-		{
-		/* neither fromWin or toWin is child of other */
-		    WindowPtr common = CommonAncestor(toWin, fromWin);
-		/* common == NullWindow ==> different screens */
-		    if (IsParent(fromWin, sprite.win))
-			FocusOutEvents(dev, sprite.win, fromWin, mode,
-				       NotifyPointer, FALSE);
-		    FocusEvent(dev, FocusOut, mode, NotifyNonlinear, fromWin);
-		    if (fromWin->parent != NullWindow)
-		      FocusOutEvents(dev, fromWin->parent, common, mode,
-				     NotifyNonlinearVirtual, FALSE);
-		    if (toWin->parent != NullWindow)
-		      (void)FocusInEvents(dev, common, toWin, toWin, mode,
-					  NotifyNonlinearVirtual, FALSE);
-		    FocusEvent(dev, FocusIn, mode, NotifyNonlinear, toWin);
-		    if (IsParent(toWin, sprite.win))
-			(void)FocusInEvents(dev, toWin, sprite.win, NullWindow,
-					    mode, NotifyPointer, FALSE);
-		}
-	}
+        DeliverEventsToWindow(dev, pWin, (xEvent *)&ke, 1,
+                KeymapStateMask, NullGrab);
     }
 }
 
@@ -3854,6 +4432,8 @@ SetInputFocus(
     WindowPtr focusWin;
     int mode, rc;
     TimeStamp time;
+    DeviceIntPtr keybd; /* used for FollowKeyboard or FollowKeyboardWin */
+
 
     UpdateCurrentTime();
     if ((revertTo != RevertToParent) &&
@@ -3865,10 +4445,18 @@ SetInputFocus(
 	return BadValue;
     }
     time = ClientTimeToServerTime(ctime);
+
+    if (IsKeyboardDevice(dev))
+        keybd = dev;
+    else
+        keybd = GetPairedDevice(dev);
+
     if ((focusID == None) || (focusID == PointerRoot))
 	focusWin = (WindowPtr)(long)focusID;
     else if ((focusID == FollowKeyboard) && followOK)
-	focusWin = inputInfo.keyboard->focus->win;
+    {
+	focusWin = keybd->focus->win;
+    }
     else {
 	rc = dixLookupWindow(&focusWin, focusID, client, DixSetAttrAccess);
 	if (rc != Success)
@@ -3876,7 +4464,7 @@ SetInputFocus(
  	/* It is a match error to try to set the input focus to an
 	unviewable window. */
 	if(!focusWin->realized)
-	    return(BadMatch);
+	    return BadMatch;
     }
     rc = XaceHook(XACE_DEVICE_ACCESS, client, dev, DixSetFocusAccess);
     if (rc != Success)
@@ -3886,11 +4474,16 @@ SetInputFocus(
     if ((CompareTimeStamps(time, currentTime) == LATER) ||
 	(CompareTimeStamps(time, focus->time) == EARLIER))
 	return Success;
-    mode = (dev->grab) ? NotifyWhileGrabbed : NotifyNormal;
+    mode = (dev->deviceGrab.grab) ? NotifyWhileGrabbed : NotifyNormal;
     if (focus->win == FollowKeyboardWin)
-	DoFocusEvents(dev, inputInfo.keyboard->focus->win, focusWin, mode);
-    else
+    {
+        if (!ActivateFocusInGrab(dev, keybd->focus->win, focusWin))
+            DoFocusEvents(dev, keybd->focus->win, focusWin, mode);
+    } else
+    {
+        if (!ActivateFocusInGrab(dev, focus->win, focusWin))
 	DoFocusEvents(dev, focus->win, focusWin, mode);
+    }
     focus->time = time;
     focus->revert = revertTo;
     if (focusID == FollowKeyboard)
@@ -3908,9 +4501,8 @@ SetInputFocus(
         if (depth > focus->traceSize)
         {
 	    focus->traceSize = depth+1;
-	    focus->trace = (WindowPtr *)realloc(focus->trace,
-						 focus->traceSize *
-						 sizeof(WindowPtr));
+	    focus->trace = realloc(focus->trace,
+				    focus->traceSize * sizeof(WindowPtr));
 	}
 	focus->traceGood = depth;
         for (pWin = focusWin, depth--; pWin; pWin = pWin->parent, depth--)
@@ -3925,34 +4517,34 @@ SetInputFocus(
  * Sets the input focus for the virtual core keyboard.
  */
 int
-ProcSetInputFocus(client)
-    ClientPtr client;
+ProcSetInputFocus(ClientPtr client)
 {
+    DeviceIntPtr kbd = PickKeyboard(client);
     REQUEST(xSetInputFocusReq);
 
     REQUEST_SIZE_MATCH(xSetInputFocusReq);
 
-    return SetInputFocus(client, inputInfo.keyboard, stuff->focus,
+    return SetInputFocus(client, kbd, stuff->focus,
 			 stuff->revertTo, stuff->time, FALSE);
 }
 
 /**
  * Server-side protocol handling for GetInputFocus request.
  *
- * Sends the current input focus for the virtual core keyboard back to the
+ * Sends the current input focus for the client's keyboard back to the
  * client.
  */
 int
 ProcGetInputFocus(ClientPtr client)
 {
+    DeviceIntPtr kbd = PickKeyboard(client);
     xGetInputFocusReply rep;
-    FocusClassPtr focus = inputInfo.keyboard->focus;
+    FocusClassPtr focus = kbd->focus;
     int rc;
     /* REQUEST(xReq); */
     REQUEST_SIZE_MATCH(xReq);
 
-    rc = XaceHook(XACE_DEVICE_ACCESS, client, inputInfo.keyboard,
-		  DixGetFocusAccess);
+    rc = XaceHook(XACE_DEVICE_ACCESS, client, kbd, DixGetFocusAccess);
     if (rc != Success)
 	return rc;
 
@@ -3971,51 +4563,33 @@ ProcGetInputFocus(ClientPtr client)
 }
 
 /**
- * Server-side protocol handling for Grabvoid * request.
+ * Server-side protocol handling for GrabPointer request.
  *
- * Sets an active grab on the inputInfo.pointer and returns success status to
- * client.
+ * Sets an active grab on the client's ClientPointer and returns success
+ * status to client.
  */
 int
 ProcGrabPointer(ClientPtr client)
 {
     xGrabPointerReply rep;
-    DeviceIntPtr device = inputInfo.pointer;
+    DeviceIntPtr device = PickPointer(client);
     GrabPtr grab;
-    WindowPtr pWin, confineTo;
-    CursorPtr cursor, oldCursor;
+    GrabMask mask;
+    WindowPtr confineTo;
+    CursorPtr oldCursor;
     REQUEST(xGrabPointerReq);
     TimeStamp time;
-    Mask access_mode = DixGrabAccess;
     int rc;
 
     REQUEST_SIZE_MATCH(xGrabPointerReq);
     UpdateCurrentTime();
-    if ((stuff->pointerMode != GrabModeSync) &&
-	(stuff->pointerMode != GrabModeAsync))
-    {
-	client->errorValue = stuff->pointerMode;
-        return BadValue;
-    }
-    if ((stuff->keyboardMode != GrabModeSync) &&
-	(stuff->keyboardMode != GrabModeAsync))
-    {
-	client->errorValue = stuff->keyboardMode;
-        return BadValue;
-    }
-    if ((stuff->ownerEvents != xFalse) && (stuff->ownerEvents != xTrue))
-    {
-	client->errorValue = stuff->ownerEvents;
-        return BadValue;
-    }
+
     if (stuff->eventMask & ~PointerGrabMask)
     {
 	client->errorValue = stuff->eventMask;
         return BadValue;
     }
-    rc = dixLookupWindow(&pWin, stuff->grabWindow, client, DixSetAttrAccess);
-    if (rc != Success)
-	return rc;
+
     if (stuff->confineTo == None)
 	confineTo = NullWindow;
     else
@@ -4025,70 +4599,34 @@ ProcGrabPointer(ClientPtr client)
 	if (rc != Success)
 	    return rc;
     }
-    if (stuff->cursor == None)
-	cursor = NullCursor;
-    else
-    {
-	rc = dixLookupResource((void * *)&cursor, stuff->cursor, RT_CURSOR,
-			       client, DixUseAccess);
-	if (rc != Success)
-	{
-	    client->errorValue = stuff->cursor;
-	    return (rc == BadValue) ? BadCursor : rc;
-	}
-	access_mode |= DixForceAccess;
-    }
-    if (stuff->pointerMode == GrabModeSync ||
-	stuff->keyboardMode == GrabModeSync)
-	access_mode |= DixFreezeAccess;
-    rc = XaceHook(XACE_DEVICE_ACCESS, client, device, access_mode);
-    if (rc != Success)
-	return rc;
 
-	/* at this point, some sort of reply is guaranteed. */
-    time = ClientTimeToServerTime(stuff->time);
     memset(&rep, 0, sizeof(xGrabPointerReply));
-    rep.type = X_Reply;
-    rep.sequenceNumber = client->sequence;
-    rep.length = 0;
-    grab = device->grab;
-    if ((grab) && !SameClient(grab, client))
-	rep.status = AlreadyGrabbed;
-    else if ((!pWin->realized) ||
-             (confineTo &&
-                !(confineTo->realized && BorderSizeNotEmpty(confineTo))))
-	rep.status = GrabNotViewable;
-    else if (device->sync.frozen &&
-	     device->sync.other && !SameClient(device->sync.other, client))
-	rep.status = GrabFrozen;
-    else if ((CompareTimeStamps(time, currentTime) == LATER) ||
-	     (CompareTimeStamps(time, device->grabTime) == EARLIER))
-	rep.status = GrabInvalidTime;
-    else
-    {
-	GrabRec tempGrab;
-
 	oldCursor = NullCursor;
+    grab = device->deviceGrab.grab;
+
 	if (grab)
  	{
 	    if (grab->confineTo && !confineTo)
-		ConfineCursorToWindow(ROOT, FALSE, FALSE);
+            ConfineCursorToWindow(device, RootWindow(device), FALSE, FALSE);
 	    oldCursor = grab->cursor;
 	}
-	tempGrab.cursor = cursor;
-	tempGrab.resource = client->clientAsMask;
-	tempGrab.ownerEvents = stuff->ownerEvents;
-	tempGrab.eventMask = stuff->eventMask;
-	tempGrab.confineTo = confineTo;
-	tempGrab.window = pWin;
-	tempGrab.keyboardMode = stuff->keyboardMode;
-	tempGrab.pointerMode = stuff->pointerMode;
-	tempGrab.device = device;
-	(*device->ActivateGrab)(device, &tempGrab, time, FALSE);
-	if (oldCursor)
+
+    mask.core = stuff->eventMask;
+
+    rc = GrabDevice(client, device, stuff->pointerMode, stuff->keyboardMode,
+                    stuff->grabWindow, stuff->ownerEvents, stuff->time,
+                    &mask, GRABTYPE_CORE, stuff->cursor,
+                    stuff->confineTo, &rep.status);
+    if (rc != Success)
+        return rc;
+
+    if (oldCursor && rep.status == GrabSuccess)
 	    FreeCursor (oldCursor, (Cursor)0);
-	rep.status = GrabSuccess;
-    }
+
+    time = ClientTimeToServerTime(stuff->time);
+    rep.type = X_Reply;
+    rep.sequenceNumber = client->sequence;
+    rep.length = 0;
     WriteReplyToClient(client, sizeof(xGrabPointerReply), &rep);
     return Success;
 }
@@ -4098,14 +4636,12 @@ ProcGrabPointer(ClientPtr client)
  *
  * Changes properties of the grab hold by the client. If the client does not
  * hold an active grab on the device, nothing happens.
- *
- * Works on the core void * only.
  */
 int
 ProcChangeActivePointerGrab(ClientPtr client)
 {
-    DeviceIntPtr device = inputInfo.pointer;
-    GrabPtr grab = device->grab;
+    DeviceIntPtr device;
+    GrabPtr      grab;
     CursorPtr newCursor, oldCursor;
     REQUEST(xChangeActivePointerGrabReq);
     TimeStamp time;
@@ -4120,27 +4656,31 @@ ProcChangeActivePointerGrab(ClientPtr client)
 	newCursor = NullCursor;
     else
     {
-	int rc = dixLookupResource((void * *)&newCursor, stuff->cursor,
+	int rc = dixLookupResourceByType((void * *)&newCursor, stuff->cursor,
 				   RT_CURSOR, client, DixUseAccess);
 	if (rc != Success)
 	{
 	    client->errorValue = stuff->cursor;
-	    return (rc == BadValue) ? BadCursor : rc;
+	    return rc;
 	}
     }
+
+    device = PickPointer(client);
+    grab = device->deviceGrab.grab;
+
     if (!grab)
 	return Success;
     if (!SameClient(grab, client))
 	return Success;
     time = ClientTimeToServerTime(stuff->time);
     if ((CompareTimeStamps(time, currentTime) == LATER) ||
-	     (CompareTimeStamps(time, device->grabTime) == EARLIER))
+	     (CompareTimeStamps(time, device->deviceGrab.grabTime) == EARLIER))
 	return Success;
     oldCursor = grab->cursor;
     grab->cursor = newCursor;
     if (newCursor)
 	newCursor->refcnt++;
-    PostNewCursor();
+    PostNewCursor(device);
     if (oldCursor)
 	FreeCursor(oldCursor, (Cursor)0);
     grab->eventMask = stuff->eventMask;
@@ -4150,31 +4690,32 @@ ProcChangeActivePointerGrab(ClientPtr client)
 /**
  * Server-side protocol handling for UngrabPointer request.
  *
- * Deletes the void * grab on the core void * device.
+ * Deletes a void * grab on a device the client has grabbed.
  */
 int
 ProcUngrabPointer(ClientPtr client)
 {
-    DeviceIntPtr device = inputInfo.pointer;
+    DeviceIntPtr device = PickPointer(client);
     GrabPtr grab;
     TimeStamp time;
     REQUEST(xResourceReq);
 
     REQUEST_SIZE_MATCH(xResourceReq);
     UpdateCurrentTime();
-    grab = device->grab;
+    grab = device->deviceGrab.grab;
+
     time = ClientTimeToServerTime(stuff->id);
     if ((CompareTimeStamps(time, currentTime) != LATER) &&
-	    (CompareTimeStamps(time, device->grabTime) != EARLIER) &&
+	    (CompareTimeStamps(time, device->deviceGrab.grabTime) != EARLIER) &&
 	    (grab) && SameClient(grab, client))
-	(*device->DeactivateGrab)(device);
+	(*device->deviceGrab.DeactivateGrab)(device);
     return Success;
 }
 
 /**
  * Sets a grab on the given device.
  *
- * Called from ProcGrabKeyboard to work on the inputInfo.keyboard.
+ * Called from ProcGrabKeyboard to work on the client's keyboard.
  * Called from ProcXGrabDevice to work on the device specified by the client.
  *
  * The parameters this_mode and other_mode represent the keyboard_mode and
@@ -4191,24 +4732,27 @@ ProcUngrabPointer(ClientPtr client)
  */
 int
 GrabDevice(ClientPtr client, DeviceIntPtr dev,
-           unsigned this_mode, unsigned other_mode, Window grabWindow,
-           unsigned ownerEvents, Time ctime, Mask mask, CARD8 *status)
+           unsigned pointer_mode, unsigned keyboard_mode, Window grabWindow,
+           unsigned ownerEvents, Time ctime, GrabMask *mask,
+           int grabtype, Cursor curs, Window confineToWin, CARD8 *status)
 {
-    WindowPtr pWin;
+    WindowPtr pWin, confineTo;
     GrabPtr grab;
     TimeStamp time;
     Mask access_mode = DixGrabAccess;
     int rc;
+    GrabInfoPtr grabInfo = &dev->deviceGrab;
+    CursorPtr cursor;
 
     UpdateCurrentTime();
-    if ((this_mode != GrabModeSync) && (this_mode != GrabModeAsync))
+    if ((keyboard_mode != GrabModeSync) && (keyboard_mode != GrabModeAsync))
     {
-	client->errorValue = this_mode;
+	client->errorValue = keyboard_mode;
         return BadValue;
     }
-    if ((other_mode != GrabModeSync) && (other_mode != GrabModeAsync))
+    if ((pointer_mode != GrabModeSync) && (pointer_mode != GrabModeAsync))
     {
-	client->errorValue = other_mode;
+	client->errorValue = pointer_mode;
         return BadValue;
     }
     if ((ownerEvents != xFalse) && (ownerEvents != xTrue))
@@ -4220,36 +4764,78 @@ GrabDevice(ClientPtr client, DeviceIntPtr dev,
     rc = dixLookupWindow(&pWin, grabWindow, client, DixSetAttrAccess);
     if (rc != Success)
 	return rc;
-    if (this_mode == GrabModeSync || other_mode == GrabModeSync)
+
+    if (confineToWin == None)
+	confineTo = NullWindow;
+    else
+    {
+	rc = dixLookupWindow(&confineTo, confineToWin, client,
+			     DixSetAttrAccess);
+	if (rc != Success)
+	    return rc;
+    }
+
+    if (curs == None)
+	cursor = NullCursor;
+    else
+    {
+	rc = dixLookupResourceByType((void * *)&cursor, curs, RT_CURSOR,
+			       client, DixUseAccess);
+	if (rc != Success)
+	{
+	    client->errorValue = curs;
+	    return rc;
+	}
+	access_mode |= DixForceAccess;
+    }
+
+    if (keyboard_mode == GrabModeSync || pointer_mode == GrabModeSync)
 	access_mode |= DixFreezeAccess;
     rc = XaceHook(XACE_DEVICE_ACCESS, client, dev, access_mode);
     if (rc != Success)
 	return rc;
 
     time = ClientTimeToServerTime(ctime);
-    grab = dev->grab;
+    grab = grabInfo->grab;
+    if (grab && grab->grabtype != grabtype)
+        *status = AlreadyGrabbed;
     if (grab && !SameClient(grab, client))
 	*status = AlreadyGrabbed;
-    else if (!pWin->realized)
+    else if ((!pWin->realized) ||
+             (confineTo &&
+                !(confineTo->realized
+                    && BorderSizeNotEmpty(dev, confineTo))))
 	*status = GrabNotViewable;
     else if ((CompareTimeStamps(time, currentTime) == LATER) ||
-	     (CompareTimeStamps(time, dev->grabTime) == EARLIER))
+	     (CompareTimeStamps(time, grabInfo->grabTime) == EARLIER))
 	*status = GrabInvalidTime;
-    else if (dev->sync.frozen &&
-	     dev->sync.other && !SameClient(dev->sync.other, client))
+    else if (grabInfo->sync.frozen &&
+	     grabInfo->sync.other && !SameClient(grabInfo->sync.other, client))
 	*status = GrabFrozen;
     else
     {
 	GrabRec tempGrab;
 
+        /* Otherwise segfaults happen on grabbed MPX devices */
+        memset(&tempGrab, 0, sizeof(GrabRec));
+
+        tempGrab.next = NULL;
 	tempGrab.window = pWin;
 	tempGrab.resource = client->clientAsMask;
 	tempGrab.ownerEvents = ownerEvents;
-	tempGrab.keyboardMode = this_mode;
-	tempGrab.pointerMode = other_mode;
-	tempGrab.eventMask = mask;
+	tempGrab.keyboardMode = keyboard_mode;
+	tempGrab.pointerMode = pointer_mode;
+	if (grabtype == GRABTYPE_CORE)
+	    tempGrab.eventMask = mask->core;
+	else if (grabtype == GRABTYPE_XI)
+	    tempGrab.eventMask = mask->xi;
+	else
+	    memcpy(tempGrab.xi2mask, mask->xi2mask, sizeof(tempGrab.xi2mask));
 	tempGrab.device = dev;
-	(*dev->ActivateGrab)(dev, &tempGrab, time, FALSE);
+	tempGrab.cursor = cursor;
+	tempGrab.confineTo = confineTo;
+	tempGrab.grabtype = grabtype;
+	(*grabInfo->ActivateGrab)(dev, &tempGrab, time, FALSE);
 	*status = GrabSuccess;
     }
     return Success;
@@ -4258,7 +4844,7 @@ GrabDevice(ClientPtr client, DeviceIntPtr dev,
 /**
  * Server-side protocol handling for GrabKeyboard request.
  *
- * Grabs the inputInfo.keyboad and returns success status to client.
+ * Grabs the client's keyboard and returns success status to client.
  */
 int
 ProcGrabKeyboard(ClientPtr client)
@@ -4266,13 +4852,18 @@ ProcGrabKeyboard(ClientPtr client)
     xGrabKeyboardReply rep;
     REQUEST(xGrabKeyboardReq);
     int result;
+    DeviceIntPtr keyboard = PickKeyboard(client);
+    GrabMask mask;
 
     REQUEST_SIZE_MATCH(xGrabKeyboardReq);
+
     memset(&rep, 0, sizeof(xGrabKeyboardReply));
-    result = GrabDevice(client, inputInfo.keyboard, stuff->keyboardMode,
-			stuff->pointerMode, stuff->grabWindow,
-			stuff->ownerEvents, stuff->time,
-			KeyPressMask | KeyReleaseMask, &rep.status);
+    mask.core = KeyPressMask | KeyReleaseMask;
+
+    result = GrabDevice(client, keyboard, stuff->pointerMode,
+            stuff->keyboardMode, stuff->grabWindow, stuff->ownerEvents,
+            stuff->time, &mask, GRABTYPE_CORE, None, None,
+            &rep.status);
 
     if (result != Success)
 	return result;
@@ -4286,38 +4877,43 @@ ProcGrabKeyboard(ClientPtr client)
 /**
  * Server-side protocol handling for UngrabKeyboard request.
  *
- * Deletes a possible grab on the inputInfo.keyboard.
+ * Deletes a possible grab on the client's keyboard.
  */
 int
 ProcUngrabKeyboard(ClientPtr client)
 {
-    DeviceIntPtr device = inputInfo.keyboard;
+    DeviceIntPtr device = PickKeyboard(client);
     GrabPtr grab;
     TimeStamp time;
     REQUEST(xResourceReq);
 
     REQUEST_SIZE_MATCH(xResourceReq);
     UpdateCurrentTime();
-    grab = device->grab;
+
+    grab = device->deviceGrab.grab;
+
     time = ClientTimeToServerTime(stuff->id);
     if ((CompareTimeStamps(time, currentTime) != LATER) &&
-	(CompareTimeStamps(time, device->grabTime) != EARLIER) &&
-	(grab) && SameClient(grab, client))
-	(*device->DeactivateGrab)(device);
+	(CompareTimeStamps(time, device->deviceGrab.grabTime) != EARLIER) &&
+	(grab) && SameClient(grab, client) && grab->grabtype == GRABTYPE_CORE)
+	(*device->deviceGrab.DeactivateGrab)(device);
     return Success;
 }
 
 /**
  * Server-side protocol handling for QueryPointer request.
  *
- * Returns the current state and position of the core void * to the client.
+ * Returns the current state and position of the client's ClientPointer to the
+ * client.
  */
 int
 ProcQueryPointer(ClientPtr client)
 {
     xQueryPointerReply rep;
     WindowPtr pWin, t;
-    DeviceIntPtr mouse = inputInfo.pointer;
+    DeviceIntPtr mouse = PickPointer(client);
+    DeviceIntPtr keyboard;
+    SpritePtr pSprite;
     int rc;
     REQUEST(xResourceReq);
     REQUEST_SIZE_MATCH(xResourceReq);
@@ -4326,26 +4922,30 @@ ProcQueryPointer(ClientPtr client)
     if (rc != Success)
 	return rc;
     rc = XaceHook(XACE_DEVICE_ACCESS, client, mouse, DixReadAccess);
-    if (rc != Success)
+    if (rc != Success && rc != BadAccess)
 	return rc;
 
+    keyboard = GetPairedDevice(mouse);
+
+    pSprite = mouse->spriteInfo->sprite;
     if (mouse->valuator->motionHintWindow)
 	MaybeStopHint(mouse, client);
     memset(&rep, 0, sizeof(xQueryPointerReply));
     rep.type = X_Reply;
     rep.sequenceNumber = client->sequence;
-    rep.mask = mouse->button->state | inputInfo.keyboard->key->state;
+    rep.mask = mouse->button ? (mouse->button->state) : 0;
+    rep.mask |= XkbStateFieldFromRec(&keyboard->key->xkbInfo->state);
     rep.length = 0;
-    rep.root = (ROOT)->drawable.id;
-    rep.rootX = sprite.hot.x;
-    rep.rootY = sprite.hot.y;
+    rep.root = (RootWindow(mouse))->drawable.id;
+    rep.rootX = pSprite->hot.x;
+    rep.rootY = pSprite->hot.y;
     rep.child = None;
-    if (sprite.hot.pScreen == pWin->drawable.pScreen)
+    if (pSprite->hot.pScreen == pWin->drawable.pScreen)
     {
 	rep.sameScreen = xTrue;
-	rep.winX = sprite.hot.x - pWin->drawable.x;
-	rep.winY = sprite.hot.y - pWin->drawable.y;
-	for (t = sprite.win; t; t = t->parent)
+	rep.winX = pSprite->hot.x - pWin->drawable.x;
+	rep.winY = pSprite->hot.y - pWin->drawable.y;
+	for (t = pSprite->win; t; t = t->parent)
 	    if (t->parent == pWin)
 	    {
 		rep.child = t->drawable.id;
@@ -4361,18 +4961,27 @@ ProcQueryPointer(ClientPtr client)
 
 #ifdef PANORAMIX
     if(!noPanoramiXExtension) {
-	rep.rootX += panoramiXdataPtr[0].x;
-	rep.rootY += panoramiXdataPtr[0].y;
+	rep.rootX += screenInfo.screens[0]->x;
+	rep.rootY += screenInfo.screens[0]->y;
 	if(stuff->id == rep.root) {
-	    rep.winX += panoramiXdataPtr[0].x;
-	    rep.winY += panoramiXdataPtr[0].y;
+	    rep.winX += screenInfo.screens[0]->x;
+	    rep.winY += screenInfo.screens[0]->y;
 	}
     }
 #endif
 
+    if (rc == BadAccess) {
+	rep.mask = 0;
+	rep.child = None;
+	rep.rootX = 0;
+	rep.rootY = 0;
+	rep.winX = 0;
+	rep.winY = 0;
+    }
+
     WriteReplyToClient(client, sizeof(xQueryPointerReply), &rep);
 
-    return(Success);
+    return Success;
 }
 
 /**
@@ -4384,29 +4993,19 @@ InitEvents(void)
 {
     int i;
 
-    sprite.hot.pScreen = sprite.hotPhys.pScreen = (ScreenPtr)NULL;
     inputInfo.numDevices = 0;
     inputInfo.devices = (DeviceIntPtr)NULL;
     inputInfo.off_devices = (DeviceIntPtr)NULL;
     inputInfo.keyboard = (DeviceIntPtr)NULL;
     inputInfo.pointer = (DeviceIntPtr)NULL;
-    if (spriteTraceSize == 0)
+    /* The mask for void * motion events may have changed in the last server
+     * generation. See comment above definition of filters. */
+    filters[0][PointerMotionMask] = MotionNotify;
+    for (i = 1; i < MAXDEVICES; i++)
     {
-	spriteTraceSize = 32;
-	spriteTrace = (WindowPtr *)malloc(32*sizeof(WindowPtr));
-	if (!spriteTrace)
-	    FatalError("failed to allocate spriteTrace");
+        memcpy(&filters[i], filters[0], sizeof(filters[0]));
     }
-    spriteTraceGood = 0;
-    lastEventMask = OwnerGrabButtonMask;
-    filters[MotionNotify] = PointerMotionMask;
-    sprite.win = NullWindow;
-    sprite.current = NullCursor;
-    sprite.hotLimits.x1 = 0;
-    sprite.hotLimits.y1 = 0;
-    sprite.hotLimits.x2 = 0;
-    sprite.hotLimits.y2 = 0;
-    sprite.confined = FALSE;
+
     syncEvents.replayDev = (DeviceIntPtr)NULL;
     syncEvents.replayWin = NullWindow;
     while (syncEvents.pending)
@@ -4427,14 +5026,19 @@ InitEvents(void)
 	DontPropagateMasks[i] = 0;
 	DontPropagateRefCnts[i] = 0;
     }
+
+    InputEventListLen = GetMaximumEventsNum();
+    InputEventList = InitEventList(InputEventListLen);
+    if (!InputEventList)
+        FatalError("[dix] Failed to allocate input event list.\n");
 }
 
 void
 CloseDownEvents(void)
 {
-  free(spriteTrace);
-  spriteTrace = NULL;
-  spriteTraceSize = 0;
+    FreeEventList(InputEventList, InputEventListLen);
+    InputEventListLen = 0;
+    InputEventList = NULL;
 }
 
 /**
@@ -4451,6 +5055,9 @@ ProcSendEvent(ClientPtr client)
 {
     WindowPtr pWin;
     WindowPtr effectiveFocus = NullWindow; /* only set if dest==InputFocus */
+    DeviceIntPtr dev = PickPointer(client);
+    DeviceIntPtr keybd = GetPairedDevice(dev);
+    SpritePtr pSprite = dev->spriteInfo->sprite;
     REQUEST(xSendEventReq);
 
     REQUEST_SIZE_MATCH(xSendEventReq);
@@ -4481,10 +5088,10 @@ ProcSendEvent(ClientPtr client)
     }
 
     if (stuff->destination == PointerWindow)
-	pWin = sprite.win;
+	pWin = pSprite->win;
     else if (stuff->destination == InputFocus)
     {
-	WindowPtr inputFocus = inputInfo.keyboard->focus->win;
+	WindowPtr inputFocus = (keybd) ? keybd->focus->win : NoneWin;
 
 	if (inputFocus == NoneWin)
 	    return Success;
@@ -4492,12 +5099,12 @@ ProcSendEvent(ClientPtr client)
 	/* If the input focus is PointerRootWin, send the event to where
 	the pointer is if possible, then perhaps propogate up to root. */
    	if (inputFocus == PointerRootWin)
-	    inputFocus = ROOT;
+	    inputFocus = pSprite->spriteTrace[0]; /* Root window! */
 
-	if (IsParent(inputFocus, sprite.win))
+	if (IsParent(inputFocus, pSprite->win))
 	{
 	    effectiveFocus = inputFocus;
-	    pWin = sprite.win;
+	    pWin = pSprite->win;
 	}
 	else
 	    effectiveFocus = pWin = inputFocus;
@@ -4520,8 +5127,8 @@ ProcSendEvent(ClientPtr client)
 	    if (XaceHook(XACE_SEND_ACCESS, client, NULL, pWin,
 			 &stuff->event, 1))
 		return Success;
-	    if (DeliverEventsToWindow(pWin, &stuff->event, 1, stuff->eventMask,
-				      NullGrab, 0))
+            if (DeliverEventsToWindow(dev, pWin,
+                        &stuff->event, 1, stuff->eventMask, NullGrab))
 		return Success;
 	    if (pWin == effectiveFocus)
 		return Success;
@@ -4531,16 +5138,16 @@ ProcSendEvent(ClientPtr client)
 	}
     }
     else if (!XaceHook(XACE_SEND_ACCESS, client, NULL, pWin, &stuff->event, 1))
-	(void)DeliverEventsToWindow(pWin, &stuff->event, 1, stuff->eventMask,
-				    NullGrab, 0);
+        DeliverEventsToWindow(dev, pWin, &stuff->event,
+                                    1, stuff->eventMask, NullGrab);
     return Success;
 }
 
 /**
  * Server-side protocol handling for UngrabKey request.
  *
- * Deletes a passive grab for the given key. Only works on the
- * inputInfo.keyboard.
+ * Deletes a passive grab for the given key. Works on the
+ * client's keyboard.
  */
 int
 ProcUngrabKey(ClientPtr client)
@@ -4548,16 +5155,16 @@ ProcUngrabKey(ClientPtr client)
     REQUEST(xUngrabKeyReq);
     WindowPtr pWin;
     GrabRec tempGrab;
-    DeviceIntPtr keybd = inputInfo.keyboard;
+    DeviceIntPtr keybd = PickKeyboard(client);
     int rc;
 
     REQUEST_SIZE_MATCH(xUngrabKeyReq);
-    rc = dixLookupWindow(&pWin, stuff->grabWindow, client, DixReadAccess);
+    rc = dixLookupWindow(&pWin, stuff->grabWindow, client, DixGetAttrAccess);
     if (rc != Success)
 	return rc;
 
-    if (((stuff->key > keybd->key->curKeySyms.maxKeyCode) ||
-	 (stuff->key < keybd->key->curKeySyms.minKeyCode))
+    if (((stuff->key > keybd->key->xkbInfo->desc->max_key_code) ||
+	 (stuff->key < keybd->key->xkbInfo->desc->min_key_code))
 	&& (stuff->key != AnyKey))
     {
 	client->errorValue = stuff->key;
@@ -4574,21 +5181,23 @@ ProcUngrabKey(ClientPtr client)
     tempGrab.window = pWin;
     tempGrab.modifiersDetail.exact = stuff->modifiers;
     tempGrab.modifiersDetail.pMask = NULL;
-    tempGrab.modifierDevice = inputInfo.keyboard;
+    tempGrab.modifierDevice = GetPairedDevice(keybd);
     tempGrab.type = KeyPress;
+    tempGrab.grabtype = GRABTYPE_CORE;
     tempGrab.detail.exact = stuff->key;
     tempGrab.detail.pMask = NULL;
+    tempGrab.next = NULL;
 
     if (!DeletePassiveGrabFromList(&tempGrab))
-	return(BadAlloc);
-    return(Success);
+	return BadAlloc;
+    return Success;
 }
 
 /**
  * Server-side protocol handling for GrabKey request.
  *
- * Creates a grab for the inputInfo.keyboard and adds it to the list of
- * passive grabs.
+ * Creates a grab for the client's keyboard and adds it to the list of passive
+ * grabs.
  */
 int
 ProcGrabKey(ClientPtr client)
@@ -4596,49 +5205,40 @@ ProcGrabKey(ClientPtr client)
     WindowPtr pWin;
     REQUEST(xGrabKeyReq);
     GrabPtr grab;
-    DeviceIntPtr keybd = inputInfo.keyboard;
+    DeviceIntPtr keybd = PickKeyboard(client);
     int rc;
+    GrabParameters param;
+    GrabMask mask;
 
     REQUEST_SIZE_MATCH(xGrabKeyReq);
-    if ((stuff->ownerEvents != xTrue) && (stuff->ownerEvents != xFalse))
-    {
-	client->errorValue = stuff->ownerEvents;
-	return(BadValue);
-    }
-    if ((stuff->pointerMode != GrabModeSync) &&
-	(stuff->pointerMode != GrabModeAsync))
-    {
-	client->errorValue = stuff->pointerMode;
-        return BadValue;
-    }
-    if ((stuff->keyboardMode != GrabModeSync) &&
-	(stuff->keyboardMode != GrabModeAsync))
-    {
-	client->errorValue = stuff->keyboardMode;
-        return BadValue;
-    }
-    if (((stuff->key > keybd->key->curKeySyms.maxKeyCode) ||
-	 (stuff->key < keybd->key->curKeySyms.minKeyCode))
+
+    memset(&param, 0, sizeof(param));
+    param.grabtype = GRABTYPE_CORE;
+    param.ownerEvents = stuff->ownerEvents;
+    param.this_device_mode = stuff->keyboardMode;
+    param.other_devices_mode = stuff->pointerMode;
+    param.modifiers = stuff->modifiers;
+
+    rc = CheckGrabValues(client, &param);
+    if (rc != Success)
+        return rc;
+
+    if (((stuff->key > keybd->key->xkbInfo->desc->max_key_code) ||
+	 (stuff->key < keybd->key->xkbInfo->desc->min_key_code))
 	&& (stuff->key != AnyKey))
     {
 	client->errorValue = stuff->key;
         return BadValue;
     }
-    if ((stuff->modifiers != AnyModifier) &&
-	(stuff->modifiers & ~AllModifiersMask))
-    {
-	client->errorValue = stuff->modifiers;
-	return BadValue;
-    }
     rc = dixLookupWindow(&pWin, stuff->grabWindow, client, DixSetAttrAccess);
     if (rc != Success)
 	return rc;
 
-    grab = CreateGrab(client->index, keybd, pWin,
-	(Mask)(KeyPressMask | KeyReleaseMask), (Bool)stuff->ownerEvents,
-	(Bool)stuff->keyboardMode, (Bool)stuff->pointerMode,
-	keybd, stuff->modifiers, KeyPress, stuff->key,
-	NullWindow, NullCursor);
+
+    mask.core = (KeyPressMask | KeyReleaseMask);
+
+    grab = CreateGrab(client->index, keybd, keybd, pWin, GRABTYPE_CORE, &mask,
+                      &param, KeyPress, stuff->key, NullWindow, NullCursor);
     if (!grab)
 	return BadAlloc;
     return AddPassiveGrabToList(client, grab);
@@ -4648,8 +5248,8 @@ ProcGrabKey(ClientPtr client)
 /**
  * Server-side protocol handling for GrabButton request.
  *
- * Creates a grab for the inputInfo.pointer and adds it as a passive grab to
- * the list.
+ * Creates a grab for the client's ClientPointer and adds it as a passive grab
+ * to the list.
  */
 int
 ProcGrabButton(ClientPtr client)
@@ -4658,7 +5258,10 @@ ProcGrabButton(ClientPtr client)
     REQUEST(xGrabButtonReq);
     CursorPtr cursor;
     GrabPtr grab;
+    DeviceIntPtr ptr, modifierDevice;
     Mask access_mode = DixGrabAccess;
+    GrabMask mask;
+    GrabParameters param;
     int rc;
 
     REQUEST_SIZE_MATCH(xGrabButtonReq);
@@ -4705,27 +5308,36 @@ ProcGrabButton(ClientPtr client)
 	cursor = NullCursor;
     else
     {
-	rc = dixLookupResource((void * *)&cursor, stuff->cursor, RT_CURSOR,
+	rc = dixLookupResourceByType((void * *)&cursor, stuff->cursor, RT_CURSOR,
 			       client, DixUseAccess);
 	if (rc != Success)
-	if (!cursor)
 	{
 	    client->errorValue = stuff->cursor;
-	    return (rc == BadValue) ? BadCursor : rc;
+	    return rc;
 	}
 	access_mode |= DixForceAccess;
     }
+
+    ptr = PickPointer(client);
+    modifierDevice = GetPairedDevice(ptr);
     if (stuff->pointerMode == GrabModeSync ||
 	stuff->keyboardMode == GrabModeSync)
 	access_mode |= DixFreezeAccess;
-    rc = XaceHook(XACE_DEVICE_ACCESS, client, inputInfo.pointer, access_mode);
+    rc = XaceHook(XACE_DEVICE_ACCESS, client, ptr, access_mode);
     if (rc != Success)
 	return rc;
 
-    grab = CreateGrab(client->index, inputInfo.pointer, pWin,
-        (Mask)stuff->eventMask, (Bool)stuff->ownerEvents,
-        (Bool) stuff->keyboardMode, (Bool)stuff->pointerMode,
-        inputInfo.keyboard, stuff->modifiers, ButtonPress,
+    memset(&param, 0, sizeof(param));
+    param.grabtype = GRABTYPE_CORE;
+    param.ownerEvents = stuff->ownerEvents;
+    param.this_device_mode = stuff->keyboardMode;
+    param.other_devices_mode = stuff->pointerMode;
+    param.modifiers = stuff->modifiers;
+
+    mask.core = stuff->eventMask;
+
+    grab = CreateGrab(client->index, ptr, modifierDevice, pWin,
+                      GRABTYPE_CORE, &mask, &param, ButtonPress,
         stuff->button, confineTo, cursor);
     if (!grab)
 	return BadAlloc;
@@ -4735,7 +5347,7 @@ ProcGrabButton(ClientPtr client)
 /**
  * Server-side protocol handling for UngrabButton request.
  *
- * Deletes a passive grab on the inputInfo.pointer from the list.
+ * Deletes a passive grab on the client's ClientPointer from the list.
  */
 int
 ProcUngrabButton(ClientPtr client)
@@ -4744,6 +5356,7 @@ ProcUngrabButton(ClientPtr client)
     WindowPtr pWin;
     GrabRec tempGrab;
     int rc;
+    DeviceIntPtr ptr;
 
     REQUEST_SIZE_MATCH(xUngrabButtonReq);
     if ((stuff->modifiers != AnyModifier) &&
@@ -4755,19 +5368,24 @@ ProcUngrabButton(ClientPtr client)
     rc = dixLookupWindow(&pWin, stuff->grabWindow, client, DixReadAccess);
     if (rc != Success)
 	return rc;
+
+    ptr = PickPointer(client);
+
     tempGrab.resource = client->clientAsMask;
-    tempGrab.device = inputInfo.pointer;
+    tempGrab.device = ptr;
     tempGrab.window = pWin;
     tempGrab.modifiersDetail.exact = stuff->modifiers;
     tempGrab.modifiersDetail.pMask = NULL;
-    tempGrab.modifierDevice = inputInfo.keyboard;
+    tempGrab.modifierDevice = GetPairedDevice(ptr);
     tempGrab.type = ButtonPress;
     tempGrab.detail.exact = stuff->button;
+    tempGrab.grabtype = GRABTYPE_CORE;
     tempGrab.detail.pMask = NULL;
+    tempGrab.next = NULL;
 
     if (!DeletePassiveGrabFromList(&tempGrab))
-	return(BadAlloc);
-    return(Success);
+	return BadAlloc;
+    return Success;
 }
 
 /**
@@ -4787,22 +5405,39 @@ DeleteWindowFromAnyEvents(WindowPtr pWin, Bool freeResources)
     WindowPtr		parent;
     DeviceIntPtr	mouse = inputInfo.pointer;
     DeviceIntPtr	keybd = inputInfo.keyboard;
-    FocusClassPtr	focus = keybd->focus;
+    FocusClassPtr	focus;
     OtherClientsPtr	oc;
     GrabPtr		passive;
+    GrabPtr             grab;
 
 
     /* Deactivate any grabs performed on this window, before making any
 	input focus changes. */
+    grab = mouse->deviceGrab.grab;
+    if (grab &&
+	((grab->window == pWin) || (grab->confineTo == pWin)))
+	(*mouse->deviceGrab.DeactivateGrab)(mouse);
 
-    if (mouse->grab &&
-	((mouse->grab->window == pWin) || (mouse->grab->confineTo == pWin)))
-	(*mouse->DeactivateGrab)(mouse);
 
     /* Deactivating a keyboard grab should cause focus events. */
+    grab = keybd->deviceGrab.grab;
+    if (grab && (grab->window == pWin))
+	(*keybd->deviceGrab.DeactivateGrab)(keybd);
 
-    if (keybd->grab && (keybd->grab->window == pWin))
-	(*keybd->DeactivateGrab)(keybd);
+    /* And now the real devices */
+    for (mouse = inputInfo.devices; mouse; mouse = mouse->next)
+    {
+        grab = mouse->deviceGrab.grab;
+        if (grab && ((grab->window == pWin) || (grab->confineTo == pWin)))
+            (*mouse->deviceGrab.DeactivateGrab)(mouse);
+    }
+
+
+    for (keybd = inputInfo.devices; keybd; keybd = keybd->next)
+    {
+        if (IsKeyboardDevice(keybd))
+        {
+            focus = keybd->focus;
 
     /* If the focus window is a root window (ie. has no parent) then don't
 	delete the focus from it. */
@@ -4813,7 +5448,7 @@ DeleteWindowFromAnyEvents(WindowPtr pWin, Bool freeResources)
 
  	/* If a grab is in progress, then alter the mode of focus events. */
 
-	if (keybd->grab)
+                if (keybd->deviceGrab.grab)
 	    focusEventMode = NotifyWhileGrabbed;
 
 	switch (focus->revert)
@@ -4837,23 +5472,30 @@ DeleteWindowFromAnyEvents(WindowPtr pWin, Bool freeResources)
    to None
  */
 #ifdef NOTDEF
- 	      || clients[CLIENT_ID(parent->drawable.id)]->clientGone
+				 || wClient(parent)->clientGone
 #endif
 		);
+                        if (!ActivateFocusInGrab(keybd, pWin, parent))
 	    DoFocusEvents(keybd, pWin, parent, focusEventMode);
 	    focus->win = parent;
 	    focus->revert = RevertToNone;
 	    break;
 	case RevertToPointerRoot:
+                        if (!ActivateFocusInGrab(keybd, pWin, PointerRootWin))
 	    DoFocusEvents(keybd, pWin, PointerRootWin, focusEventMode);
 	    focus->win = PointerRootWin;
 	    focus->traceGood = 0;
 	    break;
 	}
     }
+        }
 
-    if (mouse->valuator->motionHintWindow == pWin)
-	mouse->valuator->motionHintWindow = NullWindow;
+        if (IsPointerDevice(keybd))
+        {
+            if (keybd->valuator->motionHintWindow == pWin)
+                keybd->valuator->motionHintWindow = NullWindow;
+        }
+    }
 
     if (freeResources)
     {
@@ -4864,9 +5506,8 @@ DeleteWindowFromAnyEvents(WindowPtr pWin, Bool freeResources)
 	while ( (passive = wPassiveGrabs(pWin)) )
 	    FreeResource(passive->resource, RT_NONE);
      }
-#ifdef XINPUT
+
     DeleteWindowFromAnyExtEvents(pWin, freeResources);
-#endif
 }
 
 /**
@@ -4877,19 +5518,27 @@ DeleteWindowFromAnyEvents(WindowPtr pWin, Bool freeResources)
 void
 CheckCursorConfinement(WindowPtr pWin)
 {
-    GrabPtr grab = inputInfo.pointer->grab;
+    GrabPtr grab;
     WindowPtr confineTo;
+    DeviceIntPtr pDev;
 
 #ifdef PANORAMIX
     if(!noPanoramiXExtension && pWin->drawable.pScreen->myNum) return;
 #endif
 
+    for (pDev = inputInfo.devices; pDev; pDev = pDev->next)
+    {
+        if (DevHasCursor(pDev))
+        {
+            grab = pDev->deviceGrab.grab;
     if (grab && (confineTo = grab->confineTo))
     {
-	if (!BorderSizeNotEmpty(confineTo))
-	    (*inputInfo.pointer->DeactivateGrab)(inputInfo.pointer);
+                if (!BorderSizeNotEmpty(pDev, confineTo))
+                    (*pDev->deviceGrab.DeactivateGrab)(pDev);
 	else if ((pWin == confineTo) || IsParent(pWin, confineTo))
-	    ConfineCursorToWindow(confineTo, TRUE, TRUE);
+                    ConfineCursorToWindow(pDev, confineTo, TRUE, TRUE);
+            }
+        }
     }
 }
 
@@ -4918,15 +5567,16 @@ ProcRecolorCursor(ClientPtr client)
     int		rc, nscr;
     ScreenPtr	pscr;
     Bool 	displayed;
+    SpritePtr   pSprite = PickPointer(client)->spriteInfo->sprite;
     REQUEST(xRecolorCursorReq);
 
     REQUEST_SIZE_MATCH(xRecolorCursorReq);
-    rc = dixLookupResource((void * *)&pCursor, stuff->cursor, RT_CURSOR,
+    rc = dixLookupResourceByType((void * *)&pCursor, stuff->cursor, RT_CURSOR,
 			   client, DixWriteAccess);
     if (rc != Success)
     {
 	client->errorValue = stuff->cursor;
-	return (rc == BadValue) ? BadCursor : rc;
+	return rc;
     }
 
     pCursor->foreRed = stuff->foreRed;
@@ -4942,14 +5592,14 @@ ProcRecolorCursor(ClientPtr client)
 	pscr = screenInfo.screens[nscr];
 #ifdef PANORAMIX
 	if(!noPanoramiXExtension)
-	    displayed = (pscr == sprite.screen);
+	    displayed = (pscr == pSprite->screen);
 	else
 #endif
-	    displayed = (pscr == sprite.hotPhys.pScreen);
-	( *pscr->RecolorCursor)(pscr, pCursor,
-				(pCursor == sprite.current) && displayed);
+	    displayed = (pscr == pSprite->hotPhys.pScreen);
+	( *pscr->RecolorCursor)(PickPointer(client), pscr, pCursor,
+				(pCursor == pSprite->current) && displayed);
     }
-    return (Success);
+    return Success;
 }
 
 /**
@@ -4972,8 +5622,9 @@ WriteEventsToClient(ClientPtr pClient, int count, xEvent *events)
 #ifdef PANORAMIX
     xEvent    eventCopy;
 #endif
-    xEvent    eventTo, *eventFrom;
-    int       i;
+    xEvent    *eventTo, *eventFrom;
+    int       i,
+              eventlength = sizeof(xEvent);
 
     if (!pClient || pClient == serverClient || pClient->clientGone)
 	return;
@@ -4982,14 +5633,12 @@ WriteEventsToClient(ClientPtr pClient, int count, xEvent *events)
 	if ((events[i].u.u.type & 0x7f) != KeymapNotify)
 	    events[i].u.u.sequenceNumber = pClient->sequence;
 
-#ifdef XKB
-    if ((!noXkbExtension)&&(!XkbFilterEvents(pClient, count, events)))
-	return;
-#endif
+    /* Let XKB rewrite the state, as it depends on client preferences. */
+    XkbFilterEvents(pClient, count, events);
 
 #ifdef PANORAMIX
     if(!noPanoramiXExtension &&
-       (panoramiXdataPtr[0].x || panoramiXdataPtr[0].y))
+       (screenInfo.screens[0]->x || screenInfo.screens[0]->y))
     {
 	switch(events->u.u.type) {
 	case MotionNotify:
@@ -5006,13 +5655,13 @@ WriteEventsToClient(ClientPtr pClient, int count, xEvent *events)
         */
 	    count = 1;  /* should always be 1 */
 	    memcpy(&eventCopy, events, sizeof(xEvent));
-	    eventCopy.u.keyButtonPointer.rootX += panoramiXdataPtr[0].x;
-	    eventCopy.u.keyButtonPointer.rootY += panoramiXdataPtr[0].y;
+	    eventCopy.u.keyButtonPointer.rootX += screenInfo.screens[0]->x;
+	    eventCopy.u.keyButtonPointer.rootY += screenInfo.screens[0]->y;
 	    if(eventCopy.u.keyButtonPointer.event ==
 	       eventCopy.u.keyButtonPointer.root)
 	    {
-		eventCopy.u.keyButtonPointer.eventX += panoramiXdataPtr[0].x;
-		eventCopy.u.keyButtonPointer.eventY += panoramiXdataPtr[0].y;
+		eventCopy.u.keyButtonPointer.eventX += screenInfo.screens[0]->x;
+		eventCopy.u.keyButtonPointer.eventY += screenInfo.screens[0]->y;
 	    }
 	    events = &eventCopy;
 	    break;
@@ -5037,20 +5686,191 @@ WriteEventsToClient(ClientPtr pClient, int count, xEvent *events)
 	}
     }
 #endif
+    /* Just a safety check to make sure we only have one GenericEvent, it just
+     * makes things easier for me right now. (whot) */
+    for (i = 1; i < count; i++)
+    {
+        if (events[i].u.u.type == GenericEvent)
+        {
+            ErrorF("[dix] TryClientEvents: Only one GenericEvent at a time.\n");
+            return;
+        }
+    }
+
+    if (events->u.u.type == GenericEvent)
+    {
+        eventlength += ((xGenericEvent*)events)->length * 4;
+    }
+
     if(pClient->swapped)
     {
+        if (eventlength > swapEventLen)
+        {
+            swapEventLen = eventlength;
+            swapEvent = realloc(swapEvent, swapEventLen);
+            if (!swapEvent)
+            {
+                FatalError("WriteEventsToClient: Out of memory.\n");
+                return;
+            }
+        }
+
 	for(i = 0; i < count; i++)
 	{
 	    eventFrom = &events[i];
+            eventTo = swapEvent;
+
 	    /* Remember to strip off the leading bit of type in case
 	       this event was sent with "SendEvent." */
 	    (*EventSwapVector[eventFrom->u.u.type & 0177])
-		(eventFrom, &eventTo);
-	    WriteToClient(pClient, sizeof(xEvent), &eventTo);
+		(eventFrom, eventTo);
+
+	    WriteToClient(pClient, eventlength, (char *)eventTo);
 	}
     }
     else
     {
-	WriteToClient(pClient, count * sizeof(xEvent), events);
+        /* only one GenericEvent, remember? that means either count is 1 and
+         * eventlength is arbitrary or eventlength is 32 and count doesn't
+         * matter. And we're all set. Woohoo. */
+	WriteToClient(pClient, count * eventlength, (char *) events);
     }
 }
+
+/*
+ * Set the client void * for the given client.
+ *
+ * A client can have exactly one ClientPointer. Each time a
+ * request/reply/event is processed and the choice of devices is ambiguous
+ * (e.g. QueryPointer request), the server will pick the ClientPointer (see
+ * PickPointer()).
+ * If a keyboard is needed, the first keyboard paired with the CP is used.
+ */
+int
+SetClientPointer(ClientPtr client, DeviceIntPtr device)
+{
+    int rc = XaceHook(XACE_DEVICE_ACCESS, client, device, DixUseAccess);
+    if (rc != Success)
+	return rc;
+
+    if (!IsMaster(device))
+    {
+        ErrorF("[dix] Need master device for ClientPointer. This is a bug.\n");
+        return BadDevice;
+    } else if (!device->spriteInfo->spriteOwner)
+    {
+        ErrorF("[dix] Device %d does not have a sprite. "
+                "Cannot be ClientPointer\n", device->id);
+        return BadDevice;
+    }
+    client->clientPtr = device;
+    return Success;
+}
+
+/* PickPointer will pick an appropriate void * for the given client.
+ *
+ * An "appropriate device" is (in order of priority):
+ *  1) A device the given client has a core grab on.
+ *  2) A device set as ClientPointer for the given client.
+ *  3) The first master device.
+ */
+DeviceIntPtr
+PickPointer(ClientPtr client)
+{
+    DeviceIntPtr it = inputInfo.devices;
+
+    /* First, check if the client currently has a grab on a device. Even
+     * keyboards count. */
+    for(it = inputInfo.devices; it; it = it->next)
+    {
+        GrabPtr grab = it->deviceGrab.grab;
+        if (grab && grab->grabtype == GRABTYPE_CORE && SameClient(grab, client))
+        {
+            it = GetMaster(it, MASTER_POINTER);
+            return it; /* Always return a core grabbed device */
+        }
+    }
+
+    if (!client->clientPtr)
+    {
+        DeviceIntPtr it = inputInfo.devices;
+        while (it)
+        {
+            if (IsMaster(it) && it->spriteInfo->spriteOwner)
+            {
+                client->clientPtr = it;
+                break;
+            }
+            it = it->next;
+        }
+    }
+    return client->clientPtr;
+}
+
+/* PickKeyboard will pick an appropriate keyboard for the given client by
+ * searching the list of devices for the keyboard device that is paired with
+ * the client's pointer.
+ */
+DeviceIntPtr
+PickKeyboard(ClientPtr client)
+{
+    DeviceIntPtr ptr = PickPointer(client);
+    DeviceIntPtr kbd = GetMaster(ptr, MASTER_KEYBOARD);
+
+    if (!kbd)
+    {
+        ErrorF("[dix] ClientPointer not paired with a keyboard. This "
+                "is a bug.\n");
+    }
+
+    return kbd;
+}
+
+/* A client that has one or more core grabs does not get core events from
+ * devices it does not have a grab on. Legacy applications behave bad
+ * otherwise because they are not used to it and the events interfere.
+ * Only applies for core events.
+ *
+ * Return true if a core event from the device would interfere and should not
+ * be delivered.
+ */
+Bool
+IsInterferingGrab(ClientPtr client, DeviceIntPtr dev, xEvent* event)
+{
+    DeviceIntPtr it = inputInfo.devices;
+
+    switch(event->u.u.type)
+    {
+        case KeyPress:
+        case KeyRelease:
+        case ButtonPress:
+        case ButtonRelease:
+        case MotionNotify:
+        case EnterNotify:
+        case LeaveNotify:
+            break;
+        default:
+            return FALSE;
+    }
+
+    if (dev->deviceGrab.grab && SameClient(dev->deviceGrab.grab, client))
+        return FALSE;
+
+    while(it)
+    {
+        if (it != dev)
+        {
+            if (it->deviceGrab.grab && SameClient(it->deviceGrab.grab, client)
+                        && !it->deviceGrab.fromPassiveGrab)
+            {
+                if ((IsPointerDevice(it) && IsPointerDevice(dev)) ||
+                        (IsKeyboardDevice(it) && IsKeyboardDevice(dev)))
+                    return TRUE;
+            }
+        }
+        it = it->next;
+    }
+
+    return FALSE;
+}
+
