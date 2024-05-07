@@ -15,7 +15,7 @@ mi                1.5.3
 miext             1.5.3
 os                1.9.5 + many backports, some of them from 2019
 randr             1.18.0
-record            1.9.5
+record            1.9.5  Extensionm version 1.13
 render            1.5.3
 Xext              1.5.3
 xfixes            1.5.3
