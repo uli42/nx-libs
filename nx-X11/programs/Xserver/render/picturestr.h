@@ -424,19 +424,18 @@ extern RESTYPE		GlyphSetType;
 #define GetGlyphPrivatesForScreen(glyph, s) \
     ((PrivateRec **)dixLookupPrivateAddr(&(glyph)->devPrivates, s))
 
-#define VERIFY_PICTURE(pPicture, pid, client, mode, err) {\
-    pPicture = SecurityLookupIDByType(client, pid, PictureType, mode);\
-    if (!pPicture) { \
-	client->errorValue = pid; \
-	return err; \
-    } \
+#define VERIFY_PICTURE(pPicture, pid, client, mode) {\
+    int rc = dixLookupResourceByType((void *)&(pPicture), pid,\
+	                             PictureType, client, mode);\
+    if (rc != Success)\
+	return rc;\
 }
 
-#define VERIFY_ALPHA(pPicture, pid, client, mode, err) {\
+#define VERIFY_ALPHA(pPicture, pid, client, mode) {\
     if (pid == None) \
 	pPicture = 0; \
     else { \
-	VERIFY_PICTURE(pPicture, pid, client, mode, err); \
+	VERIFY_PICTURE(pPicture, pid, client, mode); \
     } \
 } \
 

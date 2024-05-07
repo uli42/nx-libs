@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 2002 Keith Packard
+ * Copyright © 2002 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -29,23 +29,26 @@
 
 #include "resource.h"
 
-extern RESTYPE	RegionResType;
-extern int	XFixesErrorBase;
+extern _X_EXPORT RESTYPE RegionResType;
+extern _X_EXPORT int XFixesErrorBase;
 
-#define VERIFY_REGION(pRegion, rid, client, mode) { \
-    pRegion = SecurityLookupIDByType (client, rid, RegionResType, mode); \
-    if (!pRegion) { \
+#define VERIFY_REGION(pRegion, rid, client, mode)			\
+    do {								\
+	int err;							\
+	err = dixLookupResourceByType((void * *) &pRegion, rid,	\
+				      RegionResType, client, mode);	\
+	if (err != Success) {						\
 	client->errorValue = rid; \
-	return XFixesErrorBase + BadRegion; \
+	    return err;							\
     } \
-}
+    } while (0)
 
 #define VERIFY_REGION_OR_NONE(pRegion, rid, client, mode) { \
     pRegion = 0; \
     if (rid) VERIFY_REGION(pRegion, rid, client, mode); \
 }
 
-RegionPtr
+extern _X_EXPORT RegionPtr
 XFixesRegionCopy (RegionPtr pRegion);
 
 

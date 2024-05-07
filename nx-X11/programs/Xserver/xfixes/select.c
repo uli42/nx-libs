@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 2002 Keith Packard
+ * Copyright © 2002 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -83,7 +83,6 @@ XFixesSelectionCallback (CallbackListPtr *callbacks, void * data, void * args)
 	    xXFixesSelectionNotifyEvent	ev;
 
 	    memset(&ev, 0, sizeof(xXFixesSelectionNotifyEvent));
-
 	    ev.type = XFixesEventBase + XFixesSelectionNotify;
 	    ev.subtype = subtype;
 	    ev.window = e->pWindow->drawable.id;
@@ -132,6 +131,7 @@ XFixesSelectSelectionInput (ClientPtr	pClient,
 			    WindowPtr	pWindow,
 			    CARD32	eventMask)
 {
+    void * val;
     int rc;
     SelectionEventPtr	*prev, e;
 
@@ -172,7 +172,10 @@ XFixesSelectSelectionInput (ClientPtr	pClient,
 	 * Add a resource hanging from the window to
 	 * catch window destroy
 	 */
-	if (!LookupIDByType(pWindow->drawable.id, SelectionWindowType))
+	rc = dixLookupResourceByType (&val, pWindow->drawable.id,
+				      SelectionWindowType, serverClient,
+				      DixGetAttrAccess);
+	if (rc != Success)
 	    if (!AddResource (pWindow->drawable.id, SelectionWindowType,
 			      (void *) pWindow))
 	    {
@@ -208,7 +211,7 @@ ProcXFixesSelectSelectionInput (ClientPtr client)
     if (stuff->eventMask & ~SelectionAllEvents)
     {
 	client->errorValue = stuff->eventMask;
-	return( BadValue );
+	return BadValue;
     }
     return XFixesSelectSelectionInput (client, stuff->selection,
 				       pWin, stuff->eventMask);
@@ -279,7 +282,9 @@ SelectionFreeWindow (void * data, XID id)
 Bool
 XFixesSelectionInit (void)
 {
-    SelectionClientType = CreateNewResourceType(SelectionFreeClient);
-    SelectionWindowType = CreateNewResourceType(SelectionFreeWindow);
+    SelectionClientType = CreateNewResourceType(SelectionFreeClient,
+						"XFixesSelectionClient");
+    SelectionWindowType = CreateNewResourceType(SelectionFreeWindow,
+						"XFixesSelectionWindow");
     return SelectionClientType && SelectionWindowType;
 }

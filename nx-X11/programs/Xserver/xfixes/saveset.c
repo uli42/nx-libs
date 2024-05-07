@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 2002 Keith Packard
+ * Copyright © 2002 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -29,7 +29,7 @@
 int
 ProcXFixesChangeSaveSet(ClientPtr client)
 {
-    Bool	toRoot, remap;
+    Bool	toRoot, map;
     int		result;
     WindowPtr	pWin;
     REQUEST(xXFixesChangeSaveSetReq);
@@ -43,25 +43,21 @@ ProcXFixesChangeSaveSet(ClientPtr client)
     if ((stuff->mode != SetModeInsert) && (stuff->mode != SetModeDelete))
     {
 	client->errorValue = stuff->mode;
-	return( BadValue );
+	return BadValue;
     }
     if ((stuff->target != SaveSetNearest) && (stuff->target != SaveSetRoot))
     {
 	client->errorValue = stuff->target;
-	return( BadValue );
+	return BadValue;
     }
     if ((stuff->map != SaveSetMap) && (stuff->map != SaveSetUnmap))
     {
 	client->errorValue = stuff->map;
-	return( BadValue );
+	return BadValue;
     }
     toRoot = (stuff->target == SaveSetRoot);
-    remap = (stuff->map == SaveSetMap);
-    result = AlterSaveSetForClient(client, pWin, stuff->mode, toRoot, remap);
-    if (client->noClientException != Success)
-	return(client->noClientException);
-    else
-	return(result);
+    map = (stuff->map == SaveSetMap);
+    return AlterSaveSetForClient(client, pWin, stuff->mode, toRoot, map);
 }
 
 int
