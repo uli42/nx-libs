@@ -5,8 +5,8 @@ are at (roughly). Some modules have got backports added, not all of
 them are mentioned here.
 
 module            xorg version
-composite         1.5.3
-damageext         1.5.3
+composite         1.12 (~ 9838b70 2012-03-21 Introduce a consistent coding style [Keith Packard])
+damageext         1.9.5  Extension version: 1.1
 dbe               1.9.5  Extension version: 1.0
 dix               1.9.5
 fb                1.5.3

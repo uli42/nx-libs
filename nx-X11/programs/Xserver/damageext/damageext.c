@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 2002 Keith Packard
+ * Copyright © 2002 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -29,12 +29,11 @@
 
 static unsigned char	DamageReqCode;
 static int		DamageEventBase;
-static int		DamageErrorBase;
-static DevPrivateKey	DamageClientPrivateKey = &DamageClientPrivateKey;
 static RESTYPE		DamageExtType;
 static RESTYPE		DamageExtWinType;
 
-#define prScreen	screenInfo.screens[0]
+static DevPrivateKeyRec DamageClientPrivateKeyRec;
+#define DamageClientPrivateKey (&DamageClientPrivateKeyRec)
 
 static void
 DamageExtNotify (DamageExtPtr pDamageExt, BoxPtr pBoxes, int nBoxes)
@@ -48,8 +47,7 @@ DamageExtNotify (DamageExtPtr pDamageExt, BoxPtr pBoxes, int nBoxes)
     UpdateCurrentTimeIf ();
     ev.type = DamageEventBase + XDamageNotify;
     ev.level = pDamageExt->level;
-    ev.sequenceNumber = pClient->sequence;
-    ev.drawable = pDrawable->id;
+    ev.drawable = pDamageExt->drawable;
     ev.damage = pDamageExt->id;
     ev.timestamp = currentTime.milliseconds;
     ev.geometry.x = pDrawable->x;
@@ -130,15 +128,13 @@ static int
 ProcDamageQueryVersion(ClientPtr client)
 {
     DamageClientPtr pDamageClient = GetDamageClient (client);
-    xDamageQueryVersionReply rep = {
-        .type = X_Reply,
-        .sequenceNumber = client->sequence,
-        .length = 0
-    };
+    xDamageQueryVersionReply rep;
     REQUEST(xDamageQueryVersionReq);
 
     REQUEST_SIZE_MATCH(xDamageQueryVersionReq);
-
+    rep.type = X_Reply;
+    rep.length = 0;
+    rep.sequenceNumber = client->sequence;
     if (stuff->majorVersion < SERVER_DAMAGE_MAJOR_VERSION) {
 	rep.majorVersion = stuff->majorVersion;
 	rep.minorVersion = stuff->minorVersion;
@@ -159,7 +155,7 @@ ProcDamageQueryVersion(ClientPtr client)
 	swapl(&rep.minorVersion);
     }
     WriteToClient(client, sizeof(xDamageQueryVersionReply), &rep);
-    return(client->noClientException);
+    return Success;
 }
 
 static int
@@ -202,6 +198,7 @@ ProcDamageCreate (ClientPtr client)
     if (!pDamageExt)
 	return BadAlloc;
     pDamageExt->id = stuff->damage;
+    pDamageExt->drawable = stuff->drawable;
     pDamageExt->pDrawable = pDrawable;
     pDamageExt->level = level;
     pDamageExt->pClient = client;
@@ -219,6 +216,7 @@ ProcDamageCreate (ClientPtr client)
     if (!AddResource (stuff->damage, DamageExtType, (void *) pDamageExt))
 	return BadAlloc;
 
+    DamageSetReportAfterOp (pDamageExt->pDamage, TRUE);
     DamageRegister (pDamageExt->pDrawable, pDamageExt->pDamage);
 
     if (pDrawable->type == DRAWABLE_WINDOW)
@@ -227,7 +225,7 @@ ProcDamageCreate (ClientPtr client)
 	DamageDamageRegion (pDrawable, pRegion);
     }
 
-    return (client->noClientException);
+    return Success;
 }
 
 static int
@@ -239,7 +237,7 @@ ProcDamageDestroy (ClientPtr client)
     REQUEST_SIZE_MATCH(xDamageDestroyReq);
     VERIFY_DAMAGEEXT(pDamageExt, stuff->damage, client, DixWriteAccess);
     FreeResource (stuff->damage, RT_NONE);
-    return (client->noClientException);
+    return Success;
 }
 
 static int
@@ -272,7 +270,7 @@ ProcDamageSubtract (ClientPtr client)
 	    DamageEmpty (pDamage);
 	}
     }
-    return (client->noClientException);
+    return Success;
 }
 
 static int
@@ -297,7 +295,7 @@ ProcDamageAdd (ClientPtr client)
     DamageDamageRegion(pDrawable, pRegion);
     RegionTranslate(pRegion, -pDrawable->x, -pDrawable->y);
 
-    return (client->noClientException);
+    return Success;
 }
 
 /* Major version controls available requests */
@@ -489,16 +487,17 @@ DamageExtensionInit(void)
     for (s = 0; s < screenInfo.numScreens; s++)
 	DamageSetup (screenInfo.screens[s]);
 
-    DamageExtType = CreateNewResourceType (FreeDamageExt);
+    DamageExtType = CreateNewResourceType (FreeDamageExt, "DamageExt");
     if (!DamageExtType)
 	return;
 
-    DamageExtWinType = CreateNewResourceType (FreeDamageExtWin);
+    DamageExtWinType = CreateNewResourceType (FreeDamageExtWin, "DamageExtWin");
     if (!DamageExtWinType)
 	return;
 
-    if (!dixRequestPrivate(DamageClientPrivateKey, sizeof (DamageClientRec)))
+    if (!dixRegisterPrivateKey(&DamageClientPrivateKeyRec, PRIVATE_CLIENT, sizeof (DamageClientRec)))
 	return;
+
     if (!AddCallback (&ClientStateCallback, DamageClientCallback, 0))
 	return;
 
@@ -509,8 +508,8 @@ DamageExtensionInit(void)
     {
 	DamageReqCode = (unsigned char)extEntry->base;
 	DamageEventBase = extEntry->eventBase;
-	DamageErrorBase = extEntry->errorBase;
 	EventSwapVector[DamageEventBase + XDamageNotify] =
 			(EventSwapPtr) SDamageNotifyEvent;
+	SetResourceTypeErrorValue(DamageExtType, extEntry->errorBase + BadDamage);
     }
 }

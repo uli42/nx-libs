@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 2002 Keith Packard
+ * Copyright © 2002 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -55,14 +55,14 @@ typedef struct _DamageExt {
     DamageReportLevel	level;
     ClientPtr		pClient;
     XID			id;
+    XID			drawable;
 } DamageExtRec, *DamageExtPtr;
 
 #define VERIFY_DAMAGEEXT(pDamageExt, rid, client, mode) { \
-    pDamageExt = SecurityLookupIDByType (client, rid, DamageExtType, mode); \
-    if (!pDamageExt) { \
-	client->errorValue = rid; \
-	return DamageErrorBase + BadDamage; \
-    } \
+    int rc = dixLookupResourceByType((void * *)&(pDamageExt), rid, \
+                                     DamageExtType, client, mode); \
+    if (rc != Success) \
+        return rc; \
 }
 
 void
