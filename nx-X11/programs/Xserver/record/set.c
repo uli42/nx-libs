@@ -361,7 +361,7 @@ IntervalListCreateSet(RecordSetInterval *pIntervals, int nIntervals,
         memcpy(&prls[1], stackIntervals, nIntervals * sizeof(RecordSetInterval));
     prls->nIntervals = nIntervals;
 bailout:
-    if (stackIntervals) free(stackIntervals);
+    free(stackIntervals);
     return (RecordSetPtr)prls;
 }
 
@@ -407,10 +407,7 @@ _RecordSetMemoryRequirements(RecordSetInterval *pIntervals, int nIntervals,
 /* user-visible functions */
 
 int
-RecordSetMemoryRequirements(pIntervals, nIntervals, alignment)
-    RecordSetInterval *pIntervals;
-    int nIntervals;
-    int *alignment;
+RecordSetMemoryRequirements(RecordSetInterval *pIntervals, int nIntervals, int *alignment)
 {
     RecordCreateSetProcPtr pCreateSet;
     return _RecordSetMemoryRequirements(pIntervals, nIntervals, alignment,
@@ -418,11 +415,7 @@ RecordSetMemoryRequirements(pIntervals, nIntervals, alignment)
 }
 
 RecordSetPtr
-RecordCreateSet(pIntervals, nIntervals, pMem, memsize)
-    RecordSetInterval *pIntervals;
-    int nIntervals;
-    void *pMem;
-    int memsize;
+RecordCreateSet(RecordSetInterval *pIntervals, int nIntervals, void *pMem, int memsize)
 {
     RecordCreateSetProcPtr pCreateSet;
     int alignment;
