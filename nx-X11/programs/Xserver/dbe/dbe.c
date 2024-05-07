@@ -56,59 +56,17 @@
 
 /* GLOBALS */
 
-/* Per-screen initialization functions [init'ed by DbeRegisterFunction()] */
-static Bool (* DbeInitFunct[MAXSCREENS])();	/* pScreen, pDbeScreenPriv */
+/* These are globals for use by DDX */
+DevPrivateKeyRec dbeScreenPrivKeyRec;
+DevPrivateKeyRec dbeWindowPrivKeyRec;
 
-/* These are static globals copied to DBE's screen private for use by DDX */
-static DevPrivateKey dbeScreenPrivKey = &dbeScreenPrivKey;
-static DevPrivateKey dbeWindowPrivKey = &dbeWindowPrivKey;
-
-/* These are static globals copied to DBE's screen private for use by DDX */
-static RESTYPE	dbeDrawableResType;
-static RESTYPE	dbeWindowPrivResType;
+/* These are globals for use by DDX */
+RESTYPE	dbeDrawableResType;
+RESTYPE	dbeWindowPrivResType;
 
 /* Used to generate DBE's BadBuffer error. */
 static int	dbeErrorBase;
 
-/* Used by DbeRegisterFunction() to initialize the initialization function
- * table only once per server lifetime.
- */
-static Bool	firstRegistrationPass = TRUE;
-
-
-/******************************************************************************
- *
- * DBE DIX Procedure: DbeRegisterFunction
- *
- * Description:
- *
- *     This function registers the DBE init function for the specified screen.
- *
- *****************************************************************************/
-
-void
-DbeRegisterFunction(ScreenPtr pScreen, Bool (*funct) (/* ??? */))
-{
-    int	i;
-
-    /* Initialize the initialization function table if it has not been
-     * initialized already.
-     */
-    if (firstRegistrationPass)
-    {
-        for (i = 0; i < MAXSCREENS; i++)
-        {
-            DbeInitFunct[i] = NULL;
-        }
-
-        firstRegistrationPass = FALSE;
-    }
-
-    DbeInitFunct[pScreen->myNum] = funct;
-
-} /* DbeRegisterFunction() */
-
-
 /******************************************************************************
  *
  * DBE DIX Procedure: DbeStubScreen
@@ -167,15 +125,16 @@ static int
 ProcDbeGetVersion(ClientPtr client)
 {
     /* REQUEST(xDbeGetVersionReq); */
-    xDbeGetVersionReply rep = {
-        .type = X_Reply,
-        .sequenceNumber = client->sequence,
-        .length = 0,
-        .majorVersion = DBE_MAJOR_VERSION,
-        .minorVersion = DBE_MINOR_VERSION
-    };
+    xDbeGetVersionReply	rep;
+
 
     REQUEST_SIZE_MATCH(xDbeGetVersionReq);
+
+    rep.type           = X_Reply;
+    rep.length         = 0;
+    rep.sequenceNumber = client->sequence;
+    rep.majorVersion   = DBE_MAJOR_VERSION;
+    rep.minorVersion   = DBE_MINOR_VERSION;
 
     if (client->swapped)
     {
@@ -184,7 +143,7 @@ ProcDbeGetVersion(ClientPtr client)
 
     WriteToClient(client, sizeof(xDbeGetVersionReply), &rep);
 
-    return(client->noClientException);
+    return Success;
 
 } /* ProcDbeGetVersion() */
 
@@ -238,7 +197,7 @@ ProcDbeAllocateBackBufferName(ClientPtr client)
     /* The window must be InputOutput. */
     if (pWin->drawable.class != InputOutput)
     {
-	return(BadMatch);
+	return BadMatch;
     }
 
     /* The swap action must be valid. */
@@ -248,7 +207,7 @@ ProcDbeAllocateBackBufferName(ClientPtr client)
         (swapAction != XdbeUntouched ) &&
         (swapAction != XdbeCopied    ))
     {
-        return(BadValue);
+        return BadValue;
     }
 
     /* The id must be in range and not already in use. */
@@ -259,12 +218,12 @@ ProcDbeAllocateBackBufferName(ClientPtr client)
      */
     pDbeScreenPriv = DBE_SCREEN_PRIV_FROM_WINDOW(pWin);
     if (!pDbeScreenPriv->GetVisualInfo)
-	return(BadMatch); /* screen doesn't support double buffering */
+	return BadMatch; /* screen doesn't support double buffering */
 
     if (!(*pDbeScreenPriv->GetVisualInfo)(pWin->drawable.pScreen, &scrVisInfo))
     {
         /* GetVisualInfo() failed to allocate visual info data. */
-        return(BadAlloc);
+        return BadAlloc;
     }
 
     /* See if the window's visual is on the list. */
@@ -282,7 +241,7 @@ ProcDbeAllocateBackBufferName(ClientPtr client)
 
     if (!visualMatched)
     {
-	return(BadMatch);
+	return BadMatch;
     }
 
     if ((pDbeWindowPriv = DBE_WINDOW_PRIV(pWin)) == NULL)
@@ -291,10 +250,9 @@ ProcDbeAllocateBackBufferName(ClientPtr client)
          * Allocate a window priv.
          */
 
-        pDbeWindowPriv = (DbeWindowPrivPtr)malloc(sizeof(DbeWindowPrivRec));
+        pDbeWindowPriv = dixAllocateObjectWithPrivates(DbeWindowPrivRec, PRIVATE_DBE_WINDOW);
 	if (!pDbeWindowPriv)
-            return(BadAlloc);
-	bzero(pDbeWindowPriv, sizeof(DbeWindowPrivRec));
+            return BadAlloc;
 
         /* Fill out window priv information. */
         pDbeWindowPriv->pWindow      = pWin;
@@ -361,7 +319,7 @@ ProcDbeAllocateBackBufferName(ClientPtr client)
                 (pDbeWindowPriv->maxAvailableIDs+DBE_INCR_MAX_IDS)*sizeof(XID));
             if (!pDbeWindowPriv->IDs)
             {
-                return(BadAlloc);
+                return BadAlloc;
             }
             memset(&pDbeWindowPriv->IDs[pDbeWindowPriv->nBufferIDs], 0,
                    (pDbeWindowPriv->maxAvailableIDs + DBE_INCR_MAX_IDS -
@@ -417,12 +375,12 @@ ProcDbeAllocateBackBufferName(ClientPtr client)
     /* Set swap action on all calls. */
     pDbeWindowPriv->swapAction = stuff->swapAction;
 
-    return(status);
+    return status;
 
 out_free:
     dixSetPrivate(&pWin->devPrivates, dbeWindowPrivKey, NULL);
     free(pDbeWindowPriv);
-    return (status);
+    return status;
 
 } /* ProcDbeAllocateBackBufferName() */
 
@@ -449,20 +407,23 @@ ProcDbeDeallocateBackBufferName(ClientPtr client)
 {
     REQUEST(xDbeDeallocateBackBufferNameReq);
     DbeWindowPrivPtr	pDbeWindowPriv;
-    int			i;
+    int			rc, i;
+    void * val;
 
 
     REQUEST_SIZE_MATCH(xDbeDeallocateBackBufferNameReq);
 
     /* Buffer name must be valid */
-    if (!(pDbeWindowPriv = (DbeWindowPrivPtr)SecurityLookupIDByType(client,
-		stuff->buffer, dbeWindowPrivResType, DixDestroyAccess)) ||
-        !(SecurityLookupIDByType(client, stuff->buffer, dbeDrawableResType,
-				 DixDestroyAccess)))
-    {
-        client->errorValue = stuff->buffer;
-        return(dbeErrorBase + DbeBadBuffer);
-    }
+    rc = dixLookupResourceByType((void * *)&pDbeWindowPriv, stuff->buffer,
+				 dbeWindowPrivResType, client,
+				 DixDestroyAccess);
+    if (rc != Success)
+	return rc;
+
+    rc = dixLookupResourceByType(&val, stuff->buffer, dbeDrawableResType,
+				 client, DixDestroyAccess);
+    if (rc != Success)
+	return rc;
 
     /* Make sure that the id is valid for the window.
      * This is paranoid code since we already looked up the ID by type
@@ -482,12 +443,12 @@ ProcDbeDeallocateBackBufferName(ClientPtr client)
     {
         /* We did not find the ID in the ID list. */
         client->errorValue = stuff->buffer;
-        return(dbeErrorBase + DbeBadBuffer);
+        return dbeErrorBase + DbeBadBuffer;
     }
 
     FreeResource(stuff->buffer, RT_NONE);
 
-    return(Success);
+    return Success;
 
 } /* ProcDbeDeallocateBackBufferName() */
 
@@ -534,7 +495,7 @@ ProcDbeSwapBuffers(ClientPtr client)
     if (nStuff == 0)
     {
         REQUEST_SIZE_MATCH(xDbeSwapBuffersReq);
-        return(Success);
+        return Success;
     }
 
     if (nStuff > UINT32_MAX / sizeof(DbeSwapInfoRec))
@@ -548,7 +509,7 @@ ProcDbeSwapBuffers(ClientPtr client)
     swapInfo = (DbeSwapInfoPtr)malloc(nStuff * sizeof(DbeSwapInfoRec));
     if (swapInfo == NULL)
     {
-        return(BadAlloc);
+        return BadAlloc;
     }
 
 
@@ -568,7 +529,7 @@ ProcDbeSwapBuffers(ClientPtr client)
         if (DBE_WINDOW_PRIV(pWin) == NULL)
         {
             free(swapInfo);
-            return(BadMatch);
+            return BadMatch;
         }
 
         /* Each window must only be specified once - BadMatch. */
@@ -577,7 +538,7 @@ ProcDbeSwapBuffers(ClientPtr client)
             if (dbeSwapInfo[i].window == dbeSwapInfo[j].window)
             {
                 free(swapInfo);
-                return(BadMatch);
+                return BadMatch;
 	    }
         }
 
@@ -588,7 +549,7 @@ ProcDbeSwapBuffers(ClientPtr client)
             (dbeSwapInfo[i].swapAction != XdbeCopied    ))
         {
             free(swapInfo);
-            return(BadValue);
+            return BadValue;
         }
 
         /* Everything checks out OK.  Fill in the swap info array. */
@@ -619,12 +580,12 @@ ProcDbeSwapBuffers(ClientPtr client)
         if (error != Success)
         {
             free(swapInfo);
-            return(error);
+            return error;
         }
     }
     
     free(swapInfo);
-    return(Success);
+    return Success;
 
 } /* ProcDbeSwapBuffers() */
 
@@ -666,7 +627,7 @@ ProcDbeBeginIdiom(ClientPtr client)
         }
     }
 
-    return(Success);
+    return Success;
 
 } /* ProcDbeBeginIdiom() */
 
@@ -713,7 +674,7 @@ ProcDbeGetVisualInfo(ClientPtr client)
         if (!(pDrawables = (DrawablePtr *)malloc(stuff->n *
                                                  sizeof(DrawablePtr))))
         {
-            return(BadAlloc);
+            return BadAlloc;
         }
 
         drawables = (Drawable *)&stuff[1];
@@ -733,12 +694,9 @@ ProcDbeGetVisualInfo(ClientPtr client)
     if (!(pScrVisInfo = (XdbeScreenVisualInfo *)malloc(count *
                         sizeof(XdbeScreenVisualInfo))))
     {
-        if (pDrawables)
-        {
             free(pDrawables);
-        }
 
-        return(BadAlloc);
+        return BadAlloc;
     }
 
     length = 0;
@@ -762,10 +720,7 @@ ProcDbeGetVisualInfo(ClientPtr client)
             }
 
             /* Free pDrawables if we needed to allocate it above. */
-            if (pDrawables)
-            {
                 free(pDrawables);
-            }
 
             return (rc == Success) ? BadAlloc : rc;
         }
@@ -777,12 +732,10 @@ ProcDbeGetVisualInfo(ClientPtr client)
         length += pScrVisInfo[i].count * sizeof(xDbeVisInfo);
     }
 
-    rep = (xDbeGetVisualInfoReply) {
-        .type = X_Reply,
-        .sequenceNumber = client->sequence,
-        .length = length >> 2,
-        .m = count
-    };
+    rep.type           = X_Reply;
+    rep.sequenceNumber = client->sequence;
+    rep.length         = bytes_to_int32(length);
+    rep.m              = count;
 
     if (client->swapped)
     {
@@ -845,12 +798,9 @@ ProcDbeGetVisualInfo(ClientPtr client)
     }
     free(pScrVisInfo);
 
-    if (pDrawables)
-    {
         free(pDrawables);
-    }
 
-    return(client->noClientException);
+    return Success;
 
 } /* ProcDbeGetVisualInfo() */
 
@@ -874,25 +824,29 @@ static int
 ProcDbeGetBackBufferAttributes(ClientPtr client)
 {
     REQUEST(xDbeGetBackBufferAttributesReq);
-    xDbeGetBackBufferAttributesReply rep = {
-        .type = X_Reply,
-        .sequenceNumber = client->sequence,
-        .length = 0
-    };
+    xDbeGetBackBufferAttributesReply	rep;
     DbeWindowPrivPtr			pDbeWindowPriv;
+    int					rc;
+
 
     REQUEST_SIZE_MATCH(xDbeGetBackBufferAttributesReq);
 
-    if (!(pDbeWindowPriv = (DbeWindowPrivPtr)SecurityLookupIDByType(client,
-		stuff->buffer, dbeWindowPrivResType, DixGetAttrAccess)))
-    {
-        rep.attributes = None;
-    }
-    else
+    rc = dixLookupResourceByType((void * *)&pDbeWindowPriv, stuff->buffer,
+				 dbeWindowPrivResType, client,
+				 DixGetAttrAccess);
+    if (rc == Success)
     {
         rep.attributes = pDbeWindowPriv->pWindow->drawable.id;
     }
+    else
+    {
+        rep.attributes = None;
+    }
         
+    rep.type           = X_Reply;
+    rep.sequenceNumber = client->sequence;
+    rep.length         = 0;
+    
     if (client->swapped)
     {
         swaps(&rep.sequenceNumber);
@@ -902,7 +856,7 @@ ProcDbeGetBackBufferAttributes(ClientPtr client)
 
     WriteToClient(client, sizeof(xDbeGetBackBufferAttributesReply),
                   &rep);
-    return(client->noClientException);
+    return Success;
 
 } /* ProcDbeGetbackBufferAttributes() */
 
@@ -941,7 +895,7 @@ ProcDbeDispatch(ClientPtr client)
             return(ProcDbeBeginIdiom(client));
 
         case X_DbeEndIdiom:
-            return(Success);
+            return Success;
 
         case X_DbeGetVisualInfo:
             return(ProcDbeGetVisualInfo(client));
@@ -950,7 +904,7 @@ ProcDbeDispatch(ClientPtr client)
             return(ProcDbeGetBackBufferAttributes(client));
 
         default:
-            return(BadRequest);
+            return BadRequest;
     }
 
 } /* ProcDbeDispatch() */
@@ -1236,7 +1190,7 @@ SProcDbeDispatch(ClientPtr client)
             return(SProcDbeBeginIdiom(client));
 
         case X_DbeEndIdiom:
-            return(Success);
+            return Success;
 
         case X_DbeGetVisualInfo:
             return(SProcDbeGetVisualInfo(client));
@@ -1245,7 +1199,7 @@ SProcDbeDispatch(ClientPtr client)
             return(SProcDbeGetBackBufferAttributes(client));
 
         default:
-            return (BadRequest);
+            return BadRequest;
     }
 
 } /* SProcDbeDispatch() */
@@ -1269,7 +1223,7 @@ SProcDbeDispatch(ClientPtr client)
 static Bool
 DbeSetupBackgroundPainter(WindowPtr pWin, GCPtr pGC)
 {
-    void	*gcvalues[4];
+    ChangeGCVal	gcvalues[4];
     int		ts_x_origin, ts_y_origin;
     PixUnion	background;
     int		backgroundState;
@@ -1295,31 +1249,25 @@ DbeSetupBackgroundPainter(WindowPtr pWin, GCPtr pGC)
     switch (backgroundState)
     {
         case BackgroundPixel:
-            gcvalues[0] = (void *)background.pixel;
-            gcvalues[1] = (void *)FillSolid;
+            gcvalues[0].val = background.pixel;
+            gcvalues[1].val = FillSolid;
             gcmask = GCForeground|GCFillStyle;
             break;
 
         case BackgroundPixmap:
-            gcvalues[0] = (void *)FillTiled;
-            gcvalues[1] = (void *)background.pixmap;
-            gcvalues[2] = (void *)(long)ts_x_origin;
-            gcvalues[3] = (void *)(long)ts_y_origin;
+            gcvalues[0].val = FillTiled;
+            gcvalues[1].ptr = background.pixmap;
+            gcvalues[2].val = ts_x_origin;
+            gcvalues[3].val = ts_y_origin;
             gcmask = GCFillStyle|GCTile|GCTileStipXOrigin|GCTileStipYOrigin;
             break;
 
         default:
             /* pWin->backgroundState == None */
-            return(FALSE);
+            return FALSE;
     }
 
-    if (DoChangeGC(pGC, gcmask, (XID *)gcvalues, TRUE) != 0)
-    {
-        return(FALSE);
-    }
-
-    return(TRUE);
-
+    return ChangeGC(NullClient, pGC, gcmask, gcvalues) == 0;
 } /* DbeSetupBackgroundPainter() */
 
 
@@ -1342,7 +1290,7 @@ DbeSetupBackgroundPainter(WindowPtr pWin, GCPtr pGC)
 static int
 DbeDrawableDelete(void * pDrawable, XID id)
 {
-    return(Success);
+    return Success;
 
 } /* DbeDrawableDelete() */
 
@@ -1382,7 +1330,7 @@ DbeWindowPrivDelete(void * pDbeWinPriv, XID id)
     if (i == pDbeWindowPriv->nBufferIDs)
     {
         /* We did not find the ID in the array.  We should never get here. */
-        return(BadValue);
+        return BadValue;
     }
 
     /* Remove the ID from the array. */
@@ -1446,11 +1394,10 @@ DbeWindowPrivDelete(void * pDbeWinPriv, XID id)
 		      NULL);
 
         /* We are done with the window priv. */
-	dixFreePrivates(pDbeWindowPriv->devPrivates);
-        free(pDbeWindowPriv);
+	dixFreeObjectWithPrivates(pDbeWindowPriv, PRIVATE_DBE_WINDOW);
     }
 
-    return(Success);
+    return Success;
 
 } /* DbeWindowPrivDelete() */
 
@@ -1486,16 +1433,9 @@ DbeResetProc(ExtensionEntry *extEntry)
 	    if (pDbeScreenPriv->ResetProc)
 		(*pDbeScreenPriv->ResetProc)(pScreen);
 
-	    dixFreePrivates(pDbeScreenPriv->devPrivates);
 	    free(pDbeScreenPriv);
 	}
     }
-
-    /* We want to init the initialization function table after every server
-     * reset in DbeRegisterFunction().
-     */
-    firstRegistrationPass = TRUE;
-
 } /* DbeResetProc() */
 
 
@@ -1578,7 +1518,7 @@ DbeDestroyWindow(WindowPtr pWin)
      **************************************************************************
      */
 
-    return(ret);
+    return ret;
 
 } /* DbeDestroyWindow() */
 
@@ -1609,11 +1549,20 @@ DbeExtensionInit(void)
 
     /* Create the resource types. */
     dbeDrawableResType =
-        CreateNewResourceType(DbeDrawableDelete) | RC_DRAWABLE;
+        CreateNewResourceType(DbeDrawableDelete, "dbeDrawable");
+    if (!dbeDrawableResType)
+	return;
+    dbeDrawableResType |= RC_DRAWABLE;
+
     dbeWindowPrivResType =
-        CreateNewResourceType(DbeWindowPrivDelete);
-    if (!dixRegisterPrivateOffset(dbeDrawableResType,
-				  offsetof(PixmapRec, devPrivates)))
+        CreateNewResourceType(DbeWindowPrivDelete, "dbeWindow");
+    if (!dbeWindowPrivResType)
+	return;
+
+    if (!dixRegisterPrivateKey(&dbeScreenPrivKeyRec, PRIVATE_SCREEN, 0))
+	return;
+
+    if (!dixRegisterPrivateKey(&dbeWindowPrivKeyRec, PRIVATE_WINDOW, 0))
 	return;
 
     for (i = 0; i < screenInfo.numScreens; i++)
@@ -1624,8 +1573,7 @@ DbeExtensionInit(void)
 
 	pScreen = screenInfo.screens[i];
 
-	if (!(pDbeScreenPriv =
-	      (DbeScreenPrivPtr)calloc(1, sizeof(DbeScreenPrivRec))))
+	if (!(pDbeScreenPriv = malloc (sizeof (DbeScreenPrivRec))))
 	{
             /* If we can not alloc a window or screen private,
              * then free any privates that we already alloc'ed and return
@@ -1643,47 +1591,8 @@ DbeExtensionInit(void)
 
 	dixSetPrivate(&pScreen->devPrivates, dbeScreenPrivKey, pDbeScreenPriv);
 
-        /* Copy the resource types */
-        pDbeScreenPriv->dbeDrawableResType   = dbeDrawableResType;
-        pDbeScreenPriv->dbeWindowPrivResType = dbeWindowPrivResType;
-
-        /* Copy the private indices */
-        pDbeScreenPriv->dbeScreenPrivKey = dbeScreenPrivKey;
-        pDbeScreenPriv->dbeWindowPrivKey = dbeWindowPrivKey;
-
-        if(DbeInitFunct[i])
-        {
-            /* This screen supports DBE. */
-
-            /* Setup DIX. */
-            pDbeScreenPriv->SetupBackgroundPainter = DbeSetupBackgroundPainter; 
-
-            /* Setup DDX. */
-            ddxInitSuccess = (*DbeInitFunct[i])(pScreen, pDbeScreenPriv);
-
-            /* DDX DBE initialization may have the side affect of
-             * reallocating pDbeScreenPriv, so we need to update it.
-             */
-            pDbeScreenPriv = DBE_SCREEN_PRIV(pScreen);
-
-            if (ddxInitSuccess)
             {
-                /* Wrap DestroyWindow.  The DDX initialization function
-                 * already wrapped PositionWindow for us.
-                 */
-
-                pDbeScreenPriv->DestroyWindow = pScreen->DestroyWindow;
-                pScreen->DestroyWindow        = DbeDestroyWindow;
-            }
-            else
-            {
-                /* DDX initialization failed.  Stub the screen. */
-                DbeStubScreen(pDbeScreenPriv, &nStubbedScreens);
-            }
-        }
-        else
-        {
-            /* This screen does not support DBE. */
+            /* We don't have DDX support for DBE anymore */
 
 #ifndef DISABLE_MI_DBE_BY_DEFAULT
             /* Setup DIX. */
@@ -1715,7 +1624,7 @@ DbeExtensionInit(void)
             DbeStubScreen(pDbeScreenPriv, &nStubbedScreens);
 #endif
 
-        } /* else -- this screen does not support DBE. */
+        }
 
     } /* for (i = 0; i < screenInfo.numScreens; i++) */
 
@@ -1740,6 +1649,8 @@ DbeExtensionInit(void)
                             DbeResetProc, StandardMinorOpcode);
 
     dbeErrorBase = extEntry->errorBase;
+    SetResourceTypeErrorValue(dbeWindowPrivResType, dbeErrorBase + DbeBadBuffer);
+    SetResourceTypeErrorValue(dbeDrawableResType, dbeErrorBase + DbeBadBuffer);
 
 } /* DbeExtensionInit() */
 

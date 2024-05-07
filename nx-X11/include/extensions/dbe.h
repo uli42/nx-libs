@@ -1,5 +1,5 @@
 /******************************************************************************
- * 
+ *
  * Copyright (c) 1994, 1995  Hewlett-Packard Company
  *
  * Permission is hereby granted, free of charge, to any person obtaining
@@ -9,10 +9,10 @@
  * distribute, sublicense, and/or sell copies of the Software, and to
  * permit persons to whom the Software is furnished to do so, subject to
  * the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included
  * in all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
@@ -20,60 +20,38 @@
  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.
- * 
+ *
  * Except as contained in this notice, the name of the Hewlett-Packard
  * Company shall not be used in advertising or otherwise to promote the
  * sale, use or other dealings in this Software without prior written
  * authorization from the Hewlett-Packard Company.
- * 
- *     Header file for users of machine-independent DBE code
- * 
+ *
+ *     Header file for Xlib-related DBE
+ *
  *****************************************************************************/
 
+#ifndef DBE_H
+#define DBE_H
 
-#ifdef HAVE_DIX_CONFIG_H
-#include <dix-config.h>
-#endif
+/* Values for swap_action field of XdbeSwapInfo structure */
+#define XdbeUndefined    0
+#define XdbeBackground   1
+#define XdbeUntouched    2
+#define XdbeCopied       3
 
-#ifndef MIDBE_STRUCT_H
-#define MIDBE_STRUCT_H
+/* Errors */
+#define XdbeBadBuffer    0
 
+#define DBE_PROTOCOL_NAME "DOUBLE-BUFFER"
 
-/* DEFINES */
+/* Current version numbers */
+#define DBE_MAJOR_VERSION       1
+#define DBE_MINOR_VERSION       0
 
-#define MI_DBE_WINDOW_PRIV_PRIV(pDbeWindowPriv) \
-    (!(pDbeWindowPriv) ? NULL : (MiDbeWindowPrivPrivPtr) \
-     dixLookupPrivate(&(pDbeWindowPriv)->devPrivates, miDbeWindowPrivPrivKey))
+/* Used when adding extension; also used in Xdbe macros */
+#define DbeNumberEvents			0
+#define DbeBadBuffer			0
+#define DbeNumberErrors			(DbeBadBuffer + 1)
 
-#define MI_DBE_WINDOW_PRIV_PRIV_FROM_WINDOW(pWin)\
-    MI_DBE_WINDOW_PRIV_PRIV(DBE_WINDOW_PRIV(pWin))
-
-/* TYPEDEFS */
-
-typedef struct _MiDbeWindowPrivPrivRec
-{
-    /* Place machine-specific fields in here.
-     * Since this is mi code, we do not really have machine-specific fields.
-     */
-
-    /* Pointer to a drawable that contains the contents of the back buffer.
-     */
-    PixmapPtr		pBackBuffer;
-
-    /* Pointer to a drawable that contains the contents of the front buffer.
-     * This pointer is only used for the XdbeUntouched swap action.  For that
-     * swap action, we need to copy the front buffer (window) contents into
-     * this drawable, copy the contents of current back buffer drawable (the
-     * back buffer) into the window, swap the front and back drawable pointers,
-     * and then swap the drawable/resource associations in the resource
-     * database.
-     */
-    PixmapPtr		pFrontBuffer;
-
-    /* Pointer back to our window private with which we are associated. */
-    DbeWindowPrivPtr	pDbeWindowPriv;
-
-} MiDbeWindowPrivPrivRec, *MiDbeWindowPrivPrivPtr;
-
-#endif /* MIDBE_STRUCT_H */
+#endif /* DBE_H */
 

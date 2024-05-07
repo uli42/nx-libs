@@ -7,7 +7,7 @@ them are mentioned here.
 module            xorg version
 composite         1.5.3
 damageext         1.5.3
-dbe               1.5.3
+dbe               1.9.5  Extension version: 1.0
 dix               1.9.5
 fb                1.5.3
 GL                6.9/7.0
