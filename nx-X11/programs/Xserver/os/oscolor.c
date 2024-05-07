@@ -22,6 +22,7 @@ Except as contained in this notice, the name of The Open Group shall not be
 used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
+
 Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts.
 
                         All Rights Reserved
@@ -1634,7 +1635,8 @@ OsLookupColor(int screen,
               char *name,
               unsigned int len,
               unsigned short *pred,
-              unsigned short *pgreen, unsigned short *pblue)
+	      unsigned short	*pgreen,
+	      unsigned short	*pblue)
 {
     const BuiltinColor *c;
     int low, mid, high;
@@ -1642,11 +1644,13 @@ OsLookupColor(int screen,
 
     low = 0;
     high = NUM_BUILTIN_COLORS - 1;
-    while (high >= low) {
+    while (high >= low)
+    {
         mid = (low + high) / 2;
         c = &BuiltinColors[mid];
         r = strncasecmp(&BuiltinColorNames[c->name], name, len);
-        if (r == 0 && len == strlen(&BuiltinColorNames[c->name])) {
+	if (r == 0 && len == strlen (&BuiltinColorNames[c->name]))
+	{
             *pred = c->red * 0x101;
             *pgreen = c->green * 0x101;
             *pblue = c->blue * 0x101;

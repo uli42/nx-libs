@@ -202,11 +202,11 @@ static int ConvertAddr(struct sockaddr * /*saddr*/,
 		       void ** /*addr*/);
 
 static int CheckAddr(int /*family*/,
-		     void * /*pAddr*/,
+		     const void * /*pAddr*/,
 		     unsigned /*length*/);
 
 static Bool NewHost(int /*family*/,
-		    void * /*addr*/,
+		    const void  * /*addr*/,
 		    int /*len*/,
 		    int /* addingLocalHosts */);
 
@@ -225,7 +225,7 @@ typedef struct _host {
 	int		requested;
 } HOST;
 
-#define MakeHost(h,l)	(h)=(HOST *) malloc(sizeof *(h)+(l));\
+#define MakeHost(h,l)	(h)=malloc(sizeof *(h)+(l));\
 			if (h) { \
 			   (h)->addr=(unsigned char *) ((h) + 1);\
 			   (h)->requested = FALSE; \
@@ -288,7 +288,7 @@ AccessUsingXdmcp (void)
 }
 
 
-#if ((defined(SVR4) && !defined(SCO325) && !defined(sun) && !defined(NCR))) && defined(SIOCGIFCONF) && !defined(USE_SIOCGLIFCONF)
+#if  defined(SVR4) && !defined(sun)  && defined(SIOCGIFCONF) && !defined(USE_SIOCGLIFCONF)
 
 /* Deal with different SIOCGIFCONF ioctl semantics on these OSs */
 
@@ -298,7 +298,7 @@ ifioctl (int fd, int cmd, char *arg)
     struct strioctl ioc;
     int ret;
 
-    bzero((char *) &ioc, sizeof(ioc));
+    memset((char *) &ioc, 0, sizeof(ioc));
     ioc.ic_cmd = cmd;
     ioc.ic_timout = 0;
     if (cmd == SIOCGIFCONF)
@@ -316,11 +316,11 @@ ifioctl (int fd, int cmd, char *arg)
 #ifdef SVR4
 	((struct ifconf *) arg)->ifc_len = ioc.ic_len;
 #endif
-    return(ret);
+    return ret;
 }
-#else /* Case sun, SCO325 NCR and others  */
+#else /* Case sun and others  */
 #define ifioctl ioctl
-#endif /* ((SVR4 && !sun !SCO325 !NCR)) && SIOCGIFCONF */
+#endif /* (SVR4 && SIOCGIFCONF */
 
 /*
  * DefineSelf (fd):
@@ -328,152 +328,6 @@ ifioctl (int fd, int cmd, char *arg)
  * Define this host for access control.  Find all the hosts the OS knows about 
  * for this fd and add them to the selfhosts list.
  */
-
-#ifdef WINTCP /* NCR Wollongong based TCP */
-
-#include <sys/un.h>
-#include <stropts.h>
-#include <tiuser.h>
-
-#include <sys/stream.h>
-#include <net/if.h>
-#include <netinet/ip.h>
-#include <netinet/ip_var.h>
-#include <netinet/in.h>
-#include <netinet/in_var.h>
-
-void
-DefineSelf (int fd)
-{
-    /*
-     * The Wolongong drivers used by NCR SVR4/MP-RAS don't understand the
-     * socket IO calls that most other drivers seem to like. Because of
-     * this, this routine must be special cased for NCR. Eventually,
-     * this will be cleared up.
-     */
-
-    struct ipb ifnet;
-    struct in_ifaddr ifaddr;
-    struct strioctl str;
-    unsigned char *addr;
-    register HOST *host;
-    int	family, len;
-
-    if ((fd = open ("/dev/ip", O_RDWR, 0 )) < 0)
-        Error ("Getting interface configuration (1)");
-
-    /* Indicate that we want to start at the begining */
-    ifnet.ib_next = (struct ipb *) 1;
-
-    while (ifnet.ib_next)
-    {
-	str.ic_cmd = IPIOC_GETIPB;
-	str.ic_timout = 0;
-	str.ic_len = sizeof (struct ipb);
-	str.ic_dp = (char *) &ifnet;
-
-	if (ioctl (fd, (int) I_STR, (char *) &str) < 0)
-	{
-	    close (fd);
-	    Error ("Getting interface configuration (2)");
-	}
-
-	ifaddr.ia_next = (struct in_ifaddr *) ifnet.if_addrlist;
-	str.ic_cmd = IPIOC_GETINADDR;
-	str.ic_timout = 0;
-	str.ic_len = sizeof (struct in_ifaddr);
-	str.ic_dp = (char *) &ifaddr;
-
-	if (ioctl (fd, (int) I_STR, (char *) &str) < 0)
-	{
-	    close (fd);
-	    Error ("Getting interface configuration (3)");
-	}
-
-	len = sizeof(struct sockaddr_in);
-	family = ConvertAddr (IA_SIN(&ifaddr), &len, (void **)&addr);
-        if (family == -1 || family == FamilyLocal)
-	    continue;
-        for (host = selfhosts;
- 	     host && !addrEqual (family, addr, len, host);
-	     host = host->next)
-	    ;
-        if (host)
-	    continue;
-	MakeHost(host,len)
-	if (host)
-	{
-	    host->family = family;
-	    host->len = len;
-	    acopy(addr, host->addr, len);
-	    host->next = selfhosts;
-	    selfhosts = host;
-	}
-#ifdef XDMCP
-        {
-	    struct sockaddr broad_addr;
-
-	    /*
-	     * If this isn't an Internet Address, don't register it.
-	     */
-	    if (family != FamilyInternet)
-		continue;
-
-	    /*
- 	     * Ignore 'localhost' entries as they're not useful
-	     * on the other end of the wire.
-	     */
-	    if (len == 4 &&
-		addr[0] == 127 && addr[1] == 0 &&
-		addr[2] == 0 && addr[3] == 1)
-		continue;
-
-	    /*
-	     * Ignore '0.0.0.0' entries as they are
-	     * returned by some OSes for unconfigured NICs but they are
-	     * not useful on the other end of the wire.
-	     */
-	    if (len == 4 &&
-		addr[0] == 0 && addr[1] == 0 &&
-		addr[2] == 0 && addr[3] == 0)
-		continue;
-
-	    XdmcpRegisterConnection (family, (char *)addr, len);
-
-
-#define IA_BROADADDR(ia) ((struct sockaddr_in *)(&((struct in_ifaddr *)ia)->ia_broadaddr))
-
-	    XdmcpRegisterBroadcastAddress (
-		(struct sockaddr_in *) IA_BROADADDR(&ifaddr));
-
-#undef IA_BROADADDR
-	}
-#endif /* XDMCP */
-    }
-
-    close(fd);
-
-    /*
-     * add something of FamilyLocalHost
-     */
-    for (host = selfhosts;
-	 host && !addrEqual(FamilyLocalHost, "", 0, host);
-	 host = host->next);
-    if (!host)
-    {
-	MakeHost(host, 0);
-	if (host)
-	{
-	    host->family = FamilyLocalHost;
-	    host->len = 0;
-	    acopy("", host->addr, 0);
-	    host->next = selfhosts;
-	    selfhosts = host;
-	}
-    }
-}
-
-#else /* WINTCP */
 
 #if !defined(SIOCGIFCONF)
 void
@@ -559,8 +413,7 @@ DefineSelf (int fd)
 		 */
 		if (family == FamilyInternet &&
 		    !(len == 4 &&
-		      ((addr[0] == 127 && addr[1] == 0 &&
-			addr[2] == 0 && addr[3] == 1) ||
+		      ((addr[0] == 127) ||
 		       (addr[0] == 0 && addr[1] == 0 &&
 			addr[2] == 0 && addr[3] == 0)))
 		      )
@@ -624,7 +477,7 @@ DefineLocalHost:
 #define ifraddr_size(a) (sizeof (a))
 #endif
 
-#if defined(DEF_SELF_DEBUG) || (defined(IPv6) && defined(AF_INET6))
+#if defined(IPv6) && defined(AF_INET6)
 #include <arpa/inet.h>
 #endif
 
@@ -646,19 +499,21 @@ void
 DefineSelf (int fd)
 {
 #ifndef HAS_GETIFADDRS
-    char		buf[2048], *cp, *cplim;
-    void *		bufptr = buf;   
+    char 		*cp, *cplim;
 #ifdef USE_SIOCGLIFCONF
+    struct sockaddr_storage buf[16];
     struct lifconf	ifc;
     register struct lifreq *ifr;
 #ifdef SIOCGLIFNUM
     struct lifnum	ifn;
 #endif
-#else
+# else /* !USE_SIOCGLIFCONF */
+    char		buf[2048];
     struct ifconf	ifc;
     register struct ifreq *ifr;
 #endif 
-#else 
+    void *		bufptr = buf;   
+#else /* HAS_GETIFADDRS */
     struct ifaddrs *	ifap, *ifr;
 #endif
     int 		len;
@@ -722,19 +577,6 @@ DefineSelf (int fd)
 	if (family == FamilyInternet6) 
 	    in6_fillscopeid((struct sockaddr_in6 *)&IFR_IFR_ADDR);
 #endif
-#ifdef DEF_SELF_DEBUG
-	if (family == FamilyInternet) 
-	    ErrorF("Xserver: DefineSelf(): ifname = %s, addr = %d.%d.%d.%d\n",
-		   IFR_IFR_NAME, addr[0], addr[1], addr[2], addr[3]);
-#if defined(IPv6) && defined(AF_INET6)
-	else if (family == FamilyInternet6) {
-	    char cp[INET6_ADDRSTRLEN] = "";
-	    inet_ntop(AF_INET6, addr, cp, sizeof(cp));
-	    ErrorF("Xserver: DefineSelf(): ifname = %s, addr = %s\n",
-		   IFR_IFR_NAME,  cp);
-	}
-#endif
-#endif /* DEF_SELF_DEBUG */
         for (host = selfhosts;
  	     host && !addrEqual (family, addr, len, host);
 	     host = host->next)
@@ -844,11 +686,6 @@ DefineSelf (int fd)
 		    continue;
 	    }
 #endif /* SIOCGIFBRDADDR */
-#ifdef DEF_SELF_DEBUG
-	    ErrorF("Xserver: DefineSelf(): ifname = %s, baddr = %s\n",
-		   IFR_IFR_NAME,
-	           inet_ntoa(((struct sockaddr_in *) &broad_addr)->sin_addr));
-#endif /* DEF_SELF_DEBUG */
 	    XdmcpRegisterBroadcastAddress ((struct sockaddr_in *) &broad_addr);
 	}
 #endif /* XDMCP */
@@ -864,7 +701,8 @@ DefineSelf (int fd)
 	if (!ifr->ifa_addr)
 	     continue;
 	len = sizeof(*(ifr->ifa_addr));
-	family = ConvertAddr(ifr->ifa_addr, &len, (void **)&addr);
+	family = ConvertAddr((struct sockaddr *) ifr->ifa_addr, &len,
+			     (void * *)&addr);
 	if (family == -1 || family == FamilyLocal) 
 	    continue;
 #if defined(IPv6) && defined(AF_INET6)
@@ -872,20 +710,6 @@ DefineSelf (int fd)
 	    in6_fillscopeid((struct sockaddr_in6 *)ifr->ifa_addr);
 #endif
 
-#ifdef DEF_SELF_DEBUG
-	if (family == FamilyInternet) 
-	    ErrorF("Xserver: DefineSelf(): ifname = %s, addr = %d.%d.%d.%d\n",
-		   ifr->ifa_name, addr[0], addr[1], addr[2], addr[3]);
-#if defined(IPv6) && defined(AF_INET6)
-	else if (family == FamilyInternet6) {
-		char cp[INET6_ADDRSTRLEN];
-
-		inet_ntop(AF_INET6, addr, cp, sizeof(cp));
-		ErrorF("Xserver: DefineSelf(): ifname = %s addr = %s\n",
-		    ifr->ifa_name, cp);
-	}
-#endif
-#endif /* DEF_SELF_DEBUG */
 	for (host = selfhosts; 
 	     host != NULL && !addrEqual(family, addr, len, host);
 	     host = host->next) 
@@ -902,7 +726,6 @@ DefineSelf (int fd)
 	}
 #ifdef XDMCP
 	{
-	    struct sockaddr broad_addr;
 	    /*
 	     * If this isn't an Internet Address, don't register it.
 	     */
@@ -946,17 +769,12 @@ DefineSelf (int fd)
 		continue;
 #endif
 	    if ((ifr->ifa_flags & IFF_BROADCAST) &&
-		(ifr->ifa_flags & IFF_UP))
-		broad_addr = *ifr->ifa_broadaddr;
+		(ifr->ifa_flags & IFF_UP) &&
+                ifr->ifa_broadaddr)
+		XdmcpRegisterBroadcastAddress(
+		    (struct sockaddr_in *) ifr->ifa_broadaddr);
 	    else
 		continue;
-#ifdef DEF_SELF_DEBUG
-	    ErrorF("Xserver: DefineSelf(): ifname = %s, baddr = %s\n",
-		   ifr->ifa_name,
-	           inet_ntoa(((struct sockaddr_in *) &broad_addr)->sin_addr));
-#endif /* DEF_SELF_DEBUG */
-	    XdmcpRegisterBroadcastAddress((struct sockaddr_in *)
-					  &broad_addr);
 	}
 #endif /* XDMCP */
 		
@@ -984,7 +802,6 @@ DefineSelf (int fd)
     }
 }
 #endif /* !SIOCGIFCONF */
-#endif /* WINTCP */
 
 #ifdef XDMCP
 void
@@ -1038,7 +855,8 @@ ResetHosts (char *display)
     FILE		*fd;
     char		*ptr;
     int                 i, hostlen;
-#if (defined(TCPCONN) && (!defined(IPv6) || !defined(AF_INET6)))
+#if ((defined(TCPCONN)) && \
+     (!defined(IPv6) || !defined(AF_INET6)))
     union {
         struct sockaddr	sa;
 #if defined(TCPCONN)
@@ -1065,7 +883,8 @@ ResetHosts (char *display)
 		strlen(display) + 1;
     if (fnamelen > sizeof(fname))
 	FatalError("Display name `%s' is too long\n", display);
-    sprintf(fname, ETC_HOST_PREFIX "%s" ETC_HOST_SUFFIX, display);
+    snprintf(fname, sizeof(fname), ETC_HOST_PREFIX "%s" ETC_HOST_SUFFIX, 
+	     display);
 
     if ((fd = fopen (fname, "r")) != 0)
     {
@@ -1145,8 +964,8 @@ ResetHosts (char *display)
 		    for (a = addresses ; a != NULL ; a = a->ai_next) {
 			len = a->ai_addrlen;
 			f = ConvertAddr(a->ai_addr,&len,(void **)&addr);
-			if (addr && ((family == f) ||
-			    ((family == FamilyWild) && (f != -1)))) {
+			if ( (family == f) || 
+			     ((family == FamilyWild) && (f != -1)) ) {
 			    NewHost(f, addr, len, FALSE);
 			}			
 		    }
@@ -1201,8 +1020,7 @@ ComputeLocalClient(ClientPtr client)
     if (!oc->trans_conn)
 	return FALSE;
 
-    if (!_XSERVTransGetPeerAddr (((OsCommPtr)client->osPrivate)->trans_conn,
-	&notused, &alen, &from))
+    if (!_XSERVTransGetPeerAddr (oc->trans_conn, &notused, &alen, &from))
     {
 	family = ConvertAddr ((struct sockaddr *) from,
 	    &alen, (void **)&addr);
@@ -1329,7 +1147,7 @@ GetLocalClientCreds(ClientPtr client, LocalClientCredRec **lccp)
 #endif
     lcc->nSuppGids = ucred_getgroups(peercred, &gids);
     if (lcc->nSuppGids > 0) {
-	lcc->pSuppGids = calloc((lcc->nSuppGids), sizeof(int));
+	lcc->pSuppGids = calloc(lcc->nSuppGids, sizeof(int));
 	if (lcc->pSuppGids == NULL) {
 	    lcc->nSuppGids = 0;
 	} else {
@@ -1395,7 +1213,7 @@ int
 AddHost (ClientPtr	client,
 	 int            family,
 	 unsigned       length,        /* of bytes in pAddr */
-	 void           *pAddr)
+	 const void *   pAddr)
 {
     int			len;
 
@@ -1421,13 +1239,13 @@ AddHost (ClientPtr	client,
 	if ((len = CheckAddr (family, pAddr, length)) < 0)
 	{
 	    client->errorValue = length;
-	    return (BadValue);
+	    return BadValue;
 	}
 	break;
     case FamilyLocal:
     default:
 	client->errorValue = family;
-	return (BadValue);
+	return BadValue;
     }
     if (NewHost (family, pAddr, len, FALSE))
 	return Success;
@@ -1454,7 +1272,7 @@ ForEachHostInFamily (int	    family,
  * called when starting or resetting the server */
 static Bool
 NewHost (int		family,
-	 void		*addr,
+	 const void *	addr,
 	 int		len,
 	 int		addingLocalHosts)
 {
@@ -1517,13 +1335,13 @@ RemoveHost (
     	if ((len = CheckAddr (family, pAddr, length)) < 0)
     	{
 	    client->errorValue = length;
-            return(BadValue);
+            return BadValue;
     	}
 	break;
     case FamilyLocal:
     default:
 	client->errorValue = family;
-        return(BadValue);
+        return BadValue;
     }
     for (prev = &validhosts;
          (host = *prev) && (!addrEqual (family, pAddr, len, host));
@@ -1534,7 +1352,7 @@ RemoveHost (
         *prev = host->next;
         FreeHost (host);
     }
-    return (Success);
+    return Success;
 }
 
 /* Get all hosts in the access control list */
@@ -1555,7 +1373,7 @@ GetHosts (
     for (host = validhosts; host; host = host->next)
     {
 	nHosts++;
-	n += (((host->len + 3) >> 2) << 2) + sizeof(xHostEntry);
+	n += pad_to_int32(host->len) + sizeof(xHostEntry);
         /* Could check for INT_MAX, but in reality having more than 1mb of
            hostnames in the access list is ridiculous */
         if (n >= 1024*1024)
@@ -1563,10 +1381,10 @@ GetHosts (
     }
     if (n)
     {
-        *data = ptr = (void *) malloc (n);
+        *data = ptr = malloc(n);
 	if (!ptr)
 	{
-	    return(BadAlloc);
+	    return BadAlloc;
 	}
         for (host = validhosts; host; host = host->next)
 	{
@@ -1577,14 +1395,14 @@ GetHosts (
 	    ((xHostEntry *)ptr)->length = len;
 	    ptr += sizeof(xHostEntry);
 	    acopy (host->addr, ptr, len);
-	    ptr += ((len + 3) >> 2) << 2;
+	    ptr += pad_to_int32(len);
         }
     } else {
 	*data = NULL;
     }
     *pnHosts = nHosts;
     *pLen = n;
-    return(Success);
+    return Success;
 }
 
 /* Check for valid address family and length, and return address length. */
@@ -1593,7 +1411,7 @@ GetHosts (
 static int
 CheckAddr (
     int			family,
-    void *		pAddr,
+    const void *	pAddr,
     unsigned		length)
 {
     int	len;
@@ -1622,7 +1440,7 @@ CheckAddr (
       default:
         len = -1;
     }
-    return (len);
+    return len;
 }
 
 /* Check if a host is not in the access control list. 
@@ -1639,7 +1457,7 @@ InvalidHost (
     register HOST 		*selfhost, *host;
 
     if (!AccessEnabled)   /* just let them in */
-        return(0);    
+        return 0;
     family = ConvertAddr (saddr, &len, (void **)&addr);
     if (family == -1)
         return 1;
@@ -1666,16 +1484,16 @@ InvalidHost (
     for (host = validhosts; host; host = host->next)
     {
 	if ((host->family == FamilyServerInterpreted)) {
-	    if (siAddrMatch (family, addr, len, host, client)) {
-		return (0);
+	    if (addr && siAddrMatch (family, addr, len, host, client)) {
+		return 0;
 	    }
 	} else {
 	    if (addr && addrEqual (family, addr, len, host))
-		return (0);
+		return 0;
 	}
 
     }
-    return (1);
+    return 1;
 }
 
 static int
@@ -1685,7 +1503,7 @@ ConvertAddr (
     void			**addr)
 {
     if (*len == 0)
-        return (FamilyLocal);
+        return FamilyLocal;
     switch (saddr->sa_family)
     {
     case AF_UNSPEC:
@@ -1795,7 +1613,7 @@ siTypeAdd(const char *typeName, siAddrMatchFunc addrMatch,
 	}
     }
 
-    s = (struct siType *) malloc(sizeof(struct siType));
+    s = malloc(sizeof(struct siType));
     if (s == NULL)
 	return BadAlloc;
 

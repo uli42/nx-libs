@@ -50,15 +50,15 @@ static struct auth {
 int
 MitAddCookie (
     unsigned short	data_length,
-    char		*data,
+    const char		*data,
     XID			id)
 {
     struct auth	*new;
 
-    new = (struct auth *) malloc (sizeof (struct auth));
+    new = malloc(sizeof (struct auth));
     if (!new)
 	return 0;
-    new->data = (char *) malloc ((unsigned) data_length);
+    new->data = malloc((unsigned) data_length);
     if (!new->data) {
 	free(new);
 	return 0;
@@ -74,7 +74,7 @@ MitAddCookie (
 XID
 MitCheckCookie (
     unsigned short	data_length,
-    char		*data,
+    const char		*data,
     ClientPtr		client,
     char		**reason)
 {
@@ -139,7 +139,7 @@ MitFromID (
 int
 MitRemoveCookie (
 	unsigned short	data_length,
-	char		*data)
+	const char	*data)
 {
     struct auth	*auth, *prev;
 
@@ -167,7 +167,7 @@ static char cookie[16]; /* 128 bits */
 XID
 MitGenerateCookie (
     unsigned	data_length,
-    char	*data,
+    const char	*data,
     XID		id,
     unsigned	*data_length_return,
     char	**data_return)

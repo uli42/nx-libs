@@ -42,6 +42,7 @@ from The Open Group.
 #include <nx-X11/Xauth.h>
 #include "misc.h"
 #include "os.h"
+#include "osdep.h"
 #include "dixstruct.h"
 
 #include <rpc/rpc.h>
@@ -51,12 +52,10 @@ from The Open Group.
 extern bool_t xdr_opaque_auth(XDR *, struct opaque_auth *);
 #endif
 
-
-
 static enum auth_stat why;
 
 static char * 
-authdes_ezdecode(char *inmsg, int len)
+authdes_ezdecode(const char *inmsg, int len)
 {
     struct rpc_msg  msg;
     char            cred_area[MAX_AUTH_BYTES];
@@ -84,7 +83,7 @@ authdes_ezdecode(char *inmsg, int len)
     why = AUTH_FAILED; 
     xdrmem_create(&xdr, temp_inmsg, len, XDR_DECODE);
 
-    if ((r.rq_clntcred = (caddr_t) malloc(MAX_AUTH_BYTES)) == NULL)
+    if ((r.rq_clntcred = malloc(MAX_AUTH_BYTES)) == NULL)
         goto bad1;
     r.rq_xprt = &xprt;
 
@@ -132,7 +131,7 @@ CheckNetName (
 static char rpc_error[MAXNETNAMELEN+50];
 
 _X_HIDDEN XID
-SecureRPCCheck (unsigned short data_length, char *data, 
+SecureRPCCheck (unsigned short data_length, const char *data,
     ClientPtr client, char **reason)
 {
     char *fullname;
@@ -163,7 +162,7 @@ SecureRPCInit (void)
 }
 
 _X_HIDDEN int
-SecureRPCAdd (unsigned short data_length, char *data, XID id)
+SecureRPCAdd (unsigned short data_length, const char *data, XID id)
 {
     if (data_length)
 	AddHost ((void *) 0, FamilyNetname, data_length, data);
@@ -191,7 +190,7 @@ SecureRPCFromID (XID id, unsigned short *data_lenp, char **datap)
 }
 
 _X_HIDDEN int
-SecureRPCRemove (unsigned short data_length, char *data)
+SecureRPCRemove (unsigned short data_length, const char *data)
 {
     return 0;
 }

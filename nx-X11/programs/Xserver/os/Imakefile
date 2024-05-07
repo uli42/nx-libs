@@ -143,6 +143,9 @@ BOOTSTRAPCFLAGS =
                   log.c			\
                   auth.c		\
                   mitauth.c		\
+                  strcasecmp.c		\
+                  strcasestr.c		\
+                  xsha1.c		\
                   $(XDMAUTHSRCS)	\
                   $(RPCSRCS)		\
                   xdmcp.c		\
@@ -167,6 +170,9 @@ BOOTSTRAPCFLAGS =
                   log.o			\
                   auth.o		\
                   mitauth.o		\
+                  strcasecmp.o		\
+                  strcasestr.o		\
+                  xsha1.o		\
                   $(XDMAUTHOBJS)	\
                   $(RPCOBJS)		\
                   xdmcp.o		\

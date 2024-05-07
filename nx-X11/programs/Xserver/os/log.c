@@ -101,6 +101,7 @@ OR PERFORMANCE OF THIS SOFTWARE.
  * authorization from the copyright holder(s) and author(s).
  */
 
+
 #ifdef HAVE_DIX_CONFIG_H
 #include <dix-config.h>
 #endif
@@ -349,6 +350,14 @@ LogVWrite(int verb, const char *f, va_list args)
 {
     static char tmpBuffer[1024];
     int len = 0;
+    static Bool newline = TRUE;
+
+    if (newline) {
+	sprintf(tmpBuffer, "[%10.3f] ", GetTimeInMillis() / 1000.0);
+	len = strlen(tmpBuffer);
+	if (logFile)
+	    fwrite(tmpBuffer, len, 1, logFile);
+    }
 
     /*
      * Since a va_list can only be processed once, write the string to a
@@ -385,6 +394,7 @@ LogVWrite(int verb, const char *f, va_list args)
 #endif /* #ifdef NX_TRANS_EXIT */
 	len = strlen(tmpBuffer);
     }
+    newline = (tmpBuffer[len-1] == '\n');
     if ((verb < 0 || logVerbosity >= verb) && len > 0)
 	fwrite(tmpBuffer, len, 1, stderr);
     if ((verb < 0 || logFileVerbosity >= verb) && len > 0) {
@@ -431,7 +441,7 @@ void
 LogVMessageVerb(MessageType type, int verb, const char *format, va_list args)
 {
     const char *s  = X_UNKNOWN_STRING;
-    char *tmpBuf = NULL;
+    char tmpBuf[1024];
 
     /* Ignore verbosity for X_ERROR */
     if (logVerbosity >= verb || logFileVerbosity >= verb || type == X_ERROR) {
@@ -473,21 +483,11 @@ LogVMessageVerb(MessageType type, int verb, const char *format, va_list args)
 	    break;
 	}
 
-	/*
-	 * Prefix the format string with the message type.  We do it this way
-	 * so that LogVWrite() is only called once per message.
-	 */
-	if (s) {
-	    tmpBuf = malloc(strlen(format) + strlen(s) + 1 + 1);
-	    /* Silently return if malloc fails here. */
-	    if (!tmpBuf)
-		return;
-	    sprintf(tmpBuf, "%s ", s);
-	    strcat(tmpBuf, format);
+        /* if s is not NULL we need a space before format */
+        snprintf(tmpBuf, sizeof(tmpBuf), "%s%s%s", s ? s : "",
+                                                   s ? " " : "",
+                                                   format);
 	    LogVWrite(verb, tmpBuf, args);
-	    free(tmpBuf);
-	} else
-	    LogVWrite(verb, format, args);
     }
 }
 
@@ -529,7 +529,7 @@ AbortServer(void)
     AbortDDX();
     fflush(stderr);
     if (CoreDump)
-	abort();
+	OsAbort();
 #ifdef NX_TRANS_EXIT
 #ifdef NX_TRANS_TEST
     fprintf(stderr, "AbortServer: Going to clean up NX resources and exit.\n");
@@ -540,9 +540,7 @@ AbortServer(void)
 #endif
 }
 
-#ifndef AUDIT_PREFIX
-#define AUDIT_PREFIX "AUDIT: %s: %ld %s: "
-#endif
+#define AUDIT_PREFIX "AUDIT: %s: %ld: "
 #ifndef AUDIT_TIMEOUT
 #define AUDIT_TIMEOUT ((CARD32)(120 * 1000)) /* 2 mn */
 #endif
@@ -574,15 +572,11 @@ AuditPrefix(void)
     autime = ctime(&tm);
     if ((s = strchr(autime, '\n')))
 	*s = '\0';
-    if ((s = strrchr(argvGlobal[0], '/')))
-	s++;
-    else
-	s = argvGlobal[0];
-    len = strlen(AUDIT_PREFIX) + strlen(autime) + 10 + strlen(s) + 1;
+    len = strlen(AUDIT_PREFIX) + strlen(autime) + 10 + 1;
     tmpBuf = malloc(len);
     if (!tmpBuf)
 	return NULL;
-    snprintf(tmpBuf, len, AUDIT_PREFIX, autime, (unsigned long)getpid(), s);
+    snprintf(tmpBuf, len, AUDIT_PREFIX, autime, (unsigned long)getpid());
     return tmpBuf;
 }
 
@@ -682,18 +676,13 @@ FatalError(const char *f, ...)
     va_end(args);
     ErrorF("\n");
 #endif /* #ifdef NX_TRANS_EXIT */
-#ifdef DDXOSFATALERROR
     if (!beenhere)
 	OsVendorFatalError();
-#endif
-#ifdef ABORTONFATALERROR
-    abort();
-#endif
     if (!beenhere) {
 	beenhere = TRUE;
 	AbortServer();
     } else
-	abort();
+	OsAbort();
     /*NOTREACHED*/
 }
 
@@ -722,19 +711,6 @@ ErrorF(const char * f, ...)
 
 /* A perror() workalike. */
 
-#ifndef NEED_STRERROR
-#ifdef SYSV
-#define NEED_STRERROR
-#endif
-#endif
-
-#if defined(NEED_STRERROR) && !defined(strerror)
-extern char *sys_errlist[];
-extern int sys_nerr;
-#define strerror(n) \
-	((n) >= 0 && (n) < sys_nerr) ? sys_errlist[(n)] : "unknown error"
-#endif
-
 void
 Error(char *str)
 {
@@ -748,6 +724,7 @@ Error(char *str)
 	sprintf(err, "%s: ", str);
 	strcat(err, strerror(saveErrno));
 	LogWrite(-1, "%s", err);
+	free(err);
     } else
 	LogWrite(-1, "%s", strerror(saveErrno));
 }
@@ -756,16 +733,16 @@ void
 LogPrintMarkers(void)
 {
     /* Show what the message marker symbols mean. */
-    ErrorF("Markers: ");
-    LogMessageVerb(X_PROBED, -1, "probed, ");
-    LogMessageVerb(X_CONFIG, -1, "from config file, ");
-    LogMessageVerb(X_DEFAULT, -1, "default setting,\n\t");
-    LogMessageVerb(X_CMDLINE, -1, "from command line, ");
-    LogMessageVerb(X_NOTICE, -1, "notice, ");
-    LogMessageVerb(X_INFO, -1, "informational,\n\t");
-    LogMessageVerb(X_WARNING, -1, "warning, ");
-    LogMessageVerb(X_ERROR, -1, "error, ");
-    LogMessageVerb(X_NOT_IMPLEMENTED, -1, "not implemented, ");
-    LogMessageVerb(X_UNKNOWN, -1, "unknown.\n");
+    LogWrite(0, "Markers: ");
+    LogMessageVerb(X_PROBED, 0, "probed, ");
+    LogMessageVerb(X_CONFIG, 0, "from config file, ");
+    LogMessageVerb(X_DEFAULT, 0, "default setting,\n\t");
+    LogMessageVerb(X_CMDLINE, 0, "from command line, ");
+    LogMessageVerb(X_NOTICE, 0, "notice, ");
+    LogMessageVerb(X_INFO, 0, "informational,\n\t");
+    LogMessageVerb(X_WARNING, 0, "warning, ");
+    LogMessageVerb(X_ERROR, 0, "error, ");
+    LogMessageVerb(X_NOT_IMPLEMENTED, 0, "not implemented, ");
+    LogMessageVerb(X_UNKNOWN, 0, "unknown.\n");
 }
 

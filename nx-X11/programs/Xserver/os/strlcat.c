@@ -14,12 +14,14 @@
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#ifdef HAVE_XORG_CONFIG_H
-#include <xorg-config.h>
+
+#ifdef HAVE_DIX_CONFIG_H
+#include <dix-config.h>
 #endif
 
 #include <sys/types.h>
 #include <string.h>
+#include "os.h"
 
 /*
  * Appends src to string dst of size siz (unlike strncat, siz is the

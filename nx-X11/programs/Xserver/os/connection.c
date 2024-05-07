@@ -48,8 +48,8 @@ SOFTWARE.
  *  Stuff to create connections --- OS dependent
  *
  *      EstablishNewConnections, CreateWellKnownSockets, ResetWellKnownSockets,
- *      CloseDownConnection, CheckConnections,
- *      OnlyListToOneClient,
+ *      CloseDownConnection, CheckConnections, AddEnabledDevice,
+ *	RemoveEnabledDevice, OnlyListToOneClient,
  *      ListenToAllClients,
  *
  *      (WaitForSomething is in its own file)
@@ -80,7 +80,7 @@ SOFTWARE.
 
 #include <sys/socket.h>
 
-/* FIXME: correct indentation levels after ancient platform support clean-up */
+
 
 #if defined(TCPCONN)
 # include <netinet/in.h>
@@ -99,6 +99,7 @@ SOFTWARE.
 #endif
 
 #include <sys/uio.h>
+
 #include "misc.h"		/* for typedef of void * */
 #include "osdep.h"
 #include <nx-X11/Xpoll.h>
@@ -107,12 +108,7 @@ SOFTWARE.
 #include "xace.h"
 
 #include <list.h>
-
-#ifdef X_NOT_POSIX
-#define Pid_t int
-#else
 #define Pid_t pid_t
-#endif
 
 
 #ifdef HAS_GETPEERUCRED
@@ -133,6 +129,8 @@ static int lastfdesc;		/* maximum file descriptor */
 
 fd_set NotifyReadFds;           /* mask for other file descriptors */
 fd_set NotifyWriteFds;          /* mask for other write file descriptors */
+fd_set WellKnownConnections;	/* Listener mask */
+fd_set EnabledDevices;		/* mask for input devices that are on */
 fd_set AllSockets;		/* select on this */
 fd_set AllClients;		/* available clients */
 fd_set LastSelectMask;		/* mask returned from last select call */
@@ -145,8 +143,10 @@ int NumNotifyWriteFd;           /* Number of NotifyFd members with write set */
 Bool NewOutputPending;		/* not yet attempted to write some new output */
 Bool AnyWritesPending;          /* true if some client blocked on write or NotifyFd with write */
 Bool NoListenAll;               /* Don't establish any listening sockets */
-Bool RunFromSmartParent;	/* send SIGUSR1 to parent process */
+static Bool RunFromSmartParent;	/* send SIGUSR1 to parent process */
 static char dynamic_display[7]; /* display name */
+Bool AnyClientsWriteBlocked;	/* true if some client blocked on write */
+
 Bool PartialNetwork;		/* continue even if unable to bind all addrs */
 static Pid_t ParentProcess;
 
@@ -164,9 +164,9 @@ QueueNewConnections(int curconn, int ready, void *data);
 
 int *ConnectionTranslation = NULL;
 
-XtransConnInfo 	*ListenTransConns = NULL;
-int	       	*ListenTransFds = NULL;
-int		ListenTransCount;
+static XtransConnInfo 	*ListenTransConns = NULL;
+static int	       	*ListenTransFds = NULL;
+static int		ListenTransCount;
 
 static void ErrorConnMax(XtransConnInfo /* trans_conn */);
 
@@ -187,7 +187,7 @@ lookup_trans_conn (int fd)
 		return ListenTransConns[i];
     }
 
-    return (NULL);
+    return NULL;
 }
 
 /* Set MaxClients and lastfdesc, and allocate ConnectionTranslation */
@@ -196,6 +196,7 @@ void
 InitConnectionLimits(void)
 {
     lastfdesc = -1;
+
 
 #if !defined(XNO_SYSCONF) && defined(_SC_OPEN_MAX)
     lastfdesc = sysconf(_SC_OPEN_MAX) - 1;
@@ -357,7 +358,7 @@ CreateWellKnownSockets(void)
         int fd = _XSERVTransGetConnectionNumber(ListenTransConns[i]);
 
         ListenTransFds[i] = fd;
-	SetNotifyFd(fd, QueueNewConnections, X_NOTIFY_READ, NULL);
+        SetNotifyFd(fd, QueueNewConnections, X_NOTIFY_READ, NULL);
 
         if (!_XSERVTransIsLocal(ListenTransConns[i]))
             DefineSelf (fd);
@@ -515,7 +516,7 @@ AuthAudit (ClientPtr client, Bool letin,
 	    sprintf(out, "IP %s",
 		inet_ntoa(((struct sockaddr_in *) saddr)->sin_addr));
 	    break;
-#if defined(IPv6) && defined(AF_INET6)
+    #if defined(IPv6) && defined(AF_INET6)
 	case AF_INET6: {
 	    char ipaddr[INET6_ADDRSTRLEN];
 	    inet_ntop(AF_INET6, &((struct sockaddr_in6 *) saddr)->sin6_addr,
@@ -523,7 +524,7 @@ AuthAudit (ClientPtr client, Bool letin,
 	    sprintf(out, "IP %s", ipaddr);
 	}
 	    break;
-#endif
+    #endif
 #endif
 	default:
 	    strcpy(out, "unknown address");
@@ -547,7 +548,7 @@ AuthAudit (ClientPtr client, Bool letin,
 	             sizeof(client_uid_string) - slen,
 	             "gid=%ld ", (long) lcc->egid);
 	    slen = strlen(client_uid_string);
-    }
+        }
 
 	if (lcc->fieldsSet & LCC_PID_SET) {
 #ifdef XSERVER_DTRACE	    
@@ -640,14 +641,17 @@ ClientAuthorized(ClientPtr client,
     priv = (OsCommPtr)client->osPrivate;
     trans_conn = priv->trans_conn;
 
-    auth_id = CheckAuthorization (proto_n, auth_proto,
-				  string_n, auth_string, client, &reason);
+    /* Allow any client to connect without authorization on a launchd socket,
+       because it is securely created -- this prevents a race condition on launch */
+    if(trans_conn->flags & TRANS_NOXAUTH) {
+        auth_id = (XID) 0L;
+    } else {
+        auth_id = CheckAuthorization (proto_n, auth_proto, string_n, auth_string, client, &reason);
+    }
 
     if (auth_id == (XID) ~0L)
     {
-	if (
-	    _XSERVTransGetPeerAddr (trans_conn,
-	        &family, &fromlen, &from) != -1)
+	if (_XSERVTransGetPeerAddr(trans_conn, &family, &fromlen, &from) != -1)
 	{
 	    if (InvalidHost ((struct sockaddr *) from, fromlen, client))
 		AuthAudit(client, FALSE, (struct sockaddr *) from,
@@ -665,7 +669,7 @@ ClientAuthorized(ClientPtr client,
 			proto_n, auth_proto, auth_id);
 	    }
 
-	    free ((char *) from);
+	    free(from);
 	}
 
 	if (auth_id == (XID) ~0L) {
@@ -687,7 +691,7 @@ ClientAuthorized(ClientPtr client,
 	    AuthAudit(client, TRUE, (struct sockaddr *) from, fromlen,
 		      proto_n, auth_proto, auth_id);
 
-	    free ((char *) from);
+	    free(from);
 	}
     }
     priv->auth_id = auth_id;
@@ -719,7 +723,7 @@ AllocNewConnection (XtransConnInfo trans_conn, int fd, CARD32 conn_time)
 	fd >= lastfdesc
 	)
 	return NullClient;
-    oc = (OsCommPtr)malloc(sizeof(OsCommRec));
+    oc = malloc(sizeof(OsCommRec));
     if (!oc)
 	return NullClient;
     oc->trans_conn = trans_conn;
@@ -1165,6 +1169,10 @@ IgnoreClient (ClientPtr client)
     OsCommPtr oc = (OsCommPtr)client->osPrivate;
     int connection = oc->fd;
 
+    client->ignoreCount++;
+    if (client->ignoreCount > 1)
+	return;
+
     isItTimeToYield = TRUE;
     if (!GrabInProgress || FD_ISSET(connection, &AllClients))
     {
@@ -1199,6 +1207,11 @@ AttendClient (ClientPtr client)
 {
     OsCommPtr oc = (OsCommPtr)client->osPrivate;
     int connection = oc->fd;
+
+    client->ignoreCount--;
+    if (client->ignoreCount)
+	return;
+
     if (!GrabInProgress || GrabInProgress == client->index ||
 	FD_ISSET(connection, &GrabImperviousClients))
     {

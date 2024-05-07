@@ -85,15 +85,7 @@ static ConnectionOutputPtr AllocateOutputBuffer(void);
 /* check for both EAGAIN and EWOULDBLOCK, because some supposedly POSIX
  * systems are broken and return EWOULDBLOCK when they should return EAGAIN
  */
-#if defined(EAGAIN) && defined(EWOULDBLOCK)
 #define ETEST(err) (err == EAGAIN || err == EWOULDBLOCK)
-#else
-#ifdef EAGAIN
-#define ETEST(err) (err == EAGAIN)
-#else
-#define ETEST(err) (err == EWOULDBLOCK)
-#endif
-#endif
 
 static Bool CriticalOutputPending;
 static int timesThisConnection = 0;
@@ -104,13 +96,11 @@ static OsCommPtr AvailableInput = (OsCommPtr)NULL;
 #define get_req_len(req,cli) ((cli)->swapped ? \
 			      lswaps((req)->length) : (req)->length)
 
-#ifdef BIGREQS
 #include <nx-X11/extensions/bigreqstr.h>
 
 #define get_big_req_len(req,cli) ((cli)->swapped ? \
 				  lswapl(((xBigReq *)(req))->length) : \
 				  ((xBigReq *)(req))->length)
-#endif
 
 #define MAX_TIMES_PER         10
 
@@ -171,14 +161,25 @@ static OsCommPtr AvailableInput = (OsCommPtr)NULL;
  *    a partial request) because others clients need to be scheduled.
  *****************************************************************/
 
-#define YieldControl()				\
-        { isItTimeToYield = TRUE;		\
-	  timesThisConnection = 0; }
-#define YieldControlNoInput()			\
-        { YieldControl();			\
-	  FD_CLR(fd, &ClientsWithInput); }
-#define YieldControlDeath()			\
-        { timesThisConnection = 0; }
+static void
+YieldControl(void)
+{
+    isItTimeToYield = TRUE;
+    timesThisConnection = 0;
+}
+
+static void
+YieldControlNoInput(int fd)
+{
+    YieldControl();
+    FD_CLR(fd, &ClientsWithInput);
+}
+
+static void
+YieldControlDeath(void)
+{
+    timesThisConnection = 0;
+}
 
 int
 ReadRequestFromClient(ClientPtr client)
@@ -190,9 +191,7 @@ ReadRequestFromClient(ClientPtr client)
     int result;
     register xReq *request;
     Bool need_header;
-#ifdef BIGREQS
     Bool move_header;
-#endif
 
     /* If an input buffer was empty, either free it if it is too big
      * or link it into our list of free input buffers.  This means that
@@ -241,9 +240,7 @@ ReadRequestFromClient(ClientPtr client)
     oci->bufptr += oci->lenLastReq;
 
     need_header = FALSE;
-#ifdef BIGREQS
     move_header = FALSE;
-#endif
     gotnow = oci->bufcnt + oci->buffer - oci->bufptr;
 
     if (oci->ignoreBytes > 0) {
@@ -267,7 +264,6 @@ ReadRequestFromClient(ClientPtr client)
 	 */
 	request = (xReq *)oci->bufptr;
 	needed = get_req_len(request, client);
-#ifdef BIGREQS
 	if (!needed && client->big_requests)
 	{
 	    /* It's a Big Request. */
@@ -275,13 +271,12 @@ ReadRequestFromClient(ClientPtr client)
 	    if (gotnow < sizeof(xBigReq))
 	    {
 		/* Still need more data to tell just how big. */
-		needed = sizeof(xBigReq) >> 2; /* needed is in CARD32s now */
+		needed = bytes_to_int32(sizeof(xBigReq)); /* needed is in CARD32s now */
 		need_header = TRUE;
 	    }
 	    else
 		needed = get_big_req_len(request, client);
 	}
-#endif
 	client->req_len = needed;
 	needed <<= 2; /* needed is in bytes now */
     }
@@ -294,7 +289,6 @@ ReadRequestFromClient(ClientPtr client)
 	 */
 
 	oci->lenLastReq = 0;
-#ifdef BIGREQS
 	if (needed > maxBigRequestSize << 2)
 	{
 	    /* request is too big for us to handle */
@@ -306,7 +300,6 @@ ReadRequestFromClient(ClientPtr client)
 	    oci->lenLastReq = gotnow;
 	    return needed;
 	}
-#endif
 	if ((gotnow == 0) ||
 	    ((oci->bufptr - oci->buffer + needed) > oci->size))
 	{
@@ -355,7 +348,7 @@ ReadRequestFromClient(ClientPtr client)
 		if (0)
 #endif
 		{
-		    YieldControlNoInput();
+		    YieldControlNoInput(fd);
 		    return 0;
 		}
 	    }
@@ -383,33 +376,29 @@ ReadRequestFromClient(ClientPtr client)
 	    /* We wanted an xReq, now we've gotten it. */
 	    request = (xReq *)oci->bufptr;
 	    needed = get_req_len(request, client);
-#ifdef BIGREQS
 	    if (!needed && client->big_requests)
 	    {
 		move_header = TRUE;
 		if (gotnow < sizeof(xBigReq))
-		    needed = sizeof(xBigReq) >> 2;
+		    needed = bytes_to_int32(sizeof(xBigReq));
 		else
 		    needed = get_big_req_len(request, client);
 	    }
-#endif
 	    client->req_len = needed;
 	    needed <<= 2;
 	}
 	if (gotnow < needed)
 	{
 	    /* Still don't have enough; punt. */
-	    YieldControlNoInput();
+	    YieldControlNoInput(fd);
 	    return 0;
 	}
     }
     if (needed == 0)
     {
-#ifdef BIGREQS
 	if (client->big_requests)
 	    needed = sizeof(xBigReq);
 	else
-#endif
 	    needed = sizeof(xReq);
     }
 
@@ -448,12 +437,10 @@ ReadRequestFromClient(ClientPtr client)
     {
 	request = (xReq *)(oci->bufptr + needed);
 	if (gotnow >= (result = (get_req_len(request, client) << 2))
-#ifdef BIGREQS
 	    && (result ||
 		(client->big_requests &&
 		 (gotnow >= sizeof(xBigReq) &&
 		  gotnow >= (get_big_req_len(request, client) << 2))))
-#endif
 	    )
 	    FD_SET(fd, &ClientsWithInput);
 	else
@@ -467,16 +454,14 @@ ReadRequestFromClient(ClientPtr client)
 	    AvailableInput = oc;
 	FD_CLR(fd, &ClientsWithInput);
     }
-#ifdef BIGREQS
     if (move_header)
     {
 	request = (xReq *)oci->bufptr;
 	oci->bufptr += (sizeof(xBigReq) - sizeof(xReq));
 	*(xReq *)oci->bufptr = *request;
 	oci->lenLastReq -= (sizeof(xBigReq) - sizeof(xReq));
-	client->req_len -= (sizeof(xBigReq) - sizeof(xReq)) >> 2;
+	client->req_len -= bytes_to_int32(sizeof(xBigReq) - sizeof(xReq));
     }
-#endif
     client->requestBuffer = (void *)oci->bufptr;
 #ifdef DEBUG_COMMUNICATION
     {
@@ -538,7 +523,7 @@ InsertFakeRequest(ClientPtr client, char *data, int count)
 
 	ibuf = (char *)realloc(oci->buffer, gotnow + count);
 	if (!ibuf)
-	    return(FALSE);
+	    return FALSE;
 	oci->size = gotnow + count;
 	oci->buffer = ibuf;
 	oci->bufptr = ibuf + oci->bufcnt - gotnow;
@@ -558,8 +543,8 @@ InsertFakeRequest(ClientPtr client, char *data, int count)
 	(gotnow >= (int)(get_req_len((xReq *)oci->bufptr, client) << 2)))
 	FD_SET(fd, &ClientsWithInput);
     else
-	YieldControlNoInput();
-    return(TRUE);
+	YieldControlNoInput(fd);
+    return TRUE;
 }
 
 /*****************************************************************
@@ -582,13 +567,12 @@ ResetCurrentRequest(ClientPtr client)
     gotnow = oci->bufcnt + oci->buffer - oci->bufptr;
     if (gotnow < sizeof(xReq))
     {
-	YieldControlNoInput();
+	YieldControlNoInput(fd);
     }
     else
     {
 	request = (xReq *)oci->bufptr;
 	needed = get_req_len(request, client);
-#ifdef BIGREQS
 	if (!needed && client->big_requests)
 	{
 	    oci->bufptr -= sizeof(xBigReq) - sizeof(xReq);
@@ -599,7 +583,6 @@ ResetCurrentRequest(ClientPtr client)
 		swapl(&((xBigReq *)oci->bufptr)->length);
 	    }
 	}
-#endif
 	if (gotnow >= (needed << 2))
 	{
 	    if (FD_ISSET(fd, &AllClients))
@@ -613,144 +596,11 @@ ResetCurrentRequest(ClientPtr client)
 	    YieldControl();
 	}
 	else
-	    YieldControlNoInput();
+	    YieldControlNoInput(fd);
     }
 }
 
-
-
-/*****************************************************************
- *  PeekNextRequest and SkipRequests were implemented to support DBE 
- *  idioms, but can certainly be used outside of DBE.  There are two 
- *  related macros in os.h, ReqLen and CastxReq.  See the porting 
- *  layer document for more details.
- *
- **********************/
-
-
-/*****************************************************************
- *  PeekNextRequest
- *      lets you look ahead at the unexecuted requests in a 
- *      client's request buffer.
- *
- *      Note: this implementation of PeekNextRequest ignores the
- *      readmore parameter.
- *
- **********************/
-
-xReqPtr
-PeekNextRequest(
-    xReqPtr req,	/* request we're starting from */
-    ClientPtr client,	/* client whose requests we're skipping */
-    Bool readmore)	/* attempt to read more if next request isn't there? */
-{
-    register ConnectionInputPtr oci = ((OsCommPtr)client->osPrivate)->input;
-    xReqPtr pnextreq;
-    int needed, gotnow, reqlen;
-
-    if (!oci) return NULL;
-
-    if (!req)
-    {
-	/* caller wants the request after the one currently being executed */
-	pnextreq = (xReqPtr)
-	    (((CARD32 *)client->requestBuffer) + client->req_len);
-    }
-    else
-    {
-	/* caller wants the request after the one specified by req */
-	reqlen = get_req_len(req, client);
-#ifdef BIGREQS
-	if (!reqlen) reqlen = get_big_req_len(req, client);
-#endif
-	pnextreq = (xReqPtr)(((char *)req) + (reqlen << 2));
-    }
-
-    /* see how much of the next request we have available */
-
-    gotnow = oci->bufcnt - (((char *)pnextreq) - oci->buffer);
-
-    if (gotnow < sizeof(xReq))
-	return NULL;
-
-    needed = get_req_len(pnextreq, client) << 2;
-#ifdef BIGREQS
-    if (!needed)
-    {
-	/* it's a big request */
-	if (gotnow < sizeof(xBigReq))
-	    return NULL;
-	needed = get_big_req_len(pnextreq, client) << 2;
-    }
-#endif
-
-    /* if we have less than we need, return NULL */
-
-    return (gotnow < needed) ? NULL : pnextreq;
-}
-
-/*****************************************************************
- *  SkipRequests 
- *      lets you skip over some of the requests in a client's
- *      request buffer.  Presumably the caller has used PeekNextRequest
- *      to examine the requests being skipped and has performed whatever 
- *      actions they dictate.
- *
- **********************/
-
-CallbackListPtr SkippedRequestsCallback = NULL;
-
-void
-SkipRequests(
-    xReqPtr req,	/* last request being skipped */
-    ClientPtr client,   /* client whose requests we're skipping */
-    int numskipped)	/* how many requests we're skipping */
-{
-    OsCommPtr oc = (OsCommPtr)client->osPrivate;
-    register ConnectionInputPtr oci = oc->input;
-    int reqlen;
-
-    /* see if anyone wants to snoop the skipped requests */
-
-    if (SkippedRequestsCallback)
-    {
-	SkippedRequestInfoRec skipinfo;
-	skipinfo.req = req;
-	skipinfo.client = client;
-	skipinfo.numskipped = numskipped;
-	CallCallbacks(&SkippedRequestsCallback, &skipinfo);
-    }
-
-    /* adjust the sequence number */
-    client->sequence += numskipped;
-
-    /* twiddle the oci to skip over the requests */
-
-    reqlen = get_req_len(req, client);
-#ifdef BIGREQS
-    if (!reqlen) reqlen = get_big_req_len(req, client);
-#endif
-    reqlen <<= 2;
-    oci->bufptr = (char *)req;
-    oci->lenLastReq = reqlen;
-
-    /* see if any requests left in the buffer */
-
-    if ( ((char *)req + reqlen) == (oci->buffer + oci->bufcnt) )
-    {
-	/* no requests; mark input buffer as available and client
-	 * as having no input
-	 */
-	int fd = oc->fd;
-	AvailableInput = oc;
-	YieldControlNoInput();
-    }
-}
-
-
-    /* lookup table for adding padding bytes to data that is read from
-    	or written to the X socket.  */
-static int padlength[4] = {0, 3, 2, 1};
+static const int padlength[4] = {0, 3, 2, 1};
 
  /********************
  * FlushAllOutput()
@@ -770,6 +620,9 @@ FlushAllOutput(void)
     OsCommPtr oc;
     register ClientPtr client;
     Bool newoutput = NewOutputPending;
+
+    if (FlushCallback)
+	CallCallbacks(&FlushCallback, NULL);
 
     if (!newoutput)
 	return;
@@ -842,7 +695,7 @@ WriteToClient (ClientPtr who, int count, const void *__buf)
     Bool multicount = FALSE;
 #endif
     if (!count || !who || who == serverClient || who->clientGone)
-	return(0);
+	return 0;
     oc = who->osPrivate;
     oco = oc->output;
 #ifdef DEBUG_COMMUNICATION
@@ -953,6 +806,10 @@ WriteToClient (ClientPtr who, int count, const void *__buf)
 	  CriticalOutputPending = FALSE;
 	  NewOutputPending = FALSE;
 	}
+
+	if (FlushCallback)
+	    CallCallbacks(&FlushCallback, NULL);
+
 	return FlushClient(who, oc, buf, count);
     }
 
@@ -1082,16 +939,10 @@ FlushClient(ClientPtr who, OsCommPtr oc, const void *__extraBuf, int extraCount)
 
 	    if (notWritten > oco->size)
 	    {
-		unsigned char *obuf = NULL;
+		unsigned char *obuf;
 
-		if (notWritten + BUFSIZE <= INT_MAX) {
-		    obuf = calloc(1, notWritten + BUFSIZE);
-		    if (obuf)
-		    {
-			memmove(obuf, oco->buf, oco->size);
-			free(oco->buf);
-		    }
-		}
+		obuf = (unsigned char *)realloc(oco->buf,
+						 notWritten + BUFSIZE);
 		if (!obuf)
 		{
 		    _XSERVTransDisconnect(oc->trans_conn);
@@ -1099,7 +950,7 @@ FlushClient(ClientPtr who, OsCommPtr oc, const void *__extraBuf, int extraCount)
 		    oc->trans_conn = NULL;
 		    MarkClientException(who);
 		    oco->count = 0;
-		    return(-1);
+		    return -1;
 		}
 		oco->size = notWritten + BUFSIZE;
 		oco->buf = obuf;
@@ -1132,7 +983,7 @@ FlushClient(ClientPtr who, OsCommPtr oc, const void *__extraBuf, int extraCount)
 	    }
 	    MarkClientException(who);
 	    oco->count = 0;
-	    return(-1);
+	    return -1;
 	}
     }
 
@@ -1160,19 +1011,19 @@ FlushClient(ClientPtr who, OsCommPtr oc, const void *__extraBuf, int extraCount)
     return extraCount; /* return only the amount explicitly requested */
 }
 
-ConnectionInputPtr
+static ConnectionInputPtr
 AllocateInputBuffer(void)
 {
     ConnectionInputPtr oci;
 
-    oci = (ConnectionInputPtr)malloc(sizeof(ConnectionInput));
+    oci = malloc(sizeof(ConnectionInput));
     if (!oci)
-	return (ConnectionInputPtr)NULL;
-    oci->buffer = (char *)malloc(BUFSIZE);
+	return NULL;
+    oci->buffer = malloc(BUFSIZE);
     if (!oci->buffer)
     {
 	free(oci);
-	return (ConnectionInputPtr)NULL;
+	return NULL;
     }
     oci->size = BUFSIZE;
     oci->bufptr = oci->buffer;
@@ -1182,19 +1033,19 @@ AllocateInputBuffer(void)
     return oci;
 }
 
-ConnectionOutputPtr
+static ConnectionOutputPtr
 AllocateOutputBuffer(void)
 {
     ConnectionOutputPtr oco;
 
-    oco = (ConnectionOutputPtr)malloc(sizeof(ConnectionOutput));
+    oco = malloc(sizeof(ConnectionOutput));
     if (!oco)
-	return (ConnectionOutputPtr)NULL;
-    oco->buf = (unsigned char *) malloc(BUFSIZE);
+	return NULL;
+    oco->buf = calloc(1, BUFSIZE);
     if (!oco->buf)
     {
 	free(oco);
-	return (ConnectionOutputPtr)NULL;
+	return NULL;
     }
     oco->size = BUFSIZE;
     oco->count = 0;

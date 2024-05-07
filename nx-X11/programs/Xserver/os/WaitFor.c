@@ -70,6 +70,7 @@ SOFTWARE.
 
 ******************************************************************/
 
+
 /*****************************************************************
  * OS Dependent input routines:
  *
@@ -136,8 +137,7 @@ mffs(fd_mask mask)
 }
 
 #ifdef DPMSExtension
-#define DPMS_SERVER
-#include <nx-X11/extensions/dpms.h>
+#include <nx-X11/extensions/dpmsconst.h>
 #endif
 
 struct _OsTimerRec {
@@ -547,7 +547,7 @@ TimerSet(OsTimerPtr timer, int flags, CARD32 millis,
 
     if (!timer)
     {
-	timer = (OsTimerPtr)malloc(sizeof(struct _OsTimerRec));
+	timer = malloc(sizeof(struct _OsTimerRec));
 	if (!timer)
 	    return NULL;
     }

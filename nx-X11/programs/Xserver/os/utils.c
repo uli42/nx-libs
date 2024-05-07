@@ -103,7 +103,7 @@ OR PERFORMANCE OF THIS SOFTWARE.
 #include <signal.h>
 #undef _POSIX_C_SOURCE
 #else
-#if defined(X_NOT_POSIX) || defined(_POSIX_SOURCE)
+#if defined(_POSIX_SOURCE)
 #include <signal.h>
 #else
 #define _POSIX_SOURCE
@@ -132,19 +132,11 @@ OR PERFORMANCE OF THIS SOFTWARE.
 
 #include "dixstruct.h"
 
-#ifdef XKB
-#include <xkbsrv.h>
-#endif
+#include "xkbsrv.h"
 
-#ifdef RENDER
 #include "picture.h"
-#endif
-
 
 Bool noTestExtensions;
-#ifdef BIGREQS
-Bool noBigReqExtension = FALSE;
-#endif
 #ifdef COMPOSITE
 Bool noCompositeExtension = FALSE;
 #endif
@@ -172,23 +164,12 @@ Bool noMITShmExtension = FALSE;
 Bool noRRExtension = FALSE;
 Bool noRRXineramaExtension = FALSE;
 #endif
-#ifdef RENDER
 Bool noRenderExtension = FALSE;
-#endif
-#ifdef SHAPE
-Bool noShapeExtension = FALSE;
-#endif
 #ifdef XCSECURITY
 Bool noSecurityExtension = FALSE;
 #endif
-#ifdef XSYNC
-Bool noSyncExtension = FALSE;
-#endif
 #ifdef RES
 Bool noResExtension = FALSE;
-#endif
-#ifdef XCMISC
-Bool noXCMiscExtension = FALSE;
 #endif
 #ifdef XF86BIGFONT
 Bool noXFree86BigfontExtension = FALSE;
@@ -199,16 +180,9 @@ Bool noXFree86DRIExtension = FALSE;
 #ifdef XFIXES
 Bool noXFixesExtension = FALSE;
 #endif
-/* |noXkbExtension| is defined in xc/programs/Xserver/xkb/xkbInit.c */
 #ifdef PANORAMIX
 /* Xinerama is disabled by default unless enabled via +xinerama */
 Bool noPanoramiXExtension = TRUE;
-#endif
-#ifdef XINPUT
-Bool noXInputExtension = FALSE;
-#endif
-#ifdef XIDLE
-Bool noXIdleExtension = FALSE;
 #endif
 #ifdef XSELINUX
 Bool noSELinuxExtension = TRUE;
@@ -220,6 +194,8 @@ Bool noXvExtension = FALSE;
 #ifdef DRI2
 Bool noDRI2Extension = FALSE;
 #endif
+
+Bool noGEExtension = FALSE;
 
 #define X_INCLUDE_NETDB_H
 #include <nx-X11/Xos_r.h>
@@ -243,30 +219,13 @@ void (*OsVendorEndRedirectErrorFProc)() = NULL;
 Bool CoreDump;
 
 #ifdef PANORAMIX
-Bool PanoramiXVisibilityNotifySent = FALSE;
-Bool PanoramiXMapped = FALSE;
-Bool PanoramiXWindowExposureSent = FALSE;
-Bool PanoramiXOneExposeRequest = FALSE;
 Bool PanoramiXExtensionDisabledHack = FALSE;
 #endif
 
 int auditTrailLevel = 1;
 
-Bool Must_have_memory = FALSE;
-
-
 #if defined(SVR4) || defined(__linux__) || defined(CSRG_BASED)
 #define HAS_SAVED_IDS_AND_SETEUID
-#endif
-
-#ifdef MEMBUG
-#define MEM_FAIL_SCALE 100000
-long Memory_fail = 0;
-#include <stdlib.h>  /* for random() */
-#endif
-
-#ifndef NXAGENT_SERVER
-char *dev_tty_from_init = NULL;		/* since we need to parse it anyway */
 #endif
 
 #ifdef NXAGENT_SERVER
@@ -277,16 +236,9 @@ extern const char *nxagentProgName;
 extern char **environ;
 #endif
 
-extern char dispatchExceptionAtReset;
-
 OsSigHandlerPtr
-OsSignal(sig, handler)
-    int sig;
-    OsSigHandlerPtr handler;
+OsSignal(int sig, OsSigHandlerPtr handler)
 {
-#ifdef X_NOT_POSIX
-    return signal(sig, handler);
-#else
     struct sigaction act, oact;
 
     sigemptyset(&act.sa_mask);
@@ -297,10 +249,8 @@ OsSignal(sig, handler)
     if (sigaction(sig, &act, &oact))
 	perror("sigaction");
     return oact.sa_handler;
-#endif
 }
 	
-#ifdef SERVER_LOCK
 /*
  * Explicit support for a server lock file like the ones used for UUCP.
  * For architectures with virtual terminals that can run more than one
@@ -389,11 +339,7 @@ LockServer(void)
   if (write(lfd, pid_str, 11) != 11)
     FatalError("Could not write pid to lock file in %s\n", tmp);
 
-#ifndef USE_CHMOD
-  (void) fchmod(lfd, 0444);
-#else
   (void) chmod(tmp, 0444);
-#endif
   (void) close(lfd);
 
   /*
@@ -475,32 +421,22 @@ UnlockServer(void)
   (void) unlink(LockFile);
   }
 }
-#endif /* SERVER_LOCK */
 
 /* Force connections to close on SIGHUP from init */
 
-/*ARGSUSED*/
-SIGVAL
+void
 AutoResetServer (int sig)
 {
     int olderrno = errno;
 
     dispatchException |= DE_RESET;
     isItTimeToYield = TRUE;
-#ifdef GPROF
-    chdir ("/tmp");
-    exit (0);
-#endif
-#if defined(SYSV) && defined(X_NOT_POSIX)
-    OsSignal (SIGHUP, AutoResetServer);
-#endif
     errno = olderrno;
 }
 
 /* Force connections to close and then exit on SIGTERM, SIGINT */
 
-/*ARGSUSED*/
-SIGVAL
+void
 GiveUp(int sig)
 {
     int olderrno = errno;
@@ -511,10 +447,6 @@ GiveUp(int sig)
 
     dispatchException |= DE_TERMINATE;
     isItTimeToYield = TRUE;
-#if defined(SYSV) && defined(X_NOT_POSIX)
-    if (sig)
-	OsSignal(sig, SIG_IGN);
-#endif
     errno = olderrno;
 }
 
@@ -525,7 +457,21 @@ GetTimeInMillis(void)
 
 #ifdef MONOTONIC_CLOCK
     struct timespec tp;
+    static clockid_t clockid;
+    if (!clockid) {
+#ifdef CLOCK_MONOTONIC_COARSE
+        if (clock_getres(CLOCK_MONOTONIC_COARSE, &tp) == 0 &&
+            (tp.tv_nsec / 1000) <= 1000 &&
+            clock_gettime(CLOCK_MONOTONIC_COARSE, &tp) == 0)
+            clockid = CLOCK_MONOTONIC_COARSE;
+        else
+#endif
     if (clock_gettime(CLOCK_MONOTONIC, &tp) == 0)
+            clockid = CLOCK_MONOTONIC;
+        else
+            clockid = ~0L;
+    }
+    if (clockid != ~0L && clock_gettime(clockid, &tp) == 0)
         return (tp.tv_sec * 1000) + (tp.tv_nsec / 1000000L);
 #endif
 
@@ -564,11 +510,8 @@ void UseMsg(void)
 #else
     ErrorF("use: X [:<display>] [option]\n");
 #endif
-    ErrorF("-a #                   mouse acceleration (pixels)\n");
+    ErrorF("-a #                   default pointer acceleration (factor)\n");
     ErrorF("-ac                    disable access control restrictions\n");
-#ifdef MEMBUG
-    ErrorF("-alloc int             chance alloc should fail\n");
-#endif
     ErrorF("-audit int             set audit trail level\n");	
     ErrorF("-auth file             select authorization file\n");	
     ErrorF("-br                    create root window with black background\n");
@@ -586,7 +529,6 @@ void UseMsg(void)
     ErrorF("-core                  generate core dump on fatal error\n");
     ErrorF("-dpi int               screen resolution in dots per inch\n");
 #ifdef DPMSExtension
-    ErrorF("dpms                   enables VESA DPMS monitor control\n");
     ErrorF("-dpms                  disables VESA DPMS monitor control\n");
 #endif
     ErrorF("-deferglyphs [none|all|16] defer loading of [no|all|16-bit] glyphs\n");
@@ -605,9 +547,7 @@ void UseMsg(void)
 #ifdef RLIMIT_STACK
     ErrorF("-ls int                limit stack space to N Kb\n");
 #endif
-#ifdef SERVER_LOCK
     ErrorF("-nolock                disable the locking mechanism\n");
-#endif
 #ifndef NOLOGOHACK
     ErrorF("-logo                  enable logo in screen saver\n");
     ErrorF("nologo                 disable logo in screen saver\n");
@@ -620,12 +560,10 @@ void UseMsg(void)
     ErrorF("-nopn                  reject failure to listen on all ports\n");
     ErrorF("-r                     turns off auto-repeat\n");
     ErrorF("r                      turns on auto-repeat \n");
-#ifdef RENDER
     ErrorF("-render [default|mono|gray|color] set render color alloc policy\n");
-#endif
+    ErrorF("-retro                 start with classic stipple and cursor\n");
     ErrorF("-s #                   screen-saver timeout (minutes)\n");
-    ErrorF("-su                    disable any save under support\n");
-    ErrorF("-t #                   mouse threshold (pixels)\n");
+    ErrorF("-t #                   default pointer threshold (pixels/t)\n");
     ErrorF("-terminate             terminate at server reset\n");
     ErrorF("-to #                  connection time out\n");
     ErrorF("-tst                   disable testing extensions\n");
@@ -638,8 +576,8 @@ void UseMsg(void)
     ErrorF("-wr                    create root window with white background\n");
     ErrorF("-maxbigreqsize         set maximal bigrequest size \n");
 #ifdef PANORAMIX
-    ErrorF("+xinerama              Enable XINERAMA (PanoramiX) extension\n");
-    ErrorF("-xinerama              Disable XINERAMA (PanoramiX) extension (default)\n");
+    ErrorF("+xinerama              Enable XINERAMA extension\n");
+    ErrorF("-xinerama              Disable XINERAMA extension\n");
     ErrorF("-disablexineramaextension Disable XINERAMA extension\n");
 #endif
 #ifdef RANDR
@@ -653,9 +591,7 @@ void UseMsg(void)
 #ifdef XDMCP
     XdmcpUseMsg();
 #endif
-#ifdef XKB
     XkbUseMsg();
-#endif
     ddxUseMsg();
 }
 
@@ -669,12 +605,12 @@ void UseMsg(void)
 static int 
 VerifyDisplayName(const char *d)
 {
-    if ( d == (char *)0 ) return( 0 );  /*  null  */
-    if ( *d == '\0' ) return( 0 );  /*  empty  */
-    if ( *d == '-' ) return( 0 );  /*  could be confused for an option  */
-    if ( *d == '.' ) return( 0 );  /*  must not equal "." or ".."  */
-    if ( strchr(d, '/') != (char *)0 ) return( 0 );  /*  very important!!!  */
-    return( 1 );
+    if ( d == (char *)0 ) return 0;  /*  null  */
+    if ( *d == '\0' ) return 0;  /*  empty  */
+    if ( *d == '-' ) return 0;  /*  could be confused for an option  */
+    if ( *d == '.' ) return 0;  /*  must not equal "." or ".."  */
+    if ( strchr(d, '/') != (char *)0 ) return 0;  /*  very important!!!  */
+    return 1;
 }
 
 /*
@@ -686,7 +622,6 @@ void InitGlobals(void)
 {
     ddxInitGlobals();
 }
-
 
 /*
  * This function parses the command line. Handles device-independent fields
@@ -736,15 +671,6 @@ ProcessCommandLine(int argc, char *argv[])
 	{
 	    defeatAccessControl = TRUE;
 	}
-#ifdef MEMBUG
-	else if ( strcmp( argv[i], "-alloc") == 0)
-	{
-	    if(++i < argc)
-	        Memory_fail = atoi(argv[i]);
-	    else
-		UseMsg();
-	}
-#endif
 	else if ( strcmp( argv[i], "-audit") == 0)
 	{
 	    if(++i < argc)
@@ -759,8 +685,7 @@ ProcessCommandLine(int argc, char *argv[])
 	    else
 		UseMsg();
 	}
-	else if ( strcmp( argv[i], "-br") == 0)
-	    blackRoot = TRUE;
+	else if ( strcmp( argv[i], "-br") == 0) ; /* default */
 	else if ( strcmp( argv[i], "+bs") == 0)
 	    enableBackingStore = TRUE;
 	else if ( strcmp( argv[i], "-bs") == 0)
@@ -793,11 +718,15 @@ ProcessCommandLine(int argc, char *argv[])
 #endif
 	else if ( strcmp( argv[i], "-core") == 0)
 	{
-	    CoreDump = TRUE;
 	    struct rlimit   core_limit;
 	    getrlimit (RLIMIT_CORE, &core_limit);
 	    core_limit.rlim_cur = core_limit.rlim_max;
 	    setrlimit (RLIMIT_CORE, &core_limit);
+	    CoreDump = TRUE;
+	}
+        else if ( strcmp( argv[i], "-nocursor") == 0)
+        {
+            EnableCursor = FALSE;
 	}
 	else if ( strcmp( argv[i], "-dpi") == 0)
 	{
@@ -817,7 +746,7 @@ ProcessCommandLine(int argc, char *argv[])
 
 #ifdef DPMSExtension
 	else if ( strcmp( argv[i], "dpms") == 0)
-	    DPMSEnabledSwitch = TRUE;
+	    /* ignored for compatibility */ ;
 	else if ( strcmp( argv[i], "-dpms") == 0)
 	    DPMSDisabledSwitch = TRUE;
 #endif
@@ -865,13 +794,11 @@ ProcessCommandLine(int argc, char *argv[])
 	    UseMsg();
 	    exit(0);
 	}
-#ifdef XKB
         else if ( (skip=XkbProcessArguments(argc,argv,i))!=0 ) {
 	    if (skip>0)
 		 i+= skip-1;
 	    else UseMsg();
 	}
-#endif
 #ifdef RLIMIT_DATA
 	else if ( strcmp( argv[i], "-ld") == 0)
 	{
@@ -907,7 +834,6 @@ ProcessCommandLine(int argc, char *argv[])
 		UseMsg();
 	}
 #endif
-#ifdef SERVER_LOCK
 	else if ( strcmp ( argv[i], "-nolock") == 0)
 	{
 	  if (getuid() != 0)
@@ -915,7 +841,6 @@ ProcessCommandLine(int argc, char *argv[])
 	  else
 	    nolock = TRUE;
 	}
-#endif
 #ifndef NOLOGOHACK
 	else if ( strcmp( argv[i], "-logo") == 0)
 	{
@@ -968,6 +893,8 @@ ProcessCommandLine(int argc, char *argv[])
 	    defaultKeyboardControl.autoRepeat = TRUE;
 	else if ( strcmp( argv[i], "-r") == 0)
 	    defaultKeyboardControl.autoRepeat = FALSE;
+	else if ( strcmp( argv[i], "-retro") == 0)
+	    party_like_its_1989 = TRUE;
 	else if ( strcmp( argv[i], "-s") == 0)
 	{
 	    if(++i < argc)
@@ -976,8 +903,6 @@ ProcessCommandLine(int argc, char *argv[])
 	    else
 		UseMsg();
 	}
-	else if ( strcmp( argv[i], "-su") == 0)
-	    disableSaveUnders = TRUE;
 	else if ( strcmp( argv[i], "-t") == 0)
 	{
 	    if(++i < argc)
@@ -1053,8 +978,7 @@ ProcessCommandLine(int argc, char *argv[])
 #ifndef NXAGENT_SERVER
 	else if (strncmp (argv[i], "tty", 3) == 0)
 	{
-	    /* just in case any body is interested */
-	    dev_tty_from_init = argv[i];
+            /* init supplies us with this useless information */
 	}
 #endif
 #ifdef XDMCP
@@ -1088,7 +1012,6 @@ ProcessCommandLine(int argc, char *argv[])
 	    else
 		UseMsg();
 	}
-#ifdef RENDER
 	else if ( strcmp( argv[i], "-render" ) == 0)
 	{
 	    if (++i < argc)
@@ -1103,7 +1026,6 @@ ProcessCommandLine(int argc, char *argv[])
 	    else
 		UseMsg ();
 	}
-#endif
 	else if ( strcmp( argv[i], "+extension") == 0)
 	{
 	    if (++i < argc)
@@ -1133,118 +1055,6 @@ ProcessCommandLine(int argc, char *argv[])
     }
 }
 
-#ifdef COMMANDLINE_CHALLENGED_OPERATING_SYSTEMS
-static void
-InsertFileIntoCommandLine(
-    int *resargc, char ***resargv, 
-    int prefix_argc, char **prefix_argv,
-    char *filename, 
-    int suffix_argc, char **suffix_argv)
-{
-    struct stat     st;
-    FILE           *f;
-    char           *p;
-    char           *q;
-    int             insert_argc;
-    char           *buf;
-    int             len;
-    int             i;
-
-    f = fopen(filename, "r");
-    if (!f)
-	FatalError("Can't open option file %s\n", filename);
-
-    fstat(fileno(f), &st);
-
-    buf = (char *) malloc((unsigned) st.st_size + 1);
-    if (!buf)
-	FatalError("Out of Memory\n");
-
-    len = fread(buf, 1, (unsigned) st.st_size, f);
-
-    fclose(f);
-
-    if (len < 0)
-	FatalError("Error reading option file %s\n", filename);
-
-    buf[len] = '\0';
-
-    p = buf;
-    q = buf;
-    insert_argc = 0;
-
-    while (*p)
-    {
-	while (isspace(*p))
-	    p++;
-	if (!*p)
-	    break;
-	if (*p == '#')
-	{
-	    while (*p && *p != '\n')
-		p++;
-	} else
-	{
-	    while (*p && !isspace(*p))
-		*q++ = *p++;
-	    /* Since p and q might still be pointing at the same place, we	 */
-	    /* need to step p over the whitespace now before we add the null.	 */
-	    if (*p)
-		p++;
-	    *q++ = '\0';
-	    insert_argc++;
-	}
-    }
-
-    buf = (char *) realloc(buf, q - buf);
-    if (!buf)
-	FatalError("Out of memory reallocing option buf\n");
-
-    *resargc = prefix_argc + insert_argc + suffix_argc;
-    *resargv = (char **) malloc((*resargc + 1) * sizeof(char *));
-    if (!*resargv)
-	FatalError("Out of Memory\n");
-
-    memcpy(*resargv, prefix_argv, prefix_argc * sizeof(char *));
-
-    p = buf;
-    for (i = 0; i < insert_argc; i++)
-    {
-	(*resargv)[prefix_argc + i] = p;
-	p += strlen(p) + 1;
-    }
-
-    memcpy(*resargv + prefix_argc + insert_argc,
-	   suffix_argv, suffix_argc * sizeof(char *));
-
-    (*resargv)[*resargc] = NULL;
-} /* end InsertFileIntoCommandLine */
-
-
-void
-ExpandCommandLine(int *pargc, char ***pargv)
-{
-    int i;
-
-#if !defined(WIN32) && !defined(__CYGWIN__)
-    if (getuid() != geteuid())
-	return;
-#endif
-
-    for (i = 1; i < *pargc; i++)
-    {
-	if ( (0 == strcmp((*pargv)[i], "-config")) && (i < (*pargc - 1)) )
-	{
-	    InsertFileIntoCommandLine(pargc, pargv,
-					  i, *pargv,
-					  (*pargv)[i+1], /* filename */
-					  *pargc - i - 2, *pargv + i + 2);
-	    i--;
-	}
-    }
-} /* end ExpandCommandLine */
-#endif
-
 /* Implement a simple-minded font authorization scheme.  The authorization
    name is "hp-hostname-1", the contents are simply the host name. */
 int
@@ -1270,7 +1080,7 @@ set_font_authorizations(char **authorizations, int *authlen, void * client)
 
 	gethostname(hname, 1024);
 #if defined(IPv6) && defined(AF_INET6)
-	bzero(&hints, sizeof(hints));
+	memset(&hints, 0, sizeof(hints));
 	hints.ai_flags = AI_CANONNAME;
 	if (getaddrinfo(hname, NULL, &hints, &ai) == 0) {
 	    hnameptr = ai->ai_canonname;
@@ -1322,9 +1132,7 @@ XNFalloc(unsigned long amount)
 {
     void *ptr = malloc(amount);
     if (!ptr)
-    {
         FatalError("Out of memory");
-    }
     return ptr;
 }
 
@@ -1355,20 +1163,6 @@ XNFrealloc(void * ptr, unsigned long amount)
     return ret;
 }
 
-void
-OsInitAllocator (void)
-{
-#ifdef MEMBUG
-    static int	been_here;
-
-    /* Check the memory system after each generation */
-    if (been_here)
-	CheckMemory ();
-    else
-	been_here = 1;
-#endif
-}
-
 char *
 Xstrdup(const char *s)
 {
@@ -1376,7 +1170,6 @@ Xstrdup(const char *s)
 	return NULL;
     return strdup(s);
 }
-
 
 char *
 XNFstrdup(const char *s)
@@ -1563,6 +1356,18 @@ OsReleaseSignals (void)
 }
 
 /*
+ * Pending signals may interfere with core dumping. Provide a
+ * mechanism to block signals when aborting.
+ */
+
+void
+OsAbort (void)
+{
+    OsBlockSignals();
+    abort();
+}
+
+/*
  * "safer" versions of system(3), popen(3) and pclose(3) which give up
  * all privs before running a command.
  *
@@ -1583,7 +1388,7 @@ System(char *command)
     struct passwd *pwent;
 
     if (!command)
-	return(1);
+	return 1;
 
 #ifdef SIGCHLD
     csig = OsSignal(SIGCHLD, SIG_DFL);
@@ -1656,7 +1461,7 @@ Popen(char *command, char *type)
     if ((*type != 'r' && *type != 'w') || type[1])
 	return NULL;
 
-    if ((cur = (struct pid *)malloc(sizeof(struct pid))) == NULL)
+    if ((cur = malloc(sizeof(struct pid))) == NULL)
 	return NULL;
 
     if (pipe(pdes) < 0) {
@@ -1814,7 +1619,7 @@ Fopen(char *file, char *type)
     if ((*type != 'r' && *type != 'w') || type[1])
 	return NULL;
 
-    if ((cur = (struct pid *)malloc(sizeof(struct pid))) == NULL)
+    if ((cur = malloc(sizeof(struct pid))) == NULL)
 	return NULL;
 
     if (pipe(pdes) < 0) {
@@ -1870,7 +1675,7 @@ Fopen(char *file, char *type)
     pidlist = cur;
 
 #ifdef DEBUG
-    ErrorF("Popen: `%s', fp = %p\n", command, iop);
+    ErrorF("Fopen(%s), fp = %p\n", file, iop);
 #endif
 
     return iop;
@@ -2196,3 +2001,42 @@ CheckUserAuthorization(void)
 #endif
 }
 
+/*
+ * Tokenize a string into a NULL terminated array of strings. Always returns
+ * an allocated array unless an error occurs.
+ */
+char**
+xstrtokenize(const char *str, const char *separators)
+{
+    char **list, **nlist;
+    char *tok, *tmp;
+    unsigned num = 0, n;
+
+    if (!str)
+        return NULL;
+    list = calloc(1, sizeof(*list));
+    if (!list)
+        return NULL;
+    tmp = strdup(str);
+    if (!tmp)
+        goto error;
+    for (tok = strtok(tmp, separators); tok; tok = strtok(NULL, separators)) {
+        nlist = realloc(list, (num + 2) * sizeof(*list));
+        if (!nlist)
+            goto error;
+        list = nlist;
+        list[num] = strdup(tok);
+        if (!list[num])
+            goto error;
+        list[++num] = NULL;
+    }
+    free(tmp);
+    return list;
+
+error:
+    free(tmp);
+    for (n = 0; n < num; n++)
+        free(list[n]);
+    free(list);
+    return NULL;
+}

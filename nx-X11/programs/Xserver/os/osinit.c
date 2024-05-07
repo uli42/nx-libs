@@ -54,6 +54,15 @@ SOFTWARE.
 #include "os.h"
 #include "osdep.h"
 #include <nx-X11/Xos.h>
+#include <signal.h>
+#include <errno.h>
+#ifdef HAVE_DLFCN_H
+# include <dlfcn.h>
+#endif
+#ifdef HAVE_BACKTRACE
+#include <execinfo.h>
+#endif
+
 
 #include "dixstruct.h"
 
@@ -85,21 +94,126 @@ int limitStackSpace = -1;
 int limitNoFile = -1;
 #endif
 
+static OsSigWrapperPtr OsSigWrapper = NULL;
+
+OsSigWrapperPtr
+OsRegisterSigWrapper(OsSigWrapperPtr newSigWrapper)
+{
+    OsSigWrapperPtr oldSigWrapper = OsSigWrapper;
+
+    OsSigWrapper = newSigWrapper;
+
+    return oldSigWrapper;
+}
+
+/*
+ * OsSigHandler --
+ *    Catch unexpected signals and exit or continue cleanly.
+ */
+static void
+#ifdef SA_SIGINFO
+OsSigHandler(int signo, siginfo_t *sip, void *unused)
+#else
+OsSigHandler(int signo)
+#endif
+{
+#ifdef RTLD_DI_SETSIGNAL
+  const char *dlerr = dlerror();
+
+  if (dlerr) {
+      LogMessage(X_ERROR, "Dynamic loader error: %s\n", dlerr);
+  }
+#endif /* RTLD_DI_SETSIGNAL */
+
+  if (OsSigWrapper != NULL) {
+      if (OsSigWrapper(signo) == 0) {
+	  /* ddx handled signal and wants us to continue */
+	  return;
+      }
+  }
+
+  /* log, cleanup, and abort */
+  xorg_backtrace();
+
+#ifdef SA_SIGINFO
+  if (sip->si_code == SI_USER) {
+      ErrorF("Recieved signal %d sent by process %ld, uid %ld\n",
+	     signo, (long) sip->si_pid, (long) sip->si_uid);
+  } else {
+      switch (signo) {
+          case SIGSEGV:
+          case SIGBUS:
+          case SIGILL:
+          case SIGFPE:
+	      ErrorF("%s at address %p\n", strsignal(signo), sip->si_addr);
+      }
+  }
+#endif
+
+  FatalError("Caught signal %d (%s). Server aborting\n",
+	     signo, strsignal(signo));
+}
+
 void
 OsInit(void)
 {
     static Bool been_here = FALSE;
-    static char* admpath = ADMPATH;
     static char* devnull = "/dev/null";
     char fname[PATH_MAX];
 
-#ifdef macII
-    set42sig();
-#endif
-
     if (!been_here) {
+	struct sigaction act, oact;
+	int i;
+	int siglist[] = { SIGSEGV, SIGQUIT, SIGILL, SIGFPE, SIGBUS,
+#ifdef SIGSYS
+			  SIGSYS,
+#endif
+#ifdef SIGXCPU
+			  SIGXCPU,
+#endif
+#ifdef SIGXFSZ
+			  SIGXFSZ,
+#endif
+#ifdef SIGEMT
+			  SIGEMT,
+#endif
+			  0 /* must be last */ };
+	sigemptyset(&act.sa_mask);
+#ifdef SA_SIGINFO
+	act.sa_sigaction = OsSigHandler;
+	act.sa_flags = SA_SIGINFO;
+#else
+        act.sa_handler = OsSigHandler;
+        act.sa_flags = 0;
+#endif
+	for (i = 0; siglist[i] != 0; i++) {
+	    if (sigaction(siglist[i], &act, &oact)) {
+		ErrorF("failed to install signal handler for signal %d: %s\n",
+		       siglist[i], strerror(errno));
+	    }
+	}
 
 	InitNotifyFds();
+
+#ifdef HAVE_BACKTRACE
+	/*
+	 * initialize the backtracer, since the ctor calls dlopen(), which
+	 * calls malloc(), which isn't signal-safe.
+	 */
+	do {
+	    void *array;
+	    backtrace(&array, 1);
+	} while (0);
+#endif
+
+#ifdef RTLD_DI_SETSIGNAL
+	/* Tell runtime linker to send a signal we can catch instead of SIGKILL
+	 * for failures to load libraries/modules at runtime so we can clean up
+	 * after ourselves.
+	 */
+	int failure_signal = SIGQUIT;
+	dlinfo(RTLD_SELF, RTLD_DI_SETSIGNAL, &failure_signal);
+#endif
 
 	fclose(stdin);
 	fclose(stdout);
@@ -113,8 +227,8 @@ OsInit(void)
 	{
 	    FILE *err;
 
-	    if (strlen (display) + strlen (admpath) + 1 < sizeof fname)
-		sprintf (fname, admpath, display);
+	    if (strlen (display) + strlen (ADMPATH) + 1 < sizeof fname)
+		sprintf (fname, ADMPATH, display);
 	    else
 		strcpy (fname, devnull);
 	    /*
@@ -138,15 +252,8 @@ OsInit(void)
 #endif
 	}
 
-#ifndef X_NOT_POSIX
 	if (getpgrp () == 0)
 	    setpgid (0, 0);
-#else
-#if !defined(SYSV)
-	if (getpgrp (0) == 0)
-	    setpgrp (0, getpid ());
-#endif
-#endif
 
 #ifdef RLIMIT_DATA
 	if (limitDataSpace >= 0)
@@ -193,32 +300,24 @@ OsInit(void)
 	    }
 	}
 #endif
-#ifdef SERVER_LOCK
 	LockServer();
-#endif
 	been_here = TRUE;
     }
     TimerInit();
-#ifdef DDXOSINIT
     OsVendorInit();
-#endif
     /*
      * No log file by default.  OsVendorInit() should call LogInit() with the
      * log file name if logging to a file is desired.
      */
     LogInit(NULL, NULL);
     SmartScheduleInit();
-
-    OsInitAllocator();
 }
 
 void
 OsCleanup(Bool terminating)
 {
-#ifdef SERVER_LOCK
     if (terminating)
     {
 	UnlockServer();
     }
-#endif
 }
