@@ -17,7 +17,7 @@ os                1.9.5 + many backports, some of them from 2019
 randr             1.18.0
 record            1.9.5  Extensionm version: 1.13
 render            1.5.3
-Xext              1.5.3
+Xext              1.9.5
 xfixes            1.9.5  Extensionm version: 4.0
 Xi                1.9.5
 xkb               1.5.3

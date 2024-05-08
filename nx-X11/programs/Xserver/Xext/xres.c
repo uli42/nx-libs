@@ -20,7 +20,6 @@
 #include "pixmapstr.h"
 #include "windowstr.h"
 #include "gcstruct.h"
-
 #include "protocol-versions.h"
 
 static int
@@ -49,7 +48,7 @@ ProcXResQueryVersion (ClientPtr client)
         swaps(&rep.server_minor);
     }
     WriteToClient(client, sizeof (xXResQueryVersionReply), &rep);
-    return (client->noClientException);
+    return Success;
 }
 
 static int
@@ -75,7 +74,7 @@ ProcXResQueryClients (ClientPtr client)
     rep.type = X_Reply;
     rep.sequenceNumber = client->sequence;
     rep.num_clients = num_clients;
-    rep.length = rep.num_clients * sz_xXResClient >> 2;
+    rep.length = bytes_to_int32(rep.num_clients * sz_xXResClient);
     if (client->swapped) {
         swaps (&rep.sequenceNumber);
         swapl (&rep.length);
@@ -100,7 +99,7 @@ ProcXResQueryClients (ClientPtr client)
 
     free(current_clients);
 
-    return (client->noClientException);
+    return Success;
 }
 
 
@@ -129,9 +128,7 @@ ProcXResQueryClientResources (ClientPtr client)
         return BadValue;
     }
 
-    counts = malloc((lastResourceType + 1) * sizeof(int));
-
-    memset(counts, 0, (lastResourceType + 1) * sizeof(int));
+    counts = calloc(lastResourceType + 1, sizeof(int));
 
     FindAllClientResources(clients[clientID], ResFindAllRes, counts);
 
@@ -144,7 +141,7 @@ ProcXResQueryClientResources (ClientPtr client)
     rep.type = X_Reply;
     rep.sequenceNumber = client->sequence;
     rep.num_types = num_types;
-    rep.length = rep.num_types * sz_xXResType >> 2;
+    rep.length = bytes_to_int32(rep.num_types * sz_xXResType);
     if (client->swapped) {
         swaps (&rep.sequenceNumber);
         swapl (&rep.length);
@@ -180,7 +177,7 @@ ProcXResQueryClientResources (ClientPtr client)
 
     free(counts);
     
-    return (client->noClientException);
+    return Success;
 }
 
 static unsigned long
@@ -290,12 +287,8 @@ ProcXResQueryClientPixmapBytes (ClientPtr client)
     }
     WriteToClient (client,sizeof(xXResQueryClientPixmapBytesReply),&rep);
 
-    return (client->noClientException);
+    return Success;
 }
-
-
-static void
-ResResetProc (ExtensionEntry *extEntry) { }
 
 static int
 ProcResDispatch (ClientPtr client)
@@ -370,5 +363,5 @@ ResExtensionInit(void)
 {
     (void) AddExtension(XRES_NAME, 0, 0,
                             ProcResDispatch, SProcResDispatch,
-                            ResResetProc, StandardMinorOpcode);
+                            NULL, StandardMinorOpcode);
 }

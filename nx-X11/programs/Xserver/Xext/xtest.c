@@ -32,6 +32,7 @@ from The Open Group.
 
 #include <nx-X11/X.h>
 #include <nx-X11/Xproto.h>
+#include <nx-X11/Xatom.h>
 #include "misc.h"
 #include "os.h"
 #include "dixstruct.h"
@@ -41,28 +42,42 @@ from The Open Group.
 #include "scrnintstr.h"
 #include "dixevents.h"
 #include "sleepuntil.h"
-#define _XTEST_SERVER_
-#include <nx-X11/extensions/xtestconst.h>
-#include <nx-X11/extensions/xteststr.h>
-#ifdef XINPUT
+#include "mi.h"
+#include "xkbsrv.h"
+#include "xkbstr.h"
+#include <nx-X11/extensions/xtestproto.h>
 #include <nx-X11/extensions/XI.h>
 #include <nx-X11/extensions/XIproto.h>
-#define EXTENSION_EVENT_BASE	64
-#endif /* XINPUT */
+#include "../Xi/exglobals.h"
+#include "mipointer.h"
+#include "xserver-properties.h"
+#include "exevents.h"
 
 
-#ifdef XINPUT
 extern int DeviceValuator;
-#endif /* XINPUT */
+
+/* XTest events are sent during request processing and may be interruped by
+ * a SIGIO. We need a separate event list to avoid events overwriting each
+ * other's memory */
+static EventListPtr xtest_evlist;
+
+/**
+ * xtestpointer
+ * is the virtual void * for XTest. It is the first slave
+ * device of the VCP.
+ * xtestkeyboard
+ * is the virtual keyboard for XTest. It is the first slave
+ * device of the VCK
+ *
+ * Neither of these devices can be deleted.
+ */
+DeviceIntPtr xtestpointer, xtestkeyboard;
 
 #ifdef PANORAMIX
 #include "panoramiX.h"
 #include "panoramiXsrv.h"
 #endif
 
-static void XTestResetProc(
-    ExtensionEntry * /* extEntry */
-);
 static int XTestSwapFakeInput(
     ClientPtr /* client */,
     xReq * /* req */
@@ -84,21 +99,15 @@ XTestExtensionInit(void)
 {
     AddExtension(XTestExtensionName, 0, 0,
 			ProcXTestDispatch, SProcXTestDispatch,
-			XTestResetProc, StandardMinorOpcode);
-}
+            NULL, StandardMinorOpcode);
 
-/*ARGSUSED*/
-static void
-XTestResetProc (extEntry)
-ExtensionEntry	*extEntry;
-{
+    xtest_evlist = InitEventList(GetMaximumEventsNum());
 }
 
 static int
-ProcXTestGetVersion(client)
-    register ClientPtr client;
+ProcXTestGetVersion(ClientPtr client)
 {
-    xXTestGetVersionReply rep = {0};
+    xXTestGetVersionReply rep;
 
     REQUEST_SIZE_MATCH(xXTestGetVersionReq);
     rep.type = X_Reply;
@@ -111,18 +120,18 @@ ProcXTestGetVersion(client)
 	swaps(&rep.minorVersion);
     }
     WriteToClient(client, sizeof(xXTestGetVersionReply), &rep);
-    return(client->noClientException);
+    return Success;
 }
 
 static int
-ProcXTestCompareCursor(client)
-    register ClientPtr client;
+ProcXTestCompareCursor(ClientPtr client)
 {
     REQUEST(xXTestCompareCursorReq);
     xXTestCompareCursorReply rep = {0};
     WindowPtr pWin;
     CursorPtr pCursor;
-    register int rc;
+    int rc;
+    DeviceIntPtr ptr = PickPointer(client);
 
     REQUEST_SIZE_MATCH(xXTestCompareCursorReq);
     rc = dixLookupWindow(&pWin, stuff->window, client, DixGetAttrAccess);
@@ -131,14 +140,14 @@ ProcXTestCompareCursor(client)
     if (stuff->cursor == None)
 	pCursor = NullCursor;
     else if (stuff->cursor == XTestCurrentCursor)
-	pCursor = GetSpriteCursor();
+        pCursor = GetSpriteCursor(ptr);
     else {
-	rc = dixLookupResource((void * *)&pCursor, stuff->cursor, RT_CURSOR,
+        rc = dixLookupResourceByType((void * *)&pCursor, stuff->cursor, RT_CURSOR,
 			       client, DixReadAccess);
 	if (rc != Success) 
 	{
 	    client->errorValue = stuff->cursor;
-	    return (rc == BadValue) ? BadCursor : rc;
+            return rc;
 	}
     }
     rep.type = X_Reply;
@@ -149,24 +158,27 @@ ProcXTestCompareCursor(client)
 	swaps(&rep.sequenceNumber);
     }
     WriteToClient(client, sizeof(xXTestCompareCursorReply), &rep);
-    return(client->noClientException);
+    return Success;
 }
 
 static int
-ProcXTestFakeInput(client)
-    register ClientPtr client;
+ProcXTestFakeInput(ClientPtr client)
 {
     REQUEST(xXTestFakeInputReq);
     int nev, n, type, rc;
     xEvent *ev;
     DeviceIntPtr dev = NULL;
     WindowPtr root;
-#ifdef XINPUT
     Bool extension = FALSE;
     deviceValuator *dv = NULL;
-    int base;
-    int *values;
-#endif /* XINPUT */
+    int valuators[MAX_VALUATORS] = {0};
+    int numValuators = 0;
+    int firstValuator = 0;
+    int nevents = 0;
+    int i;
+    int base = 0;
+    int flags = 0;
+    int need_ptr_update = 1;
 
     nev = (stuff->length << 2) - sizeof(xReq);
     if ((nev % sizeof(xEvent)) || !nev)
@@ -175,29 +187,89 @@ ProcXTestFakeInput(client)
     UpdateCurrentTime();
     ev = (xEvent *)&((xReq *)stuff)[1];
     type = ev->u.u.type & 0177;
-#ifdef XINPUT
+
     if (type >= EXTENSION_EVENT_BASE)
     {
+        extension = TRUE;
+
+        /* check device */
+        rc = dixLookupDevice(&dev, stuff->deviceid & 0177, client,
+                DixWriteAccess);
+        if (rc != Success)
+        {
+            client->errorValue = stuff->deviceid & 0177;
+            return rc;
+        }
+
+        /* check type */
 	type -= DeviceValuator;
 	switch (type) {
 	case XI_DeviceKeyPress:
 	case XI_DeviceKeyRelease:
+                if (!dev->key)
+                {
+                    client->errorValue = ev->u.u.type;
+                    return BadValue;
+                }
+                break;
 	case XI_DeviceButtonPress:
 	case XI_DeviceButtonRelease:
+                if (!dev->button)
+                {
+                    client->errorValue = ev->u.u.type;
+                    return BadValue;
+                }
+                break;
 	case XI_DeviceMotionNotify:
+                if (!dev->valuator)
+                {
+                    client->errorValue = ev->u.u.type;
+                    return BadValue;
+                }
+                break;
 	case XI_ProximityIn:
 	case XI_ProximityOut:
+                if (!dev->proximity)
+                {
+                    client->errorValue = ev->u.u.type;
+                    return BadValue;
+                }
 	    break;
 	default:
 	    client->errorValue = ev->u.u.type;
 	    return BadValue;
 	}
+
+        /* check validity */
 	if (nev == 1 && type == XI_DeviceMotionNotify)
-	    return BadLength;
+            return BadLength; /* DevMotion must be followed by DevValuator */
+
 	if (type == XI_DeviceMotionNotify)
-	    base = ((deviceValuator *)(ev+1))->first_valuator;
-	else
-	    base = 0;
+        {
+            firstValuator = ((deviceValuator *)(ev+1))->first_valuator;
+            if (firstValuator > dev->valuator->numAxes)
+            {
+                client->errorValue = ev->u.u.type;
+                return BadValue;
+            }
+
+            if (ev->u.u.detail == xFalse)
+                flags |= POINTER_ABSOLUTE;
+        } else
+        {
+            firstValuator = 0;
+            flags |= POINTER_ABSOLUTE;
+        }
+
+        if (nev > 1 && !dev->valuator)
+        {
+            client->errorValue = dv->first_valuator;
+            return BadValue;
+        }
+
+
+        /* check validity of valuator events */
+        base = firstValuator;
 	for (n = 1; n < nev; n++)
 	{
 	    dv = (deviceValuator *)(ev + n);
@@ -211,18 +283,32 @@ ProcXTestFakeInput(client)
 		client->errorValue = dv->first_valuator;
 		return BadValue;
 	    }
-	    if (!dv->num_valuators || dv->num_valuators > 6)
+            switch(dv->num_valuators)
 	    {
+                case 6: valuators[base + 5] = dv->valuator5;
+                case 5: valuators[base + 4] = dv->valuator4;
+                case 4: valuators[base + 3] = dv->valuator3;
+                case 3: valuators[base + 2] = dv->valuator2;
+                case 2: valuators[base + 1] = dv->valuator1;
+                case 1: valuators[base] = dv->valuator0;
+                        break;
+                default:
 		client->errorValue = dv->num_valuators;
 		return BadValue;
 	    }
+
 	    base += dv->num_valuators;
+            numValuators += dv->num_valuators;
+
+            if (firstValuator + numValuators > dev->valuator->numAxes)
+            {
+                client->errorValue = dv->num_valuators;
+                return BadValue;
 	}
-	type = type - XI_DeviceKeyPress + KeyPress;
-	extension = TRUE;
     }
-    else
-#endif /* XINPUT */
+        type = type - XI_DeviceKeyPress + KeyPress;
+
+    } else
     {
 	if (nev != 1)
 	    return BadLength;
@@ -230,15 +316,30 @@ ProcXTestFakeInput(client)
 	{
 	case KeyPress:
 	case KeyRelease:
-	case MotionNotify:
+                dev = PickKeyboard(client);
+                break;
 	case ButtonPress:
 	case ButtonRelease:
+                dev = PickPointer(client);
+                break;
+            case MotionNotify:
+                dev = PickPointer(client);
+                valuators[0] = ev->u.keyButtonPointer.rootX;
+                valuators[1] = ev->u.keyButtonPointer.rootY;
+                numValuators = 2;
+                firstValuator = 0;
+                if (ev->u.u.detail == xFalse)
+                    flags = POINTER_ABSOLUTE | POINTER_SCREEN;
 	    break;
 	default:
 	    client->errorValue = ev->u.u.type;
 	    return BadValue;
 	}
+
+        dev = GetXTestDevice(dev);
     }
+
+    /* If the event has a time set, wait for it to pass */
     if (ev->u.keyButtonPointer.time)
     {
 	TimeStamp activateTime;
@@ -251,7 +352,8 @@ ProcXTestFakeInput(client)
 	activateTime.milliseconds = ms;
 	ev->u.keyButtonPointer.time = 0;
 
-	/* see mbuf.c:QueueDisplayRequest for code similar to this */
+        /* see mbuf.c:QueueDisplayRequest (from the deprecated Multibuffer
+         * extension) for code similar to this */
 
 	if (!ClientSleepUntil(client, &activateTime, NULL, NULL))
 	{
@@ -267,91 +369,34 @@ ProcXTestFakeInput(client)
 	client->sequence--;
 	return Success;
     }
-#ifdef XINPUT
-    if (extension)
-    {
-	rc = dixLookupDevice(&dev, stuff->deviceid & 0177, client,
-			     DixWriteAccess);
-	if (rc != Success)
-	{
-	    client->errorValue = stuff->deviceid & 0177;
-	    return rc;
-	}
-	if (nev > 1)
-	{
-	    dv = (deviceValuator *)(ev + 1);
-	    if (!dev->valuator || dv->first_valuator >= dev->valuator->numAxes)
-	    {
-		client->errorValue = dv->first_valuator;
-		return BadValue;
-	    }
-	    if (dv->first_valuator + dv->num_valuators >
-		dev->valuator->numAxes)
-	    {
-		client->errorValue = dv->num_valuators;
-		return BadValue;
-	    }
-	}
-    }
-#endif /* XINPUT */
+
     switch (type)
     {
     case KeyPress:
     case KeyRelease:
-#ifdef XINPUT
-	if (!extension)
-#endif /* XINPUT */
-	    dev = inputInfo.keyboard;
-	if (ev->u.u.detail < dev->key->curKeySyms.minKeyCode ||
-	    ev->u.u.detail > dev->key->curKeySyms.maxKeyCode)
+            if (!dev->key)
+                return BadDevice;
+
+            if (ev->u.u.detail < dev->key->xkbInfo->desc->min_key_code ||
+                ev->u.u.detail > dev->key->xkbInfo->desc->max_key_code)
 	{
 	    client->errorValue = ev->u.u.detail;
 	    return BadValue;
 	}
+
+            need_ptr_update = 0;
 	break;
     case MotionNotify:
-#ifdef XINPUT
-	if (extension)
-	{
-	    if (ev->u.u.detail != xFalse && ev->u.u.detail != xTrue)
-	    {
-		client->errorValue = ev->u.u.detail;
-		return BadValue;
-	    }
-	    if (ev->u.u.detail == xTrue && dev->valuator->mode == Absolute)
-	    {
-		values = dev->valuator->axisVal + dv->first_valuator;
-		for (n = 1; n < nev; n++)
-		{
-		    dv = (deviceValuator *)(ev + n);
-		    switch (dv->num_valuators)
-		    {
-		    case 6:
-			dv->valuator5 += values[5];
-		    case 5:
-			dv->valuator4 += values[4];
-		    case 4:
-			dv->valuator3 += values[3];
-		    case 3:
-			dv->valuator2 += values[2];
-		    case 2:
-			dv->valuator1 += values[1];
-		    case 1:
-			dv->valuator0 += values[0];
-		    }
-		    values += 6;
-		}
-	    }
-	    break;
-	}
-#endif /* XINPUT */
-	dev = inputInfo.pointer;
-	if (ev->u.keyButtonPointer.root == None)
-	    root = GetCurrentRootWindow();
+            if (!dev->valuator)
+                return BadDevice;
+
+            /* broken lib, XI events have root uninitialized */
+            if (extension || ev->u.keyButtonPointer.root == None)
+                root = GetCurrentRootWindow(dev);
 	else
 	{
-	    rc = dixLookupWindow(&root, ev->u.keyButtonPointer.root, client,
-				 DixGetAttrAccess);
+                rc = dixLookupWindow(&root, ev->u.keyButtonPointer.root,
+                                     client, DixGetAttrAccess);
 	    if (rc != Success)
 		return rc;
 	    if (root->parent)
@@ -360,81 +405,20 @@ ProcXTestFakeInput(client)
 		return BadValue;
 	    }
 	}
-	if (ev->u.u.detail == xTrue)
-	{
-	    int x, y;
-	    GetSpritePosition(&x, &y);
-	    ev->u.keyButtonPointer.rootX += x;
-	    ev->u.keyButtonPointer.rootY += y;
-	}
-	else if (ev->u.u.detail != xFalse)
+            if (ev->u.u.detail != xTrue && ev->u.u.detail != xFalse)
 	{
 	    client->errorValue = ev->u.u.detail;
 	    return BadValue;
 	}
 
-#ifdef PANORAMIX
-	if (!noPanoramiXExtension) {
-	    ScreenPtr pScreen = root->drawable.pScreen;
-	    BoxRec    box;
-	    int       i;
-	    int       x = ev->u.keyButtonPointer.rootX + panoramiXdataPtr[0].x;
-	    int       y = ev->u.keyButtonPointer.rootY + panoramiXdataPtr[0].y;
-	    if (!RegionContainsPoint(&XineramaScreenRegions[pScreen->myNum],
-				 x, y, &box)) {
-		FOR_NSCREENS(i) {
-		    if (i == pScreen->myNum) continue;
-		    if (RegionContainsPoint(
-					&XineramaScreenRegions[i],
-					x, y, &box)) {
-			root = screenInfo.screens[i]->root;
-			x   -= panoramiXdataPtr[i].x;
-			y   -= panoramiXdataPtr[i].y;
-			ev->u.keyButtonPointer.rootX = x;
-			ev->u.keyButtonPointer.rootY = y;
-			break;
-		    }
-		}
-	    }
-	}
-#endif
+            /* FIXME: Xinerama! */
 
-	if (ev->u.keyButtonPointer.rootX < 0)
-	    ev->u.keyButtonPointer.rootX = 0;
-	else if (ev->u.keyButtonPointer.rootX >= root->drawable.width)
-	    ev->u.keyButtonPointer.rootX = root->drawable.width - 1;
-	if (ev->u.keyButtonPointer.rootY < 0)
-	    ev->u.keyButtonPointer.rootY = 0;
-	else if (ev->u.keyButtonPointer.rootY >= root->drawable.height)
-	    ev->u.keyButtonPointer.rootY = root->drawable.height - 1;
-
-#ifdef PANORAMIX
-	if ((!noPanoramiXExtension
-	     && root->drawable.pScreen->myNum != XineramaGetCursorScreen())
-	    || (noPanoramiXExtension && root != GetCurrentRootWindow()))
-
-#else
-	if (root != GetCurrentRootWindow())
-#endif
-	{
-	    NewCurrentScreen(root->drawable.pScreen,
-			     ev->u.keyButtonPointer.rootX,
-			     ev->u.keyButtonPointer.rootY);
-	    return client->noClientException;
-	}
-	(*root->drawable.pScreen->SetCursorPosition)
-	    (root->drawable.pScreen,
-	     ev->u.keyButtonPointer.rootX,
-	     ev->u.keyButtonPointer.rootY, FALSE);
-        dev->valuator->lastx = ev->u.keyButtonPointer.rootX;
-        dev->valuator->lasty = ev->u.keyButtonPointer.rootY;
 	break;
     case ButtonPress:
     case ButtonRelease:
-#ifdef XINPUT
-	if (!extension)
-#endif /* XINPUT */
-	    dev = inputInfo.pointer;
+            if (!dev->button)
+                return BadDevice;
+
 	if (!ev->u.u.detail || ev->u.u.detail > dev->button->numButtons)
 	{
 	    client->errorValue = ev->u.u.detail;
@@ -444,14 +428,34 @@ ProcXTestFakeInput(client)
     }
     if (screenIsSaved == SCREEN_SAVER_ON)
 	dixSaveScreens(serverClient, SCREEN_SAVER_OFF, ScreenSaverReset);
-    ev->u.keyButtonPointer.time = currentTime.milliseconds;
-    (*dev->public.processInputProc)(ev, dev, nev);
-    return client->noClientException;
+
+    switch(type) {
+        case MotionNotify:
+            nevents = GetPointerEvents(xtest_evlist, dev, type, 0, flags,
+                            firstValuator, numValuators, valuators);
+            break;
+        case ButtonPress:
+        case ButtonRelease:
+            nevents = GetPointerEvents(xtest_evlist, dev, type, ev->u.u.detail,
+                                       flags, firstValuator,
+                                       numValuators, valuators);
+            break;
+        case KeyPress:
+        case KeyRelease:
+            nevents = GetKeyboardEvents(xtest_evlist, dev, type, ev->u.u.detail);
+            break;
+    }
+
+    for (i = 0; i < nevents; i++)
+        mieqProcessDeviceEvent(dev, (InternalEvent*)(xtest_evlist+i)->event, NULL);
+
+    if (need_ptr_update)
+        miPointerUpdateSprite(dev);
+    return Success;
 }
 
 static int
-ProcXTestGrabControl(client)
-    register ClientPtr client;
+ProcXTestGrabControl(ClientPtr client)
 {
     REQUEST(xXTestGrabControlReq);
 
@@ -459,18 +463,17 @@ ProcXTestGrabControl(client)
     if ((stuff->impervious != xTrue) && (stuff->impervious != xFalse))
     {
 	client->errorValue = stuff->impervious;
-        return(BadValue);
+        return BadValue;
     }
     if (stuff->impervious)
 	MakeClientGrabImpervious(client);
     else
 	MakeClientGrabPervious(client);
-    return(client->noClientException);
+    return Success;
 }
 
 static int
-ProcXTestDispatch (client)
-    register ClientPtr	client;
+ProcXTestDispatch (ClientPtr client)
 {
     REQUEST(xReq);
     switch (stuff->data)
@@ -489,8 +492,7 @@ ProcXTestDispatch (client)
 }
 
 static int
-SProcXTestGetVersion(client)
-    register ClientPtr	client;
+SProcXTestGetVersion(ClientPtr client)
 {
     REQUEST(xXTestGetVersionReq);
 
@@ -501,8 +503,7 @@ SProcXTestGetVersion(client)
 }
 
 static int
-SProcXTestCompareCursor(client)
-    register ClientPtr	client;
+SProcXTestCompareCursor(ClientPtr client)
 {
     REQUEST(xXTestCompareCursorReq);
 
@@ -514,12 +515,10 @@ SProcXTestCompareCursor(client)
 }
 
 static int
-XTestSwapFakeInput(client, req)
-    register ClientPtr	client;
-    xReq *req;
+XTestSwapFakeInput(ClientPtr client, xReq *req)
 {
-    register int nev;
-    register xEvent *ev;
+    int nev;
+    xEvent *ev;
     xEvent sev;
     EventSwapPtr proc;
 
@@ -540,10 +539,9 @@ XTestSwapFakeInput(client, req)
 }
 
 static int
-SProcXTestFakeInput(client)
-    register ClientPtr	client;
+SProcXTestFakeInput(ClientPtr client)
 {
-    register int n;
+    int n;
     REQUEST(xReq);
 
     swaps(&stuff->length);
@@ -554,8 +552,7 @@ SProcXTestFakeInput(client)
 }
 
 static int
-SProcXTestGrabControl(client)
-    register ClientPtr	client;
+SProcXTestGrabControl(ClientPtr client)
 {
     REQUEST(xXTestGrabControlReq);
 
@@ -565,8 +562,7 @@ SProcXTestGrabControl(client)
 }
 
 static int
-SProcXTestDispatch (client)
-    register ClientPtr	client;
+SProcXTestDispatch (ClientPtr client)
 {
     REQUEST(xReq);
     switch (stuff->data)
@@ -583,3 +579,118 @@ SProcXTestDispatch (client)
 	return BadRequest;
     }
 }
+
+/**
+ * Allocate an virtual slave device for xtest events, this
+ * is a slave device to inputInfo master devices
+ */
+void InitXTestDevices(void)
+{
+    if(AllocXTestDevice(serverClient, "Virtual core",
+                       &xtestpointer, &xtestkeyboard,
+                       inputInfo.pointer, inputInfo.keyboard) != Success)
+        FatalError("Failed to allocate XTest devices");
+
+    if (ActivateDevice(xtestpointer, TRUE) != Success ||
+        ActivateDevice(xtestkeyboard, TRUE) != Success)
+        FatalError("Failed to activate XTest core devices.");
+    if (!EnableDevice(xtestpointer, TRUE) ||
+        !EnableDevice(xtestkeyboard, TRUE))
+        FatalError("Failed to enable XTest core devices.");
+
+    AttachDevice(NULL, xtestpointer, inputInfo.pointer);
+    AttachDevice(NULL, xtestkeyboard, inputInfo.keyboard);
+}
+
+/**
+ * Don't allow changing the XTest property.
+ */
+static int
+DeviceSetXTestProperty(DeviceIntPtr dev, Atom property,
+                      XIPropertyValuePtr prop, BOOL checkonly)
+{
+    if (property == XIGetKnownProperty(XI_PROP_XTEST_DEVICE))
+        return BadAccess;
+
+    return Success;
+}
+
+/**
+ * Allocate a device pair that is initialised as a slave
+ * device with properties that identify the devices as belonging
+ * to XTest subsystem.
+ * This only creates the pair, Activate/Enable Device
+ * still need to be called.
+ */
+int AllocXTestDevice (ClientPtr client, char* name,
+                     DeviceIntPtr* ptr, DeviceIntPtr* keybd,
+                     DeviceIntPtr master_ptr, DeviceIntPtr master_keybd)
+{
+    int retval;
+    int len = strlen(name);
+    char *xtestname = calloc(len + 7, 1 );
+    char dummy = 1;
+
+    strncpy( xtestname, name, len);
+    strncat( xtestname, " XTEST", 6 );
+
+    retval = AllocDevicePair( client, xtestname, ptr, keybd, CorePointerProc, CoreKeyboardProc, FALSE);
+    if ( retval == Success ){
+	(*ptr)->xtest_master_id = master_ptr->id;
+	(*keybd)->xtest_master_id = master_keybd->id;
+
+        XIChangeDeviceProperty(*ptr, XIGetKnownProperty(XI_PROP_XTEST_DEVICE),
+                XA_INTEGER, 8, PropModeReplace, 1, &dummy,
+                FALSE);
+        XISetDevicePropertyDeletable(*ptr, XIGetKnownProperty(XI_PROP_XTEST_DEVICE), FALSE);
+        XIRegisterPropertyHandler(*ptr, DeviceSetXTestProperty, NULL, NULL);
+        XIChangeDeviceProperty(*keybd, XIGetKnownProperty(XI_PROP_XTEST_DEVICE),
+                XA_INTEGER, 8, PropModeReplace, 1, &dummy,
+                FALSE);
+        XISetDevicePropertyDeletable(*keybd, XIGetKnownProperty(XI_PROP_XTEST_DEVICE), FALSE);
+        XIRegisterPropertyHandler(*keybd, DeviceSetXTestProperty, NULL, NULL);
+    }
+
+    free( xtestname );
+
+    return retval;
+}
+
+/**
+ * If master is NULL, return TRUE if the given device is an xtest device or
+ * FALSE otherwise.
+ * If master is not NULL, return TRUE if the given device is this master's
+ * xtest device.
+ */
+BOOL
+IsXTestDevice(DeviceIntPtr dev, DeviceIntPtr master)
+{
+    if (IsMaster(dev))
+        return FALSE;
+
+    /* deviceid 0 is reserved for XIAllDevices, non-zero mid means XTest
+     * device */
+    if (master)
+	return dev->xtest_master_id == master->id;
+
+    return dev->xtest_master_id != 0;
+}
+
+/**
+ * @return The X Test virtual device for the given master.
+ */
+DeviceIntPtr
+GetXTestDevice(DeviceIntPtr master)
+{
+    DeviceIntPtr it;
+
+    for (it = inputInfo.devices; it; it = it->next)
+    {
+        if (IsXTestDevice(it, master))
+            return it;
+    }
+
+    /* This only happens if master is a slave device. don't do that */
+    return NULL;
+}
+

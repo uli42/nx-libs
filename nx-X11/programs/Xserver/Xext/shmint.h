@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 2003 Keith Packard
+ * Copyright © 2003 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -23,20 +23,47 @@
 #ifndef _SHMINT_H_
 #define _SHMINT_H_
 
-#define _XSHM_SERVER_
-#include <X11/extensions/shmstr.h>
+#include <nx-X11/extensions/shmproto.h>
 
 #include "screenint.h"
 #include "pixmap.h"
 #include "gc.h"
 
-void
+#define XSHM_PUT_IMAGE_ARGS \
+    DrawablePtr		/* dst */, \
+    GCPtr		/* pGC */, \
+    int			/* depth */, \
+    unsigned int	/* format */, \
+    int			/* w */, \
+    int			/* h */, \
+    int			/* sx */, \
+    int			/* sy */, \
+    int			/* sw */, \
+    int			/* sh */, \
+    int			/* dx */, \
+    int			/* dy */, \
+    char *		/* data */
+
+#define XSHM_CREATE_PIXMAP_ARGS \
+    ScreenPtr	/* pScreen */, \
+    int		/* width */, \
+    int		/* height */, \
+    int		/* depth */, \
+    char *	/* addr */
+
+typedef struct _ShmFuncs {
+    PixmapPtr	(* CreatePixmap)(XSHM_CREATE_PIXMAP_ARGS);
+    void	(* PutImage)(XSHM_PUT_IMAGE_ARGS);
+} ShmFuncs, *ShmFuncsPtr;
+
+extern _X_EXPORT void
 ShmRegisterFuncs(ScreenPtr pScreen, ShmFuncsPtr funcs);
 
-void
-ShmSetPixmapFormat(ScreenPtr pScreen, int format);
-
-void
+extern _X_EXPORT void
 ShmRegisterFbFuncs(ScreenPtr pScreen);
+
+extern _X_EXPORT RESTYPE ShmSegType;
+extern _X_EXPORT int ShmCompletionCode;
+extern _X_EXPORT int BadShmSegCode;
 
 #endif /* _SHMINT_H_ */

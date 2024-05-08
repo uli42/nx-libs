@@ -24,23 +24,18 @@ in this Software without prior written authorization from The Open Group.
 
 */
 
-#ifndef _XTEST_H_
-#define _XTEST_H_
+#ifndef _XTEST_CONST_H_
+#define _XTEST_CONST_H_
 
-#include <nx-X11/Xfuncproto.h>
+#define XTestNumberEvents	0
 
-#define X_XTestGetVersion      0
-#define X_XTestCompareCursor   1
-#define X_XTestFakeInput       2
-#define X_XTestGrabControl     3
+#define XTestNumberErrors	0
 
-#define XTestNumberEvents      0
+#define XTestCurrentCursor ((Cursor)1)
 
-#define XTestNumberErrors      0
+#define XTestMajorVersion	2
+#define XTestMinorVersion	2
 
-#define XTestMajorVersion      2
-#define XTestMinorVersion      2
-
-#define XTestExtensionName     "XTEST"
+#define XTestExtensionName	"XTEST"
 
 #endif

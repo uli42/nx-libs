@@ -1,6 +1,6 @@
 /************************************************************
 
-Author: Eamon Walsh <ewalsh@epoch.ncsc.mil>
+Author: Eamon Walsh <ewalsh@tycho.nsa.gov>
 
 Permission to use, copy, modify, distribute, and sell this software and its
 documentation for any purpose is hereby granted without fee, provided that
@@ -109,11 +109,12 @@ int XaceHook(int hook, ...)
             u.res.client = va_arg(ap, ClientPtr);
             u.res.id = va_arg(ap, XID);
             u.res.rtype = va_arg(ap, RESTYPE);
-            u.res.res = va_arg(ap, pointer);
+            u.res.res = va_arg(ap, void *);
             u.res.ptype = va_arg(ap, RESTYPE);
-            u.res.parent = va_arg(ap, pointer);
+            u.res.parent = va_arg(ap, void *);
             u.res.access_mode = va_arg(ap, Mask);
             u.res.status = Success; /* default allow */
+	    prv = &u.res.status;
 	    break;
 	case XACE_DEVICE_ACCESS:
             u.dev.client = va_arg(ap, ClientPtr);
@@ -208,15 +209,14 @@ int XaceHook(int hook, ...)
  *	region of the window will be destroyed (overwritten) in pBuf.
  */
 void
-XaceCensorImage(client, pVisibleRegion, widthBytesLine, pDraw, x, y, w, h,
-		format, pBuf)
-    ClientPtr client;
-    RegionPtr pVisibleRegion;
-    long widthBytesLine;
-    DrawablePtr pDraw;
-    int x, y, w, h;
-    unsigned int format;
-    char * pBuf;
+XaceCensorImage(
+	ClientPtr client,
+	RegionPtr pVisibleRegion,
+	long widthBytesLine,
+	DrawablePtr pDraw,
+	int x, int y, int w, int h,
+	unsigned int format,
+	char *pBuf)
 {
     RegionRec imageRegion;  /* region representing x,y,w,h */
     RegionRec censorRegion; /* region to obliterate */
@@ -246,7 +246,7 @@ XaceCensorImage(client, pVisibleRegion, widthBytesLine, pDraw, x, y, w, h,
 
 	/* convert region to list-of-rectangles for PolyFillRect */
 
-	pRects = (xRectangle *)malloc(nRects * sizeof(xRectangle));
+	pRects = malloc(nRects * sizeof(xRectangle));
 	if (!pRects)
 	{
 	    failed = TRUE;
@@ -296,9 +296,9 @@ XaceCensorImage(client, pVisibleRegion, widthBytesLine, pDraw, x, y, w, h,
 	    /* Censoring was not completed above.  To be safe, wipe out
 	     * all the image data so that nothing trusted gets out.
 	     */
-	    bzero(pBuf, (int)(widthBytesLine * h));
+	    memset(pBuf, 0, (int)(widthBytesLine * h));
 	}
-	if (pRects)     free(pRects);
+	free(pRects);
 	if (pScratchGC) FreeScratchGC(pScratchGC);
 	if (pPix)       FreeScratchPixmapHeader(pPix);
     }

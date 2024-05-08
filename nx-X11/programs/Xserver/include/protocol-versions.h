@@ -53,11 +53,9 @@
 #define SERVER_DMX_PATCH_VERSION                20040604
 #endif /* !defined(NXAGENT_SERVER) */
 
-#ifndef NXAGENT_SERVER
 /* Generic event extension */
 #define SERVER_GE_MAJOR_VERSION                 1
 #define SERVER_GE_MINOR_VERSION                 0
-#endif /* !defined(NXAGENT_SERVER) */
 
 /* GLX */
 #define SERVER_GLX_MAJOR_VERSION		1
@@ -169,10 +167,8 @@
 #define SERVER_XRES_MINOR_VERSION		0
 #endif /* !defined(NXAGENT_SERVER) */
 
-#ifndef NXAGENT_SERVER
 /* XvMC */
 #define SERVER_XVMC_MAJOR_VERSION		1
 #define SERVER_XVMC_MINOR_VERSION		1
-#endif /* !defined(NXAGENT_SERVER) */
 
 #endif /* PROTOCOL_VERSIONS_H */

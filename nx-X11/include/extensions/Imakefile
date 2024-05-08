@@ -51,20 +51,20 @@ EXTRAHEADERS = \
 	$(NULL)
 
 HEADERS = \
-	xcmiscstr.h \
-	bigreqstr.h \
-	geproto.h \
+	xcmiscproto.h \
+	bigreqsproto.h \
+	ge.h geproto.h \
 	XI.h XIproto.h XI2.h XI2proto.h \
-	xtestconst.h xteststr.h \
+	xtestconst.h xtestproto.h \
 	XKB.h XKBgeom.h XKBproto.h XKBstr.h XKBsrv.h \
 	dbe.h dbeproto.h \
 	$(EXTRAHEADERS) \
 	record.h recordproto.h \
-	security.h securstr.h \
-	sync.h syncstr.h \
-	dpms.h dpmsstr.h \
-	shapeconst.h \
-	dpmsconst.h \
+	secur.h securproto.h \
+	shmproto.h \
+	syncproto.h syncconst.h \
+	dpmsproto.h dpmsconst.h \
+	shapeproto.h shapeconst.h \
 	$(NULL)
 
 all::

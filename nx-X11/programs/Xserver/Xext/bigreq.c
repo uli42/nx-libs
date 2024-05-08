@@ -36,33 +36,23 @@ from The Open Group.
 #include "os.h"
 #include "dixstruct.h"
 #include "extnsionst.h"
-#include <nx-X11/extensions/bigreqstr.h>
+#include <nx-X11/extensions/bigreqsproto.h>
 #include "opaque.h"
 
-static void BigReqResetProc(
-    ExtensionEntry * /* extEntry */
-);
-
 static DISPATCH_PROC(ProcBigReqDispatch);
+
+void BigReqExtensionInit(void);
 
 void
 BigReqExtensionInit(void)
 {
     AddExtension(XBigReqExtensionName, 0, 0,
 			ProcBigReqDispatch, ProcBigReqDispatch,
-			BigReqResetProc, StandardMinorOpcode);
-}
-
-/*ARGSUSED*/
-static void
-BigReqResetProc (extEntry)
-    ExtensionEntry	*extEntry;
-{
+		 NULL, StandardMinorOpcode);
 }
 
 static int
-ProcBigReqDispatch (client)
-    register ClientPtr	client;
+ProcBigReqDispatch (ClientPtr client)
 {
     REQUEST(xBigReqEnableReq);
     xBigReqEnableReply rep;
@@ -84,5 +74,5 @@ ProcBigReqDispatch (client)
 	swapl(&rep.max_request_size);
     }
     WriteToClient(client, sizeof(xBigReqEnableReply), &rep);
-    return(client->noClientException);
+    return Success;
 }

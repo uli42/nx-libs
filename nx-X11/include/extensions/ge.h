@@ -24,62 +24,37 @@
  *
  */
 
-#ifndef _GEPROTO_H_
-#define _GEPROTO_H_
+#ifndef _GE_H_
+#define _GE_H_
 
-#include <nx-X11/Xproto.h>
-#include <nx-X11/X.h>
-#include <nx-X11/extensions/ge.h>
-
-
-/*********************************************************
- *
- * Protocol request constants
- *
- */
-
-#define X_GEGetExtensionVersion 1
+#define GE_NAME         "Generic Event Extension"
+#define GE_MAJOR        1
+#define GE_MINOR        0
 
 /*********************************************************
  *
- * XGE protocol requests/replies
+ * Requests
  *
  */
 
-/* generic request */
-typedef struct {
-    CARD8   reqType;
-    CARD8   ReqType;
-    CARD16  length;
-} xGEReq;
+#define X_GEQueryVersion        0
 
+#define GENumberRequests       (X_GEQueryVersion + 1)
 
-/* QueryVersion */
-typedef struct {
-    CARD8	reqType;       /* input extension major code   */
-    CARD8	ReqType;       /* always X_GEQueryVersion */
-    CARD16	length;
-    CARD16	majorVersion;
-    CARD16	minorVersion;
-} xGEQueryVersionReq;
+/*********************************************************
+ *
+ * Events
+ *
+ */
 
-#define sz_xGEQueryVersionReq    8
+#define GENumberEvents        0
 
-typedef struct {
-    CARD8	repType;	/* X_Reply			*/
-    CARD8	RepType;	/* always X_GEQueryVersion */
-    CARD16	sequenceNumber;
-    CARD32	length;
-    CARD16	majorVersion;
-    CARD16	minorVersion;
-    CARD32	pad00;
-    CARD32	pad01;
-    CARD32	pad02;
-    CARD32	pad03;
-    CARD32	pad04;
-} xGEQueryVersionReply;
+/*********************************************************
+ *
+ * Errors
+ *
+ */
 
-#define sz_xGEQueryVersionReply    32
+#define GENumberErrors        0
 
-#endif /* _GEPROTO_H_ */
-
+#endif /* _GE_H_ */

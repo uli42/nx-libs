@@ -77,26 +77,24 @@ static void	    SertafiedWakeupHandler(
     void * /* LastSelectMask */
 );
 
-_X_EXPORT int
-ClientSleepUntil (client, revive, notifyFunc, closure)
-    ClientPtr	client;
-    TimeStamp	*revive;
-    void	(*notifyFunc)(
-        ClientPtr /* client */,
-        void *   /* closure */);
-    void	*closure;
+int
+ClientSleepUntil (ClientPtr client,
+                  TimeStamp *revive,
+                  void (*notifyFunc)(ClientPtr, void *),
+                  void * closure)
 {
     SertafiedPtr	pRequest, pReq, pPrev;
 
     if (SertafiedGeneration != serverGeneration)
     {
-	SertafiedResType = CreateNewResourceType (SertafiedDelete);
+	SertafiedResType = CreateNewResourceType (SertafiedDelete,
+						  "ClientSleep");
 	if (!SertafiedResType)
 	    return FALSE;
 	SertafiedGeneration = serverGeneration;
 	BlockHandlerRegistered = FALSE;
     }
-    pRequest = (SertafiedPtr) malloc (sizeof (SertafiedRec));
+    pRequest = malloc(sizeof (SertafiedRec));
     if (!pRequest)
 	return FALSE;
     pRequest->pClient = client;
@@ -138,9 +136,7 @@ ClientSleepUntil (client, revive, notifyFunc, closure)
 }
 
 static void
-ClientAwaken (client, closure)
-    ClientPtr	client;
-    void	*closure;
+ClientAwaken (ClientPtr client, void * closure)
 {
     if (!client->clientGone)
 	AttendClient (client);
@@ -148,9 +144,7 @@ ClientAwaken (client, closure)
 
 
 static int
-SertafiedDelete (value, id)
-    void * value;
-    XID id;
+SertafiedDelete (void * value, XID id)
 {
     SertafiedPtr	pRequest = (SertafiedPtr)value;
     SertafiedPtr	pReq, pPrev;
@@ -172,10 +166,7 @@ SertafiedDelete (value, id)
 }
 
 static void
-SertafiedBlockHandler (data, wt, LastSelectMask)
-    void	    *data;		/* unused */
-    OSTimePtr	    wt;			/* wait time */
-    void	    *LastSelectMask;
+SertafiedBlockHandler (void * data, OSTimePtr wt, void * LastSelectMask)
 {
     SertafiedPtr	    pReq, pNext;
     unsigned long	    delay;
@@ -208,10 +199,7 @@ SertafiedBlockHandler (data, wt, LastSelectMask)
 }
 
 static void
-SertafiedWakeupHandler (data, i, LastSelectMask)
-    void *	    data;
-    int		    i;
-    void *	    LastSelectMask;
+SertafiedWakeupHandler (void * data, int i, void * LastSelectMask)
 {
     SertafiedPtr	pReq, pNext;
     TimeStamp		now;
