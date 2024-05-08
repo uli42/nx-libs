@@ -57,9 +57,9 @@
 #ifndef _XI2PROTO_H_
 #define _XI2PROTO_H_
 
-#include <X11/Xproto.h>
-#include <X11/X.h>
-#include <X11/extensions/XI2.h>
+#include <nx-X11/Xproto.h>
+#include <nx-X11/X.h>
+#include <nx-X11/extensions/XI2.h>
 #include <stdint.h>
 
 /* make sure types have right sizes for protocol structures. */
