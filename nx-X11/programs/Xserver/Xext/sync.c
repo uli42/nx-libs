@@ -2118,7 +2118,7 @@ SyncExtensionInit(void)
 				 StandardMinorOpcode)) == NULL)
     {
 	ErrorF("Sync Extension %d.%d failed to Initialise\n",
-		SYNC_MAJOR_VERSION, SYNC_MINOR_VERSION);
+		SERVER_SYNC_MAJOR_VERSION, SERVER_SYNC_MINOR_VERSION);
 	return;
     }
 
@@ -2141,7 +2141,7 @@ SyncExtensionInit(void)
 
 #ifdef DEBUG
     fprintf(stderr, "Sync Extension %d.%d\n",
-	    SYNC_MAJOR_VERSION, SYNC_MINOR_VERSION);
+	    SERVER_SYNC_MAJOR_VERSION, SERVER_SYNC_MINOR_VERSION);
 #endif
 }
 
