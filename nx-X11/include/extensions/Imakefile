@@ -61,7 +61,7 @@ HEADERS = \
 	$(EXTRAHEADERS) \
 	record.h recordproto.h \
 	secur.h securproto.h \
-	shmproto.h \
+	shm.h shmproto.h \
 	syncproto.h syncconst.h \
 	dpmsproto.h dpmsconst.h \
 	shapeproto.h shapeconst.h \
