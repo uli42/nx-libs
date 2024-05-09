@@ -20,5 +20,5 @@ render            1.5.3
 Xext              1.9.5
 xfixes            1.9.5  Extension version: 4.0
 Xi                1.9.5  Extension version: 2.0
-xkb               1.5.3
+xkb               1.9.5
 
