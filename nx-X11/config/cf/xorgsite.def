@@ -380,4 +380,4 @@
 /*
  * Use dix/registry.c for resource management
  */
-#define UseRegistry		NO
+#define UseRegistry		YES
