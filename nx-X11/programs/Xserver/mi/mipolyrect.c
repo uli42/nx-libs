@@ -27,13 +27,13 @@ Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts.
 
                         All Rights Reserved
 
-Permission to use, copy, modify, and distribute this software and its 
-documentation for any purpose and without fee is hereby granted, 
+Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose and without fee is hereby granted,
 provided that the above copyright notice appear in all copies and that
-both that copyright notice and this permission notice appear in 
+both that copyright notice and this permission notice appear in
 supporting documentation, and that the name of Digital not be
 used in advertising or publicity pertaining to distribution of the
-software without specific, written prior permission.  
+software without specific, written prior permission.
 
 DIGITAL DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING
 ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL
@@ -56,11 +56,7 @@ SOFTWARE.
 #include "mi.h"
 
 void
-miPolyRectangle(pDraw, pGC, nrects, pRects)
-    DrawablePtr	pDraw;
-    GCPtr	pGC;
-    int		nrects;
-    xRectangle	*pRects;
+miPolyRectangle(DrawablePtr pDraw, GCPtr pGC, int nrects, xRectangle *pRects)
 {
     int i;
     xRectangle *pR = pRects;
@@ -94,7 +90,7 @@ miPolyRectangle(pDraw, pGC, nrects, pRects)
 	offset2 = pGC->lineWidth;
 	offset1 = offset2 >> 1;
 	offset3 = offset2 - offset1;
-	tmp = (xRectangle *) malloc(ntmp * sizeof (xRectangle));
+	tmp = malloc(ntmp * sizeof (xRectangle));
 	if (!tmp)
 	    return;
 	t = tmp;
@@ -171,19 +167,19 @@ miPolyRectangle(pDraw, pGC, nrects, pRects)
     	{
 	    rect[0].x = pR->x;
 	    rect[0].y = pR->y;
-    
+
 	    MAXBOUND(rect[1].x, pR->x + (int) pR->width)
 	    rect[1].y = rect[0].y;
-    
+
 	    rect[2].x = rect[1].x;
 	    MAXBOUND(rect[2].y, pR->y + (int) pR->height);
-    
+
 	    rect[3].x = rect[0].x;
 	    rect[3].y = rect[2].y;
-    
+
 	    rect[4].x = rect[0].x;
 	    rect[4].y = rect[0].y;
-    
+
             (*pGC->ops->Polylines)(pDraw, pGC, CoordModeOrigin, 5, rect);
 	    pR++;
     	}

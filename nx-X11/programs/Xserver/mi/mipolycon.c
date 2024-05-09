@@ -27,13 +27,13 @@ Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts.
 
                         All Rights Reserved
 
-Permission to use, copy, modify, and distribute this software and its 
-documentation for any purpose and without fee is hereby granted, 
+Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose and without fee is hereby granted,
 provided that the above copyright notice appear in all copies and that
-both that copyright notice and this permission notice appear in 
+both that copyright notice and this permission notice appear in
 supporting documentation, and that the name of Digital not be
 used in advertising or publicity pertaining to distribution of the
-software without specific, written prior permission.  
+software without specific, written prior permission.
 
 DIGITAL DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING
 ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL
@@ -72,11 +72,12 @@ static int getPolyYBounds(DDXPointPtr pts, int n, int *by, int *ty);
  *     this code.
  */
 Bool
-miFillConvexPoly(dst, pgc, count, ptsIn)
-    DrawablePtr dst;
-    GCPtr	pgc;
-    int		count;                /* number of points        */
-    DDXPointPtr ptsIn;                /* the points              */
+miFillConvexPoly(
+    DrawablePtr dst,
+    GCPtr	pgc,
+    int		count,                /* number of points        */
+    DDXPointPtr ptsIn                 /* the points              */
+    )
 {
     int xl = 0, xr = 0; /* x vals of left and right edges */
     int dl = 0, dr = 0; /* decision variables             */
@@ -103,14 +104,14 @@ miFillConvexPoly(dst, pgc, count, ptsIn)
 
     dy = ymax - ymin + 1;
     if ((count < 3) || (dy < 0))
-	return(TRUE);
-    ptsOut = FirstPoint = (DDXPointPtr )malloc(sizeof(DDXPointRec)*dy);
-    width = FirstWidth = (int *)malloc(sizeof(int) * dy);
+	return TRUE;
+    ptsOut = FirstPoint = malloc(sizeof(DDXPointRec)*dy);
+    width = FirstWidth = malloc(sizeof(int) * dy);
     if(!FirstPoint || !FirstWidth)
     {
-	if (FirstWidth) free(FirstWidth);
-	if (FirstPoint) free(FirstPoint);
-	return(FALSE);
+	free(FirstWidth);
+	free(FirstPoint);
+	return FALSE;
     }
 
     nextleft = nextright = imin;
@@ -176,21 +177,21 @@ miFillConvexPoly(dst, pgc, count, ptsIn)
         {
 	    free(FirstWidth);
 	    free(FirstPoint);
-	    return(TRUE);
+	    return TRUE;
 	}
-        while (i-- > 0) 
+        while (i-- > 0)
         {
             ptsOut->y = y;
 
             /*
              *  reverse the edges if necessary
              */
-            if (xl < xr) 
+            if (xl < xr)
             {
                 *(width++) = xr - xl;
                 (ptsOut++)->x = xl;
             }
-            else 
+            else
             {
                 *(width++) = xl - xr;
                 (ptsOut++)->x = xr;
@@ -206,12 +207,12 @@ miFillConvexPoly(dst, pgc, count, ptsIn)
     /*
      * Finally, fill the <remaining> spans
      */
-    (*pgc->ops->FillSpans)(dst, pgc, 
+    (*pgc->ops->FillSpans)(dst, pgc,
 		      ptsOut-FirstPoint,FirstPoint,FirstWidth,
 		      1);
     free(FirstWidth);
     free(FirstPoint);
-    return(TRUE);
+    return TRUE;
 }
 
 
@@ -242,5 +243,5 @@ getPolyYBounds(DDXPointPtr pts, int n, int *by, int *ty)
 
     *by = ymin;
     *ty = ymax;
-    return(ptMin-ptsStart);
+    return ptMin-ptsStart;
 }

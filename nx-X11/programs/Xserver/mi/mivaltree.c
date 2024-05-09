@@ -27,19 +27,19 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 
  *
- * Copyright 1987, 1988, 1989 by 
+ * Copyright 1987, 1988, 1989 by
  * Digital Equipment Corporation, Maynard, Massachusetts,
- * 
+ *
  *                         All Rights Reserved
- * 
- * Permission to use, copy, modify, and distribute this software and its 
- * documentation for any purpose and without fee is hereby granted, 
+ *
+ * Permission to use, copy, modify, and distribute this software and its
+ * documentation for any purpose and without fee is hereby granted,
  * provided that the above copyright notice appear in all copies and that
- * both that copyright notice and this permission notice appear in 
+ * both that copyright notice and this permission notice appear in
  * supporting documentation, and that the name of Digital not be
  * used in advertising or publicity pertaining to distribution of the
- * software without specific, written prior permission.  
- * 
+ * software without specific, written prior permission.
+ *
  * DIGITAL DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING
  * ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL
  * DIGITAL BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR
@@ -47,7 +47,7 @@ in this Software without prior written authorization from The Open Group.
  * WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION,
  * ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS
  * SOFTWARE.
- * 
+ *
  ******************************************************************/
 
 /* The panoramix components contained the following notice */
@@ -80,7 +80,7 @@ Equipment Corporation.
 ******************************************************************/
 
 
- /* 
+ /*
   * Aug '86: Susan Angebranndt -- original code
   * July '87: Adam de Boor -- substantially modified and commented
   * Summer '89: Joel McCormack -- so fast you wouldn't believe it possible.
@@ -103,16 +103,12 @@ Equipment Corporation.
 
 #include    "globals.h"
 
-#ifdef SHAPE
 /*
  * Compute the visibility of a shaped window
  */
 int
-miShapedWindowIn (pScreen, universe, bounding, rect, x, y)
-    ScreenPtr	pScreen;
-    RegionPtr	universe, bounding;
-    BoxPtr	rect;
-    int 	x, y;
+miShapedWindowIn (RegionPtr universe, RegionPtr bounding,
+                  BoxPtr rect, int x, int y)
 {
     BoxRec  	box;
     BoxPtr	boundBox;
@@ -166,7 +162,6 @@ miShapedWindowIn (pScreen, universe, bounding, rect, x, y)
 	return rgnIN;
     return rgnOUT;
 }
-#endif
 
 static GetRedirectBorderClipProcPtr	miGetRedirectBorderClipProc;
 static SetRedirectBorderClipProcPtr	miSetRedirectBorderClipProc;
@@ -264,20 +259,19 @@ miComputeClips (
 #endif
 
     oldVis = pParent->visibility;
-    switch (RegionContainsRect(universe, &borderSize)) 
+    switch (RegionContainsRect(universe, &borderSize))
     {
 	case rgnIN:
 	    newVis = VisibilityUnobscured;
 	    break;
 	case rgnPART:
 	    newVis = VisibilityPartiallyObscured;
-#ifdef SHAPE
 	    {
 		RegionPtr   pBounding;
 
 		if ((pBounding = wBoundingShape (pParent)))
 		{
-		    switch (miShapedWindowIn (pScreen, universe, pBounding,
+		    switch (miShapedWindowIn (universe, pBounding,
 					      &borderSize,
 					      pParent->drawable.x,
  					      pParent->drawable.y))
@@ -291,7 +285,6 @@ miComputeClips (
 		    }
 		}
 	    }
-#endif
 	    break;
 	default:
 	    newVis = VisibilityFullyObscured;
@@ -337,12 +330,10 @@ miComputeClips (
 		    }
 		    if (pChild->valdata)
 		    {
-			RegionNull(
-				    &pChild->valdata->after.borderExposed);
+			RegionNull(&pChild->valdata->after.borderExposed);
 			if (HasParentRelativeBorder(pChild))
 			{
-			    RegionSubtract(
-					 &pChild->valdata->after.borderExposed,
+			    RegionSubtract(&pChild->valdata->after.borderExposed,
 					 &pChild->borderClip,
 					 &pChild->winSize);
 			}
@@ -369,7 +360,7 @@ miComputeClips (
      	 * borderClip and clipList regions to the window's new location so there
      	 * is a correspondence between pieces of the new and old clipping regions.
      	 */
-    	if (dx || dy) 
+    	if (dx || dy)
     	{
 	    /*
 	     * We translate the old clipList because that will be exposed or copied
@@ -377,7 +368,7 @@ miComputeClips (
 	     */
 	    RegionTranslate(&pParent->borderClip, dx, dy);
 	    RegionTranslate(&pParent->clipList, dx, dy);
-    	} 
+    	}
 	break;
     case VTBroken:
 	RegionEmpty(&pParent->borderClip);
@@ -423,18 +414,18 @@ miComputeClips (
 			       exposed, &pParent->winSize);
 
     	RegionCopy(&pParent->borderClip, universe);
-    
+
     	/*
      	 * To get the right clipList for the parent, and to make doubly sure
      	 * that no child overlaps the parent's border, we remove the parent's
      	 * border from the universe before proceeding.
      	 */
-    
+
     	RegionIntersect(universe, universe, &pParent->winSize);
     }
     else
     	RegionCopy(&pParent->borderClip, universe);
-    
+
     if ((pChild = pParent->firstChild) && pParent->mapped)
     {
 	RegionNull(&childUniverse);
@@ -595,11 +586,12 @@ miTreeObscured(
  */
 /*ARGSUSED*/
 int
-miValidateTree (pParent, pChild, kind)
-    WindowPtr	  	pParent;    /* Parent to validate */
-    WindowPtr	  	pChild;     /* First child of pParent that was
+miValidateTree (
+    WindowPtr		pParent,    /* Parent to validate */
+    WindowPtr		pChild,     /* First child of pParent that was
 				     * affected */
-    VTKind    	  	kind;       /* What kind of configuration caused call */
+    VTKind		kind        /* What kind of configuration caused call */
+    )
 {
     RegionRec	  	totalClip;  /* Total clipping region available to
 				     * the marked children. pParent's clipList
@@ -654,7 +646,7 @@ miValidateTree (pParent, pChild, kind)
 	
 	RegionEmpty(&pParent->clipList);
     }
-    else 
+    else
     {
 	if ((pChild->drawable.y < pParent->lastChild->drawable.y) ||
 	    ((pChild->drawable.y == pParent->lastChild->drawable.y) &&
@@ -773,7 +765,7 @@ miValidateTree (pParent, pChild, kind)
 		if (pScreen->ClipNotify)
 		    (* pScreen->ClipNotify) (pWin, 0, 0);
 		RegionEmpty(&pWin->borderClip);
-		pWin->valdata = (ValidatePtr)NULL;
+		pWin->valdata = NULL;
 	    }
 	}
     }
@@ -815,5 +807,5 @@ miValidateTree (pParent, pChild, kind)
     RegionUninit(&exposed);
     if (pScreen->ClipNotify)
 	(*pScreen->ClipNotify) (pParent, 0, 0);
-    return (1);
+    return 1;
 }

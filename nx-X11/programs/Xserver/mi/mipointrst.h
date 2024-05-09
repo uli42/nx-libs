@@ -29,6 +29,9 @@ used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from The Open Group.
 */
 
+#ifndef MIPOINTRST_H
+#define MIPOINTRST_H
+
 #include "mipointer.h"
 #include "scrnintstr.h"
 
@@ -38,7 +41,7 @@ typedef struct {
     CursorPtr		    pCursor;    /* current cursor */
     CursorPtr		    pSpriteCursor;/* cursor on screen */
     BoxRec		    limits;	/* current constraints */
-    Bool		    confined;	/* pointer can't change screens */
+    Bool		    confined;	/* void * can't change screens */
     int			    x, y;	/* hot spot location */
     int			    devx, devy;	/* sprite position */
 } miPointerRec, *miPointerPtr;
@@ -50,3 +53,4 @@ typedef struct {
     Bool		    waitForUpdate;	/* don't move cursor in SIGIO */
     Bool		    showTransparent;	/* show empty cursors */
 } miPointerScreenRec, *miPointerScreenPtr;
+#endif /* MIPOINTRST_H */

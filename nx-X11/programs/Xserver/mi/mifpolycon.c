@@ -27,13 +27,13 @@ Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts.
 
                         All Rights Reserved
 
-Permission to use, copy, modify, and distribute this software and its 
-documentation for any purpose and without fee is hereby granted, 
+Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose and without fee is hereby granted,
 provided that the above copyright notice appear in all copies and that
-both that copyright notice and this permission notice appear in 
+both that copyright notice and this permission notice appear in
 supporting documentation, and that the name of Digital not be
 used in advertising or publicity pertaining to distribution of the
-software without specific, written prior permission.  
+software without specific, written prior permission.
 
 DIGITAL DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING
 ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL
@@ -71,18 +71,20 @@ static int GetFPolyYBounds(SppPointPtr pts, int n, double yFtrans,
  *	interpolation involved because of the subpixel postioning.
  */
 void
-miFillSppPoly(dst, pgc, count, ptsIn, xTrans, yTrans, xFtrans, yFtrans)
-    DrawablePtr 	dst;
-    GCPtr		pgc;
-    int			count;          /* number of points */
-    SppPointPtr 	ptsIn;          /* the points */
-    int			xTrans, yTrans;	/* Translate each point by this */
-    double		xFtrans, yFtrans;	/* translate before conversion
+miFillSppPoly(
+    DrawablePtr		dst,
+    GCPtr		pgc,
+    int			count,          /* number of points */
+    SppPointPtr		ptsIn,          /* the points */
+    int			xTrans, int yTrans,	/* Translate each point by this */
+    double		xFtrans,
+    double		yFtrans                 /* translate before conversion
     						   by this amount.  This provides
 						   a mechanism to match rounding
 						   errors with any shape that must
 						   meet the polygon exactly.
 						 */
+    )
 {
     double		xl = 0.0, xr = 0.0,	/* x vals of left and right edges */
           		ml = 0.0,      	/* left edge slope */
@@ -114,15 +116,15 @@ miFillSppPoly(dst, pgc, count, ptsIn, xTrans, yTrans, xFtrans, yFtrans)
     y = ymax - ymin + 1;
     if ((count < 3) || (y <= 0))
 	return;
-    ptsOut = FirstPoint = (DDXPointPtr)malloc(sizeof(DDXPointRec) * y);
-    width = FirstWidth = (int *) malloc(sizeof(int) * y);
-    Marked = (int *) malloc(sizeof(int) * count);
+    ptsOut = FirstPoint = malloc(sizeof(DDXPointRec) * y);
+    width = FirstWidth = malloc(sizeof(int) * y);
+    Marked = malloc(sizeof(int) * count);
 
     if(!ptsOut || !width || !Marked)
     {
-	if (Marked) free(Marked);
-	if (width) free(width);
-	if (ptsOut) free(ptsOut);
+	free(Marked);
+	free(width);
+	free(ptsOut);
 	return;
     }
 
@@ -152,10 +154,10 @@ miFillSppPoly(dst, pgc, count, ptsIn, xTrans, yTrans, xFtrans, yFtrans)
             /* now compute the starting point and slope */
 	    dy = ptsIn[nextleft].y - ptsIn[left].y;
 	    if (dy != 0.0)
-	    { 
+	    {
 		ml = (ptsIn[nextleft].x - ptsIn[left].x) / dy;
 		dy = y - (ptsIn[left].y + yFtrans);
-		xl = (ptsIn[left].x + xFtrans) + ml * max(dy, 0); 
+		xl = (ptsIn[left].x + xFtrans) + ml * max(dy, 0);
 	    }
         }
 
@@ -173,10 +175,10 @@ miFillSppPoly(dst, pgc, count, ptsIn, xTrans, yTrans, xFtrans, yFtrans)
 
             /* now compute the starting point and slope */
 	    dy = ptsIn[nextright].y - ptsIn[right].y;
-	    if (dy != 0.0) 
-	    { 
+	    if (dy != 0.0)
+	    {
 		mr = (ptsIn[nextright].x - ptsIn[right].x) / dy;
-		dy = y - (ptsIn[right].y + yFtrans); 
+		dy = y - (ptsIn[right].y + yFtrans);
 		xr = (ptsIn[right].x + xFtrans) + mr * max(dy, 0);
 	    }
         }
@@ -192,7 +194,7 @@ miFillSppPoly(dst, pgc, count, ptsIn, xTrans, yTrans, xFtrans, yFtrans)
 	{
 	    if(Marked[nextleft] && Marked[nextright])
 	    {
-	        /* Arrgh, we're trapped! (no more points) 
+	        /* Arrgh, we're trapped! (no more points)
 	         * Out, we've got to get out of here before this decadence saps
 	         * our will completely! */
 	        break;
@@ -205,7 +207,7 @@ miFillSppPoly(dst, pgc, count, ptsIn, xTrans, yTrans, xFtrans, yFtrans)
 		if(!j)
 		    j++;
 	}
-        while (j > 0) 
+        while (j > 0)
         {
 	    int cxl, cxr;
 
@@ -214,12 +216,12 @@ miFillSppPoly(dst, pgc, count, ptsIn, xTrans, yTrans, xFtrans, yFtrans)
 	    cxl = ICEIL(xl);
 	    cxr = ICEIL(xr);
             /* reverse the edges if necessary */
-            if (xl < xr) 
+            if (xl < xr)
             {
                 *(width++) = cxr - cxl;
                 (ptsOut++)->x = cxl + xTrans;
             }
-            else 
+            else
             {
                 *(width++) = cxl - cxr;
                 (ptsOut++)->x = cxr + xTrans;
@@ -234,7 +236,7 @@ miFillSppPoly(dst, pgc, count, ptsIn, xTrans, yTrans, xFtrans, yFtrans)
     }  while (y <= ymax);
 
     /* Finally, fill the spans we've collected */
-    (*pgc->ops->FillSpans)(dst, pgc, 
+    (*pgc->ops->FillSpans)(dst, pgc,
 		      ptsOut-FirstPoint, FirstPoint, FirstWidth, 1);
     free(Marked);
     free(FirstWidth);
@@ -274,5 +276,5 @@ GetFPolyYBounds(
 
     *by = ICEIL(ymin + yFtrans);
     *ty = ICEIL(ymax + yFtrans - 1);
-    return(ptMin-ptsStart);
+    return ptMin-ptsStart;
 }

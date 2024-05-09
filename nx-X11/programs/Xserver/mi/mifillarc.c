@@ -53,9 +53,7 @@ Author:  Bob Scheifler, MIT X Consortium
 #define Dcos(d)	cos((double)d*(M_PI/11520.0))
 
 void
-miFillArcSetup(arc, info)
-    xArc *arc;
-    miFillArcRec *info;
+miFillArcSetup(xArc *arc, miFillArcRec *info)
 {
     info->y = arc->height >> 1;
     info->dy = arc->height & 1;
@@ -142,7 +140,7 @@ miGetArcEdge(
 	     xArc *arc,
 	     miSliceEdgePtr edge,
 	     int k,
-	     Bool top, 
+	     Bool top,
 	     Bool left )
 {
     int xady, y;
@@ -266,7 +264,7 @@ miGetPieEdge(
 	     xArc *arc,
 	     int angle,
 	     miSliceEdgePtr edge,
-	     Bool top, 
+	     Bool top,
 	     Bool left )
 {
     int k;
@@ -307,10 +305,7 @@ miGetPieEdge(
 }
 
 void
-miFillArcSliceSetup(arc, slice, pGC)
-    xArc *arc;
-    miArcSliceRec *slice;
-    GCPtr pGC;
+miFillArcSliceSetup(xArc *arc, miArcSliceRec *slice, GCPtr pGC)
 {
     int angle1, angle2;
 
@@ -551,10 +546,10 @@ miFillEllipseI(
     int *widths;
     int *wids;
 
-    points = (DDXPointPtr)malloc(sizeof(DDXPointRec) * arc->height);
+    points = malloc(sizeof(DDXPointRec) * arc->height);
     if (!points)
 	return;
-    widths = (int *)malloc(sizeof(int) * arc->height);
+    widths = malloc(sizeof(int) * arc->height);
     if (!widths)
     {
 	free(points);
@@ -594,10 +589,10 @@ miFillEllipseD(
     int *widths;
     int *wids;
 
-    points = (DDXPointPtr)malloc(sizeof(DDXPointRec) * arc->height);
+    points = malloc(sizeof(DDXPointRec) * arc->height);
     if (!points)
 	return;
-    widths = (int *)malloc(sizeof(int) * arc->height);
+    widths = malloc(sizeof(int) * arc->height);
     if (!widths)
     {
 	free(points);
@@ -666,10 +661,10 @@ miFillArcSliceI(
     slw = arc->height;
     if (slice.flip_top || slice.flip_bot)
 	slw += (arc->height >> 1) + 1;
-    points = (DDXPointPtr)malloc(sizeof(DDXPointRec) * slw);
+    points = malloc(sizeof(DDXPointRec) * slw);
     if (!points)
 	return;
-    widths = (int *)malloc(sizeof(int) * slw);
+    widths = malloc(sizeof(int) * slw);
     if (!widths)
     {
 	free(points);
@@ -730,10 +725,10 @@ miFillArcSliceD(
     slw = arc->height;
     if (slice.flip_top || slice.flip_bot)
 	slw += (arc->height >> 1) + 1;
-    points = (DDXPointPtr)malloc(sizeof(DDXPointRec) * slw);
+    points = malloc(sizeof(DDXPointRec) * slw);
     if (!points)
 	return;
-    widths = (int *)malloc(sizeof(int) * slw);
+    widths = malloc(sizeof(int) * slw);
     if (!widths)
     {
 	free(points);
@@ -776,11 +771,7 @@ miFillArcSliceD(
  * fill each arc as it comes.
  */
 void
-miPolyFillArc(pDraw, pGC, narcs, parcs)
-    DrawablePtr	pDraw;
-    GCPtr	pGC;
-    int		narcs;
-    xArc	*parcs;
+miPolyFillArc(DrawablePtr pDraw, GCPtr pGC, int narcs, xArc *parcs)
 {
     int i;
     xArc *arc;
@@ -788,7 +779,7 @@ miPolyFillArc(pDraw, pGC, narcs, parcs)
     for(i = narcs, arc = parcs; --i >= 0; arc++)
     {
 	if (miFillArcEmpty(arc))
-	    continue;;
+	    continue;
 	if ((arc->angle2 >= FULLCIRCLE) || (arc->angle2 <= -FULLCIRCLE))
 	{
 	    if (miCanFillArc(arc))

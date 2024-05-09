@@ -27,13 +27,13 @@ Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts.
 
                         All Rights Reserved
 
-Permission to use, copy, modify, and distribute this software and its 
-documentation for any purpose and without fee is hereby granted, 
+Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose and without fee is hereby granted,
 provided that the above copyright notice appear in all copies and that
-both that copyright notice and this permission notice appear in 
+both that copyright notice and this permission notice appear in
 supporting documentation, and that the name of Digital not be
 used in advertising or publicity pertaining to distribution of the
-software without specific, written prior permission.  
+software without specific, written prior permission.
 
 DIGITAL DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING
 ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL
@@ -49,6 +49,7 @@ SOFTWARE.
 #endif
 
 #include <nx-X11/X.h>
+#include <nx-X11/extensions/shapeconst.h>
 #include "regionstr.h"
 #include "region.h"
 #include "mi.h"
@@ -57,17 +58,14 @@ SOFTWARE.
 #include "pixmapstr.h"
 #include "mivalidate.h"
 
-void 
-miClearToBackground(pWin, x, y, w, h, generateExposures)
-    WindowPtr pWin;
-    int x,y;
-    int w,h;
-    Bool generateExposures;
+void
+miClearToBackground(WindowPtr pWin,
+                    int x, int y, int w, int h,
+                    Bool generateExposures)
 {
     BoxRec box;
     RegionRec	reg;
     RegionPtr pBSReg = NullRegion;
-    ScreenPtr	pScreen;
     BoxPtr  extents;
     int	    x1, y1, x2, y2;
 
@@ -85,7 +83,7 @@ miClearToBackground(pWin, x, y, w, h, generateExposures)
         y2 = y1 + (int) pWin->drawable.height - (int) y;
 
     extents = &pWin->clipList.extents;
-    
+
     /* clip the resulting rectangle to the window clipList extents.  This
      * makes sure that the result will fit in a box, given that the
      * screen is < 32768 on a side.
@@ -111,12 +109,11 @@ miClearToBackground(pWin, x, y, w, h, generateExposures)
     box.y1 = y1;
     box.y2 = y2;
 
-    pScreen = pWin->drawable.pScreen;
     RegionInit(&reg, &box, 1);
 
     RegionIntersect(&reg, &reg, &pWin->clipList);
     if (generateExposures)
-	(*pScreen->WindowExposures)(pWin, &reg, pBSReg);
+	(*pWin->drawable.pScreen->WindowExposures)(pWin, &reg, pBSReg);
     else if (pWin->backgroundState != None)
 	miPaintWindow(pWin, &reg, PW_BACKGROUND);
     RegionUninit(&reg);
@@ -124,211 +121,8 @@ miClearToBackground(pWin, x, y, w, h, generateExposures)
 	RegionDestroy(pBSReg);
 }
 
-/*
- * For SaveUnders using backing-store. The idea is that when a window is mapped
- * with saveUnder set TRUE, any windows it obscures will have its backing
- * store turned on setting the DIXsaveUnder bit,
- * The backing-store code must be written to allow for this
- */
-
-/*-
- *-----------------------------------------------------------------------
- * miCheckSubSaveUnder --
- *	Check all the inferiors of a window for coverage by saveUnder
- *	windows. Called from ChangeSaveUnder and CheckSaveUnder.
- *	This code is very inefficient.
- *
- * Results:
- *	TRUE if any windows need to have backing-store removed.
- *
- * Side Effects:
- *	Windows may have backing-store turned on or off.
- *
- *-----------------------------------------------------------------------
- */
-static Bool
-miCheckSubSaveUnder(
-    WindowPtr		pParent,	/* Parent to check */
-    WindowPtr		pFirst,		/* first reconfigured window */
-    RegionPtr		pRegion)	/* Initial area obscured by saveUnder */
-{
-    WindowPtr		pChild;		/* Current child */
-    ScreenPtr		pScreen;	/* Screen to use */
-    RegionRec		SubRegion;	/* Area of children obscured */
-    Bool		res = FALSE;	/* result */
-    Bool		subInited=FALSE;/* SubRegion initialized */
-
-    pScreen = pParent->drawable.pScreen;
-    if ( (pChild = pParent->firstChild) )
-    {
-	/*
-	 * build region above first changed window
-	 */
-
-	for (; pChild != pFirst; pChild = pChild->nextSib)
-	    if (pChild->viewable && pChild->saveUnder)
-		RegionUnion(pRegion, pRegion, &pChild->borderSize);
-	
-	/*
-	 * check region below and including first changed window
-	 */
-
-	for (; pChild; pChild = pChild->nextSib)
-	{
-	    if (pChild->viewable)
-	    {
-		/*
-		 * don't save under nephew/niece windows;
-		 * use a separate region
-		 */
-
-		if (pChild->firstChild)
-		{
-		    if (!subInited)
-		    {
-			RegionNull(&SubRegion);
-			subInited = TRUE;
-		    }
-		    RegionCopy(&SubRegion, pRegion);
-		    res |= miCheckSubSaveUnder(pChild, pChild->firstChild,
-					     &SubRegion);
-		}
-		else
-		{
-		    res |= miCheckSubSaveUnder(pChild, pChild->firstChild,
-					     pRegion);
-		}
-
-		if (pChild->saveUnder)
-		    RegionUnion(pRegion, pRegion, &pChild->borderSize);
-	    }
-	}
-
-	if (subInited)
-	    RegionUninit(&SubRegion);
-    }
-
-    /*
-     * Check the state of this window.	DIX save unders are
-     * enabled for viewable windows with some client expressing
-     * exposure interest and which intersect the save under region
-     */
-
-    if (pParent->viewable && 
-	((pParent->eventMask | wOtherEventMasks(pParent)) & ExposureMask) &&
-	RegionNotEmpty(&pParent->borderSize) &&
-	RegionContainsRect(pRegion, RegionExtents(
-					&pParent->borderSize)) != rgnOUT)
-    {
-	if (!pParent->DIXsaveUnder)
-	{
-	    pParent->DIXsaveUnder = TRUE;
-	    (*pScreen->ChangeWindowAttributes) (pParent, CWBackingStore);
-	}
-    }
-    else
-    {
-	if (pParent->DIXsaveUnder)
-	{
-	    res = TRUE;
-	    pParent->DIXsaveUnder = FALSE;
-	}
-    }
-    return res;
-}
-
-
-/*-
- *-----------------------------------------------------------------------
- * miChangeSaveUnder --
- *	Change the save-under state of a tree of windows. Called when
- *	a window with saveUnder TRUE is mapped/unmapped/reconfigured.
- *	
- * Results:
- *	TRUE if any windows need to have backing-store removed (which
- *	means that PostChangeSaveUnder needs to be called later to 
- *	finish the job).
- *
- * Side Effects:
- *	Windows may have backing-store turned on or off.
- *
- *-----------------------------------------------------------------------
- */
-Bool
-miChangeSaveUnder(pWin, first)
-    WindowPtr		pWin;
-    WindowPtr		first;		/* First window to check.
-					 * Used when pWin was restacked */
-{
-    RegionRec	rgn;	/* Area obscured by saveUnder windows */
-    Bool	res;
-
-    if (!deltaSaveUndersViewable && !numSaveUndersViewable)
-	return FALSE;
-    numSaveUndersViewable += deltaSaveUndersViewable;
-    deltaSaveUndersViewable = 0;
-    RegionNull(&rgn);
-    res = miCheckSubSaveUnder (pWin->parent,
-			       pWin->saveUnder ? first : pWin->nextSib,
-			       &rgn);
-    RegionUninit(&rgn);
-    return res;
-}
-
-/*-
- *-----------------------------------------------------------------------
- * miPostChangeSaveUnder --
- *	Actually turn backing-store off for those windows that no longer
- *	need to have it on.
- *
- * Results:
- *	None.
- *
- * Side Effects:
- *	Backing-store and SAVE_UNDER_CHANGE_BIT are turned off for those
- *	windows affected.
- *
- *-----------------------------------------------------------------------
- */
 void
-miPostChangeSaveUnder(pWin, pFirst)
-    WindowPtr		pWin;
-    WindowPtr		pFirst;
-{
-    WindowPtr pParent, pChild;
-    ChangeWindowAttributesProcPtr myChangeWindowAttributes;
-
-    if (!(pParent = pWin->parent))
-	return;
-    myChangeWindowAttributes = pParent->drawable.pScreen->ChangeWindowAttributes;
-    if (!pParent->DIXsaveUnder &&
-	(pParent->backingStore == NotUseful) && pParent->backStorage)
-	(*myChangeWindowAttributes)(pParent, CWBackingStore);
-    if (!(pChild = pFirst))
-	return;
-    while (1)
-    {
-	if (!pChild->DIXsaveUnder &&
-	    (pChild->backingStore == NotUseful) && pChild->backStorage)
-	    (*myChangeWindowAttributes)(pChild, CWBackingStore);
-	if (pChild->firstChild)
-	{
-	    pChild = pChild->firstChild;
-	    continue;
-	}
-	while (!pChild->nextSib)
-	{
-	    pChild = pChild->parent;
-	    if (pChild == pParent)
-		return;
-	}
-	pChild = pChild->nextSib;
-    }
-}
-
-void
-miMarkWindow(pWin)
-    WindowPtr pWin;
+miMarkWindow(WindowPtr pWin)
 {
     ValidatePtr val;
 
@@ -343,10 +137,7 @@ miMarkWindow(pWin)
 }
 
 Bool
-miMarkOverlappedWindows(pWin, pFirst, ppLayerWin)
-    WindowPtr pWin;
-    WindowPtr pFirst;
-    WindowPtr *ppLayerWin;
+miMarkOverlappedWindows(WindowPtr pWin, WindowPtr pFirst, WindowPtr *ppLayerWin)
 {
     BoxPtr box;
     WindowPtr pChild, pLast;
@@ -429,8 +220,7 @@ miMarkOverlappedWindows(pWin, pFirst, ppLayerWin)
  *    and then send any regions still exposed to the client
  *****/
 void
-miHandleValidateExposures(pWin)
-    WindowPtr pWin;
+miHandleValidateExposures(WindowPtr pWin)
 {
     WindowPtr pChild;
     ValidatePtr val;
@@ -448,7 +238,7 @@ miHandleValidateExposures(pWin)
 	    (*WindowExposures)(pChild, &val->after.exposed, NullRegion);
 	    RegionUninit(&val->after.exposed);
 	    free(val);
-	    pChild->valdata = (ValidatePtr)NULL;
+	    pChild->valdata = NULL;
 	    if (pChild->firstChild)
 	    {
 		pChild = pChild->firstChild;
@@ -464,11 +254,7 @@ miHandleValidateExposures(pWin)
 }
 
 void
-miMoveWindow(pWin, x, y, pNextSib, kind)
-    WindowPtr pWin;
-    int x,y;
-    WindowPtr pNextSib;
-    VTKind kind;
+miMoveWindow(WindowPtr pWin, int x, int y, WindowPtr pNextSib, VTKind kind)
 {
     WindowPtr pParent;
     Bool WasViewable = (Bool)(pWin->viewable);
@@ -478,9 +264,6 @@ miMoveWindow(pWin, x, y, pNextSib, kind)
     Bool anyMarked = FALSE;
     ScreenPtr pScreen;
     WindowPtr windowToValidate;
-#ifdef DO_SAVE_UNDERS
-    Bool dosave = FALSE;
-#endif
     WindowPtr pLayerWin;
 
     /* if this is a root window, can't be moved */
@@ -515,17 +298,11 @@ miMoveWindow(pWin, x, y, pNextSib, kind)
     {
 	if (pLayerWin == pWin)
 	    anyMarked |= (*pScreen->MarkOverlappedWindows)
-				(pWin, windowToValidate, (WindowPtr *)NULL);
+				(pWin, windowToValidate, NULL);
 	else
 	    anyMarked |= (*pScreen->MarkOverlappedWindows)
-				(pWin, pLayerWin, (WindowPtr *)NULL);
+				(pWin, pLayerWin, NULL);
 
-#ifdef DO_SAVE_UNDERS
-	if (DO_SAVE_UNDERS(pWin))
-	{
-	    dosave = (*pScreen->ChangeSaveUnder)(pLayerWin, windowToValidate);
-	}
-#endif /* DO_SAVE_UNDERS */
 
 	if (anyMarked)
 	{
@@ -535,10 +312,6 @@ miMoveWindow(pWin, x, y, pNextSib, kind)
 	    /* XXX need to retile border if ParentRelative origin */
 	    (*pScreen->HandleExposures)(pLayerWin->parent);
 	}
-#ifdef DO_SAVE_UNDERS
-	if (dosave)
-	    (*pScreen->PostChangeSaveUnder)(pLayerWin, windowToValidate);
-#endif /* DO_SAVE_UNDERS */
 	if (anyMarked && pScreen->PostValidateTree)
 	    (*pScreen->PostValidateTree)(pLayerWin->parent, NullWindow, kind);
     }
@@ -561,6 +334,15 @@ miRecomputeExposures (
 
     if (pWin->valdata)
     {
+#ifdef COMPOSITE
+	/*
+	 * Redirected windows are not affected by parent window
+	 * gravity manipulations, so don't recompute their
+	 * exposed areas here.
+	 */
+	if (pWin->redirectDraw != RedirectDrawNone)
+	    return WT_DONTWALKCHILDREN;
+#endif
 	/*
 	 * compute exposed regions of this window
 	 */
@@ -579,11 +361,10 @@ miRecomputeExposures (
 }
 
 void
-miSlideAndSizeWindow(pWin, x, y, w, h, pSib)
-    WindowPtr pWin;
-    int x,y;
-    unsigned int w, h;
-    WindowPtr pSib;
+miSlideAndSizeWindow(WindowPtr pWin,
+                     int x, int y,
+                     unsigned int w, unsigned int h,
+                     WindowPtr pSib)
 {
     WindowPtr pParent;
     Bool WasViewable = (Bool)(pWin->viewable);
@@ -609,9 +390,6 @@ miSlideAndSizeWindow(pWin, x, y, w, h, pSib)
     RegionPtr	borderVisible = NullRegion; /* visible area of the border */
     Bool	shrunk = FALSE; /* shrunk in an inner dimension */
     Bool	moved = FALSE;	/* window position changed */
-#ifdef DO_SAVE_UNDERS
-    Bool	dosave = FALSE;
-#endif
     WindowPtr  pLayerWin;
 
     /* if this is a root window, can't be resized */
@@ -651,7 +429,7 @@ miSlideAndSizeWindow(pWin, x, y, w, h, pSib)
 		anyMarked = TRUE;
 	    }
 	}
-	anyMarked |= (*pScreen->MarkOverlappedWindows)(pWin, pWin, 
+	anyMarked |= (*pScreen->MarkOverlappedWindows)(pWin, pWin,
 						       &pLayerWin);
 
 	oldWinClip = NULL;
@@ -713,10 +491,10 @@ miSlideAndSizeWindow(pWin, x, y, w, h, pSib)
 
 	if (pLayerWin == pWin)
 	    anyMarked |= (*pScreen->MarkOverlappedWindows)(pWin, pFirstChange,
-						(WindowPtr *)NULL);
+						NULL);
 	else
 	    anyMarked |= (*pScreen->MarkOverlappedWindows)(pWin, pLayerWin,
-						(WindowPtr *)NULL);
+						NULL);
 
 	if (pWin->valdata)
 	{
@@ -724,12 +502,6 @@ miSlideAndSizeWindow(pWin, x, y, w, h, pSib)
 	    pWin->valdata->before.borderVisible = borderVisible;
 	}
 
-#ifdef DO_SAVE_UNDERS
-	if (DO_SAVE_UNDERS(pWin))
-	{
-	    dosave = (*pScreen->ChangeSaveUnder)(pLayerWin, pFirstChange);
-	}
-#endif /* DO_SAVE_UNDERS */
 
 	if (anyMarked)
 	    (*pScreen->ValidateTree)(pLayerWin->parent, pFirstChange, VTOther);
@@ -892,12 +664,6 @@ miSlideAndSizeWindow(pWin, x, y, w, h, pSib)
 	    RegionDestroy(destClip);
 	if (anyMarked)
 	    (*pScreen->HandleExposures)(pLayerWin->parent);
-#ifdef DO_SAVE_UNDERS
-	if (dosave)
-	{
-	    (*pScreen->PostChangeSaveUnder)(pLayerWin, pFirstChange);
-	}
-#endif /* DO_SAVE_UNDERS */
 	if (anyMarked && pScreen->PostValidateTree)
 	    (*pScreen->PostValidateTree)(pLayerWin->parent, pFirstChange,
 					  VTOther);
@@ -907,13 +673,11 @@ miSlideAndSizeWindow(pWin, x, y, w, h, pSib)
 }
 
 WindowPtr
-miGetLayerWindow(pWin)
-    WindowPtr pWin;
+miGetLayerWindow(WindowPtr pWin)
 {
     return pWin->firstChild;
 }
 
-#ifdef SHAPE
 /******
  *
  * miSetShape
@@ -922,17 +686,14 @@ miGetLayerWindow(pWin)
  */
 
 void
-miSetShape(pWin)
-    WindowPtr	pWin;
+miSetShape(WindowPtr pWin, int kind)
 {
     Bool	WasViewable = (Bool)(pWin->viewable);
     ScreenPtr 	pScreen = pWin->drawable.pScreen;
     Bool	anyMarked = FALSE;
-#ifdef DO_SAVE_UNDERS
-    Bool	dosave = FALSE;
-#endif
     WindowPtr   pLayerWin;
 
+    if (kind != ShapeInput) {
     if (WasViewable)
     {
 	anyMarked = (*pScreen->MarkOverlappedWindows)(pWin, pWin,
@@ -960,51 +721,37 @@ miSetShape(pWin)
     if (WasViewable)
     {
 	anyMarked |= (*pScreen->MarkOverlappedWindows)(pWin, pWin,
-						(WindowPtr *)NULL);
-
-#ifdef DO_SAVE_UNDERS
-	if (DO_SAVE_UNDERS(pWin))
-	{
-	    dosave = (*pScreen->ChangeSaveUnder)(pLayerWin, pLayerWin);
-	}
-#endif /* DO_SAVE_UNDERS */
+                                                           NULL);
 
 	if (anyMarked)
-	    (*pScreen->ValidateTree)(pLayerWin->parent, NullWindow, VTOther);
+                (*pScreen->ValidateTree)(pLayerWin->parent, NullWindow,
+                                         VTOther);
     }
 
     if (WasViewable)
     {
 	if (anyMarked)
 	    (*pScreen->HandleExposures)(pLayerWin->parent);
-#ifdef DO_SAVE_UNDERS
-	if (dosave)
-	    (*pScreen->PostChangeSaveUnder)(pLayerWin, pLayerWin);
-#endif /* DO_SAVE_UNDERS */
 	if (anyMarked && pScreen->PostValidateTree)
-	    (*pScreen->PostValidateTree)(pLayerWin->parent, NullWindow, VTOther);
+                (*pScreen->PostValidateTree)(pLayerWin->parent, NullWindow,
+                                             VTOther);
+        }
     }
     if (pWin->realized)
 	WindowsRestructured ();
     CheckCursorConfinement(pWin);
 }
-#endif
 
 /* Keeps the same inside(!) origin */
 
 void
-miChangeBorderWidth(pWin, width)
-    WindowPtr pWin;
-    unsigned int width;
+miChangeBorderWidth(WindowPtr pWin, unsigned int width)
 {
     int oldwidth;
     Bool anyMarked = FALSE;
     ScreenPtr pScreen;
     Bool WasViewable = (Bool)(pWin->viewable);
     Bool HadBorder;
-#ifdef DO_SAVE_UNDERS
-    Bool	dosave = FALSE;
-#endif
     WindowPtr  pLayerWin;
 
     oldwidth = wBorderWidth (pWin);
@@ -1037,22 +784,12 @@ miChangeBorderWidth(pWin, width)
 		pWin->valdata->before.borderVisible = borderVisible;
 	    }
 	}
-#ifdef DO_SAVE_UNDERS
-	if (DO_SAVE_UNDERS(pWin))
-	{
-	    dosave = (*pScreen->ChangeSaveUnder)(pLayerWin, pWin->nextSib);
-	}
-#endif /* DO_SAVE_UNDERS */
 
 	if (anyMarked)
 	{
 	    (*pScreen->ValidateTree)(pLayerWin->parent, pLayerWin, VTOther);
 	    (*pScreen->HandleExposures)(pLayerWin->parent);
 	}
-#ifdef DO_SAVE_UNDERS
-	if (dosave)
-	    (*pScreen->PostChangeSaveUnder)(pLayerWin, pWin->nextSib);
-#endif /* DO_SAVE_UNDERS */
 	if (anyMarked && pScreen->PostValidateTree)
 	    (*pScreen->PostValidateTree)(pLayerWin->parent, pLayerWin,
 					  VTOther);
@@ -1062,10 +799,7 @@ miChangeBorderWidth(pWin, width)
 }
 
 void
-miMarkUnrealizedWindow(pChild, pWin, fromConfigure)
-    WindowPtr pChild;
-    WindowPtr pWin;
-    Bool fromConfigure;
+miMarkUnrealizedWindow(WindowPtr pChild, WindowPtr pWin, Bool fromConfigure)
 {
     if ((pChild != pWin) || fromConfigure)
     {

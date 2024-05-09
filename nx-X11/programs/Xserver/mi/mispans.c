@@ -27,13 +27,13 @@ Copyright 1989 by Digital Equipment Corporation, Maynard, Massachusetts.
 
                         All Rights Reserved
 
-Permission to use, copy, modify, and distribute this software and its 
-documentation for any purpose and without fee is hereby granted, 
+Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose and without fee is hereby granted,
 provided that the above copyright notice appear in all copies and that
-both that copyright notice and this permission notice appear in 
+both that copyright notice and this permission notice appear in
 supporting documentation, and that the name of Digital not be
 used in advertising or publicity pertaining to distribution of the
-software without specific, written prior permission.  
+software without specific, written prior permission.
 
 DIGITAL DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING
 ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL
@@ -65,8 +65,7 @@ Written by Joel McCormack, Summer 1989.
 */
 
 
-void miInitSpanGroup(spanGroup)
-    SpanGroup *spanGroup;
+void miInitSpanGroup(SpanGroup *spanGroup)
 {
     spanGroup->size = 0;
     spanGroup->count = 0;
@@ -123,7 +122,7 @@ static void miSubtractSpans (SpanGroup *spanGroup, Spans *sub)
 		    }
 		    else if (xmin <= spansPt->x)
 		    {
-			if (xmax >= spansPt->x + *spansWid) 
+			if (xmax >= spansPt->x + *spansWid)
 			{
 			    memmove (spansPt, spansPt + 1, sizeof *spansPt * (spansCount - 1));
 			    memmove (spansWid, spansWid + 1, sizeof *spansWid * (spansCount - 1));
@@ -132,7 +131,7 @@ static void miSubtractSpans (SpanGroup *spanGroup, Spans *sub)
 			    spans->count--;
 			    extra++;
 			}
-			else 
+			else
 			{
 			    *spansWid = *spansWid - (xmax - spansPt->x);
 			    spansPt->x = xmax;
@@ -180,11 +179,8 @@ static void miSubtractSpans (SpanGroup *spanGroup, Spans *sub)
 	}
     }
 }
-    
-void miAppendSpans(spanGroup, otherGroup, spans)
-    SpanGroup   *spanGroup;
-    SpanGroup	*otherGroup;
-    Spans       *spans;
+
+void miAppendSpans(SpanGroup *spanGroup, SpanGroup *otherGroup, Spans *spans)
 {
     int ymin, ymax;
     int spansCount;
@@ -217,8 +213,7 @@ void miAppendSpans(spanGroup, otherGroup, spans)
     }
 } /* AppendSpans */
 
-void miFreeSpanGroup(spanGroup)
-    SpanGroup   *spanGroup;
+void miFreeSpanGroup(SpanGroup *spanGroup)
 {
     if (spanGroup->group != NULL) free(spanGroup->group);
 }
@@ -376,10 +371,7 @@ miDisposeSpanGroup (SpanGroup *spanGroup)
     }
 }
 
-void miFillUniqueSpanGroup(pDraw, pGC, spanGroup)
-    DrawablePtr pDraw;
-    GCPtr	pGC;
-    SpanGroup   *spanGroup;
+void miFillUniqueSpanGroup(DrawablePtr pDraw, GCPtr pGC, SpanGroup *spanGroup)
 {
     int    		i;
     Spans  		*spans;
@@ -413,14 +405,12 @@ void miFillUniqueSpanGroup(pDraw, pGC, spanGroup)
 	ylength = spanGroup->ymax - ymin + 1;
 
 	/* Allocate Spans for y buckets */
-	yspans = (Spans *) malloc(ylength * sizeof(Spans));
-	ysizes = (int *) malloc(ylength * sizeof (int));
+	yspans = malloc(ylength * sizeof(Spans));
+	ysizes = malloc(ylength * sizeof (int));
 
 	if (!yspans || !ysizes)
 	{
-	    if (yspans)
 		free (yspans);
-	    if (ysizes)
 		free (ysizes);
 	    miDisposeSpanGroup (spanGroup);
 	    return;
@@ -487,8 +477,8 @@ void miFillUniqueSpanGroup(pDraw, pGC, spanGroup)
 	} /* for i thorough Spans */
 
 	/* Now sort by x and uniquify each bucket into the final array */
-	points = (DDXPointPtr) malloc(count * sizeof(DDXPointRec));
-	widths = (int *)       malloc(count * sizeof(int));
+	points = malloc(count * sizeof(DDXPointRec));
+	widths = malloc(count * sizeof(int));
 	if (!points || !widths)
 	{
 	    for (i = 0; i < ylength; i++)
@@ -498,9 +488,7 @@ void miFillUniqueSpanGroup(pDraw, pGC, spanGroup)
 	    }
 	    free (yspans);
 	    free (ysizes);
-	    if (points)
 		free (points);
-	    if (widths)
 		free (widths);
 	    return;
 	}
@@ -526,7 +514,7 @@ void miFillUniqueSpanGroup(pDraw, pGC, spanGroup)
 	free(points);
 	free(widths);
 	free(yspans);
-	free(ysizes);
+	free(ysizes);		/* use (DE)malloc for these? */
     }
 
     spanGroup->count = 0;

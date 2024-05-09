@@ -27,13 +27,13 @@ Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts.
 
                         All Rights Reserved
 
-Permission to use, copy, modify, and distribute this software and its 
-documentation for any purpose and without fee is hereby granted, 
+Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose and without fee is hereby granted,
 provided that the above copyright notice appear in all copies and that
-both that copyright notice and this permission notice appear in 
+both that copyright notice and this permission notice appear in
 supporting documentation, and that the name of Digital not be
 used in advertising or publicity pertaining to distribution of the
-software without specific, written prior permission.  
+software without specific, written prior permission.
 
 DIGITAL DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING
 ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL
@@ -86,7 +86,7 @@ cbrt(double x)
 /*
  * some interesting sematic interpretation of the protocol:
  *
- * Self intersecting arcs (i.e. those spanning 360 degrees) 
+ * Self intersecting arcs (i.e. those spanning 360 degrees)
  *  never join with other arcs, and are drawn without caps
  *  (unless on/off dashed, in which case each dash segment
  *  is capped, except when the last segment meets the
@@ -215,16 +215,6 @@ typedef struct _miPolyArc {
 	int		njoins;
 	miArcJoinPtr	joins;
 } miPolyArcRec, *miPolyArcPtr;
-
-#define GCValsFunction		0
-#define GCValsForeground 	1
-#define GCValsBackground 	2
-#define GCValsLineWidth 	3
-#define GCValsCapStyle 		4
-#define GCValsJoinStyle		5
-#define GCValsMask		(GCFunction | GCForeground | GCBackground | \
-				 GCLineWidth | GCCapStyle | GCJoinStyle)
-static CARD32 gcvals[6];
 
 static void fillSpans(DrawablePtr pDrawable, GCPtr pGC);
 static void newFinalSpan(int y, int xmin, int xmax);
@@ -368,7 +358,7 @@ of the two quadratics
 
 y^2 + ((b+A)/2)y + (Z + (bZ - d)/A) = 0
 
-where 
+where
 
 A = +/- sqrt(8Z + b^2 - 4c)
 b, c, d are the cubic, quadratic, and linear coefficients of the quartic
@@ -388,46 +378,9 @@ typedef struct {
     char top, bot, hole;
 } miArcSpanData;
 
-typedef struct {
-    unsigned long lrustamp;
-    unsigned short lw;
-    unsigned short width, height;
-    miArcSpanData *spdata;
-} arcCacheRec;
-
-#define CACHESIZE 25
-
 static void drawQuadrant(struct arc_def *def, struct accelerators *acc,
 			 int a0, int a1, int mask, miArcFacePtr right,
 			 miArcFacePtr left, miArcSpanData *spdata);
-
-static arcCacheRec arcCache[CACHESIZE];
-static unsigned long lrustamp;
-static arcCacheRec *lastCacheHit = &arcCache[0];
-static RESTYPE cacheType;
-
-static int
-miFreeArcCache (void * data, XID id)
-{
-    int k;
-    arcCacheRec *cent;
-
-    if (id)
-	cacheType = 0;
-
-    for (k = CACHESIZE, cent = &arcCache[0]; --k >= 0; cent++)
-    {
-	if (cent->spdata)
-	{
-	    cent->lrustamp = 0;
-	    cent->lw = 0;
-	    free(cent->spdata);
-	    cent->spdata = NULL;
-	}
-    }
-    lrustamp = 0;
-    return Success;
-}
 
 static void
 miComputeCircleSpans(
@@ -627,7 +580,7 @@ miComputeEllipseSpans(
 		t = K - y;
 		if (rs - (t * t) >= 0)
 		   t = sqrt(rs - (t * t));
-		else 
+		else
 		   t = 0;
 		if (flip == 1)
 		    inx = x - t;
@@ -832,77 +785,21 @@ tailX(
 }
 
 static miArcSpanData *
-miComputeWideEllipse(
-    int  lw,
-    xArc *parc,
-    Bool *mustFree)
+miComputeWideEllipse(int lw, xArc *parc)
 {
-    miArcSpanData *spdata;
-    arcCacheRec *cent, *lruent;
+    miArcSpanData *spdata = NULL;
     int k;
-    arcCacheRec fakeent;
 
     if (!lw)
 	lw = 1;
-    if (parc->height <= 1500)
-    {
-	*mustFree = FALSE;
-	cent = lastCacheHit;
-	if (cent->lw == lw &&
-	    cent->width == parc->width && cent->height == parc->height)
-	{
-	    cent->lrustamp = ++lrustamp;
-	    return cent->spdata;
-	}
-	lruent = &arcCache[0];
-	for (k = CACHESIZE, cent = lruent; --k >= 0; cent++)
-	{
-	    if (cent->lw == lw &&
-		cent->width == parc->width && cent->height == parc->height)
-	    {
-		cent->lrustamp = ++lrustamp;
-		lastCacheHit = cent;
-		return cent->spdata;
-	    }
-	    if (cent->lrustamp < lruent->lrustamp)
-		lruent = cent;
-	}
-	if (!cacheType)
-	{
-	    cacheType = CreateNewResourceType(miFreeArcCache);
-	    (void) AddResource(FakeClientID(0), cacheType, NULL);
-	}
-    } else {
-	lruent = &fakeent;
-	lruent->spdata = NULL;
-	*mustFree = TRUE;
-    }
     k = (parc->height >> 1) + ((lw - 1) >> 1);
-    spdata = lruent->spdata;
-    if (!spdata || spdata->k != k)
-    {
-	if (spdata)
-	    free(spdata);
-	spdata = (miArcSpanData *)malloc(sizeof(miArcSpanData) +
-					 sizeof(miArcSpan) * (k + 2));
-	lruent->spdata = spdata;
+    spdata = malloc(sizeof(miArcSpanData) + sizeof(miArcSpan) * (k + 2));
 	if (!spdata)
-	{
-	    lruent->lrustamp = 0;
-	    lruent->lw = 0;
-	    return spdata;
-	}
+	return NULL;
 	spdata->spans = (miArcSpan *)(spdata + 1);
 	spdata->k = k;
-    }
     spdata->top = !(lw & 1) && !(parc->width & 1);
     spdata->bot = !(parc->height & 1);
-    lruent->lrustamp = ++lrustamp;
-    lruent->lw = lw;
-    lruent->width = parc->width;
-    lruent->height = parc->height;
-    if (lruent != &fakeent)
-	lastCacheHit = lruent;
     if (parc->width == parc->height)
 	miComputeCircleSpans(lw, parc, spdata);
     else
@@ -921,18 +818,17 @@ miFillWideEllipse(
     int *widths;
     int *wids;
     miArcSpanData *spdata;
-    Bool mustFree;
     miArcSpan *span;
     int xorg, yorgu, yorgl;
     int n;
 
     yorgu = parc->height + pGC->lineWidth;
     n = (sizeof(int) * 2) * yorgu;
-    widths = (int *)malloc(n + (sizeof(DDXPointRec) * 2) * yorgu);
+    widths = malloc(n + (sizeof(DDXPointRec) * 2) * yorgu);
     if (!widths)
 	return;
     points = (DDXPointPtr)((char *)widths + n);
-    spdata = miComputeWideEllipse((int)pGC->lineWidth, parc, &mustFree);
+    spdata = miComputeWideEllipse((int)pGC->lineWidth, parc);
     if (!spdata)
     {
 	free(widths);
@@ -1024,7 +920,6 @@ miFillWideEllipse(
 	    wids += 2;
 	}
     }
-    if (mustFree)
 	free(spdata);
     (*pGC->ops->FillSpans)(pDraw, pGC, pts - points, points, widths, FALSE);
 
@@ -1045,11 +940,7 @@ miFillWideEllipse(
  */
 
 void
-miPolyArc(pDraw, pGC, narcs, parcs)
-    DrawablePtr	pDraw;
-    GCPtr	pGC;
-    int		narcs;
-    xArc	*parcs;
+miPolyArc(DrawablePtr pDraw, GCPtr pGC, int narcs, xArc *parcs)
 {
     int		i;
     xArc	*parc;
@@ -1074,7 +965,7 @@ miPolyArc(pDraw, pGC, narcs, parcs)
  	    (miArcFacePtr) 0, (miArcFacePtr) 0 );
 	fillSpans (pDraw, pGC);
     }
-    else 
+    else
     {
 	if ((pGC->lineStyle == LineSolid) && narcs)
 	{
@@ -1147,14 +1038,19 @@ miPolyArc(pDraw, pGC, narcs, parcs)
 	    pGCTo = GetScratchGC(1, pDraw->pScreen);
 	    if (!pGCTo)
 		return;
-	    gcvals[GCValsFunction] = GXcopy;
-	    gcvals[GCValsForeground] = 1;
-	    gcvals[GCValsBackground] = 0;
-	    gcvals[GCValsLineWidth] = pGC->lineWidth;
-	    gcvals[GCValsCapStyle] = pGC->capStyle;
-	    gcvals[GCValsJoinStyle] = pGC->joinStyle;
-	    dixChangeGC(NullClient, pGCTo, GCValsMask, gcvals, NULL);
-    
+	    {
+		ChangeGCVal gcvals[6];
+		gcvals[0].val = GXcopy;
+		gcvals[1].val = 1;
+		gcvals[2].val = 0;
+		gcvals[3].val = pGC->lineWidth;
+		gcvals[4].val = pGC->capStyle;
+		gcvals[5].val = pGC->joinStyle;
+		ChangeGC(NullClient, pGCTo, GCFunction |
+			GCForeground | GCBackground | GCLineWidth |
+			GCCapStyle | GCJoinStyle, gcvals);
+	    }
+
 	    /* allocate a 1 bit deep pixmap of the appropriate size, and
 	     * validate it */
 	    pDrawTo = (DrawablePtr)(*pDraw->pScreen->CreatePixmap)
@@ -1192,11 +1088,14 @@ miPolyArc(pDraw, pGC, narcs, parcs)
  	     iphase >= 0;
 	     iphase--)
 	{
+	    ChangeGCVal gcval;
 	    if (iphase == 1) {
-		dixChangeGC (NullClient, pGC, GCForeground, &bg, NULL);
+		gcval.val = bg;
+		ChangeGC (NullClient, pGC, GCForeground, &gcval);
 		ValidateGC (pDraw, pGC);
 	    } else if (pGC->lineStyle == LineDoubleDash) {
-		dixChangeGC (NullClient, pGC, GCForeground, &fg, NULL);
+		gcval.val = fg;
+		ChangeGC (NullClient, pGC, GCForeground, &gcval);
 		ValidateGC (pDraw, pGC);
 	    }
 	    for (i = 0; i < polyArcs[iphase].narcs; i++) {
@@ -1368,7 +1267,7 @@ miArcJoin(DrawablePtr pDraw, GCPtr pGC, miArcFacePtr pLeft,
 		arc.height = width;
 		arc.angle1 = -miDatan2 (corner.y - center.y, corner.x - center.x);
 		arc.angle2 = a;
-		pArcPts = (SppPointPtr) malloc (3 * sizeof (SppPointRec));
+		pArcPts = malloc(3 * sizeof (SppPointRec));
 		if (!pArcPts)
 		    return;
 		pArcPts[0].x = otherCorner.x;
@@ -1470,7 +1369,7 @@ miArcCap (
 /* MIROUNDCAP -- a private helper function
  * Put Rounded cap on end. pCenter is the center of this end of the line
  * pEnd is the center of the other end of the line. pCorner is one of the
- * two corners at this end of the line.  
+ * two corners at this end of the line.
  * NOTE:  pOtherCorner must be counter-clockwise from pCorner.
  */
 /*ARGSUSED*/
@@ -1532,7 +1431,7 @@ miRoundCap(
 
 # define Dsin(d)	((d) == 0.0 ? 0.0 : ((d) == 90.0 ? 1.0 : sin(d*M_PI/180.0)))
 # define Dcos(d)	((d) == 0.0 ? 1.0 : ((d) == 90.0 ? 0.0 : cos(d*M_PI/180.0)))
-# define mod(a,b)	((a) >= 0 ? (a) % (b) : (b) - (-a) % (b))
+# define mod(a,b)	((a) >= 0 ? (a) % (b) : (b) - (-(a)) % (b))
 
 static double
 miDcos (double a)
@@ -1615,7 +1514,7 @@ miDatan2 (double dy, double dx)
  * array. (For example, if we want to leave a spare point to make sectors
  * instead of segments.)  So we pass in the malloc()ed chunk that contains the
  * array and an index saying where we should start stashing the points.
- * If there isn't an array already, we just pass in a null void * and 
+ * If there isn't an array already, we just pass in a null void * and
  * count on realloc() to handle the null void * correctly.
  */
 static int
@@ -1636,10 +1535,10 @@ miGetArcPts(
     SppPointPtr	poly;
 
     /* The spec says that positive angles indicate counterclockwise motion.
-     * Given our coordinate system (with 0,0 in the upper left corner), 
+     * Given our coordinate system (with 0,0 in the upper left corner),
      * the screen appears flipped in Y.  The easiest fix is to negate the
      * angles given */
-    
+
     st = - parc->angle1;
 
     et = - parc->angle2;
@@ -1665,12 +1564,12 @@ miGetArcPts(
     cdt = 2 * miDcos(dt);
     if (!(poly = (SppPointPtr) realloc((void *)*ppPts,
 					(cpt + count) * sizeof(SppPointRec))))
-	return(0);
+	return 0;
     *ppPts = poly;
 
     xc = parc->width/2.0;		/* store half width and half height */
     yc = parc->height/2.0;
-    
+
     x0 = xc * miDcos(st);
     y0 = yc * miDsin(st);
     x1 = xc * miDcos(st + dt);
@@ -1702,7 +1601,7 @@ miGetArcPts(
 	poly[cpt +i -1].y = (miDsin(st + et) * parc->height/2.0 + yc);
     }
 
-    return(count);
+    return count;
 }
 
 struct arcData {
@@ -1790,7 +1689,7 @@ addArc (
 	    arc = (miArcDataPtr) realloc (*arcsp,
 					   newsize * sizeof (**arcsp));
 	    if (!arc)
-		return (miArcDataPtr)NULL;
+		return NULL;
 	    *sizep = newsize;
 	    *arcsp = arc;
 	}
@@ -1902,14 +1801,14 @@ miComputeArcs (
 	isDoubleDash = (pGC->lineStyle == LineDoubleDash);
 	dashOffset = pGC->dashOffset;
 
-	data = (struct arcData *) malloc (narcs * sizeof (struct arcData));
+	data = malloc(narcs * sizeof (struct arcData));
 	if (!data)
-	    return (miPolyArcPtr)NULL;
-	arcs = (miPolyArcPtr) malloc (sizeof (*arcs) * (isDoubleDash ? 2 : 1));
+	    return NULL;
+	arcs = malloc(sizeof (*arcs) * (isDoubleDash ? 2 : 1));
 	if (!arcs)
 	{
 	    free(data);
-	    return (miPolyArcPtr)NULL;
+	    return NULL;
 	}
 	for (i = 0; i < narcs; i++) {
 		a0 = todeg (parcs[i].angle1);
@@ -1997,7 +1896,7 @@ miComputeArcs (
 
 			if (parcs[i].height == 0
 			    && (parcs[i].angle1 % FULLCIRCLE) == 0x2d00
-			    && parcs[i].angle2 == 0x2d00) 
+			    && parcs[i].angle2 == 0x2d00)
 				arcType = HORIZONTAL;
 			else if (parcs[i].width == 0
 			    && (parcs[i].angle1 % FULLCIRCLE) == 0x1680
@@ -2056,7 +1955,7 @@ miComputeArcs (
 							dashAngle++;
 					}
 				} else {
-					thisLength = (dashAngle + dashRemaining <= endAngle) ? 
+					thisLength = (dashAngle + dashRemaining <= endAngle) ?
 					    dashRemaining : endAngle - dashAngle;
 					if (arcType == VERTICAL) {
 						xarc.y = dashAngle;
@@ -2262,7 +2161,7 @@ miComputeArcs (
 arcfail:
 	miFreeArcs(arcs, pGC);
 	free(data);
-	return (miPolyArcPtr)NULL;
+	return NULL;
 }
 
 static double
@@ -2795,7 +2694,7 @@ computeBound (
 }
 
 /*
- * this section computes the x value of the span at y 
+ * this section computes the x value of the span at y
  * intersected with the specified face of the ellipse.
  *
  * this is the min/max X value over the set of normal
@@ -2808,7 +2707,7 @@ computeBound (
  *
  * compute the derivative with-respect-to ellipse_y and solve
  * for zero:
- *    
+ *
  *       (w^2 - h^2) ellipse_y^3 + h^4 y
  * 0 = - ----------------------------------
  *       h w ellipse_y^2 sqrt (h^2 - ellipse_y^2)
@@ -2835,7 +2734,7 @@ computeBound (
  *
  * or (to use accelerators),
  *
- * y0^3 (h^2 - w^2) - h^2 y (3y0^2 - 2h^2) 
+ * y0^3 (h^2 - w^2) - h^2 y (3y0^2 - 2h^2)
  *
  */
 
@@ -3118,7 +3017,7 @@ realAllocSpan (void)
 	struct finalSpan	*span;
 	int			i;
 
-	newChunk = (struct finalSpanChunk *) malloc (sizeof (struct finalSpanChunk));
+	newChunk = malloc(sizeof (struct finalSpanChunk));
 	if (!newChunk)
 		return (struct finalSpan *) NULL;
 	newChunk->next = chunks;
@@ -3165,8 +3064,8 @@ fillSpans (
 
 	if (nspans == 0)
 		return;
-	xSpan = xSpans = (DDXPointPtr) malloc (nspans * sizeof (DDXPointRec));
-	xWidth = xWidths = (int *) malloc (nspans * sizeof (int));
+	xSpan = xSpans = malloc(nspans * sizeof (DDXPointRec));
+	xWidth = xWidths = malloc(nspans * sizeof (int));
 	if (xSpans && xWidths)
 	{
 	    i = 0;
@@ -3185,9 +3084,7 @@ fillSpans (
 	    (*pGC->ops->FillSpans) (pDrawable, pGC, i, xSpans, xWidths, TRUE);
 	}
 	disposeFinalSpans ();
-	if (xSpans)
 	    free (xSpans);
-	if (xWidths)
 	    free (xWidths);
 	finalMiny = 0;
 	finalMaxy = -1;
@@ -3223,10 +3120,9 @@ realFindSpan (int y)
 		else
 			change = SPAN_REALLOC;
 		newSize = finalSize + change;
-		newSpans = (struct finalSpan **) malloc
- 					(newSize * sizeof (struct finalSpan *));
+		newSpans = malloc(newSize * sizeof (struct finalSpan *));
 		if (!newSpans)
-		    return (struct finalSpan **)NULL;
+		    return NULL;
 		newMiny = finalMiny;
 		newMaxy = finalMaxy;
 		if (y < finalMiny)
@@ -3240,9 +3136,9 @@ realFindSpan (int y)
 			free (finalSpans);
 		}
 		if ((i = finalMiny - newMiny) > 0)
-			bzero ((char *)newSpans, i * sizeof (struct finalSpan *));
+			memset((char *)newSpans, 0, i * sizeof (struct finalSpan *));
 		if ((i = newMaxy - finalMaxy) > 0)
-			bzero ((char *)(newSpans + newSize - i),
+			memset((char *)(newSpans + newSize - i), 0,
 			       i * sizeof (struct finalSpan *));
 		finalSpans = newSpans;
 		finalMaxy = newMaxy;
@@ -3367,9 +3263,8 @@ drawArc (
 	int			flipRight = 0, flipLeft = 0;			
 	int			copyEnd = 0;
 	miArcSpanData		*spdata;
-	Bool			mustFree;
 
-	spdata = miComputeWideEllipse(l, tarc, &mustFree);
+	spdata = miComputeWideEllipse(l, tarc);
 	if (!spdata)
 	    return;
 
@@ -3542,7 +3437,7 @@ drawArc (
 				flipLeft = 1;
 			}
 		}
-		drawQuadrant (&def, &acc, sweep[j].a0, sweep[j].a1, mask, 
+		drawQuadrant (&def, &acc, sweep[j].a0, sweep[j].a1, mask,
  			      passRight, passLeft, spdata);
 	}
 	/*
@@ -3581,7 +3476,6 @@ drawArc (
 			left->counterClock = temp;
 		}
 	}
-	if (mustFree)
 	    free(spdata);
 }
 

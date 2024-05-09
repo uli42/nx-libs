@@ -27,13 +27,13 @@ Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts.
 
                         All Rights Reserved
 
-Permission to use, copy, modify, and distribute this software and its 
-documentation for any purpose and without fee is hereby granted, 
+Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose and without fee is hereby granted,
 provided that the above copyright notice appear in all copies and that
-both that copyright notice and this permission notice appear in 
+both that copyright notice and this permission notice appear in
 supporting documentation, and that the name of Digital not be
 used in advertising or publicity pertaining to distribution of the
-software without specific, written prior permission.  
+software without specific, written prior permission.
 
 DIGITAL DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING
 ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL
@@ -52,20 +52,18 @@ SOFTWARE.
 #include "cursor.h"
 #include "misc.h"
 #include "mi.h"
+#include "inputstr.h"
 
 void
-miRecolorCursor( pScr, pCurs, displayed)
-    ScreenPtr	pScr;
-    CursorPtr	pCurs;
-    Bool	displayed;
+miRecolorCursor(DeviceIntPtr pDev, ScreenPtr pScr,
+                CursorPtr pCurs, Bool displayed)
 {
     /*
      * This is guaranteed to correct any color-dependent state which may have
      * been bound up in private state created by RealizeCursor
      */
-    pScr->UnrealizeCursor(pScr, pCurs);
-    pScr->RealizeCursor(pScr, pCurs);
+    pScr->UnrealizeCursor(pDev, pScr, pCurs);
+    pScr->RealizeCursor(pDev, pScr, pCurs);
     if (displayed)
-	pScr->DisplayCursor(pScr, pCurs);
-
+	pScr->DisplayCursor(pDev, pScr, pCurs);
 }

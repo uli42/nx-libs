@@ -27,13 +27,13 @@ Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts.
 
                         All Rights Reserved
 
-Permission to use, copy, modify, and distribute this software and its 
-documentation for any purpose and without fee is hereby granted, 
+Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose and without fee is hereby granted,
 provided that the above copyright notice appear in all copies and that
-both that copyright notice and this permission notice appear in 
+both that copyright notice and this permission notice appear in
 supporting documentation, and that the name of Digital not be
 used in advertising or publicity pertaining to distribution of the
-software without specific, written prior permission.  
+software without specific, written prior permission.
 
 DIGITAL DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING
 ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL
@@ -56,21 +56,25 @@ SOFTWARE.
 #include "mi.h"
 
 void
-miPolyPoint(pDrawable, pGC, mode, npt, pptInit)
-    DrawablePtr 	pDrawable;
-    GCPtr 		pGC;
-    int 		mode;		/* Origin or Previous */
-    int 		npt;
-    xPoint 		*pptInit;
+miPolyPoint(
+    DrawablePtr		pDrawable,
+    GCPtr		pGC,
+    int			mode,		/* Origin or Previous */
+    int			npt,
+    xPoint		*pptInit
+    )
 {
 
     int 		xorg;
     int 		yorg;
     int 		nptTmp;
-    XID			fsOld, fsNew;
+    ChangeGCVal		fsOld, fsNew;
     int			*pwidthInit, *pwidth;
     int			i;
     xPoint 		*ppt;
+
+    if(!(pwidthInit = malloc(npt * sizeof(int))))
+	return;
 
     /* make pointlist origin relative */
     if (mode == CoordModePrevious)
@@ -99,23 +103,21 @@ miPolyPoint(pDrawable, pGC, mode, npt, pptInit)
 	}
     }
 
-    fsOld = pGC->fillStyle;
-    fsNew = FillSolid;
+    fsOld.val = pGC->fillStyle;
+    fsNew.val = FillSolid;
     if(pGC->fillStyle != FillSolid)
     {
-	DoChangeGC(pGC, GCFillStyle, &fsNew, 0);
+	ChangeGC(NullClient, pGC, GCFillStyle, &fsNew);
 	ValidateGC(pDrawable, pGC);
     }
-    if(!(pwidthInit = (int *)malloc(npt * sizeof(int))))
-	return;
     pwidth = pwidthInit;
     for(i = 0; i < npt; i++)
 	*pwidth++ = 1;
-    (*pGC->ops->FillSpans)(pDrawable, pGC, npt, pptInit, pwidthInit, FALSE); 
+    (*pGC->ops->FillSpans)(pDrawable, pGC, npt, pptInit, pwidthInit, FALSE);
 
-    if(fsOld != FillSolid)
+    if(fsOld.val != FillSolid)
     {
-	DoChangeGC(pGC, GCFillStyle, &fsOld, 0);
+	ChangeGC(NullClient, pGC, GCFillStyle, &fsOld);
 	ValidateGC(pDrawable, pGC);
     }
     free(pwidthInit);

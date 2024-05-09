@@ -27,13 +27,13 @@ Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts.
 
                         All Rights Reserved
 
-Permission to use, copy, modify, and distribute this software and its 
-documentation for any purpose and without fee is hereby granted, 
+Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose and without fee is hereby granted,
 provided that the above copyright notice appear in all copies and that
-both that copyright notice and this permission notice appear in 
+both that copyright notice and this permission notice appear in
 supporting documentation, and that the name of Digital not be
 used in advertising or publicity pertaining to distribution of the
-software without specific, written prior permission.  
+software without specific, written prior permission.
 
 DIGITAL DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING
 ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL
@@ -405,17 +405,12 @@ the numerator is therefore (2^32 - 1), which does not overflow an unsigned
  *
  */
 int
-miZeroClipLine(xmin, ymin, xmax, ymax,
-	       new_x1, new_y1, new_x2, new_y2,
-	       adx, ady,
-	       pt1_clipped, pt2_clipped, octant, bias, oc1, oc2)
-    int xmin, ymin, xmax, ymax;
-    int *new_x1, *new_y1, *new_x2, *new_y2;
-    int *pt1_clipped, *pt2_clipped;
-    unsigned int adx, ady;
-    int octant;
-    unsigned int bias;
-    int oc1, oc2;
+miZeroClipLine(int xmin, int ymin, int xmax, int ymax,
+               int *new_x1, int *new_y1, int *new_x2, int *new_y2,
+               unsigned int adx, unsigned int ady,
+               int *pt1_clipped, int *pt2_clipped,
+               int octant, unsigned int bias,
+               int oc1, int oc2)
 {
     int swapped = 0;
     int clipDone = 0;
@@ -468,7 +463,7 @@ miZeroClipLine(xmin, ymin, xmax, ymax,
 	        SWAPINT(clip1, clip2);
 	        swapped = !swapped;
 	    }
-    
+
 	    clip1 |= oc1;
 	    if (oc1 & OUT_LEFT)
 	    {
@@ -627,7 +622,7 @@ miZeroClipLine(xmin, ymin, xmax, ymax,
     *new_y1 = y1;
     *new_x2 = x2;
     *new_y2 = y2;
-    
+
     *pt1_clipped = clip1;
     *pt2_clipped = clip2;
 

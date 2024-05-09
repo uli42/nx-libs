@@ -27,13 +27,13 @@ Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts.
 
                         All Rights Reserved
 
-Permission to use, copy, modify, and distribute this software and its 
-documentation for any purpose and without fee is hereby granted, 
+Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose and without fee is hereby granted,
 provided that the above copyright notice appear in all copies and that
-both that copyright notice and this permission notice appear in 
+both that copyright notice and this permission notice appear in
 supporting documentation, and that the name of Digital not be
 used in advertising or publicity pertaining to distribution of the
-software without specific, written prior permission.  
+software without specific, written prior permission.
 
 DIGITAL DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING
 ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL
@@ -66,11 +66,12 @@ SOFTWARE.
  */
 
 Bool
-miFillGeneralPoly(dst, pgc, count, ptsIn)
-    DrawablePtr dst;
-    GCPtr	pgc;
-    int		count;              /* number of points        */
-    DDXPointPtr ptsIn;              /* the points              */
+miFillGeneralPoly(
+    DrawablePtr dst,
+    GCPtr	pgc,
+    int		count,              /* number of points        */
+    DDXPointPtr ptsIn               /* the points              */
+    )
 {
     EdgeTableEntry *pAET;  /* the Active Edge Table   */
     int y;                 /* the current scanline    */
@@ -89,32 +90,31 @@ miFillGeneralPoly(dst, pgc, count, ptsIn)
     int fixWAET = 0;
 
     if (count < 3)
-	return(TRUE);
+	return TRUE;
 
-    if(!(pETEs = (EdgeTableEntry *)
-        malloc(sizeof(EdgeTableEntry) * count)))
-	return(FALSE);
+    if(!(pETEs = malloc(sizeof(EdgeTableEntry) * count)))
+	return FALSE;
     ptsOut = FirstPoint;
     width = FirstWidth;
     if (!miCreateETandAET(count, ptsIn, &ET, &AET, pETEs, &SLLBlock))
     {
 	free(pETEs);
-	return(FALSE);
+	return FALSE;
     }
     pSLL = ET.scanlines.next;
 
-    if (pgc->fillRule == EvenOddRule) 
+    if (pgc->fillRule == EvenOddRule)
     {
         /*
          *  for each scanline
          */
-        for (y = ET.ymin; y < ET.ymax; y++) 
+        for (y = ET.ymin; y < ET.ymax; y++)
         {
             /*
              *  Add a new edge to the active edge table when we
              *  get to the next edge.
              */
-            if (pSLL && y == pSLL->scanline) 
+            if (pSLL && y == pSLL->scanline)
             {
                 miloadAET(&AET, pSLL->edgelist);
                 pSLL = pSLL->next;
@@ -125,7 +125,7 @@ miFillGeneralPoly(dst, pgc, count, ptsIn)
             /*
              *  for each active edge
              */
-            while (pAET) 
+            while (pAET)
             {
                 ptsOut->x = pAET->bres.minor;
 		ptsOut++->y = y;
@@ -135,7 +135,7 @@ miFillGeneralPoly(dst, pgc, count, ptsIn)
                 /*
                  *  send out the buffer when its full
                  */
-                if (nPts == NUMPTSTOBUFFER) 
+                if (nPts == NUMPTSTOBUFFER)
 		{
 		    (*pgc->ops->FillSpans)(dst, pgc,
 				      nPts, FirstPoint, FirstWidth,
@@ -155,13 +155,13 @@ miFillGeneralPoly(dst, pgc, count, ptsIn)
         /*
          *  for each scanline
          */
-        for (y = ET.ymin; y < ET.ymax; y++) 
+        for (y = ET.ymin; y < ET.ymax; y++)
         {
             /*
              *  Add a new edge to the active edge table when we
              *  get to the next edge.
              */
-            if (pSLL && y == pSLL->scanline) 
+            if (pSLL && y == pSLL->scanline)
             {
                 miloadAET(&AET, pSLL->edgelist);
                 micomputeWAET(&AET);
@@ -174,14 +174,14 @@ miFillGeneralPoly(dst, pgc, count, ptsIn)
             /*
              *  for each active edge
              */
-            while (pAET) 
+            while (pAET)
             {
                 /*
                  *  if the next edge in the active edge table is
                  *  also the next edge in the winding active edge
                  *  table.
                  */
-                if (pWETE == pAET) 
+                if (pWETE == pAET)
                 {
                     ptsOut->x = pAET->bres.minor;
 		    ptsOut++->y = y;
@@ -191,7 +191,7 @@ miFillGeneralPoly(dst, pgc, count, ptsIn)
                     /*
                      *  send out the buffer
                      */
-                    if (nPts == NUMPTSTOBUFFER) 
+                    if (nPts == NUMPTSTOBUFFER)
                     {
 			(*pgc->ops->FillSpans)(dst, pgc, nPts, FirstPoint,
 			                  FirstWidth, 1);
@@ -212,7 +212,7 @@ miFillGeneralPoly(dst, pgc, count, ptsIn)
              *  reevaluate the Winding active edge table if we
              *  just had to resort it or if we just exited an edge.
              */
-            if (miInsertionSort(&AET) || fixWAET) 
+            if (miInsertionSort(&AET) || fixWAET)
             {
                 micomputeWAET(&AET);
                 fixWAET = 0;
@@ -226,5 +226,5 @@ miFillGeneralPoly(dst, pgc, count, ptsIn)
     (*pgc->ops->FillSpans)(dst, pgc, nPts, FirstPoint, FirstWidth, 1);
     free(pETEs);
     miFreeStorage(SLLBlock.next);
-    return(TRUE);
+    return TRUE;
 }

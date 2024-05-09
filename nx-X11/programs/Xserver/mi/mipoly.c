@@ -27,13 +27,13 @@ Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts.
 
                         All Rights Reserved
 
-Permission to use, copy, modify, and distribute this software and its 
-documentation for any purpose and without fee is hereby granted, 
+Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose and without fee is hereby granted,
 provided that the above copyright notice appear in all copies and that
-both that copyright notice and this permission notice appear in 
+both that copyright notice and this permission notice appear in
 supporting documentation, and that the name of Digital not be
 used in advertising or publicity pertaining to distribution of the
-software without specific, written prior permission.  
+software without specific, written prior permission.
 
 DIGITAL DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING
 ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL
@@ -67,12 +67,9 @@ SOFTWARE.
 
 
 void
-miFillPolygon(dst, pgc, shape, mode, count, pPts)
-    DrawablePtr		dst;
-    GCPtr		pgc;
-    int			shape, mode;
-    int			count;
-    DDXPointPtr		pPts;
+miFillPolygon( DrawablePtr dst, GCPtr pgc,
+		int shape, int mode,
+		int count, DDXPointPtr pPts)
 {
     int			i;
     int			xorg, yorg;
@@ -87,19 +84,19 @@ miFillPolygon(dst, pgc, shape, mode, count, pPts)
 	xorg = dst->x;
 	yorg = dst->y;
 
-        if (mode == CoordModeOrigin) 
+        if (mode == CoordModeOrigin)
         {
-	        for (i = 0; i<count; i++) 
-                {    
+	        for (i = 0; i<count; i++)
+                {
 	            ppt->x += xorg;
 	            ppt++->y += yorg;
 	        }
         }
-        else 
+        else
         {
 	    ppt->x += xorg;
 	    ppt++->y += yorg;
-	    for (i = 1; i<count; i++) 
+	    for (i = 1; i<count; i++)
             {
 	        ppt->x += (ppt-1)->x;
 	        ppt->y += (ppt-1)->y;
@@ -112,7 +109,7 @@ miFillPolygon(dst, pgc, shape, mode, count, pPts)
 	if (mode == CoordModePrevious)
         {
 	    ppt++;
-	    for (i = 1; i<count; i++) 
+	    for (i = 1; i<count; i++)
             {
 	        ppt->x += (ppt-1)->x;
 	        ppt->y += (ppt-1)->y;

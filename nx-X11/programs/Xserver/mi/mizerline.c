@@ -27,13 +27,13 @@ Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts.
 
                         All Rights Reserved
 
-Permission to use, copy, modify, and distribute this software and its 
-documentation for any purpose and without fee is hereby granted, 
+Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose and without fee is hereby granted,
 provided that the above copyright notice appear in all copies and that
-both that copyright notice and this permission notice appear in 
+both that copyright notice and this permission notice appear in
 supporting documentation, and that the name of Digital not be
 used in advertising or publicity pertaining to distribution of the
-software without specific, written prior permission.  
+software without specific, written prior permission.
 
 DIGITAL DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING
 ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL
@@ -98,15 +98,15 @@ SOFTWARE.
 }
 
 void
-miZeroLine(pDraw, pGC, mode, npt, pptInit)
-    DrawablePtr pDraw;
-    GCPtr	pGC;
-    int		mode;		/* Origin or Previous */
-    int		npt;		/* number of points */
-    DDXPointPtr pptInit;
+miZeroLine(
+    DrawablePtr pDraw,
+    GCPtr	pGC,
+    int		mode,		/* Origin or Previous */
+    int		npt,		/* number of points */
+    DDXPointPtr pptInit)
 {
     int Nspans, current_y = 0;
-    DDXPointPtr ppt; 
+    DDXPointPtr ppt;
     DDXPointPtr pspanInit, spans;
     int *pwidthInit, *widths, list_len;
     int xleft, ytop, xright, ybottom;
@@ -155,15 +155,10 @@ miZeroLine(pDraw, pGC, mode, npt, pptInit)
     width = xright - xleft + 1;
     height = ybottom - ytop + 1;
     list_len = (height >= width) ? height : width;
-    pspanInit = (DDXPointPtr)malloc(list_len * sizeof(DDXPointRec));
-    pwidthInit = (int *)malloc(list_len * sizeof(int));
+    pspanInit = malloc(list_len * sizeof(DDXPointRec));
+    pwidthInit = malloc(list_len * sizeof(int));
     if (!pspanInit || !pwidthInit)
-    {
-        free(pspanInit);
-        free(pwidthInit);
-
         return;
-    }
 
     Nspans = 0;
     new_span = TRUE;
@@ -178,7 +173,7 @@ miZeroLine(pDraw, pGC, mode, npt, pptInit)
 	xstart += pDraw->x;
 	ystart += pDraw->y;
     }
-    
+
     /* x2, y2, oc2 copied to x1, y1, oc1 at top of loop to simplify
      * iteration logic
      */
@@ -249,7 +244,7 @@ miZeroLine(pDraw, pGC, mode, npt, pptInit)
 		length = abs(new_x2 - new_x1);
 
 		/* if we've clipped the endpoint, always draw the full length
-		 * of the segment, because then the capstyle doesn't matter 
+		 * of the segment, because then the capstyle doesn't matter
 		 */
 		if (pt2_clipped)
 		    length++;
@@ -267,7 +262,7 @@ miZeroLine(pDraw, pGC, mode, npt, pptInit)
 
 	    x = new_x1;
 	    y = new_y1;
-	    
+	
 	    e3 = e2 - e1;
 	    e  = e - e1;
 
@@ -313,7 +308,7 @@ miZeroLine(pDraw, pGC, mode, npt, pptInit)
 		length = abs(new_y2 - new_y1);
 
 		/* if we've clipped the endpoint, always draw the full length
-		 * of the segment, because then the capstyle doesn't matter 
+		 * of the segment, because then the capstyle doesn't matter
 		 */
 		if (pt2_clipped)
 		    length++;
@@ -358,7 +353,7 @@ miZeroLine(pDraw, pGC, mode, npt, pptInit)
 		(((xstart != x2) || (ystart != y2)) || (ppt == pptInit + 1)))
     {
 	MI_OUTPUT_POINT(x, y);
-    }    
+    }
 
     if (Nspans > 0)
 	(*pGC->ops->FillSpans)(pDraw, pGC, Nspans, pspanInit,
@@ -369,12 +364,13 @@ miZeroLine(pDraw, pGC, mode, npt, pptInit)
 }
 
 void
-miZeroDashLine(dst, pgc, mode, nptInit, pptInit)
-DrawablePtr dst;
-GCPtr pgc;
-int mode;
-int nptInit;		/* number of points in polyline */
-DDXPointRec *pptInit;	/* points in the polyline */
+miZeroDashLine(
+            DrawablePtr dst,
+            GCPtr pgc,
+            int mode,
+            int nptInit,		/* number of points in polyline */
+            DDXPointRec *pptInit	/* points in the polyline */
+        )
 {
     /* XXX kludge until real zero-width dash code is written */
     pgc->lineWidth = 1;

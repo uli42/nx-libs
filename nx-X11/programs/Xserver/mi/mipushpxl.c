@@ -27,13 +27,13 @@ Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts.
 
                         All Rights Reserved
 
-Permission to use, copy, modify, and distribute this software and its 
-documentation for any purpose and without fee is hereby granted, 
+Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose and without fee is hereby granted,
 provided that the above copyright notice appear in all copies and that
-both that copyright notice and this permission notice appear in 
+both that copyright notice and this permission notice appear in
 supporting documentation, and that the name of Digital not be
 used in advertising or publicity pertaining to distribution of the
-software without specific, written prior permission.  
+software without specific, written prior permission.
 
 DIGITAL DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING
 ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL
@@ -93,11 +93,8 @@ bitsizeof(int) padding and sacnline unit == bitsizeof(int).)
  * in the server, we need to rename one of them
  */
 void
-miPushPixels(pGC, pBitMap, pDrawable, dx, dy, xOrg, yOrg)
-    GCPtr	pGC;
-    PixmapPtr	pBitMap;
-    DrawablePtr pDrawable;
-    int		dx, dy, xOrg, yOrg;
+miPushPixels(GCPtr pGC, PixmapPtr pBitMap, DrawablePtr pDrawable,
+             int dx, int dy, int xOrg, int yOrg)
 {
     int		h, dxDivPPW, ibEnd;
     MiBits 	*pwLineStart;
@@ -126,14 +123,14 @@ miPushPixels(pGC, pBitMap, pDrawable, dx, dy, xOrg, yOrg)
             LONG2CHARSDIFFORDER((MiBits)(-1) >> 1);
 #endif
 
-    pwLineStart = (MiBits *)malloc(BitmapBytePad(dx));
+    pwLineStart = malloc(BitmapBytePad(dx));
     if (!pwLineStart)
 	return;
     ipt = 0;
     dxDivPPW = dx/PPW;
 
-    for(h = 0, ptThisLine.x = 0, ptThisLine.y = 0; 
-	h < dy; 
+    for(h = 0, ptThisLine.x = 0, ptThisLine.y = 0;
+	h < dy;
 	h++, ptThisLine.y++)
     {
 
@@ -169,11 +166,11 @@ miPushPixels(pGC, pBitMap, pDrawable, dx, dy, xOrg, yOrg)
 		{
 		    if(fInBox)
 		    {
-			width[ipt] = ((pw - pwLineStart) << PWSH) + 
+			width[ipt] = ((pw - pwLineStart) << PWSH) +
 				     ib + xOrg - pt[ipt].x;
 			if (++ipt >= NPT)
 			{
-			    (*pGC->ops->FillSpans)(pDrawable, pGC, 
+			    (*pGC->ops->FillSpans)(pDrawable, pGC,
 					      NPT, pt, width, TRUE);
 			    ipt = 0;
 			}
@@ -226,11 +223,11 @@ miPushPixels(pGC, pBitMap, pDrawable, dx, dy, xOrg, yOrg)
 		    if(fInBox)
 		    {
 			/* end box */
-			width[ipt] = ((pw - pwLineStart) << PWSH) + 
+			width[ipt] = ((pw - pwLineStart) << PWSH) +
 				     ib + xOrg - pt[ipt].x;
 			if (++ipt >= NPT)
 			{
-			    (*pGC->ops->FillSpans)(pDrawable, 
+			    (*pGC->ops->FillSpans)(pDrawable,
 					      pGC, NPT, pt, width, TRUE);
 			    ipt = 0;
 			}

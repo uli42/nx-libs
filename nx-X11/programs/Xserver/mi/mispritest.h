@@ -38,9 +38,7 @@ in this Software without prior written authorization from The Open Group.
 #define _MISPRITEST_H_
 
 # include   "misprite.h"
-#ifdef RENDER
 # include   "picturestr.h"
-#endif
 # include   "damage.h"
 
 /*
@@ -53,14 +51,14 @@ typedef struct {
     GetImageProcPtr			GetImage;
     GetSpansProcPtr			GetSpans;
     SourceValidateProcPtr		SourceValidate;
-    
+
     /* window procedures */
     CopyWindowProcPtr			CopyWindow;
-    
+
     /* colormap procedures */
     InstallColormapProcPtr		InstallColormap;
     StoreColorsProcPtr			StoreColors;
-    
+
     /* os layer procedures */
     ScreenBlockHandlerProcPtr		BlockHandler;
 

@@ -39,54 +39,22 @@ from The Open Group.
 
 /* ARGSUSED */
 void
-miChangeGC(pGC, mask)
-    GCPtr           pGC;
-    unsigned long   mask;
+miChangeGC(GCPtr pGC, unsigned long mask)
 {
     return;
 }
 
 void
-miDestroyGC(pGC)
-    GCPtr           pGC;
+miDestroyGC(GCPtr pGC)
 {
     if (pGC->pRotatedPixmap)
 	(*pGC->pScreen->DestroyPixmap) (pGC->pRotatedPixmap);
     if (pGC->freeCompClip)
 	RegionDestroy(pGC->pCompositeClip);
-    miDestroyGCOps(pGC->ops);
-}
-
-/*
- * create a private op array for a gc
- */
-
-GCOpsPtr
-miCreateGCOps(prototype)
-    GCOpsPtr        prototype;
-{
-    GCOpsPtr        ret;
-
-    ret = malloc(sizeof(GCOps));
-    if (!ret)
-	return NULL;
-    *ret = *prototype;
-    ret->devPrivate.val = 1;
-    return ret;
 }
 
 void
-miDestroyGCOps(ops)
-    GCOpsPtr        ops;
-{
-    if (ops->devPrivate.val)
-	free(ops);
-}
-
-
-void
-miDestroyClip(pGC)
-    GCPtr           pGC;
+miDestroyClip(GCPtr pGC)
 {
     if (pGC->clientClipType == CT_NONE)
 	return;
@@ -107,11 +75,7 @@ miDestroyClip(pGC)
 }
 
 void
-miChangeClip(pGC, type, pvalue, nrects)
-    GCPtr           pGC;
-    int             type;
-    void *         pvalue;
-    int             nrects;
+miChangeClip( GCPtr pGC, int type, void * pvalue, int nrects)
 {
     (*pGC->funcs->DestroyClip) (pGC);
     if (type == CT_PIXMAP)
@@ -138,8 +102,7 @@ miChangeClip(pGC, type, pvalue, nrects)
 }
 
 void
-miCopyClip(pgcDst, pgcSrc)
-    GCPtr           pgcDst, pgcSrc;
+miCopyClip(GCPtr pgcDst, GCPtr pgcSrc)
 {
     RegionPtr       prgnNew;
 
@@ -154,8 +117,7 @@ miCopyClip(pgcDst, pgcSrc)
 	break;
       case CT_REGION:
 	prgnNew = RegionCreate(NULL, 1);
-	RegionCopy(prgnNew,
-					(RegionPtr) (pgcSrc->clientClip));
+	RegionCopy(prgnNew, (RegionPtr) (pgcSrc->clientClip));
 	(*pgcDst->funcs->ChangeClip) (pgcDst, CT_REGION, (void *) prgnNew, 0);
 	break;
     }
@@ -163,24 +125,14 @@ miCopyClip(pgcDst, pgcSrc)
 
 /* ARGSUSED */
 void
-miCopyGC(pGCSrc, changes, pGCDst)
-    GCPtr           pGCSrc;
-    unsigned long   changes;
-    GCPtr           pGCDst;
+miCopyGC(GCPtr pGCSrc, unsigned long changes, GCPtr pGCDst)
 {
     return;
 }
 
 void
-miComputeCompositeClip(pGC, pDrawable)
-    GCPtr           pGC;
-    DrawablePtr     pDrawable;
+miComputeCompositeClip( GCPtr pGC, DrawablePtr pDrawable)
 {
-    ScreenPtr       pScreen;
-
-    /* This prevents warnings about pScreen not being used. */
-    pGC->pScreen = pScreen = pGC->pScreen;
-
     if (pDrawable->type == DRAWABLE_WINDOW)
     {
 	WindowPtr       pWin = (WindowPtr) pDrawable;
@@ -277,12 +229,12 @@ miComputeCompositeClip(pGC, pDrawable)
 	{
 	    if(pDrawable->x || pDrawable->y) {
 	        RegionTranslate(pGC->clientClip,
-					  pDrawable->x + pGC->clipOrg.x, 
+					  pDrawable->x + pGC->clipOrg.x,
 					  pDrawable->y + pGC->clipOrg.y);
 	        RegionIntersect(pGC->pCompositeClip,
 				pGC->pCompositeClip, pGC->clientClip);
 	        RegionTranslate(pGC->clientClip,
-					  -(pDrawable->x + pGC->clipOrg.x), 
+					  -(pDrawable->x + pGC->clipOrg.x),
 					  -(pDrawable->y + pGC->clipOrg.y));
 	    } else {
 	        RegionTranslate(pGC->pCompositeClip,

@@ -56,7 +56,7 @@ from The Open Group.
  *     the polygon by incrementing the y coordinate.  We
  *     keep a list of edges which the current scanline crosses,
  *     sorted by x.  This list is called the Active Edge Table (AET)
- *     As we change the y-coordinate, we update each entry in 
+ *     As we change the y-coordinate, we update each entry in
  *     in the active edge table to reflect the edges new xcoord.
  *     This list must be sorted at each scanline in case
  *     two edges intersect.
@@ -83,7 +83,7 @@ from The Open Group.
  * for the winding number rule
  */
 #define CLOCKWISE          1
-#define COUNTERCLOCKWISE  -1 
+#define COUNTERCLOCKWISE  -1
 
 typedef struct _EdgeTableEntry {
      int ymax;             /* ycoord at which we exit this edge. */
@@ -180,7 +180,7 @@ typedef struct _ScanLineListBlock {
 
 /* mipolyutil.c */
 
-extern Bool miCreateETandAET(
+extern _X_EXPORT Bool miCreateETandAET(
     int /*count*/,
     DDXPointPtr /*pts*/,
     EdgeTable * /*ET*/,
@@ -189,19 +189,19 @@ extern Bool miCreateETandAET(
     ScanLineListBlock * /*pSLLBlock*/
 );
 
-extern void miloadAET(
+extern _X_EXPORT void miloadAET(
     EdgeTableEntry * /*AET*/,
     EdgeTableEntry * /*ETEs*/
 );
 
-extern void micomputeWAET(
+extern _X_EXPORT void micomputeWAET(
     EdgeTableEntry * /*AET*/
 );
 
-extern int miInsertionSort(
+extern _X_EXPORT int miInsertionSort(
     EdgeTableEntry * /*AET*/
 );
 
-extern void miFreeStorage(
+extern _X_EXPORT void miFreeStorage(
     ScanLineListBlock * /*pSLLBlock*/
 );

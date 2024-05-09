@@ -96,10 +96,7 @@ static miZeroArcPtRec oob = {65536, 65536, 0};
  */
 
 Bool
-miZeroArcSetup(arc, info, ok360)
-    xArc *arc;
-    miZeroArcRec *info;
-    Bool ok360;
+miZeroArcSetup(xArc *arc, miZeroArcRec *info, Bool ok360)
 {
     int l;
     int angle1, angle2;
@@ -509,7 +506,7 @@ miZeroArcDashPts(
     DashInfo *dinfo,
     DDXPointPtr points,
     int maxPts,
-    DDXPointPtr *evenPts, 
+    DDXPointPtr *evenPts,
     DDXPointPtr *oddPts )
 {
     miZeroArcRec info;
@@ -706,11 +703,7 @@ miZeroArcDashPts(
 }
 
 void
-miZeroPolyArc(pDraw, pGC, narcs, parcs)
-    DrawablePtr	pDraw;
-    GCPtr	pGC;
-    int		narcs;
-    xArc	*parcs;
+miZeroPolyArc(DrawablePtr pDraw, GCPtr pGC, int narcs, xArc *parcs)
 {
     int maxPts = 0;
     int n, maxw = 0;
@@ -744,7 +737,7 @@ miZeroPolyArc(pDraw, pGC, narcs, parcs)
     dospans = (pGC->fillStyle != FillSolid);
     if (dospans)
     {
-	widths = (int *)malloc(sizeof(int) * numPts);
+	widths = malloc(sizeof(int) * numPts);
 	if (!widths)
 	    return;
 	maxw = 0;
@@ -761,7 +754,7 @@ miZeroPolyArc(pDraw, pGC, narcs, parcs)
 		   (unsigned char *) pGC->dash, (int)pGC->numInDashList,
 		   &dinfo.dashOffsetInit);
     }
-    points = (DDXPointPtr)malloc(sizeof(DDXPointRec) * numPts);
+    points = malloc(sizeof(DDXPointRec) * numPts);
     if (!points)
     {
 	if (dospans)
@@ -810,7 +803,9 @@ miZeroPolyArc(pDraw, pGC, narcs, parcs)
 	    if ((pGC->fillStyle == FillSolid) ||
 		(pGC->fillStyle == FillStippled))
 	    {
-		DoChangeGC(pGC, GCForeground, (XID *)&pGC->bgPixel, 0);
+		ChangeGCVal gcval;
+		gcval.val = pGC->bgPixel;
+		ChangeGC(NullClient, pGC, GCForeground, &gcval);
 		ValidateGC(pDraw, pGC);
 	    }
 	    pts = &points[numPts >> 1];
@@ -838,7 +833,9 @@ miZeroPolyArc(pDraw, pGC, narcs, parcs)
 	    if ((pGC->fillStyle == FillSolid) ||
 		(pGC->fillStyle == FillStippled))
 	    {
-		DoChangeGC(pGC, GCForeground, &fgPixel, 0);
+		ChangeGCVal gcval;
+		gcval.val = fgPixel;
+		ChangeGC(NullClient, pGC, GCForeground, &gcval);
 		ValidateGC(pDraw, pGC);
 	    }
 	}

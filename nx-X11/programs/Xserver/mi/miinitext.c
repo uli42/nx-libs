@@ -27,13 +27,13 @@ Copyright 1987 by Digital Equipment Corporation, Maynard, Massachusetts.
 
                         All Rights Reserved
 
-Permission to use, copy, modify, and distribute this software and its 
-documentation for any purpose and without fee is hereby granted, 
+Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose and without fee is hereby granted,
 provided that the above copyright notice appear in all copies and that
-both that copyright notice and this permission notice appear in 
+both that copyright notice and this permission notice appear in
 supporting documentation, and that the name of Digital not be
 used in advertising or publicity pertaining to distribution of the
-software without specific, written prior permission.  
+software without specific, written prior permission.
 
 DIGITAL DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE, INCLUDING
 ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL
@@ -55,27 +55,37 @@ SOFTWARE.
 
 #ifdef HAVE_DMX_CONFIG_H
 #include <dmx-config.h>
+#undef XV
+#undef DBE
+#undef XF86VIDMODE
+#undef XFreeXDGA
+#undef XF86DRI
+#undef SCREENSAVER
+#undef RANDR
+#undef XFIXES
+#undef DAMAGE
+#undef COMPOSITE
+#undef MITSHM
 #endif
 
 #ifdef HAVE_XNEST_CONFIG_H
 #include <xnest-config.h>
+#undef COMPOSITE
 #undef DPMSExtension
 #endif
+
+
 
 #include "misc.h"
 #include "extension.h"
 #include "micmap.h"
+#include "globals.h"
+
 
 extern Bool noTestExtensions;
 
-#ifdef BIGREQS
-extern Bool noBigReqExtension;
-#endif
 #ifdef COMPOSITE
 extern Bool noCompositeExtension;
-#endif
-#ifdef DAMAGE
-extern Bool noDamageExtension;
 #endif
 #ifdef DBE
 extern Bool noDbeExtension;
@@ -95,23 +105,12 @@ extern Bool noMITShmExtension;
 #ifdef RANDR
 extern Bool noRRExtension;
 #endif
-#ifdef RENDER
 extern Bool noRenderExtension;
-#endif
-#ifdef SHAPE
-extern Bool noShapeExtension;
-#endif
 #ifdef XCSECURITY
 extern Bool noSecurityExtension;
 #endif
-#ifdef XSYNC
-extern Bool noSyncExtension;
-#endif
 #ifdef RES
 extern Bool noResExtension;
-#endif
-#ifdef XCMISC
-extern Bool noXCMiscExtension;
 #endif
 #ifdef XF86BIGFONT
 extern Bool noXFree86BigfontExtension;
@@ -122,15 +121,8 @@ extern Bool noXFree86DRIExtension;
 #ifdef XFIXES
 extern Bool noXFixesExtension;
 #endif
-#ifdef XKB
-/* |noXkbExtension| is defined in xc/programs/Xserver/xkb/xkbInit.c */
-extern Bool noXkbExtension;
-#endif
 #ifdef PANORAMIX
 extern Bool noPanoramiXExtension;
-#endif
-#ifdef XINPUT
-extern Bool noXInputExtension;
 #endif
 #ifdef XIDLE
 extern Bool noXIdleExtension;
@@ -138,23 +130,21 @@ extern Bool noXIdleExtension;
 #ifdef XV
 extern Bool noXvExtension;
 #endif
+extern Bool noGEExtension;
 
+#define INITARGS void
 typedef void (*InitExtension)(void);
 
 #ifdef MITSHM
-#define _XSHM_SERVER_
-#include <X11/extensions/shmstr.h>
+#include <nx-X11/extensions/shm.h>
 #endif
 #ifdef XTEST
-#define _XTEST_SERVER_
 #include <nx-X11/extensions/xtestconst.h>
 #endif
-#ifdef XKB
-#include <nx-X11/extensions/XKB.h>
-#endif
+#include "../xkb/xkb.h"
 #ifdef XCSECURITY
 #include "securitysrv.h"
-#include <nx-X11/extensions/securstr.h>
+#include <nx-X11/extensions/secur.h>
 #endif
 #ifdef PANORAMIX
 #include <nx-X11/extensions/panoramiXproto.h>
@@ -167,27 +157,17 @@ typedef void (*InitExtension)(void);
 #endif
 
 /* FIXME: this whole block of externs should be from the appropriate headers */
-#ifdef SHAPE
-extern void ShapeExtensionInit(void);
-#endif
 #ifdef MITSHM
 extern void ShmExtensionInit(void);
 #endif
 #ifdef PANORAMIX
 extern void PanoramiXExtensionInit(void);
 #endif
-#ifdef XINPUT
 extern void XInputExtensionInit(void);
-#endif
 #ifdef XTEST
 extern void XTestExtensionInit(void);
 #endif
-#ifdef BIGREQS
 extern void BigReqExtensionInit(void);
-#endif
-#ifdef XIDLE
-extern void XIdleExtensionInit(void);
-#endif
 #ifdef SCREENSAVER
 extern void ScreenSaverExtensionInit (void);
 #endif
@@ -195,15 +175,9 @@ extern void ScreenSaverExtensionInit (void);
 extern void XvExtensionInit(void);
 extern void XvMCExtensionInit(void);
 #endif
-#ifdef XSYNC
 extern void SyncExtensionInit(void);
-#endif
-#ifdef XKB
 extern void XkbExtensionInit(void);
-#endif
-#ifdef XCMISC
 extern void XCMiscExtensionInit(void);
-#endif
 #ifdef XRECORD
 extern void RecordExtensionInit(void);
 #endif
@@ -212,6 +186,9 @@ extern void DbeExtensionInit(void);
 #endif
 #ifdef XCSECURITY
 extern void SecurityExtensionInit(void);
+#endif
+#ifdef XSELINUX
+extern void SELinuxExtensionInit(void);
 #endif
 #ifdef XF86BIGFONT
 extern void XFree86BigfontExtensionInit(void);
@@ -228,9 +205,7 @@ extern void XFree86DRIExtensionInit(void);
 #ifdef DPMSExtension
 extern void DPMSExtensionInit(void);
 #endif
-#ifdef RENDER
 extern void RenderExtensionInit(void);
-#endif
 #ifdef RANDR
 extern void RRExtensionInit(void);
 #endif
@@ -249,6 +224,7 @@ extern void DamageExtensionInit(void);
 #ifdef COMPOSITE
 extern void CompositeExtensionInit(void);
 #endif
+extern void GEExtensionInit(void);
 
 /* The following is only a small first step towards run-time
  * configurable extensions.
@@ -261,9 +237,7 @@ typedef struct {
 static ExtensionToggle ExtensionToggleList[] =
 {
     /* sort order is extension name string as shown in xdpyinfo */
-#ifdef BIGREQS
-    { "BIG-REQUESTS", &noBigReqExtension },
-#endif
+    { "Generic Events", &noGEExtension },
 #ifdef COMPOSITE
     { "Composite", &noCompositeExtension },
 #endif
@@ -288,23 +262,12 @@ static ExtensionToggle ExtensionToggleList[] =
 #ifdef RANDR
     { "RANDR", &noRRExtension },
 #endif
-#ifdef RENDER
     { "RENDER", &noRenderExtension },
-#endif
-#ifdef SHAPE
-    { "SHAPE", &noShapeExtension },
-#endif
 #ifdef XCSECURITY
     { "SECURITY", &noSecurityExtension },
 #endif
-#ifdef XSYNC
-    { "SYNC", &noSyncExtension },
-#endif
 #ifdef RES
     { "X-Resource", &noResExtension },
-#endif
-#ifdef XCMISC
-    { "XC-MISC", &noXCMiscExtension },
 #endif
 #ifdef XF86BIGFONT
     { "XFree86-Bigfont", &noXFree86BigfontExtension },
@@ -318,12 +281,8 @@ static ExtensionToggle ExtensionToggleList[] =
 #ifdef PANORAMIX
     { "XINERAMA", &noPanoramiXExtension },
 #endif
-#ifdef XINPUT
-    { "XInputExtension", &noXInputExtension },
-#endif
-#ifdef XKB
-    { "XKEYBOARD", &noXkbExtension },
-#endif
+    { "XInputExtension", NULL },
+    { "XKEYBOARD", NULL },
     { "XTEST", &noTestExtensions },
 #ifdef XV
     { "XVideo", &noXvExtension },
@@ -337,8 +296,14 @@ Bool EnableDisableExtension(char *name, Bool enable)
 
     for (ext = &ExtensionToggleList[0]; ext->name != NULL; ext++) {
 	if (strcmp(name, ext->name) == 0) {
+	    if (ext->disablePtr != NULL) {
 	    *ext->disablePtr = !enable;
 	    return TRUE;
+	    } else {
+		/* Extension is always on, impossible to disable */
+		return enable; /* okay if they wanted to enable,
+				  fail if they tried to disable */
+	    }
 	}
     }
 
@@ -348,45 +313,48 @@ Bool EnableDisableExtension(char *name, Bool enable)
 void EnableDisableExtensionError(char *name, Bool enable)
 {
     ExtensionToggle *ext = &ExtensionToggleList[0];
+    Bool found = FALSE;
 
-    ErrorF("Extension \"%s\" is not recognized\n", name);
-    ErrorF("Only the following extensions can be run-time %s:\n",
+    for (ext = &ExtensionToggleList[0]; ext->name != NULL; ext++) {
+	if ((strcmp(name, ext->name) == 0) && (ext->disablePtr == NULL)) {
+	    ErrorF("[mi] Extension \"%s\" can not be disabled\n", name);
+	    found = TRUE;
+	    break;
+	}
+    }
+    if (found == FALSE)
+	ErrorF("[mi] Extension \"%s\" is not recognized\n", name);
+    ErrorF("[mi] Only the following extensions can be run-time %s:\n",
 	   enable ? "enabled" : "disabled");
-    for (ext = &ExtensionToggleList[0]; ext->name != NULL; ext++)
-	ErrorF("    %s\n", ext->name);
+    for (ext = &ExtensionToggleList[0]; ext->name != NULL; ext++) {
+	if (ext->disablePtr != NULL) {
+	    ErrorF("[mi]    %s\n", ext->name);
+	}
+    }
 }
 
 
 /*ARGSUSED*/
 void
-InitExtensions(argc, argv)
-    int		argc;
-    char	*argv[];
+InitExtensions(int argc, char *argv[])
 {
+    if (!noGEExtension) GEExtensionInit();
+
 #ifdef PANORAMIX
-# if !defined(PRINT_ONLY_SERVER) && !defined(NO_PANORAMIX)
+# if !defined(NO_PANORAMIX)
   if (!noPanoramiXExtension) PanoramiXExtensionInit();
 # endif
 #endif
-#ifdef SHAPE
-    if (!noShapeExtension) ShapeExtensionInit();
-#endif
+    ShapeExtensionInit();
 #ifdef MITSHM
     if (!noMITShmExtension) ShmExtensionInit();
 #endif
-#if defined(XINPUT)
-    if (!noXInputExtension) XInputExtensionInit();
-#endif
+    XInputExtensionInit();
 #ifdef XTEST
     if (!noTestExtensions) XTestExtensionInit();
 #endif
-#ifdef BIGREQS
-    if (!noBigReqExtension) BigReqExtensionInit();
-#endif
-#ifdef XIDLE
-    if (!noXIdleExtension) XIdleExtensionInit();
-#endif
-#if defined(SCREENSAVER) && !defined(PRINT_ONLY_SERVER)
+    BigReqExtensionInit();
+#if defined(SCREENSAVER)
     if (!noScreenSaverExtension) ScreenSaverExtensionInit ();
 #endif
 #ifdef XV
@@ -395,17 +363,11 @@ InitExtensions(argc, argv)
       XvMCExtensionInit();
     }
 #endif
-#ifdef XSYNC
-    if (!noSyncExtension) SyncExtensionInit();
-#endif
-#if defined(XKB) && !defined(PRINT_ONLY_SERVER)
-    if (!noXkbExtension) XkbExtensionInit();
-#endif
-#ifdef XCMISC
-    if (!noXCMiscExtension) XCMiscExtensionInit();
-#endif
+    SyncExtensionInit();
+    XkbExtensionInit();
+    XCMiscExtensionInit();
 #ifdef XRECORD
-    if (!noTestExtensions) RecordExtensionInit(); 
+    if (!noTestExtensions) RecordExtensionInit();
 #endif
 #ifdef DBE
     if (!noDbeExtension) DbeExtensionInit();
@@ -413,13 +375,16 @@ InitExtensions(argc, argv)
 #ifdef XCSECURITY
     if (!noSecurityExtension) SecurityExtensionInit();
 #endif
+#ifdef XSELINUX
+    if (!noSELinuxExtension) SELinuxExtensionInit();
+#endif
 #if defined(DPMSExtension) && !defined(NO_HW_ONLY_EXTS)
     if (!noDPMSExtension) DPMSExtensionInit();
 #endif
 #ifdef XF86BIGFONT
     if (!noXFree86BigfontExtension) XFree86BigfontExtensionInit();
 #endif
-#if !defined(PRINT_ONLY_SERVER) && !defined(NO_HW_ONLY_EXTS)
+#if !defined(NO_HW_ONLY_EXTS)
 #ifdef XF86DRI
     if (!noXFree86DRIExtension) XFree86DRIExtensionInit();
 #endif
@@ -428,9 +393,7 @@ InitExtensions(argc, argv)
     /* must be before Render to layer DisplayCursor correctly */
     if (!noXFixesExtension) XFixesExtensionInit();
 #endif
-#ifdef RENDER
     if (!noRenderExtension) RenderExtensionInit();
-#endif
 #ifdef RANDR
     if (!noRRExtension) RRExtensionInit();
 #endif
@@ -446,14 +409,13 @@ InitExtensions(argc, argv)
 #ifdef DAMAGE
     if (!noDamageExtension) DamageExtensionInit();
 #endif
+
 #ifdef GLXEXT
+#if 0
+    if (serverGeneration == 1)
     GlxPushProvider(&__glXDRISWRastProvider);
     if (!noGlxExtension) GlxExtensionInit();
 #endif
+#endif
 }
 
-void
-InitVisualWrap()
-{
-    miResetInitVisuals();
-}
