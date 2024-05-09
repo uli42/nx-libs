@@ -29,7 +29,7 @@ in this Software without prior written authorization from The Open Group.
 #ifndef _SHMPROTO_H_
 #define _SHMPROTO_H_
 
-#include <X11/extensions/shm.h>
+#include <nx-X11/extensions/shm.h>
 
 #define ShmSeg CARD32
 #define Drawable CARD32
