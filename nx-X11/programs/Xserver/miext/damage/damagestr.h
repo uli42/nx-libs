@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 2003 Keith Packard
+ * Copyright © 2003 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -30,9 +30,7 @@
 #include "damage.h"
 #include "gcstruct.h"
 #include "privates.h"
-#ifdef RENDER
 # include "picturestr.h"
-#endif
 
 typedef struct _damage {
     DamagePtr		pNext;
@@ -46,10 +44,15 @@ typedef struct _damage {
     DrawablePtr		pDrawable;
     
     DamageReportFunc	damageReport;
+    DamageReportFunc	damageReportPostRendering;
     DamageDestroyFunc	damageDestroy;
+    DamageMarkerFunc	damageMarker;
 
     Bool		reportAfter;
-    RegionRec		pendingDamage;
+    RegionRec		pendingDamage; /* will be flushed post submission at the latest */
+    RegionRec		backupDamage; /* for use with damageMarker */
+    ScreenPtr		pScreen;
+    PrivateRec		*devPrivates;
 } DamageRec;
 
 typedef struct _damageScrPriv {
@@ -67,11 +70,12 @@ typedef struct _damageScrPriv {
     DestroyPixmapProcPtr	DestroyPixmap;
     SetWindowPixmapProcPtr	SetWindowPixmap;
     DestroyWindowProcPtr	DestroyWindow;
-#ifdef RENDER
     CompositeProcPtr		Composite;
     GlyphsProcPtr		Glyphs;
     AddTrapsProcPtr		AddTraps;
-#endif
+
+    /* Table of wrappable function pointers */
+    DamageScreenFuncsRec	funcs;
 } DamageScrPrivRec, *DamageScrPrivPtr;
 
 typedef struct _damageGCPriv {

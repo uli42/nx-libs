@@ -4,7 +4,7 @@ SRCS = cw.c cw_ops.c cw_render.c
 
 OBJS = cw.o cw_ops.o cw_render.o
 
-   INCLUDES = -I../../mi -I../../fb -I../../render -I../../composite \
+   INCLUDES = -I../../mi -I../../Xext -I../../fb -I../../render -I../../composite \
 	      -I../../include -I$(XINCLUDESRC) $(EXTRAINCLUDES) \
 	      -I$(EXTINCSRC) \
 	      `pkg-config --cflags-only-I pixman-1`

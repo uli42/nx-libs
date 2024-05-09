@@ -9,7 +9,7 @@ SRCS = damage.c
 
 OBJS = damage.o
 
-   INCLUDES = -I. -I../../mi -I../../fb -I../../include -I$(XINCLUDESRC) \
+   INCLUDES = -I. -I../../mi -I../../Xext -I../../fb -I../../include -I$(XINCLUDESRC) \
 	      -I$(XF86SRC)/common $(EXTRAINCLUDES) \
 	      -I../../render -I../cw -I$(EXTINCSRC) \
 	      `pkg-config --cflags-only-I pixman-1`

@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 2004 Eric Anholt
+ * Copyright © 2004 Eric Anholt
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -29,8 +29,6 @@
 #include "gcstruct.h"
 #include "windowstr.h"
 #include "cw.h"
-
-#ifdef RENDER
 
 #define cwPsDecl(pScreen)	\
     PictureScreenPtr	ps = GetPictureScreen (pScreen);	\
@@ -469,4 +467,3 @@ cwFiniRender (ScreenPtr pScreen)
     cwPsUnwrap(TriFan);
 }
 
-#endif /* RENDER */

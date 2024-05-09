@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 2003 Keith Packard
+ * Copyright © 2003 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -35,7 +35,7 @@
 #ifdef HAS_XFONT2
 # include   <X11/fonts/libxfont2.h>
 #else
-# include    <X11/fonts/fontutil.h>
+# include    <nx-X11/fonts/fontutil.h>
 #endif /* HAS_XFONT2 */
 #include    "mi.h"
 #include    "regionstr.h"
@@ -75,17 +75,21 @@
 
 #define pixmapDamage(pPixmap)		damagePixPriv(pPixmap)
 
-static DevPrivateKey damageScrPrivateKey = &damageScrPrivateKey;
-static DevPrivateKey damagePixPrivateKey = &damagePixPrivateKey;
-static DevPrivateKey damageGCPrivateKey = &damageGCPrivateKey;
-static DevPrivateKey damageWinPrivateKey = &damageWinPrivateKey;
+static DevPrivateKeyRec damageScrPrivateKeyRec;
+#define damageScrPrivateKey (&damageScrPrivateKeyRec)
+static DevPrivateKeyRec damagePixPrivateKeyRec;
+#define damagePixPrivateKey (&damagePixPrivateKeyRec)
+static DevPrivateKeyRec damageGCPrivateKeyRec;
+#define damageGCPrivateKey (&damageGCPrivateKeyRec)
+static DevPrivateKeyRec damageWinPrivateKeyRec;
+#define damageWinPrivateKey (&damageWinPrivateKeyRec)
 
 static DamagePtr *
 getDrawableDamageRef (DrawablePtr pDrawable)
 {
     PixmapPtr   pPixmap;
     
-    if (pDrawable->type == DRAWABLE_WINDOW)
+    if (WindowDrawable(pDrawable->type))
     {
 	ScreenPtr   pScreen = pDrawable->pScreen;
 
@@ -122,7 +126,7 @@ getDrawableDamageRef (DrawablePtr pDrawable)
 	dixLookupPrivateAddr(&(pWindow)->devPrivates, damageWinPrivateKey)
 
 static void
-DamageReportDamage (DamagePtr pDamage, RegionPtr pDamageRegion)
+damageReportDamage (DamagePtr pDamage, RegionPtr pDamageRegion)
 {
     BoxRec tmpBox;
     RegionRec tmpRegion;
@@ -130,6 +134,8 @@ DamageReportDamage (DamagePtr pDamage, RegionPtr pDamageRegion)
 
     switch (pDamage->damageLevel) {
     case DamageReportRawRegion:
+	RegionUnion(&pDamage->damage, &pDamage->damage,
+			 pDamageRegion);
 	(*pDamage->damageReport) (pDamage, pDamageRegion, pDamage->closure);
 	break;
     case DamageReportDeltaRegion:
@@ -167,13 +173,55 @@ DamageReportDamage (DamagePtr pDamage, RegionPtr pDamageRegion)
     }
 }
 
+static void
+damageReportDamagePostRendering (DamagePtr pDamage, RegionPtr pOldDamage, RegionPtr pDamageRegion)
+{
+    BoxRec tmpBox;
+    RegionRec tmpRegion, newDamage;
+    Bool was_empty;
+
+    RegionUnion(&newDamage, pOldDamage, pDamageRegion);
+
+    switch (pDamage->damageLevel) {
+    case DamageReportRawRegion:
+	(*pDamage->damageReportPostRendering) (pDamage, pDamageRegion, pDamage->closure);
+	break;
+    case DamageReportDeltaRegion:
+	RegionNull(&tmpRegion);
+	RegionSubtract(&tmpRegion, pDamageRegion, pOldDamage);
+	if (RegionNotEmpty(&tmpRegion)) {
+	    (*pDamage->damageReportPostRendering) (pDamage, &tmpRegion, pDamage->closure);
+	}
+	RegionUninit(&tmpRegion);
+	break;
+    case DamageReportBoundingBox:
+	tmpBox = *RegionExtents(pOldDamage);
+	if (!BOX_SAME (&tmpBox, RegionExtents(&newDamage))) {
+	    (*pDamage->damageReportPostRendering) (pDamage, &newDamage,
+				      pDamage->closure);
+	}
+	break;
+    case DamageReportNonEmpty:
+	was_empty = !RegionNotEmpty(pOldDamage);
+	if (was_empty && RegionNotEmpty(&newDamage)) {
+	    (*pDamage->damageReportPostRendering) (pDamage, &newDamage,
+				      pDamage->closure);
+	}
+	break;
+    case DamageReportNone:
+	break;
+    }
+
+    RegionUninit(&newDamage);
+}
+
 #if DAMAGE_DEBUG_ENABLE
 static void
-_damageDamageRegion (DrawablePtr pDrawable, RegionPtr pRegion, Bool clip, int subWindowMode, const char *where)
-#define damageDamageRegion(d,r,c,m) _damageDamageRegion(d,r,c,m,__FUNCTION__)
+_damageRegionAppend (DrawablePtr pDrawable, RegionPtr pRegion, Bool clip, int subWindowMode, const char *where)
+#define damageRegionAppend(d,r,c,m) _damageRegionAppend(d,r,c,m,__FUNCTION__)
 #else
 static void
-damageDamageRegion (DrawablePtr pDrawable, RegionPtr pRegion, Bool clip,
+damageRegionAppend (DrawablePtr pDrawable, RegionPtr pRegion, Bool clip,
 			int subWindowMode)
 #endif
 {
@@ -257,7 +305,7 @@ damageDamageRegion (DrawablePtr pDrawable, RegionPtr pRegion, Bool clip,
 	 * Need to move everyone to screen coordinates
 	 * XXX what about off-screen pixmaps with non-zero x/y?
 	 */
-	if (pDamage->pDrawable->type != DRAWABLE_WINDOW)
+	if (!WindowDrawable(pDamage->pDrawable->type))
 	{
 	    draw_x += ((PixmapPtr) pDamage->pDrawable)->screen_x;
 	    draw_y += ((PixmapPtr) pDamage->pDrawable)->screen_y;
@@ -305,15 +353,22 @@ damageDamageRegion (DrawablePtr pDrawable, RegionPtr pRegion, Bool clip,
 	if (draw_x || draw_y)
 	    RegionTranslate(pDamageRegion, -draw_x, -draw_y);
 
-	/* If the damage rec has been flagged to report damage after the op has
-	 * completed, then union it into the delayed damage region, which will
-	 * be used for reporting after calling down, and skip the reporting 
-	 */
-	if (!pDamage->reportAfter) {
-	    DamageReportDamage (pDamage, pDamageRegion);
-	} else {
+	/* Store damage region if needed after submission. */
+	if (pDamage->reportAfter || pDamage->damageMarker)
 	    RegionUnion(&pDamage->pendingDamage,
 			 &pDamage->pendingDamage, pDamageRegion);
+
+	/* Duplicate current damage if needed. */
+	if (pDamage->damageMarker)
+	    RegionCopy(&pDamage->backupDamage, &pDamage->damage);
+
+	/* Report damage now, if desired. */
+	if (!pDamage->reportAfter) {
+	    if (pDamage->damageReport)
+		damageReportDamage (pDamage, pDamageRegion);
+	    else
+		RegionUnion(&pDamage->damage,
+			 &pDamage->damage, pDamageRegion);
 	}
 
 	/*
@@ -331,16 +386,28 @@ damageDamageRegion (DrawablePtr pDrawable, RegionPtr pRegion, Bool clip,
 }
 
 static void
-damageReportPostOp (DrawablePtr pDrawable)
+damageRegionProcessPending (DrawablePtr pDrawable)
 {
     drawableDamage(pDrawable);
 
     for (; pDamage != NULL; pDamage = pDamage->pNext)
     {
+	/* submit damage marker whenever possible. */
+	if (pDamage->damageMarker)
+	    (*pDamage->damageMarker) (pDrawable, pDamage, &pDamage->backupDamage, &pDamage->pendingDamage, pDamage->closure);
 	if (pDamage->reportAfter) {
-	    DamageReportDamage (pDamage, &pDamage->pendingDamage);
-	    RegionEmpty(&pDamage->pendingDamage);
+	    /* It's possible that there is only interest in postRendering reporting. */
+	    if (pDamage->damageReport)
+		damageReportDamage (pDamage, &pDamage->pendingDamage);
+	    else
+		RegionUnion(&pDamage->damage, &pDamage->damage,
+			&pDamage->pendingDamage);
 	}
+
+	if (pDamage->reportAfter || pDamage->damageMarker)
+	    RegionEmpty(&pDamage->pendingDamage);
+	if (pDamage->damageMarker)
+	    RegionEmpty(&pDamage->backupDamage);
     }
     
 }
@@ -358,9 +425,9 @@ damageDamageBox (DrawablePtr pDrawable, BoxPtr pBox, int subWindowMode)
 
     RegionInit(&region, pBox, 1);
 #if DAMAGE_DEBUG_ENABLE
-    _damageDamageRegion (pDrawable, &region, TRUE, subWindowMode, where);
+    _damageRegionAppend (pDrawable, &region, TRUE, subWindowMode, where);
 #else
-    damageDamageRegion (pDrawable, &region, TRUE, subWindowMode);
+    damageRegionAppend (pDrawable, &region, TRUE, subWindowMode);
 #endif
     RegionUninit(&region);
 }
@@ -531,10 +598,7 @@ damageDestroyClip(GCPtr pGC)
 
 #define checkGCDamage(d,g)	(getDrawableDamage(d) && \
 				 (!g->pCompositeClip ||\
-				  RegionNotEmpty(\
-						  g->pCompositeClip)))
-
-#ifdef RENDER
+				  RegionNotEmpty(g->pCompositeClip)))
 
 #define TRIM_PICTURE_BOX(box, pDst) { \
     BoxPtr extents = &pDst->pCompositeClip->extents;\
@@ -590,7 +654,7 @@ damageComposite (CARD8      op,
 		       yDst,
 		       width,
 		       height);
-    damageReportPostOp (pDst->pDrawable);
+    damageRegionProcessPending (pDst->pDrawable);
     wrap (pScrPriv, ps, Composite, damageComposite);
 }
 
@@ -657,7 +721,7 @@ damageGlyphs (CARD8		op,
     }
     unwrap (pScrPriv, ps, Glyphs);
     (*ps->Glyphs) (op, pSrc, pDst, maskFormat, xSrc, ySrc, nlist, list, glyphs);
-    damageReportPostOp (pDst->pDrawable);
+    damageRegionProcessPending (pDst->pDrawable);
     wrap (pScrPriv, ps, Glyphs, damageGlyphs);
 }
 
@@ -709,10 +773,9 @@ damageAddTraps (PicturePtr  pPicture,
     }
     unwrap (pScrPriv, ps, AddTraps);
     (*ps->AddTraps) (pPicture, x_off, y_off, ntrap, traps);
-    damageReportPostOp (pPicture->pDrawable);
+    damageRegionProcessPending (pPicture->pDrawable);
     wrap (pScrPriv, ps, AddTraps, damageAddTraps);
 }
-#endif
 
 /**********************************************************/
 
@@ -762,7 +825,7 @@ damageFillSpans(DrawablePtr pDrawable,
     
     (*pGC->ops->FillSpans)(pDrawable, pGC, npt, ppt, pwidth, fSorted);
 
-    damageReportPostOp (pDrawable);
+    damageRegionProcessPending (pDrawable);
     DAMAGE_GC_OP_EPILOGUE(pGC, pDrawable);
 }
 
@@ -810,7 +873,7 @@ damageSetSpans(DrawablePtr  pDrawable,
 	   damageDamageBox (pDrawable, &box, pGC->subWindowMode);
     }
     (*pGC->ops->SetSpans)(pDrawable, pGC, pcharsrc, ppt, pwidth, npt, fSorted);
-    damageReportPostOp (pDrawable);
+    damageRegionProcessPending (pDrawable);
     DAMAGE_GC_OP_EPILOGUE(pGC, pDrawable);
 }
 
@@ -842,7 +905,7 @@ damagePutImage(DrawablePtr  pDrawable,
     }
     (*pGC->ops->PutImage)(pDrawable, pGC, depth, x, y, w, h,
 		leftPad, format, pImage);
-    damageReportPostOp (pDrawable);
+    damageRegionProcessPending (pDrawable);
     DAMAGE_GC_OP_EPILOGUE(pGC, pDrawable);
 }
 
@@ -886,7 +949,7 @@ damageCopyArea(DrawablePtr   pSrc,
 
     ret = (*pGC->ops->CopyArea)(pSrc, pDst,
             pGC, srcx, srcy, width, height, dstx, dsty);
-    damageReportPostOp (pDst);
+    damageRegionProcessPending (pDst);
     DAMAGE_GC_OP_EPILOGUE(pGC, pDst);
     return ret;
 }
@@ -932,7 +995,7 @@ damageCopyPlane(DrawablePtr	pSrc,
 
     ret = (*pGC->ops->CopyPlane)(pSrc, pDst,
 	       pGC, srcx, srcy, width, height, dstx, dsty, bitPlane);
-    damageReportPostOp (pDst);
+    damageRegionProcessPending (pDst);
     DAMAGE_GC_OP_EPILOGUE(pGC, pDst);
     return ret;
 }
@@ -974,7 +1037,7 @@ damagePolyPoint(DrawablePtr pDrawable,
 	   damageDamageBox (pDrawable, &box, pGC->subWindowMode);
     }
     (*pGC->ops->PolyPoint)(pDrawable, pGC, mode, npt, ppt);
-    damageReportPostOp (pDrawable);
+    damageRegionProcessPending (pDrawable);
     DAMAGE_GC_OP_EPILOGUE(pGC, pDrawable);
 }
 
@@ -1048,7 +1111,7 @@ damagePolylines(DrawablePtr pDrawable,
 	   damageDamageBox (pDrawable, &box, pGC->subWindowMode);
     }
     (*pGC->ops->Polylines)(pDrawable, pGC, mode, npt, ppt);
-    damageReportPostOp (pDrawable);
+    damageRegionProcessPending (pDrawable);
     DAMAGE_GC_OP_EPILOGUE(pGC, pDrawable);
 }
 
@@ -1127,7 +1190,7 @@ damagePolySegment(DrawablePtr	pDrawable,
 	   damageDamageBox (pDrawable, &box, pGC->subWindowMode);
     }
     (*pGC->ops->PolySegment)(pDrawable, pGC, nSeg, pSeg);
-    damageReportPostOp (pDrawable);
+    damageRegionProcessPending (pDrawable);
     DAMAGE_GC_OP_EPILOGUE(pGC, pDrawable);
 }
 
@@ -1189,7 +1252,7 @@ damagePolyRectangle(DrawablePtr  pDrawable,
 	}
     }
     (*pGC->ops->PolyRectangle)(pDrawable, pGC, nRects, pRects);
-    damageReportPostOp (pDrawable);
+    damageRegionProcessPending (pDrawable);
     DAMAGE_GC_OP_EPILOGUE(pGC, pDrawable);
 }
 
@@ -1242,7 +1305,7 @@ damagePolyArc(DrawablePtr   pDrawable,
 	   damageDamageBox (pDrawable, &box, pGC->subWindowMode);
     }
     (*pGC->ops->PolyArc)(pDrawable, pGC, nArcs, pArcs);
-    damageReportPostOp (pDrawable);
+    damageRegionProcessPending (pDrawable);
     DAMAGE_GC_OP_EPILOGUE(pGC, pDrawable);
 }
 
@@ -1301,7 +1364,7 @@ damageFillPolygon(DrawablePtr	pDrawable,
     }
     
     (*pGC->ops->FillPolygon)(pDrawable, pGC, shape, mode, npt, ppt);
-    damageReportPostOp (pDrawable);
+    damageRegionProcessPending (pDrawable);
     DAMAGE_GC_OP_EPILOGUE(pGC, pDrawable);
 }
 
@@ -1340,7 +1403,7 @@ damagePolyFillRect(DrawablePtr	pDrawable,
 	    damageDamageBox (pDrawable, &box, pGC->subWindowMode);
     }
     (*pGC->ops->PolyFillRect)(pDrawable, pGC, nRects, pRects);
-    damageReportPostOp (pDrawable);
+    damageRegionProcessPending (pDrawable);
     DAMAGE_GC_OP_EPILOGUE(pGC, pDrawable);
 }
 
@@ -1382,7 +1445,7 @@ damagePolyFillArc(DrawablePtr	pDrawable,
 	   damageDamageBox (pDrawable, &box, pGC->subWindowMode);
     }
     (*pGC->ops->PolyFillArc)(pDrawable, pGC, nArcs, pArcs);
-    damageReportPostOp (pDrawable);
+    damageRegionProcessPending (pDrawable);
     DAMAGE_GC_OP_EPILOGUE(pGC, pDrawable);
 }
 
@@ -1437,7 +1500,7 @@ damageDamageChars (DrawablePtr	pDrawable,
 #define TT_POLY16  2
 #define TT_IMAGE16 3
 
-static void
+static int 
 damageText (DrawablePtr	    pDrawable,
 	    GCPtr	    pGC,
 	    int		    x,
@@ -1448,28 +1511,38 @@ damageText (DrawablePtr	    pDrawable,
 	    Bool	    textType)
 {
     CharInfoPtr	    *charinfo;
+    CharInfoPtr	    *info;
     unsigned long   i;
     unsigned int    n;
+    int		    w;
     Bool	    imageblt;
 
     imageblt = (textType == TT_IMAGE8) || (textType == TT_IMAGE16);
 
-    if (!checkGCDamage(pDrawable, pGC))
-	return;
-
-    charinfo = (CharInfoPtr *) malloc(count * sizeof(CharInfoPtr));
+    charinfo = malloc(count * sizeof(CharInfoPtr));
     if (!charinfo)
-	return;
+	return x;
 
     GetGlyphs(pGC->font, count, (unsigned char *)chars,
 	      fontEncoding, &i, charinfo);
     n = (unsigned int)i;
+    w = 0;
+    if (!imageblt)
+	for (info = charinfo; i--; info++)
+	    w += (*info)->metrics.characterWidth;
 
     if (n != 0) {
 	damageDamageChars (pDrawable, pGC->font, x + pDrawable->x, y + pDrawable->y, n,
 			   charinfo, imageblt, pGC->subWindowMode);
+	if (imageblt)
+	    (*pGC->ops->ImageGlyphBlt)(pDrawable, pGC, x, y, n, charinfo,
+				       FONTGLYPHS(pGC->font));
+	else
+	    (*pGC->ops->PolyGlyphBlt)(pDrawable, pGC, x, y, n, charinfo,
+				      FONTGLYPHS(pGC->font));
     }
     free(charinfo);
+    return x + w;
 }
 
 static int
@@ -1481,10 +1554,13 @@ damagePolyText8(DrawablePtr pDrawable,
 		char	    *chars)
 {
     DAMAGE_GC_OP_PROLOGUE(pGC, pDrawable);
-    damageText(pDrawable, pGC, x, y, (unsigned long) count, chars,
+
+    if (checkGCDamage (pDrawable, pGC))
+	x = damageText (pDrawable, pGC, x, y, (unsigned long) count, chars,
 	       Linear8Bit, TT_POLY8);
+    else
     x = (*pGC->ops->PolyText8) (pDrawable, pGC, x, y, count, chars);
-    damageReportPostOp (pDrawable);
+    damageRegionProcessPending (pDrawable);
     DAMAGE_GC_OP_EPILOGUE(pGC, pDrawable);
     return x;
 }
@@ -1498,11 +1574,14 @@ damagePolyText16(DrawablePtr	pDrawable,
 		 unsigned short	*chars)
 {
     DAMAGE_GC_OP_PROLOGUE(pGC, pDrawable);
-    damageText (pDrawable, pGC, x, y, (unsigned long) count, (char *) chars,
+
+    if (checkGCDamage (pDrawable, pGC))
+	x = damageText (pDrawable, pGC, x, y, (unsigned long) count, (char *) chars,
 		FONTLASTROW(pGC->font) == 0 ? Linear16Bit : TwoD16Bit,
 		TT_POLY16);
+    else
     x = (*pGC->ops->PolyText16) (pDrawable, pGC, x, y, count, chars);
-    damageReportPostOp (pDrawable);
+    damageRegionProcessPending (pDrawable);
     DAMAGE_GC_OP_EPILOGUE(pGC, pDrawable);
     return x;
 }
@@ -1516,10 +1595,13 @@ damageImageText8(DrawablePtr	pDrawable,
 		 char		*chars)
 {
     DAMAGE_GC_OP_PROLOGUE(pGC, pDrawable);
-    damageText (pDrawable, pGC, x, y, (unsigned long) count, chars, Linear8Bit,
-		TT_IMAGE8);
+
+    if (checkGCDamage (pDrawable, pGC))
+	damageText (pDrawable, pGC, x, y, (unsigned long) count, chars,
+		    Linear8Bit, TT_IMAGE8);
+    else
     (*pGC->ops->ImageText8) (pDrawable, pGC, x, y, count, chars);
-    damageReportPostOp (pDrawable);
+    damageRegionProcessPending (pDrawable);
     DAMAGE_GC_OP_EPILOGUE(pGC, pDrawable);
 }
 
@@ -1532,13 +1614,17 @@ damageImageText16(DrawablePtr	pDrawable,
 		  unsigned short *chars)
 {
     DAMAGE_GC_OP_PROLOGUE(pGC, pDrawable);
+
+    if (checkGCDamage (pDrawable, pGC))
     damageText (pDrawable, pGC, x, y, (unsigned long) count, (char *) chars,
 		FONTLASTROW(pGC->font) == 0 ? Linear16Bit : TwoD16Bit,
 		TT_IMAGE16);
+    else
     (*pGC->ops->ImageText16) (pDrawable, pGC, x, y, count, chars);
-    damageReportPostOp (pDrawable);
+    damageRegionProcessPending (pDrawable);
     DAMAGE_GC_OP_EPILOGUE(pGC, pDrawable);
 }
+
 
 static void
 damageImageGlyphBlt(DrawablePtr	    pDrawable,
@@ -1554,7 +1640,7 @@ damageImageGlyphBlt(DrawablePtr	    pDrawable,
 		       nglyph, ppci, TRUE, pGC->subWindowMode);
     (*pGC->ops->ImageGlyphBlt)(pDrawable, pGC, x, y, nglyph,
 					ppci, pglyphBase);
-    damageReportPostOp (pDrawable);
+    damageRegionProcessPending (pDrawable);
     DAMAGE_GC_OP_EPILOGUE(pGC, pDrawable);
 }
 
@@ -1572,7 +1658,7 @@ damagePolyGlyphBlt(DrawablePtr	pDrawable,
 		       nglyph, ppci, FALSE, pGC->subWindowMode);
     (*pGC->ops->PolyGlyphBlt)(pDrawable, pGC, x, y, nglyph,
 				ppci, pglyphBase);
-    damageReportPostOp (pDrawable);
+    damageRegionProcessPending (pDrawable);
     DAMAGE_GC_OP_EPILOGUE(pGC, pDrawable);
 }
 
@@ -1606,7 +1692,7 @@ damagePushPixels(GCPtr		pGC,
 	   damageDamageBox (pDrawable, &box, pGC->subWindowMode);
     }
     (*pGC->ops->PushPixels)(pGC, pBitMap, pDrawable, dx, dy, xOrg, yOrg);
-    damageReportPostOp (pDrawable);
+    damageRegionProcessPending (pDrawable);
     DAMAGE_GC_OP_EPILOGUE(pGC, pDrawable);
 }
 
@@ -1624,7 +1710,7 @@ damageRemoveDamage (DamagePtr *pPrev, DamagePtr pDamage)
     }
 #if DAMAGE_VALIDATE_ENABLE
     ErrorF ("Damage not on list\n");
-    abort ();
+    OsAbort ();
 #endif
 }
 
@@ -1637,7 +1723,7 @@ damageInsertDamage (DamagePtr *pPrev, DamagePtr pDamage)
     for (pOld = *pPrev; pOld; pOld = pOld->pNext)
 	if (pOld == pDamage) {
 	    ErrorF ("Damage already on list\n");
-	    abort ();
+	    OsAbort ();
 	}
 #endif
     pDamage->pNext = *pPrev;
@@ -1686,12 +1772,12 @@ damageCopyWindow(WindowPtr	pWindow,
 	 * at the destination location.  Translate back and forth.
 	 */
 	RegionTranslate(prgnSrc, dx, dy);
-	damageDamageRegion (&pWindow->drawable, prgnSrc, FALSE, -1);
+	damageRegionAppend (&pWindow->drawable, prgnSrc, FALSE, -1);
 	RegionTranslate(prgnSrc, -dx, -dy);
     }
     unwrap (pScrPriv, pScreen, CopyWindow);
     (*pScreen->CopyWindow) (pWindow, ptOldOrg, prgnSrc);
-    damageReportPostOp (&pWindow->drawable);
+    damageRegionProcessPending (&pWindow->drawable);
     wrap (pScrPriv, pScreen, CopyWindow, damageCopyWindow);
 }
 
@@ -1774,21 +1860,54 @@ damageCloseScreen (int i, ScreenPtr pScreen)
     return (*pScreen->CloseScreen) (i, pScreen);
 }
 
+/**
+ * Default implementations of the damage management functions.
+ */
+void miDamageCreate (DamagePtr pDamage)
+{
+}
+
+void miDamageRegister (DrawablePtr pDrawable, DamagePtr pDamage)
+{
+}
+
+void miDamageUnregister (DrawablePtr pDrawable, DamagePtr pDamage)
+{
+}
+
+void miDamageDestroy (DamagePtr pDamage)
+{
+}
+
+/**
+ * Public functions for consumption outside this file.
+ */
+
 Bool
 DamageSetup (ScreenPtr pScreen)
 {
     DamageScrPrivPtr	pScrPriv;
-#ifdef RENDER
     PictureScreenPtr	ps = GetPictureScreenIfSet(pScreen);
-#endif
+    const DamageScreenFuncsRec miFuncs = {
+	miDamageCreate, miDamageRegister, miDamageUnregister, miDamageDestroy
+    };
+
+    if (!dixRegisterPrivateKey(&damageScrPrivateKeyRec, PRIVATE_SCREEN, 0))
+	return FALSE;
 
     if (dixLookupPrivate(&pScreen->devPrivates, damageScrPrivateKey))
 	return TRUE;
 
-    if (!dixRequestPrivate(damageGCPrivateKey, sizeof(DamageGCPrivRec)))
+    if (!dixRegisterPrivateKey(&damageGCPrivateKeyRec, PRIVATE_GC, sizeof(DamageGCPrivRec)))
 	return FALSE;
 
-    pScrPriv = (DamageScrPrivPtr) malloc (sizeof (DamageScrPrivRec));
+    if (!dixRegisterPrivateKey(&damagePixPrivateKeyRec, PRIVATE_PIXMAP, 0))
+	return FALSE;
+
+    if (!dixRegisterPrivateKey(&damageWinPrivateKeyRec, PRIVATE_WINDOW, 0))
+	return FALSE;
+
+    pScrPriv = malloc(sizeof (DamageScrPrivRec));
     if (!pScrPriv)
 	return FALSE;
 
@@ -1801,13 +1920,13 @@ DamageSetup (ScreenPtr pScreen)
     wrap (pScrPriv, pScreen, SetWindowPixmap, damageSetWindowPixmap);
     wrap (pScrPriv, pScreen, CopyWindow, damageCopyWindow);
     wrap (pScrPriv, pScreen, CloseScreen, damageCloseScreen);
-#ifdef RENDER
     if (ps) {
 	wrap (pScrPriv, ps, Glyphs, damageGlyphs);
 	wrap (pScrPriv, ps, Composite, damageComposite);
 	wrap (pScrPriv, ps, AddTraps, damageAddTraps);
     }
-#endif
+
+    pScrPriv->funcs = miFuncs;
 
     dixSetPrivate(&pScreen->devPrivates, damageScrPrivateKey, pScrPriv);
     return TRUE;
@@ -1821,9 +1940,10 @@ DamageCreate (DamageReportFunc  damageReport,
 	      ScreenPtr		pScreen,
 	      void		*closure)
 {
+    damageScrPriv(pScreen);
     DamagePtr	pDamage;
 
-    pDamage = malloc (sizeof (DamageRec));
+    pDamage = dixAllocateObjectWithPrivates(DamageRec, PRIVATE_DAMAGE);
     if (!pDamage)
 	return 0;
     pDamage->pNext = 0;
@@ -1839,7 +1959,13 @@ DamageCreate (DamageReportFunc  damageReport,
     pDamage->reportAfter = FALSE;
 
     pDamage->damageReport = damageReport;
+    pDamage->damageReportPostRendering = NULL;
     pDamage->damageDestroy = damageDestroy;
+    pDamage->damageMarker = NULL;
+    pDamage->pScreen = pScreen;
+
+    (*pScrPriv->funcs.Create) (pDamage);
+
     return pDamage;
 }
 
@@ -1847,6 +1973,17 @@ void
 DamageRegister (DrawablePtr pDrawable,
 		DamagePtr   pDamage)
 {
+    ScreenPtr pScreen = pDrawable->pScreen;
+    damageScrPriv(pScreen);
+
+#if DAMAGE_VALIDATE_ENABLE
+    if (pDrawable->pScreen != pDamage->pScreen)
+    {
+	ErrorF ("DamageRegister called with mismatched screens\n");
+	OsAbort ();
+    }
+#endif
+
     if (pDrawable->type == DRAWABLE_WINDOW)
     {
 	WindowPtr   pWindow = (WindowPtr) pDrawable;
@@ -1858,7 +1995,7 @@ DamageRegister (DrawablePtr pDrawable,
 	for (pOld = *pPrev; pOld; pOld = pOld->pNextWin)
 	    if (pOld == pDamage) {
 		ErrorF ("Damage already on window list\n");
-		abort ();
+		OsAbort ();
 	    }
 #endif
 	pDamage->pNextWin = *pPrev;
@@ -1869,6 +2006,7 @@ DamageRegister (DrawablePtr pDrawable,
 	pDamage->isWindow = FALSE;
     pDamage->pDrawable = pDrawable;
     damageInsertDamage (getDrawableDamageRef (pDrawable), pDamage);
+    (*pScrPriv->funcs.Register) (pDrawable, pDamage);
 }
 
 void
@@ -1883,6 +2021,11 @@ void
 DamageUnregister (DrawablePtr	    pDrawable,
 		  DamagePtr	    pDamage)
 {
+    ScreenPtr pScreen = pDrawable->pScreen;
+    damageScrPriv(pScreen);
+
+    (*pScrPriv->funcs.Unregister) (pDrawable, pDamage);
+
     if (pDrawable->type == DRAWABLE_WINDOW)
     {
 	WindowPtr   pWindow = (WindowPtr) pDrawable;
@@ -1906,7 +2049,7 @@ DamageUnregister (DrawablePtr	    pDrawable,
 #if DAMAGE_VALIDATE_ENABLE
 	if (!found) {
 	    ErrorF ("Damage not on window list\n");
-	    abort ();
+	    OsAbort ();
 	}
 #endif
     }
@@ -1917,11 +2060,15 @@ DamageUnregister (DrawablePtr	    pDrawable,
 void
 DamageDestroy (DamagePtr    pDamage)
 {
+    ScreenPtr pScreen = pDamage->pScreen;
+    damageScrPriv(pScreen);
+
     if (pDamage->damageDestroy)
 	(*pDamage->damageDestroy) (pDamage, pDamage->closure);
+    (*pScrPriv->funcs.Destroy) (pDamage);
     RegionUninit(&pDamage->damage);
     RegionUninit(&pDamage->pendingDamage);
-    free (pDamage);
+    dixFreeObjectWithPrivates(pDamage, PRIVATE_DAMAGE);
 }
 
 Bool
@@ -1969,27 +2116,65 @@ DamageRegion (DamagePtr		    pDamage)
     return &pDamage->damage;
 }
 
-_X_EXPORT RegionPtr
+RegionPtr
 DamagePendingRegion (DamagePtr	    pDamage)
 {
     return &pDamage->pendingDamage;
 }
 
-_X_EXPORT void
+void
+DamageRegionAppend (DrawablePtr pDrawable, RegionPtr pRegion)
+{
+    damageRegionAppend (pDrawable, pRegion, FALSE, -1);
+}
+
+void
+DamageRegionProcessPending (DrawablePtr pDrawable)
+{
+    damageRegionProcessPending (pDrawable);
+}
+
+/* If a damage marker is provided, then this function must be called after rendering is done. */
+/* Please do call back so any future enhancements can assume this function is called. */
+/* There are no strict timing requirements for calling this function, just as soon as (is cheaply) possible. */
+void
+DamageRegionRendered (DrawablePtr pDrawable, DamagePtr pDamage, RegionPtr pOldDamage, RegionPtr pRegion)
+{
+    if (pDamage->damageReportPostRendering)
+	damageReportDamagePostRendering (pDamage, pOldDamage, pRegion);
+}
+
+/* This call is very odd, i'm leaving it intact for API sake, but please don't use it. */
+void
 DamageDamageRegion (DrawablePtr	pDrawable,
 		    RegionPtr	pRegion)
 {
-    damageDamageRegion (pDrawable, pRegion, FALSE, -1);
+    damageRegionAppend (pDrawable, pRegion, FALSE, -1);
 
     /* Go back and report this damage for DamagePtrs with reportAfter set, since
      * this call isn't part of an in-progress drawing op in the call chain and
      * the DDX probably just wants to know about it right away.
      */
-    damageReportPostOp (pDrawable);
+    damageRegionProcessPending (pDrawable);
 }
 
 void
 DamageSetReportAfterOp (DamagePtr pDamage, Bool reportAfter)
 {
     pDamage->reportAfter = reportAfter;
+}
+
+void
+DamageSetPostRenderingFunctions(DamagePtr pDamage, DamageReportFunc damageReportPostRendering,
+				DamageMarkerFunc damageMarker)
+{
+    pDamage->damageReportPostRendering = damageReportPostRendering;
+    pDamage->damageMarker = damageMarker;
+}
+
+DamageScreenFuncsPtr
+DamageGetScreenFuncs (ScreenPtr pScreen)
+{
+    damageScrPriv(pScreen);
+    return &pScrPriv->funcs;
 }

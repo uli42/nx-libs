@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 2004 Eric Anholt
+ * Copyright © 2004 Eric Anholt
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -43,12 +43,11 @@
 #define CW_ASSERT(x) do {} while (0)
 #endif
 
-DevPrivateKey cwGCKey = &cwGCKey;
-DevPrivateKey cwScreenKey = &cwScreenKey;
-DevPrivateKey cwWindowKey = &cwWindowKey;
-#ifdef RENDER
-DevPrivateKey cwPictureKey = &cwPictureKey;
-#endif
+DevPrivateKeyRec cwGCKeyRec;
+DevPrivateKeyRec cwScreenKeyRec;
+DevPrivateKeyRec cwWindowKeyRec;
+DevPrivateKeyRec cwPictureKeyRec;
+
 extern GCOps cwGCOps;
 
 static Bool
@@ -127,7 +126,7 @@ cwCreateBackingGC(GCPtr pGC, DrawablePtr pDrawable)
 	return FALSE;
 
     pPriv->serialNumber = 0;
-    pPriv->stateChanges = (1 << (GCLastBit + 1)) - 1;
+    pPriv->stateChanges = GCAllBits;
 
     return TRUE;
 }
@@ -186,7 +185,7 @@ cwValidateGC(GCPtr pGC, unsigned long stateChanges, DrawablePtr pDrawable)
     if (pDrawable->serialNumber != pPriv->serialNumber ||
 	(pPriv->stateChanges & (GCClipXOrigin|GCClipYOrigin|GCClipMask)))
     {
-	XID vals[2];
+	ChangeGCVal vals[2];
 	RegionPtr   pCompositeClip;
 
 	pCompositeClip = RegionCreate(NULL, 0);
@@ -200,10 +199,10 @@ cwValidateGC(GCPtr pGC, unsigned long stateChanges, DrawablePtr pDrawable)
 	(*pBackingGC->funcs->ChangeClip) (pBackingGC, CT_REGION,
 					  (void *) pCompositeClip, 0);
 	
-	vals[0] = x_off - pDrawable->x;
-	vals[1] = y_off - pDrawable->y;
-	dixChangeGC(NullClient, pBackingGC,
-		    (GCClipXOrigin | GCClipYOrigin), vals, NULL);
+	vals[0].val = x_off - pDrawable->x;
+	vals[1].val = y_off - pDrawable->y;
+	ChangeGC(NullClient, pBackingGC,
+		    (GCClipXOrigin | GCClipYOrigin), vals);
 
 	pPriv->serialNumber = pDrawable->serialNumber;
 	/*
@@ -221,11 +220,11 @@ cwValidateGC(GCPtr pGC, unsigned long stateChanges, DrawablePtr pDrawable)
     if ((pGC->patOrg.x + x_off) != pBackingGC->patOrg.x ||
 	(pGC->patOrg.y + y_off) != pBackingGC->patOrg.y)
     {
-	XID vals[2];
-	vals[0] = pGC->patOrg.x + x_off;
-	vals[1] = pGC->patOrg.y + y_off;
-	dixChangeGC(NullClient, pBackingGC,
-		    (GCTileStipXOrigin | GCTileStipYOrigin), vals, NULL);
+	ChangeGCVal vals[2];
+	vals[0].val = pGC->patOrg.x + x_off;
+	vals[1].val = pGC->patOrg.y + y_off;
+	ChangeGC(NullClient, pBackingGC,
+		    (GCTileStipXOrigin | GCTileStipYOrigin), vals);
     }
 
     ValidateGC(pBackingDrawable, pBackingGC);
@@ -326,7 +325,7 @@ cwCreateGC(GCPtr pGC)
     ScreenPtr	pScreen = pGC->pScreen;
     Bool	ret;
 
-    bzero(pPriv, sizeof(cwGCRec));
+    memset(pPriv, 0, sizeof(cwGCRec));
     SCREEN_PROLOGUE(pScreen, CreateGC);
 
     if ( (ret = (*pScreen->CreateGC)(pGC)) )
@@ -473,14 +472,21 @@ void
 miInitializeCompositeWrapper(ScreenPtr pScreen)
 {
     cwScreenPtr pScreenPriv;
-#ifdef RENDER
     Bool has_render = GetPictureScreenIfSet(pScreen) != NULL;
-#endif
 
-    if (!dixRequestPrivate(cwGCKey, sizeof(cwGCRec)))
+    if (!dixRegisterPrivateKey(&cwScreenKeyRec, PRIVATE_SCREEN, 0))
 	return;
 
-    pScreenPriv = (cwScreenPtr)malloc(sizeof(cwScreenRec));
+    if (!dixRegisterPrivateKey(&cwGCKeyRec, PRIVATE_GC, sizeof(cwGCRec)))
+	return;
+
+    if (!dixRegisterPrivateKey(&cwWindowKeyRec, PRIVATE_WINDOW, 0))
+	return;
+
+    if (!dixRegisterPrivateKey(&cwPictureKeyRec, PRIVATE_PICTURE, 0))
+	return;
+
+    pScreenPriv = malloc(sizeof(cwScreenRec));
     if (!pScreenPriv)
 	return;
 
@@ -495,19 +501,15 @@ miInitializeCompositeWrapper(ScreenPtr pScreen)
     SCREEN_EPILOGUE(pScreen, SetWindowPixmap, cwSetWindowPixmap);
     SCREEN_EPILOGUE(pScreen, GetWindowPixmap, cwGetWindowPixmap);
 
-#ifdef RENDER
     if (has_render)
 	cwInitializeRender(pScreen);
-#endif
 }
 
 static Bool
 cwCloseScreen (int i, ScreenPtr pScreen)
 {
     cwScreenPtr   pScreenPriv;
-#ifdef RENDER
     PictureScreenPtr ps = GetPictureScreenIfSet(pScreen);
-#endif
 
     pScreenPriv = (cwScreenPtr)dixLookupPrivate(&pScreen->devPrivates,
 						cwScreenKey);
@@ -517,12 +519,10 @@ cwCloseScreen (int i, ScreenPtr pScreen)
     pScreen->CreateGC = pScreenPriv->CreateGC;
     pScreen->CopyWindow = pScreenPriv->CopyWindow;
 
-#ifdef RENDER
     if (ps)
 	cwFiniRender(pScreen);
-#endif
 
-    free((void *)pScreenPriv);
+    free(pScreenPriv);
 
     return (*pScreen->CloseScreen)(i, pScreen);
 }

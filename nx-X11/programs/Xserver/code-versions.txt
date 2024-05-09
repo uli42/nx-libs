@@ -12,7 +12,7 @@ dix               1.9.5
 fb                1.9.5
 GL                6.9/7.0
 mi                1.9.5
-miext             1.5.3
+miext             1.9.5
 os                1.9.5 + many backports, some of them from 2019
 randr             1.18.0
 record            1.9.5  Extension version: 1.13
