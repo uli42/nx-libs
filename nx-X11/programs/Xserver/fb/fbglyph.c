@@ -1,6 +1,6 @@
 /*
  *
- * Copyright Â© 1998 Keith Packard
+ * Copyright © 1998 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -29,8 +29,6 @@
 #include	<X11/fonts/fontstruct.h>
 #include	"dixfontstr.h"
 
-#define dummyScreen screenInfo.screens[0]
-      
 Bool
 fbGlyphIn (RegionPtr	pRegion,
 	   int		x,

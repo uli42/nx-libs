@@ -9,7 +9,7 @@ composite         1.12 (~ 9838b70 2012-03-21 Introduce a consistent coding style
 damageext         1.9.5  Extension version: 1.1
 dbe               1.9.5  Extension version: 1.0
 dix               1.9.5
-fb                1.5.3
+fb                1.9.5
 GL                6.9/7.0
 mi                1.5.3
 miext             1.5.3

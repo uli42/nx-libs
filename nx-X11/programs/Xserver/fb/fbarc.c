@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 1998 Keith Packard
+ * Copyright © 1998 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -71,13 +71,11 @@ fbPolyArc (DrawablePtr	pDrawable,
 	    BoxRec	box;
 	    int		x2, y2;
 	    RegionPtr	cclip;
-#ifdef FB_ACCESS_WRAPPER
-	    int		wrapped = 0;
-#endif
+	    
 	    cclip = fbGetCompositeClip (pGC);
 	    fbGetDrawable (pDrawable, dst, dstStride, dstBpp, dstXoff, dstYoff);
 #ifdef FB_ACCESS_WRAPPER
-	    wrapped = 1;
+	    int wrapped = 1;
 #endif
 	    while (narcs--)
 	    {

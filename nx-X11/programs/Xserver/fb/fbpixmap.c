@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 1998 Keith Packard
+ * Copyright © 1998 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -67,6 +67,7 @@ fbCreatePixmapBpp (ScreenPtr pScreen, int width, int height, int depth, int bpp,
     pPixmap->devKind = paddedWidth;
     pPixmap->refcnt = 1;
     pPixmap->devPrivate.ptr = (void *) ((char *)pPixmap + base + adjust);
+
 #ifdef FB_DEBUG
     pPixmap->devPrivate.ptr = (void *) ((char *) pPixmap->devPrivate.ptr + paddedWidth);
     fbInitializeDrawable (&pPixmap->drawable);
@@ -100,8 +101,7 @@ fbDestroyPixmap (PixmapPtr pPixmap)
 {
     if(--pPixmap->refcnt)
 	return TRUE;
-    dixFreePrivates(pPixmap->devPrivates);
-    free(pPixmap);
+    FreePixmap(pPixmap);
     return TRUE;
 }
 
@@ -318,7 +318,7 @@ fbPixmapToRegion(PixmapPtr pPix)
     if (!RegionIsValid(pReg))
 	FatalError("Assertion failed file %s, line %d: expr\n", __FILE__, __LINE__);
 #endif
-    return(pReg);
+    return pReg;
 }
 
 #ifdef FB_DEBUG

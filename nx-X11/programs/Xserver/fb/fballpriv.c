@@ -1,5 +1,5 @@
 /*
- * Copyright ? 1998 Keith Packard
+ * Copyright © 1998 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -27,43 +27,34 @@
 #include "fb.h"
 
 #ifdef FB_SCREEN_PRIVATE
-static DevPrivateKey fbScreenPrivateKey = &fbScreenPrivateKey;
-DevPrivateKey fbGetScreenPrivateKey(void)
-{
-    return fbScreenPrivateKey;
-}
+static DevPrivateKeyRec fbScreenPrivateKeyRec;
+DevPrivateKey
+fbGetScreenPrivateKey(void) { return &fbScreenPrivateKeyRec; }
 #endif
-static DevPrivateKey fbGCPrivateKey = &fbGCPrivateKey;
-DevPrivateKey fbGetGCPrivateKey(void)
-{
-    return fbGCPrivateKey;
-}
-#ifndef FB_NO_WINDOW_PIXMAPS
-static DevPrivateKey fbWinPrivateKey = &fbWinPrivateKey;
-DevPrivateKey fbGetWinPrivateKey(void)
-{
-    return fbWinPrivateKey;
-}
-#endif
+
+static DevPrivateKeyRec fbGCPrivateKeyRec;
+DevPrivateKey
+fbGetGCPrivateKey (void) { return &fbGCPrivateKeyRec; }
+
+static DevPrivateKeyRec fbWinPrivateKeyRec;
+DevPrivateKey
+fbGetWinPrivateKey (void) { return &fbWinPrivateKeyRec; }
 
 Bool
 fbAllocatePrivates(ScreenPtr pScreen, DevPrivateKey *pGCKey)
 {
     if (pGCKey)
-	*pGCKey = fbGCPrivateKey;
+	*pGCKey = &fbGCPrivateKeyRec;
     
-    if (!dixRequestPrivate(fbGCPrivateKey, sizeof(FbGCPrivRec)))
+    if (!dixRegisterPrivateKey(&fbGCPrivateKeyRec, PRIVATE_GC, sizeof(FbGCPrivRec)))
 	return FALSE;
 #ifdef FB_SCREEN_PRIVATE
-    {
-	FbScreenPrivPtr	pScreenPriv;
-
-	pScreenPriv = (FbScreenPrivPtr) malloc (sizeof (FbScreenPrivRec));
-	if (!pScreenPriv)
+    if (!dixRegisterPrivateKey(&fbScreenPrivateKeyRec, PRIVATE_SCREEN, sizeof (FbScreenPrivRec)))
 	    return FALSE;
-	dixSetPrivate(&pScreen->devPrivates, fbScreenPrivateKey, pScreenPriv);
-    }
 #endif
+    if (!dixRegisterPrivateKey(&fbWinPrivateKeyRec, PRIVATE_WINDOW, 0))
+	return FALSE;
+
     return TRUE;
 }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 1998 Keith Packard
+ * Copyright © 1998 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -31,10 +31,8 @@
 Bool
 fbCreateWindow(WindowPtr pWin)
 {
-#ifndef FB_NO_WINDOW_PIXMAPS
     dixSetPrivate(&pWin->devPrivates, fbGetWinPrivateKey(),
 		  fbGetScreenPixmap(pWin->drawable.pScreen));
-#endif
 #ifdef FB_SCREEN_PRIVATE
     if (pWin->drawable.bitsPerPixel == 32)
 	pWin->drawable.bitsPerPixel = fbGetScreenPrivate(pWin->drawable.pScreen)->win32bpp;
@@ -142,7 +140,7 @@ fbCopyWindow(WindowPtr	    pWin,
 			  -pPixmap->screen_x, -pPixmap->screen_y);
 #endif
 
-    fbCopyRegion (pDrawable, pDrawable,
+    miCopyRegion (pDrawable, pDrawable,
 		  0,
 		  &rgnDst, dx, dy, fbCopyWindowProc, 0, 0);
     
@@ -227,7 +225,7 @@ fbFillRegionSolid (DrawablePtr	pDrawable,
     while (n--)
     {
 #ifndef FB_ACCESS_WRAPPER
-	if (!try_mmx || !pixman_fill (dst, dstStride, dstBpp,
+	if (!try_mmx || !pixman_fill ((uint32_t *)dst, dstStride, dstBpp,
 				      pbox->x1 + dstXoff, pbox->y1 + dstYoff,
 				      (pbox->x2 - pbox->x1),
 				      (pbox->y2 - pbox->y1),

@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 1998 Keith Packard
+ * Copyright © 1998 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -37,22 +37,19 @@ fbCloseScreen (int index, ScreenPtr pScreen)
     free (depths);
     free (pScreen->visuals);
     free (pScreen->devPrivate);
-#ifdef FB_SCREEN_PRIVATE
-    free (dixLookupPrivate(&pScreen->devPrivates, fbGetScreenPrivateKey()));
-#endif
     return TRUE;
 }
 
 Bool
 fbRealizeFont(ScreenPtr pScreen, FontPtr pFont)
 {
-    return (TRUE);
+    return TRUE;
 }
 
 Bool
 fbUnrealizeFont(ScreenPtr pScreen, FontPtr pFont)
 {
-    return (TRUE);
+    return TRUE;
 }
 
 void
@@ -90,11 +87,7 @@ _fbGetWindowPixmap (WindowPtr pWindow)
 void
 _fbSetWindowPixmap (WindowPtr pWindow, PixmapPtr pPixmap)
 {
-#ifdef FB_NO_WINDOW_PIXMAPS
-    FatalError ("Attempted to set window pixmap without fb support\n");
-#else
     dixSetPrivate(&pWindow->devPrivates, fbGetWinPrivateKey(), pPixmap);
-#endif
 }
 
 Bool
@@ -232,7 +225,11 @@ fbFinishScreenInit(ScreenPtr	pScreen,
     rootdepth = 0;
     if (!fbInitVisuals (&visuals, &depths, &nvisuals, &ndepths, &rootdepth,
 			&defaultVisual,((unsigned long)1<<(imagebpp-1)), 8))
+    {
+	free(visuals);
+	free(depths);
 	return FALSE;
+    }
     if (! miScreenInit(pScreen, pbits, xsize, ysize, dpix, dpiy, width,
 			rootdepth, ndepths, depths,
 			defaultVisual, nvisuals, visuals))
@@ -245,14 +242,6 @@ fbFinishScreenInit(ScreenPtr	pScreen,
 	pScreen->ModifyPixmapHeader = fb24_32ModifyPixmapHeader;
 	pScreen->CreateScreenResources = fb24_32CreateScreenResources;
     }
-#endif
-#if 0
-    /* leave backing store initialization to the enclosing code so
-     * it can choose the correct order of wrappers
-     */
-    /* init backing store here so we can overwrite CloseScreen without stepping
-     * on the backing store wrapped version */
-    fbInitializeBackingStore (pScreen);
 #endif
     return TRUE;
 }

@@ -41,7 +41,6 @@ SRCS =	fb24_32.c \
 	fbbits.c \
 	fbblt.c \
 	fbbltone.c \
-	fbbstore.c \
 	$(FB_CMAPSRC) \
 	fbcopy.c \
 	fbfill.c \
@@ -73,7 +72,6 @@ OBJS =	fbarc.o \
 	fbbits.o \
 	fbblt.o \
 	fbbltone.o \
-	fbbstore.o \
 	$(FB_CMAPOBJ) \
 	fbcopy.o \
 	fbfill.o \

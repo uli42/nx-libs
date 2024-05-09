@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 1998 Keith Packard
+ * Copyright © 1998 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -25,7 +25,7 @@
  * underlying datatypes instead of masks
  */
 
-#define isClipped(c,ul,lr)  ((((c) - (ul)) | ((lr) - (c))) & 0x80008000)
+#define isClipped(c,ul,lr)  (((c) | ((c) - (ul)) | ((lr) - (c))) & 0x80008000)
 
 #ifdef HAVE_DIX_CONFIG_H
 #include <dix-config.h>
