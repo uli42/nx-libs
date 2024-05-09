@@ -48,7 +48,7 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
 /***====================================================================***/
 
 static char *componentDirs[_XkbListNumComponents] = {
-	"keymap", "keycodes", "types", "compat", "symbols", "geometry"
+	"keycodes", "types", "compat", "symbols", "geometry"
 };
 
 /***====================================================================***/
@@ -84,7 +84,7 @@ char *		tmp;
     if ((list->szPool-list->nPool)<wlen) {
 	if (wlen>1024)	list->szPool+= XkbPaddedSize(wlen*2);
 	else		list->szPool+= 1024;
-	list->pool= _XkbTypedRealloc(list->pool,list->szPool,char);
+	list->pool= realloc(list->pool, list->szPool * sizeof(char));
 	if (!list->pool)
 	    return BadAlloc;
     }
@@ -130,7 +130,7 @@ Bool	haveDir;
     }
 
     in= NULL;
-    haveDir= True;
+    haveDir= TRUE;
     if (XkbBaseDirectory!=NULL) {
 	if ((list->pattern[what][0]=='*')&&(list->pattern[what][1]=='\0')) {
 	   if (asprintf(&buf, "%s/%s.dir", XkbBaseDirectory,
@@ -140,7 +140,7 @@ Bool	haveDir;
 	       in = fopen(buf,"r");
 	}
 	if (!in) {
-	    haveDir= False;
+	    haveDir= FALSE;
 	    free(buf);
 	    if (asprintf
 	       (&buf,
@@ -162,7 +162,7 @@ Bool	haveDir;
 	    buf = NULL;
 	}
 	if (!in) {
-	    haveDir= False;
+	    haveDir= FALSE;
 	    free(buf);
 	    if (asprintf
 	       (&buf,
@@ -187,10 +187,7 @@ Bool	haveDir;
 	return BadImplementation;
     }
     list->nFound[what]= 0;
-    if (buf) {
         free(buf);
-        buf = NULL;
-    }
     buf = malloc(PATH_MAX * sizeof(char));
     if (!buf)
         return BadAlloc;
@@ -239,7 +236,7 @@ Bool	haveDir;
 	fclose(in);
     else if ((rval=Pclose(in))!=0) {
 	if (xkbDebugFlags)
-	    ErrorF("xkbcomp returned exit code %d\n",rval);
+	    ErrorF("[xkb] xkbcomp returned exit code %d\n",rval);
     }
     if (buf != NULL)
         free (buf);
@@ -254,8 +251,6 @@ XkbDDXList(DeviceIntPtr	dev,XkbSrvListInfoPtr list,ClientPtr client)
 {
 Status	status;
 
-    status= XkbDDXListComponent(dev,_XkbListKeymaps,list,client);
-    if (status==Success)
 	status= XkbDDXListComponent(dev,_XkbListKeycodes,list,client);
     if (status==Success)
 	status= XkbDDXListComponent(dev,_XkbListTypes,list,client);

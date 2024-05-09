@@ -125,7 +125,7 @@ SProcXkbSelectEvents(ClientPtr client)
 	    dataLeft-= (size*2);
 	}
 	if (dataLeft>2) {
-	    ErrorF("Extra data (%d bytes) after SelectEvents\n",dataLeft);
+	    ErrorF("[xkb] Extra data (%d bytes) after SelectEvents\n",dataLeft);
 	    return BadLength;
 	}
     }

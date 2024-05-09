@@ -141,7 +141,7 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
     /*
      * Miscellaneous event details:
-     * - event detail masks for assorted events that don't reall
+     * - event detail masks for assorted events that don't really
      *   have any details.
      */
 #define	XkbAllStateEventsMask		XkbAllStateComponentsMask
@@ -500,9 +500,7 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #define	XkbSA_LastAction	XkbSA_DeviceValuator
 #define	XkbSA_NumActions	(XkbSA_LastAction+1)
 
-#if defined(XF86DDXACTIONS) || defined(XFree86Server)
 #define	XkbSA_XFree86Private	0x86
-#endif
 
     /*
      * Specifies the key actions that clear latched groups or modifiers.
@@ -686,7 +684,7 @@ THE USE OR PERFORMANCE OF THIS SOFTWARE.
 #define	XkbIM_UseAnyMods  (XkbIM_UseAnyGroup|XkbIM_UseCompat)
 
     /*
-     * Compatibility Map Compontents:
+     * Compatibility Map Components:
      *  - Specifies the components to be allocated in XkbAllocCompatMap.
      */
 #define	XkbSymInterpMask	(1<<0)

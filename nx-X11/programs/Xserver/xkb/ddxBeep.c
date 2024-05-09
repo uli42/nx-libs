@@ -89,7 +89,7 @@ static  char 	doesPitch = 1;
 #define	STICKY_UNLOCK	"AX_StickyUnlock"
 #define	BOUNCE_REJECT	"AX_BounceKeyReject"
 
-#define	MAKE_ATOM(a)	MakeAtom(a,sizeof(a)-1,True)
+#define	MAKE_ATOM(a)	MakeAtom(a,sizeof(a)-1,TRUE)
 
 static void
 _XkbDDXBeepInitAtoms(void)
@@ -141,7 +141,7 @@ Atom		name;
     name= None;
     switch (xkbInfo->beepType) {
 	default:
-	    ErrorF("Unknown beep type %d\n",xkbInfo->beepType);
+	    ErrorF("[xkb] Unknown beep type %d\n",xkbInfo->beepType);
 	case _BEEP_NONE:
 	    duration= 0;
 	    break;
