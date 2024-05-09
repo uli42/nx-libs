@@ -48,12 +48,7 @@ SOFTWARE.
 #ifndef REGIONSTRUCT_H
 #define REGIONSTRUCT_H
 
-#include <pixman.h>
-
 typedef struct pixman_region16 RegionRec, *RegionPtr;
-
-#include <stddef.h>
-#include <limits.h>
 
 #include "miscstruct.h"
 
@@ -71,13 +66,14 @@ typedef struct pixman_region16 RegionRec, *RegionPtr;
 
 typedef struct pixman_region16_data RegDataRec, *RegDataPtr;
 
-extern BoxRec RegionEmptyBox;
-extern RegDataRec RegionEmptyData;
-extern RegDataRec RegionBrokenData;
-
+extern _X_EXPORT BoxRec RegionEmptyBox;
+extern _X_EXPORT RegDataRec RegionEmptyData;
+extern _X_EXPORT RegDataRec RegionBrokenData;
 static inline Bool RegionNil(RegionPtr reg) {
     return ((reg)->data && !(reg)->data->numRects);
 }
+
+/* not a region */
 
 static inline Bool RegionNar(RegionPtr reg) {
     return ((reg)->data == &RegionBrokenData);
@@ -178,6 +174,15 @@ static inline void RegionNull(RegionPtr _pReg)
     (_pReg)->data = &RegionEmptyData;
 }
 
+extern _X_EXPORT void InitRegions(void);
+
+extern _X_EXPORT RegionPtr RegionCreate(
+    BoxPtr /*rect*/,
+    int /*size*/);
+
+extern _X_EXPORT void RegionDestroy(
+    RegionPtr /*pReg*/);
+
 static inline Bool
 RegionCopy(RegionPtr dst, RegionPtr src)
 {
@@ -204,7 +209,20 @@ RegionUnion(
     return pixman_region_union (newReg, reg1, reg2);
 }
 
-/*
+extern _X_EXPORT Bool RegionAppend(
+    RegionPtr /*dstrgn*/,
+    RegionPtr /*rgn*/);
+
+extern _X_EXPORT Bool RegionValidate(
+    RegionPtr /*badreg*/,
+    Bool * /*pOverlap*/);
+
+extern _X_EXPORT RegionPtr RegionFromRects(
+    int /*nrects*/,
+    xRectanglePtr /*prect*/,
+    int /*ctype*/);
+
+/*-
  *-----------------------------------------------------------------------
  * Subtract --
  *     Subtract regS from regM and leave the result in regD.
@@ -239,6 +257,7 @@ RegionSubtract(RegionPtr regD, RegionPtr regM, RegionPtr regS)
  *
  *-----------------------------------------------------------------------
  */
+
 static inline Bool
 RegionInverse(
     RegionPtr    newReg,       /* Destination region */
@@ -265,6 +284,9 @@ RegionTranslate(RegionPtr pReg, int x, int y)
     pixman_region_translate (pReg, x, y);
 }
 
+extern _X_EXPORT Bool RegionBreak(
+    RegionPtr /*pReg*/);
+
 static inline Bool
 RegionContainsPoint(
     RegionPtr pReg,
@@ -282,132 +304,67 @@ RegionEqual(RegionPtr reg1, RegionPtr reg2)
     return pixman_region_equal (reg1, reg2);
 }
 
-extern void InitRegions (void);
+extern _X_EXPORT Bool RegionRectAlloc(
+    RegionPtr /*pRgn*/,
+    int /*n*/
+);
 
-extern RegionPtr RegionCreate(
-    BoxPtr /*rect*/,
-    int /*size*/);
+#ifdef DEBUG
+extern _X_EXPORT Bool RegionIsValid(
+    RegionPtr /*prgn*/
+);
+#endif
 
-extern void RegionInit(
-    RegionPtr /*pReg*/,
-    BoxPtr /*rect*/,
-    int /*size*/);
-
-extern void RegionDestroy(
+extern _X_EXPORT void RegionPrint(
     RegionPtr /*pReg*/);
 
-extern void RegionUninit(
-    RegionPtr /*pReg*/);
-
-extern Bool RegionCopy(
-    RegionPtr /*dst*/,
-    RegionPtr /*src*/);
-
-extern Bool RegionIntersect(
-    RegionPtr /*newReg*/,
-    RegionPtr /*reg1*/,
-    RegionPtr /*reg2*/);
-
-extern Bool RegionUnion(
-    RegionPtr /*newReg*/,
-    RegionPtr /*reg1*/,
-    RegionPtr /*reg2*/);
-
-extern Bool RegionAppend(
-    RegionPtr /*dstrgn*/,
-    RegionPtr /*rgn*/);
-
-extern Bool RegionValidate(
-    RegionPtr /*badreg*/,
-    Bool * /*pOverlap*/);
-
-extern RegionPtr RegionFromRects(
-    int /*nrects*/,
-    xRectanglePtr /*prect*/,
-    int /*ctype*/);
-
-extern Bool RegionSubtract(
-    RegionPtr /*regD*/,
-    RegionPtr /*regM*/,
-    RegionPtr /*regS*/);
-
-extern Bool RegionInverse(
-    RegionPtr /*newReg*/,
-    RegionPtr /*reg1*/,
-    BoxPtr /*invRect*/);
-
-extern int RegionContainsRect(
-    RegionPtr /*region*/,
-    BoxPtr /*prect*/);
-
-extern void RegionTranslate(
-    RegionPtr /*pReg*/,
-    int /*x*/,
-    int /*y*/);
-
-extern void RegionReset(
-    RegionPtr /*pReg*/,
-    BoxPtr /*pBox*/);
-
-extern Bool RegionBreak(
-    RegionPtr /*pReg*/);
-
-extern Bool RegionContainsPoint(
-    RegionPtr /*pReg*/,
-    int /*x*/,
-    int /*y*/,
-    BoxPtr /*box*/);
-
-extern Bool RegionEqual(
-    RegionPtr /*pReg1*/,
-    RegionPtr /*pReg2*/);
-
-extern Bool RegionNotEmpty(
-    RegionPtr /*pReg*/);
-
-extern void RegionEmpty(
-    RegionPtr /*pReg*/);
-
-extern BoxPtr RegionExtents(
-    RegionPtr /*pReg*/);
+extern _X_EXPORT int RegionClipSpans(
+    RegionPtr /*prgnDst*/,
+    DDXPointPtr /*ppt*/,
+    int * /*pwidth*/,
+    int /*nspans*/,
+    DDXPointPtr /*pptNew*/,
+    int * /*pwidthNew*/,
+    int /*fSorted*/
+);
 
 #define INCLUDE_LEGACY_REGION_DEFINES
 #ifdef INCLUDE_LEGACY_REGION_DEFINES
 
-#define REGION_NIL				RegionNil
-#define REGION_NAR				RegionNar
-#define REGION_NUM_RECTS			RegionNumRects
-#define REGION_SIZE				RegionSize
-#define REGION_RECTS				RegionRects
-#define REGION_BOXPTR				RegionBoxptr
-#define REGION_BOX				RegionBox
-#define REGION_TOP				RegionTop
-#define REGION_END				RegionEnd
-#define REGION_SZOF				RegionSizeof
+#define RegionNil				RegionNil
+#define RegionNar				RegionNar
+#define RegionNumRects			RegionNumRects
+#define RegionSize				RegionSize
+#define RegionRects				RegionRects
+#define RegionBoxptr				RegionBoxptr
+#define RegionBox				RegionBox
+#define RegionTop				RegionTop
+#define RegionEnd				RegionEnd
+#define RegionSizeof				RegionSizeof
 #define BitmapToRegion			BitmapToRegion
-#define REGION_CREATE(pScreen, r, s)		RegionCreate(r,s)
-#define REGION_COPY(pScreen, d, r)		RegionCopy(d, r)
-#define REGION_DESTROY(pScreen, r)		RegionDestroy(r)
-#define REGION_INTERSECT(pScreen, res, r1, r2)	RegionIntersect(res, r1, r2)
-#define REGION_UNION(pScreen, res, r1, r2)	RegionUnion(res, r1, r2)
-#define REGION_SUBTRACT(pScreen, res, r1, r2)	RegionSubtract(res, r1, r2)
-#define REGION_INVERSE(pScreen, n, r, b)	RegionInverse(n, r, b)
-#define REGION_TRANSLATE(pScreen, r, x, y)	RegionTranslate(r, x, y)
-#define RECT_IN_REGION(pScreen, r, b) 		RegionContainsRect(r, b)
-#define POINT_IN_REGION(pScreen, r, x, y, b) 	RegionContainsPoint(r, x, y, b)
-#define REGION_EQUAL(pScreen, r1, r2)		RegionEqual(r1, r2)
-#define REGION_APPEND(pScreen, d, r)		RegionAppend(d, r)
-#define REGION_VALIDATE(pScreen, r, o)		RegionValidate(r, o)
-#define RECTS_TO_REGION(pScreen, n, r, c)	RegionFromRects(n, r, c)
-#define REGION_BREAK(pScreen, r)		RegionBreak(r)
-#define REGION_INIT(pScreen, r, b, s)		RegionInit(r, b, s)
-#define REGION_UNINIT(pScreen, r)		RegionUninit(r)
-#define REGION_RESET(pScreen, r, b)		RegionReset(r, b)
-#define REGION_NOTEMPTY(pScreen, r)		RegionNotEmpty(r)
-#define REGION_BROKEN(pScreen, r)		RegionBroken(r)
-#define REGION_EMPTY(pScreen, r)		RegionEmpty(r)
-#define REGION_EXTENTS(pScreen, r)		RegionExtents(r)
-#define REGION_NULL(pScreen, r)			RegionNull(r)
+#define RegionCreate(r, s)		RegionCreate(r,s)
+#define RegionCopy(d, r)		RegionCopy(d, r)
+#define RegionDestroy(r)		RegionDestroy(r)
+#define RegionIntersect(res, r1, r2)	RegionIntersect(res, r1, r2)
+#define RegionUnion(res, r1, r2)	RegionUnion(res, r1, r2)
+#define RegionSubtract(res, r1, r2)	RegionSubtract(res, r1, r2)
+#define RegionInverse(n, r, b)	RegionInverse(n, r, b)
+#define RegionTranslate(r, x, y)	RegionTranslate(r, x, y)
+#define RegionContainsRect(r, b) 		RegionContainsRect(r, b)
+#define RegionContainsPoint(r, x, y, b) 	RegionContainsPoint(r, x, y, b)
+#define RegionEqual(r1, r2)		RegionEqual(r1, r2)
+#define RegionAppend(d, r)		RegionAppend(d, r)
+#define RegionValidate(r, o)		RegionValidate(r, o)
+#define RegionFromRects(n, r, c)	RegionFromRects(n, r, c)
+#define RegionBreak(r)		RegionBreak(r)
+#define RegionInit(r, b, s)		RegionInit(r, b, s)
+#define RegionUninit(r)		RegionUninit(r)
+#define RegionReset(r, b)		RegionReset(r, b)
+#define RegionNotEmpty(r)		RegionNotEmpty(r)
+#define RegionBroken(r)		RegionBroken(r)
+#define RegionEmpty(r)		RegionEmpty(r)
+#define RegionExtents(r)		RegionExtents(r)
+#define RegionNull(r)			RegionNull(r)
 
 #endif /* INCLUDE_LEGACY_REGION_DEFINES */
 #endif /* REGIONSTRUCT_H */
