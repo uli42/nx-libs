@@ -1,6 +1,6 @@
 /*
  *
- * Copyright Â© 2002 Keith Packard, member of The XFree86 Project, Inc.
+ * Copyright © 2002 Keith Packard, member of The XFree86 Project, Inc.
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -44,6 +44,7 @@
 #include "dixfontstr.h"
 #include "opaque.h"
 #include "picturestr.h"
+#include "inputstr.h"
 #include "xace.h"
 
 typedef struct _AnimCurElt {
@@ -57,10 +58,6 @@ typedef struct _AnimCur {
 } AnimCurRec, *AnimCurPtr;
 
 typedef struct _AnimScrPriv {
-    CursorPtr			pCursor;
-    int				elt;
-    CARD32			time;
-
     CloseScreenProcPtr		CloseScreen;
 
     ScreenBlockHandlerProcPtr	BlockHandler;
@@ -73,42 +70,23 @@ typedef struct _AnimScrPriv {
     RecolorCursorProcPtr	RecolorCursor;
 } AnimCurScreenRec, *AnimCurScreenPtr;
 
-typedef struct _AnimCurState {
-    CursorPtr			pCursor;
-    ScreenPtr			pScreen;
-    int				elt;
-    CARD32			time;
-} AnimCurStateRec, *AnimCurStatePtr;
-
-static AnimCurStateRec  animCurState;
-
 static unsigned char empty[4];
 
 static CursorBits   animCursorBits = {
     empty, empty, 2, 1, 1, 0, 0, 1
 };
 
-static int AnimCurGeneration;
-static DevPrivateKey AnimCurScreenPrivateKey = &AnimCurScreenPrivateKey;
+static DevPrivateKeyRec AnimCurScreenPrivateKeyRec;
+#define AnimCurScreenPrivateKey (&AnimCurScreenPrivateKeyRec)
 
-#define IsAnimCur(c)	    ((c)->bits == &animCursorBits)
-#define GetAnimCur(c)	    ((AnimCurPtr) ((c) + 1))
+#define IsAnimCur(c)	    ((c) && ((c)->bits == &animCursorBits))
+#define GetAnimCur(c)	    ((AnimCurPtr) ((((char *)(c) + CURSOR_REC_SIZE))))
 #define GetAnimCurScreen(s) ((AnimCurScreenPtr)dixLookupPrivate(&(s)->devPrivates, AnimCurScreenPrivateKey))
-#define GetAnimCurScreenIfSet(s) GetAnimCurScreen(s)
 #define SetAnimCurScreen(s,p) dixSetPrivate(&(s)->devPrivates, AnimCurScreenPrivateKey, p)
 
 #define Wrap(as,s,elt,func) (((as)->elt = (s)->elt), (s)->elt = func)
 #define Unwrap(as,s,elt)    ((s)->elt = (as)->elt)
 
-static Bool
-AnimCurDisplayCursor (ScreenPtr pScreen,
-		      CursorPtr pCursor);
-
-static Bool
-AnimCurSetCursorPosition (ScreenPtr pScreen,
-			  int x,
-			  int y,
-			  Bool generateEvent);
 
 static Bool
 AnimCurCloseScreen (int index, ScreenPtr pScreen)
@@ -133,7 +111,8 @@ AnimCurCloseScreen (int index, ScreenPtr pScreen)
 }
 
 static void 
-AnimCurCursorLimits (ScreenPtr pScreen,
+AnimCurCursorLimits (DeviceIntPtr pDev,
+                     ScreenPtr pScreen,
 		     CursorPtr pCursor,
 		     BoxPtr pHotBox,
 		     BoxPtr pTopLeftBox)
@@ -145,11 +124,13 @@ AnimCurCursorLimits (ScreenPtr pScreen,
     {
 	AnimCurPtr	ac = GetAnimCur(pCursor);
 
-	(*pScreen->CursorLimits) (pScreen, ac->elts[0].pCursor, pHotBox, pTopLeftBox);
+        (*pScreen->CursorLimits) (pDev, pScreen, ac->elts[0].pCursor, 
+                                  pHotBox, pTopLeftBox); 
     }
     else
     {
-	(*pScreen->CursorLimits) (pScreen, pCursor, pHotBox, pTopLeftBox);
+        (*pScreen->CursorLimits) (pDev, pScreen, pCursor,
+                                  pHotBox, pTopLeftBox); 
     }
     Wrap (as, pScreen, CursorLimits, AnimCurCursorLimits);
 }
@@ -168,15 +149,24 @@ AnimCurScreenBlockHandler (int screenNum,
 {
     ScreenPtr		pScreen = screenInfo.screens[screenNum];
     AnimCurScreenPtr    as = GetAnimCurScreen(pScreen);
+    DeviceIntPtr        dev;
+    Bool                activeDevice = FALSE;
+    CARD32              now = 0, 
+                        soonest = ~0; /* earliest time to wakeup again */
 
-    if (pScreen == animCurState.pScreen)
+    for (dev = inputInfo.devices; dev; dev = dev->next)
     {
-	CARD32		now = GetTimeInMillis ();
-
-	if ((INT32) (now - animCurState.time) >= 0)
+	if (IsPointerDevice(dev) && pScreen == dev->spriteInfo->anim.pScreen)
 	{
-	    AnimCurPtr		    ac = GetAnimCur(animCurState.pCursor);
-	    int			    elt = (animCurState.elt + 1) % ac->nelt;
+	    if (!activeDevice) {
+                now = GetTimeInMillis ();
+                activeDevice = TRUE;
+            }
+
+	    if ((INT32) (now - dev->spriteInfo->anim.time) >= 0)
+	{
+		AnimCurPtr ac  = GetAnimCur(dev->spriteInfo->anim.pCursor);
+		int        elt = (dev->spriteInfo->anim.elt + 1) % ac->nelt;
 	    DisplayCursorProcPtr    DisplayCursor;
 
 	    /*
@@ -186,22 +176,32 @@ AnimCurScreenBlockHandler (int screenNum,
 	     */
 	    DisplayCursor = pScreen->DisplayCursor;
 	    pScreen->DisplayCursor = as->DisplayCursor;
-	    (void) (*pScreen->DisplayCursor) (pScreen, ac->elts[elt].pCursor);
+		(void) (*pScreen->DisplayCursor) (dev,
+						  pScreen, 
+						  ac->elts[elt].pCursor);
 	    as->DisplayCursor = pScreen->DisplayCursor;
 	    pScreen->DisplayCursor = DisplayCursor;
 
-	    animCurState.elt = elt;
-	    animCurState.time = now + ac->elts[elt].delay;
+		dev->spriteInfo->anim.elt = elt;
+		dev->spriteInfo->anim.time = now + ac->elts[elt].delay;
 	}
-	AdjustWaitForDelay (pTimeout, animCurState.time - now);
+
+	    if (soonest > dev->spriteInfo->anim.time)
+		soonest = dev->spriteInfo->anim.time;
     }
+    }
+
+    if (activeDevice)
+        AdjustWaitForDelay (pTimeout, soonest - now);
+
     Unwrap (as, pScreen, BlockHandler);
     (*pScreen->BlockHandler) (screenNum, blockData, pTimeout, pReadmask);
     Wrap (as, pScreen, BlockHandler, AnimCurScreenBlockHandler);
 }
 
 static Bool
-AnimCurDisplayCursor (ScreenPtr pScreen,
+AnimCurDisplayCursor (DeviceIntPtr pDev,
+                      ScreenPtr pScreen,
 		      CursorPtr pCursor)
 {
     AnimCurScreenPtr    as = GetAnimCurScreen(pScreen);
@@ -210,17 +210,18 @@ AnimCurDisplayCursor (ScreenPtr pScreen,
     Unwrap (as, pScreen, DisplayCursor);
     if (IsAnimCur(pCursor))
     {
-	if (pCursor != animCurState.pCursor)
+	if (pCursor != pDev->spriteInfo->anim.pCursor)
 	{
 	    AnimCurPtr		ac = GetAnimCur(pCursor);
 
-	    ret = (*pScreen->DisplayCursor) (pScreen, ac->elts[0].pCursor);
+	    ret = (*pScreen->DisplayCursor) 
+                (pDev, pScreen, ac->elts[0].pCursor);
 	    if (ret)
 	    {
-		animCurState.elt = 0;
-		animCurState.time = GetTimeInMillis () + ac->elts[0].delay;
-		animCurState.pCursor = pCursor;
-		animCurState.pScreen = pScreen;
+		pDev->spriteInfo->anim.elt = 0;
+		pDev->spriteInfo->anim.time = GetTimeInMillis () + ac->elts[0].delay;
+		pDev->spriteInfo->anim.pCursor = pCursor;
+		pDev->spriteInfo->anim.pScreen = pScreen;
 	    }
 	}
 	else
@@ -228,16 +229,17 @@ AnimCurDisplayCursor (ScreenPtr pScreen,
     }
     else
     {
-        animCurState.pCursor = 0;
-	animCurState.pScreen = 0;
-	ret = (*pScreen->DisplayCursor) (pScreen, pCursor);
+	pDev->spriteInfo->anim.pCursor = 0;
+	pDev->spriteInfo->anim.pScreen = 0;
+	ret = (*pScreen->DisplayCursor) (pDev, pScreen, pCursor);
     }
     Wrap (as, pScreen, DisplayCursor, AnimCurDisplayCursor);
     return ret;
 }
 
 static Bool
-AnimCurSetCursorPosition (ScreenPtr pScreen,
+AnimCurSetCursorPosition (DeviceIntPtr pDev,
+                          ScreenPtr pScreen,
 			  int x,
 			  int y,
 			  Bool generateEvent)
@@ -246,15 +248,16 @@ AnimCurSetCursorPosition (ScreenPtr pScreen,
     Bool		ret;
     
     Unwrap (as, pScreen, SetCursorPosition);
-    if (animCurState.pCursor)
-	animCurState.pScreen = pScreen;
-    ret = (*pScreen->SetCursorPosition) (pScreen, x, y, generateEvent);
+    if (pDev->spriteInfo->anim.pCursor)
+	pDev->spriteInfo->anim.pScreen = pScreen;
+    ret = (*pScreen->SetCursorPosition) (pDev, pScreen, x, y, generateEvent);
     Wrap (as, pScreen, SetCursorPosition, AnimCurSetCursorPosition);
     return ret;
 }
 
 static Bool 
-AnimCurRealizeCursor (ScreenPtr pScreen,
+AnimCurRealizeCursor (DeviceIntPtr pDev,
+                      ScreenPtr pScreen,
 		      CursorPtr pCursor)
 {
     AnimCurScreenPtr    as = GetAnimCurScreen(pScreen);
@@ -264,13 +267,14 @@ AnimCurRealizeCursor (ScreenPtr pScreen,
     if (IsAnimCur(pCursor))
 	ret = TRUE;
     else
-	ret = (*pScreen->RealizeCursor) (pScreen, pCursor);
+	ret = (*pScreen->RealizeCursor) (pDev, pScreen, pCursor);
     Wrap (as, pScreen, RealizeCursor, AnimCurRealizeCursor);
     return ret;
 }
 
 static Bool 
-AnimCurUnrealizeCursor (ScreenPtr pScreen,
+AnimCurUnrealizeCursor (DeviceIntPtr pDev,
+                        ScreenPtr pScreen,
 			CursorPtr pCursor)
 {
     AnimCurScreenPtr    as = GetAnimCurScreen(pScreen);
@@ -288,13 +292,14 @@ AnimCurUnrealizeCursor (ScreenPtr pScreen,
 	ret = TRUE;
     }
     else
-	ret = (*pScreen->UnrealizeCursor) (pScreen, pCursor);
+	ret = (*pScreen->UnrealizeCursor) (pDev, pScreen, pCursor);
     Wrap (as, pScreen, UnrealizeCursor, AnimCurUnrealizeCursor);
     return ret;
 }
 
 static void
-AnimCurRecolorCursor (ScreenPtr pScreen,
+AnimCurRecolorCursor (DeviceIntPtr pDev,
+                      ScreenPtr pScreen,
 		      CursorPtr pCursor,
 		      Bool displayed)
 {
@@ -307,12 +312,12 @@ AnimCurRecolorCursor (ScreenPtr pScreen,
 	int	    i;
 
         for (i = 0; i < ac->nelt; i++)
-	    (*pScreen->RecolorCursor) (pScreen, ac->elts[i].pCursor,
+	    (*pScreen->RecolorCursor) (pDev, pScreen, ac->elts[i].pCursor,
 				       displayed && 
-				       animCurState.elt == i);
+				       pDev->spriteInfo->anim.elt == i);
     }
     else
-	(*pScreen->RecolorCursor) (pScreen, pCursor, displayed);
+	(*pScreen->RecolorCursor) (pDev, pScreen, pCursor, displayed);
     Wrap (as, pScreen, RecolorCursor, AnimCurRecolorCursor);
 }
 
@@ -321,14 +326,9 @@ AnimCurInit (ScreenPtr pScreen)
 {
     AnimCurScreenPtr    as;
 
-    if (AnimCurGeneration != serverGeneration)
-    {
-	AnimCurGeneration = serverGeneration;
-	animCurState.pCursor = 0;
-	animCurState.pScreen = 0;
-	animCurState.elt = 0;
-	animCurState.time = 0;
-    }
+    if (!dixRegisterPrivateKey(&AnimCurScreenPrivateKeyRec, PRIVATE_SCREEN, 0))
+	return FALSE;
+
     as = (AnimCurScreenPtr) malloc (sizeof (AnimCurScreenRec));
     if (!as)
 	return FALSE;
@@ -354,18 +354,19 @@ AnimCursorCreate (CursorPtr *cursors, CARD32 *deltas, int ncursor, CursorPtr *pp
     AnimCurPtr	ac;
 
     for (i = 0; i < screenInfo.numScreens; i++)
-	if (!GetAnimCurScreenIfSet (screenInfo.screens[i]))
+	if (!GetAnimCurScreen (screenInfo.screens[i]))
 	    return BadImplementation;
 
     for (i = 0; i < ncursor; i++)
 	if (IsAnimCur (cursors[i]))
 	    return BadMatch;
 	
-    pCursor = (CursorPtr) malloc (sizeof (CursorRec) +
+    pCursor = (CursorPtr) calloc(CURSOR_REC_SIZE +
 				  sizeof (AnimCurRec) +
-				  ncursor * sizeof (AnimCurElt));
+				 ncursor * sizeof (AnimCurElt), 1);
     if (!pCursor)
 	return BadAlloc;
+    dixInitPrivates(pCursor, pCursor + 1, PRIVATE_CURSOR);
     pCursor->bits = &animCursorBits;
     pCursor->refcnt = 1;
     
@@ -378,13 +379,12 @@ AnimCursorCreate (CursorPtr *cursors, CARD32 *deltas, int ncursor, CursorPtr *pp
     pCursor->backBlue = cursors[0]->backBlue;
 
     pCursor->id = cid;
-    pCursor->devPrivates = NULL;
 
     /* security creation/labeling check */
     rc = XaceHook(XACE_RESOURCE_ACCESS, client, cid, RT_CURSOR, pCursor,
 		  RT_NONE, NULL, DixCreateAccess);
     if (rc != Success) {
-	dixFreePrivates(pCursor->devPrivates);
+	dixFiniPrivates(pCursor, PRIVATE_CURSOR);
 	free(pCursor);
 	return rc;
     }

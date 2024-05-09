@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 2007 Keith Packard
+ * Copyright © 2007 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -74,13 +74,15 @@ xRenderTransform_from_PictTransform(xRenderTransform * render,
 }
 
 Bool
-PictureTransformPoint(PictTransformPtr transform, PictVectorPtr vector)
+PictureTransformPoint (PictTransformPtr transform,
+		       PictVectorPtr	vector)
 {
     return pixman_transform_point(transform, vector);
 }
 
 Bool
-PictureTransformPoint3d(PictTransformPtr transform, PictVectorPtr vector)
+PictureTransformPoint3d (PictTransformPtr transform,
+                         PictVectorPtr	vector)
 {
     return pixman_transform_point_3d(transform, vector);
 }

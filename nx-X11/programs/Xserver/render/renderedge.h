@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 2004 Keith Packard
+ * Copyright © 2004 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -76,16 +76,16 @@ typedef pixman_edge_t RenderEdge;
     }				    \
 }
 
-xFixed
+extern _X_EXPORT xFixed
 RenderSampleCeilY (xFixed y, int bpp);
 
-xFixed
+extern _X_EXPORT xFixed
 RenderSampleFloorY (xFixed y, int bpp);
 
-void
+extern _X_EXPORT void
 RenderEdgeStep (RenderEdge *e, int n);
 
-void
+extern _X_EXPORT void
 RenderEdgeInit (RenderEdge	*e,
 		int		bpp,
 		xFixed		y_start,
@@ -94,7 +94,7 @@ RenderEdgeInit (RenderEdge	*e,
 		xFixed		x_bot,
 		xFixed		y_bot);
 
-void
+extern _X_EXPORT void
 RenderLineFixedEdgeInit (RenderEdge *e,
 			 int	    bpp,
 			 xFixed	    y,

@@ -1,6 +1,6 @@
 /*
  *
- * Copyright Â© 2001 Keith Packard, member of The XFree86 Project, Inc.
+ * Copyright © 2001 Keith Packard, member of The XFree86 Project, Inc.
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -276,7 +276,7 @@ miInitIndexed (ScreenPtr	pScreen,
     /*
      * Build mapping from pixel value to ARGB
      */
-    QueryColors (pColormap, num, pixels, rgb);
+    QueryColors (pColormap, num, pixels, rgb, serverClient);
     for (i = 0; i < num; i++)
     {
 	p = pixels[i];

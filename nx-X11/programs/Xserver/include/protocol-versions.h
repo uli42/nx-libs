@@ -85,11 +85,7 @@
 
 /* Render */
 #define SERVER_RENDER_MAJOR_VERSION		0
-#ifndef NXAGENT_SERVER
 #define SERVER_RENDER_MINOR_VERSION		11
-#else /* !defined(NXAGENT_SERVER) */
-#define SERVER_RENDER_MINOR_VERSION		10
-#endif /* !defined(NXAGENT_SERVER) */
 
 /* RandR Xinerama */
 #define SERVER_RRXINERAMA_MAJOR_VERSION		1

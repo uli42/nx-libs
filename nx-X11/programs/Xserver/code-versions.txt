@@ -16,7 +16,7 @@ miext             1.9.5
 os                1.9.5 + many backports, some of them from 2019
 randr             1.18.0
 record            1.9.5  Extension version: 1.13
-render            1.5.3
+render            1.9.5  Extension version: 0.11
 Xext              1.9.5
 xfixes            1.9.5  Extension version: 4.0
 Xi                1.9.5  Extension version: 2.0

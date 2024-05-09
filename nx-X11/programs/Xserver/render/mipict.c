@@ -1,6 +1,6 @@
 /*
  *
- * Copyright Â© 1999 Keith Packard
+ * Copyright © 1999 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -313,33 +313,25 @@ miClipPictureSrc (RegionPtr	pRegion,
 		  int		dx,
 		  int		dy)
 {
-    /* XXX what to do with clipping from transformed pictures? */
-    if (pPicture->transform || !pPicture->pDrawable)
-	return TRUE;
-    if (pPicture->repeat)
-    {
 	if (pPicture->clientClipType != CT_NONE)
 	{
-	    pixman_region_translate ( pRegion, 
-			     dx - pPicture->clipOrigin.x,
-			     dy - pPicture->clipOrigin.y);
-	    if (!RegionIntersect(pRegion, pRegion, 
-				   (RegionPtr) pPicture->pCompositeClip)) // clientClip))
+	Bool result;
+	
+	pixman_region_translate ( pPicture->clientClip,
+				  pPicture->clipOrigin.x + dx,
+				  pPicture->clipOrigin.y + dy);
+
+	result = RegionIntersect(pRegion, pRegion, pPicture->clientClip);
+	
+	pixman_region_translate ( pPicture->clientClip,
+				  - (pPicture->clipOrigin.x + dx),
+				  - (pPicture->clipOrigin.y + dy));
+
+	if (!result)
 		return FALSE;
-	    pixman_region_translate ( pRegion, 
-			     - (dx - pPicture->clipOrigin.x),
-			     - (dy - pPicture->clipOrigin.y));
 	}
 	return TRUE;
     }
-    else
-    {
-	return miClipPictureReg (pRegion,
-				 pPicture->pCompositeClip,
-				 dx,
-				 dy);
-    }
-}
 
 void
 miCompositeSourceValidate (PicturePtr	pPicture,
@@ -358,8 +350,6 @@ miCompositeSourceValidate (PicturePtr	pPicture,
     
     if (pScreen->SourceValidate)
     {
-        x -= pPicture->pDrawable->x;
-        y -= pPicture->pDrawable->y;
 	if (pPicture->transform)
 	{
 	    xPoint	    points[4];
@@ -379,7 +369,7 @@ miCompositeSourceValidate (PicturePtr	pPicture,
 		t.vector[0] = IntToxFixed (points[i].x);
 		t.vector[1] = IntToxFixed (points[i].y);
 		t.vector[2] = xFixed1;
-		if (PictureTransformPoint (pPicture->transform, &t))
+		if (pixman_transform_point (pPicture->transform, &t))
 		{
 		    int	tx = xFixedToInt (t.vector[0]);
 		    int ty = xFixedToInt (t.vector[1]);
@@ -394,6 +384,8 @@ miCompositeSourceValidate (PicturePtr	pPicture,
 	    width = xmax - xmin;
 	    height = ymax - ymin;
 	}
+        x += pPicture->pDrawable->x;
+        y += pPicture->pDrawable->y;
 	(*pScreen->SourceValidate) (pDrawable, x, y, width, height);
     }
 }
@@ -459,8 +451,8 @@ miComputeCompositeRegion (RegionPtr	pRegion,
     if (pSrc->alphaMap)
     {
 	if (!miClipPictureSrc (pRegion, pSrc->alphaMap,
-			       xDst - (xSrc + pSrc->alphaOrigin.x),
-			       yDst - (ySrc + pSrc->alphaOrigin.y)))
+			       xDst - (xSrc - pSrc->alphaOrigin.x),
+			       yDst - (ySrc - pSrc->alphaOrigin.y)))
 	{
 	    pixman_region_fini (pRegion);
 	    return FALSE;
@@ -477,8 +469,8 @@ miComputeCompositeRegion (RegionPtr	pRegion,
 	if (pMask->alphaMap)
 	{
 	    if (!miClipPictureSrc (pRegion, pMask->alphaMap,
-				   xDst - (xMask + pMask->alphaOrigin.x),
-				   yDst - (yMask + pMask->alphaOrigin.y)))
+				   xDst - (xMask - pMask->alphaOrigin.x),
+				   yDst - (yMask - pMask->alphaOrigin.y)))
 	    {
 		pixman_region_fini (pRegion);
 		return FALSE;
