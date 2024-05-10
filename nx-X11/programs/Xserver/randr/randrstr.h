@@ -1,8 +1,8 @@
 /*
- * Copyright © 2000 Compaq Computer Corporation
- * Copyright © 2002 Hewlett-Packard Company
- * Copyright © 2006 Intel Corporation
- * Copyright © 2008 Red Hat, Inc.
+ * Copyright � 2000 Compaq Computer Corporation
+ * Copyright � 2002 Hewlett-Packard Company
+ * Copyright � 2006 Intel Corporation
+ * Copyright � 2008 Red Hat, Inc.
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -366,7 +366,8 @@ typedef struct _rrScrPriv {
 
 } rrScrPrivRec, *rrScrPrivPtr;
 
-extern _X_EXPORT DevPrivateKey rrPrivKey;
+extern _X_EXPORT DevPrivateKeyRec rrPrivKeyRec;
+#define rrPrivKey (&rrPrivKeyRec)
 
 #define rrGetScrPriv(pScr) ((rrScrPrivPtr)dixLookupPrivate(&(pScr)->devPrivates, rrPrivKey))
 #define rrScrPriv(pScr)	rrScrPrivPtr pScrPriv = rrGetScrPriv(pScr)
@@ -401,22 +402,16 @@ typedef struct _RRClient {
 /*  RRTimesRec	times[0]; */
 } RRClientRec, *RRClientPtr;
 
-
-/* just a hack until we have dixLookupResourceByType in dix */
-#define dixLookupResourceByType(result, id, rtype, client, mode) dixLookupResource(result, id, rtype, client, mode)
-
+extern _X_EXPORT DevPrivateKeyRec RRClientPrivateKeyRec;
+#define RRClientPrivateKey (&RRClientPrivateKeyRec)
 
 extern RESTYPE RRClientType, RREventType;       /* resource types for event masks */
-extern _X_EXPORT DevPrivateKey RRClientPrivateKey;
 extern _X_EXPORT RESTYPE RRCrtcType, RRModeType, RROutputType, RRProviderType;
 
 #define GetRRClient(pClient) ((RRClientPtr)dixLookupPrivate(&(pClient)->devPrivates, RRClientPrivateKey))
 
 #define rrClientPriv(pClient) RRClientPtr pRRClient = GetRRClient(pClient)
 
-/* Initialize the extension */
-void
- RRExtensionInit(void);
 
 #define VERIFY_RR_OUTPUT(id, ptr, a)\
     {\
@@ -430,33 +425,36 @@ void
 
 #define VERIFY_RR_CRTC(id, ptr, a)\
     {\
-        int rc = dixLookupResourceByType((void **)&(ptr), id,\
+        int _rc = dixLookupResourceByType((void **)&(ptr), id,\
                                          RRCrtcType, client, a);\
-        if (rc != Success) {\
+        if (_rc != Success) {\
             client->errorValue = id;\
-            return rc;\
+            return _rc;\
         }\
     }
 
 #define VERIFY_RR_MODE(id, ptr, a)\
     {\
-        int rc = dixLookupResourceByType((void **)&(ptr), id,\
+        int _rc = dixLookupResourceByType((void **)&(ptr), id,\
                                          RRModeType, client, a);\
-        if (rc != Success) {\
+        if (_rc != Success) {\
             client->errorValue = id;\
-            return rc;\
+            return _rc;\
         }\
     }
 
 #define VERIFY_RR_PROVIDER(id, ptr, a)\
     {\
-        int rc = dixLookupResourceByType((void **)&(ptr), id,\
+      int _rc = dixLookupResourceByType((void **)&(ptr), id,		\
                                          RRProviderType, client, a);\
-        if (rc != Success) {\
+        if (_rc != Success) {\
             client->errorValue = id;\
-            return rc;\
+            return _rc;\
         }\
     }
+/* Initialize the extension */
+extern _X_EXPORT void
+RRExtensionInit (void);
 
 #ifdef RANDR_12_INTERFACE
 /*
@@ -753,9 +751,7 @@ int
 
 void
  RRConstrainCursorHarder(
-#ifndef NXAGENT_SERVER
                          DeviceIntPtr,
-#endif /* !defined(NXAGENT_SERVER) */
                          ScreenPtr, int, int *, int *);
 
 /* rrdispatch.c */
@@ -905,13 +901,11 @@ extern _X_EXPORT Bool
  RRPostPendingProperties(RROutputPtr output);
 
 extern _X_EXPORT int
-
 RRChangeOutputProperty(RROutputPtr output, Atom property, Atom type,
                        int format, int mode, unsigned long len,
                        void *value, Bool sendevent, Bool pending);
 
 extern _X_EXPORT int
-
 RRConfigureOutputProperty(RROutputPtr output, Atom property,
                           Bool pending, Bool range, Bool immutable,
                           int num_values, INT32 *values);
@@ -1063,8 +1057,8 @@ Query state:
     ProcRRGetScreenInfo/ProcRRGetScreenResources
 	RRGetInfo
 
-	    • Request configuration from driver, either 1.0 or 1.2 style
-	    • These functions only record state changes, all
+	    ? Request configuration from driver, either 1.0 or 1.2 style
+	    ? These functions only record state changes, all
 	      other actions are pended until RRTellChanged is called
 
 	    ->rrGetInfo
@@ -1082,13 +1076,13 @@ Query state:
 		RROutputSetClones
 		RRCrtcNotify
 
-	• Must delay scanning configuration until after ->rrGetInfo returns
+	? Must delay scanning configuration until after ->rrGetInfo returns
 	  because some drivers will call SetCurrentConfig in the middle
 	  of the ->rrGetInfo operation.
 
 	1.0:
 
-	    • Scan old configuration, mirror to new structures
+	    ? Scan old configuration, mirror to new structures
 
 	    RRScanOldConfig
 		RRCrtcCreate
@@ -1096,16 +1090,16 @@ Query state:
 		RROutputSetCrtcs
 		RROutputSetConnection
 		RROutputSetSubpixelOrder
-		RROldModeAdd	• This adds modes one-at-a-time
+		RROldModeAdd	? This adds modes one-at-a-time
 		    RRModeGet
 		RRCrtcNotify
 
-	• send events, reset pointer if necessary
+	? send events, reset pointer if necessary
 
 	RRTellChanged
 	    WalkTree (sending events)
 
-	    • when layout has changed:
+	    ? when layout has changed:
 		RRPointerScreenConfigured
 		RRSendConfigNotify
 

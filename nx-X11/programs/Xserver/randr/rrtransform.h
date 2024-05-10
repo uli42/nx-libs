@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 2007 Keith Packard
+ * Copyright © 2007 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -49,7 +49,6 @@ extern _X_EXPORT Bool
  RRTransformEqual(RRTransformPtr a, RRTransformPtr b);
 
 extern _X_EXPORT Bool
-
 RRTransformSetFilter(RRTransformPtr dst,
                      PictFilterPtr filter,
                      xFixed * params, int nparams, int width, int height);
@@ -65,7 +64,6 @@ extern _X_EXPORT Bool
  * Return TRUE if the resulting transform is not a simple translation.
  */
 extern _X_EXPORT Bool
-
 RRTransformCompute(int x,
                    int y,
                    int width,

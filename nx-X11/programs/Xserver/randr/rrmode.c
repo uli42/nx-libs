@@ -24,7 +24,7 @@
 /**************************************************************************/
 
 /*
- * Copyright Â© 2006 Keith Packard
+ * Copyright © 2006 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -311,17 +311,10 @@ RRModeInit(void)
 {
     assert(num_modes == 0);
     assert(modes == NULL);
-    RRModeType = CreateNewResourceType(RRModeDestroyResource
-#ifndef NXAGENT_SERVER
-                                       , "MODE"
-#endif
-        );
+    RRModeType = CreateNewResourceType (RRModeDestroyResource, "MODE");
     if (!RRModeType)
         return FALSE;
 
-#ifdef NXAGENT_SERVER
-    RegisterResourceName(RRModeType, "MODE");
-#endif
     return TRUE;
 }
 

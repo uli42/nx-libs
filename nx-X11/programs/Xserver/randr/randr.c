@@ -24,9 +24,9 @@
 /**************************************************************************/
 
 /*
- * Copyright Â© 2000 Compaq Computer Corporation
- * Copyright Â© 2002 Hewlett-Packard Company
- * Copyright Â© 2006 Intel Corporation
+ * Copyright © 2000 Compaq Computer Corporation
+ * Copyright © 2002 Hewlett-Packard Company
+ * Copyright © 2006 Intel Corporation
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -84,10 +84,9 @@ static int SProcRRDispatch(ClientPtr pClient);
 int RREventBase;
 int RRErrorBase;
 RESTYPE RRClientType, RREventType;      /* resource types for event masks */
+DevPrivateKeyRec RRClientPrivateKeyRec;
 
-DevPrivateKey RRClientPrivateKey = &RRClientPrivateKey;
- 
-DevPrivateKey rrPrivKey = &rrPrivKey;
+DevPrivateKeyRec rrPrivKeyRec;
 
 static void
 RRClientCallback(CallbackListPtr *list, void *closure, void *data)
@@ -301,6 +300,9 @@ RRInit(void)
             return FALSE;
         RRGeneration = serverGeneration;
     }
+    if (!dixRegisterPrivateKey(&rrPrivKeyRec, PRIVATE_SCREEN, 0))
+	return FALSE;
+
     return TRUE;
 }
 
@@ -420,7 +422,7 @@ RRExtensionInit(void)
         return;
 
  
-    if (!dixRequestPrivate(RRClientPrivateKey,
+    if (!dixRegisterPrivateKey(&RRClientPrivateKeyRec, PRIVATE_CLIENT,
                                sizeof (RRClientRec) +
                                screenInfo.numScreens * sizeof (RRTimesRec)))
         return;
@@ -428,30 +430,12 @@ RRExtensionInit(void)
     if (!AddCallback(&ClientStateCallback, RRClientCallback, 0))
         return;
 
-    RRClientType = CreateNewResourceType(RRFreeClient
-#ifndef NXAGENT_SERVER
-                                         , "RandRClient"
-#endif
-        );
+    RRClientType = CreateNewResourceType(RRFreeClient, "RandRClient");
     if (!RRClientType)
         return;
-
-#ifdef NXAGENT_SERVER
-    RegisterResourceName(RRClientType, "RandRClient");
-#endif
-
-    RREventType = CreateNewResourceType(RRFreeEvents
-#ifndef NXAGENT_SERVER
-                                        , "RandREvent"
-#endif
-        );
+    RREventType = CreateNewResourceType(RRFreeEvents, "RandREvent");
     if (!RREventType)
         return;
-
-#ifdef NXAGENT_SERVER
-    RegisterResourceName(RREventType, "RandREvent");
-#endif
-
     extEntry = AddExtension(RANDR_NAME, RRNumberEvents, RRNumberErrors,
                             ProcRRDispatch, SProcRRDispatch,
                             NULL, StandardMinorOpcode);

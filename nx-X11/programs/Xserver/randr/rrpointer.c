@@ -1,5 +1,5 @@
 /*
- * Copyright Â© 2006 Keith Packard
+ * Copyright © 2006 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -52,11 +52,7 @@ RRCrtcContainsPosition(RRCrtcPtr crtc, int x, int y)
  * Find the CRTC nearest the specified position, ignoring 'skip'
  */
 static void
-RRPointerToNearestCrtc(
-#ifndef NXAGENT_SERVER
-                          DeviceIntPtr pDev,
-#endif                          /* !defined(NXAGENT_SERVER) */
-                          ScreenPtr pScreen, int x, int y, RRCrtcPtr skip)
+RRPointerToNearestCrtc (DeviceIntPtr pDev, ScreenPtr pScreen, int x, int y, RRCrtcPtr skip)
 {
     rrScrPriv(pScreen);
     int c;
@@ -99,12 +95,7 @@ RRPointerToNearestCrtc(
         }
     }
     if (best_dx || best_dy)
-        (*pScreen->SetCursorPosition) (
-#ifndef NXAGENT_SERVER
-                                          pDev,
-#endif                          /* !defined(NXAGENT_SERVER) */
-                                          pScreen, x + best_dx, y + best_dy,
-                                          TRUE);
+	(*pScreen->SetCursorPosition) (pDev, pScreen, x + best_dx, y + best_dy, TRUE);
     pScrPriv->pointerCrtc = nearest;
 }
 
@@ -131,12 +122,8 @@ RRPointerMoved(ScreenPtr pScreen, int x, int y)
     }
 
     /* None contain pointer, find nearest */
-    ErrorF("RRPointerMoved: Untested, may cause \"bogus pointer event\"\n");
-    RRPointerToNearestCrtc(
-#ifndef NXAGENT_SERVER
-                              inputInfo.pointer,
-#endif                          /* !defined(NXAGENT_SERVER) */
-                              pScreen, x, y, pointerCrtc);
+    ErrorF("RRPointerMoved: Untested, may cause \"bogus void * event\"\n");
+    RRPointerToNearestCrtc (inputInfo.pointer, pScreen, x, y, pointerCrtc);
 }
 
 /*
@@ -150,33 +137,20 @@ RRPointerScreenConfigured(ScreenPtr pScreen)
     ScreenPtr pCurrentScreen;
     int x, y;
 
-#ifndef NXAGENT_SERVER
     DeviceIntPtr pDev;
 
-    for (pDev = inputInfo.devices; pDev; pDev = pDev->next) {
-        if (IsPointerDevice(pDev)) {
-#endif                          /* NXAGENT_SERVER */
-            pRoot = GetCurrentRootWindow(
-#ifndef NXAGENT_SERVER
-                                            pDev
-#endif                          /* NXAGENT_SERVER */
-                );
+    for (pDev = inputInfo.devices; pDev; pDev = pDev->next)
+    {
+        if (IsPointerDevice(pDev))
+        {
+            pRoot = GetCurrentRootWindow(pDev);
             pCurrentScreen = pRoot ? pRoot->drawable.pScreen : NULL;
 
-            if (pScreen == pCurrentScreen) {
-                GetSpritePosition(
-#ifndef NXAGENT_SERVER
-                                     pDev,
-#endif                          /* NXAGENT_SERVER */
-                                     &x, &y);
-                RRPointerToNearestCrtc(
-#ifndef NXAGENT_SERVER
-                                          pDev,
-#endif                          /* NXAGENT_SERVER */
-                                          pScreen, x, y, NULL);
-#ifndef NXAGENT_SERVER
+            if (pScreen == pCurrentScreen)
+            {
+                GetSpritePosition(pDev, &x, &y);
+                RRPointerToNearestCrtc (pDev, pScreen, x, y, NULL);
             }
         }
-#endif                          /* NXAGENT_SERVER */
     }
 }

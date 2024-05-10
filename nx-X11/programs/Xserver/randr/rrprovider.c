@@ -429,16 +429,10 @@ Bool
 RRProviderInit(void)
 {
     RRProviderType = CreateNewResourceType(RRProviderDestroyResource
-#ifndef NXAGENT_SERVER
                                            , "Provider"
-#endif                          /* !defined(NXAGENT_SERVER) */
         );
     if (!RRProviderType)
         return FALSE;
-
-#ifdef NXAGENT_SERVER
-    RegisterResourceName(RRProviderType, "Provider");
-#endif
 
     return TRUE;
 }

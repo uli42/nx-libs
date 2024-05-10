@@ -1,6 +1,6 @@
 /*
- * Copyright Â© 2006 Keith Packard
- * Copyright Â© 2008 Red Hat, Inc.
+ * Copyright © 2006 Keith Packard
+ * Copyright © 2008 Red Hat, Inc.
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -397,17 +397,9 @@ RROutputDestroyResource(void *value, XID pid)
 Bool
 RROutputInit(void)
 {
-    RROutputType = CreateNewResourceType(RROutputDestroyResource
-#ifndef NXAGENT_SERVER
-                                         , "OUTPUT"
-#endif
-        );
+    RROutputType = CreateNewResourceType (RROutputDestroyResource, "OUTPUT");
     if (!RROutputType)
         return FALSE;
-
-#ifdef NXAGENT_SERVER
-    RegisterResourceName(RROutputType, "OUTPUT");
-#endif
 
     return TRUE;
 }
@@ -418,9 +410,7 @@ RROutputInit(void)
 void
 RROutputInitErrorValue(void)
 {
-#ifndef NXAGENT_SERVER
     SetResourceTypeErrorValue(RROutputType, RRErrorBase + BadRROutput);
-#endif
 }
 
 #define OutputInfoExtra	(SIZEOF(xRRGetOutputInfoReply) - 32)

@@ -24,7 +24,7 @@
 /**************************************************************************/
 
 /*
- * Copyright Â© 2006 Keith Packard
+ * Copyright © 2006 Keith Packard
  * Copyright 2010 Red Hat, Inc
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
@@ -945,17 +945,9 @@ RRCrtcTransformSet(RRCrtcPtr crtc,
 Bool
 RRCrtcInit(void)
 {
-    RRCrtcType = CreateNewResourceType(RRCrtcDestroyResource
-#ifndef NXAGENT_SERVER
-                                       , "CRTC"
-#endif
-        );
+    RRCrtcType = CreateNewResourceType (RRCrtcDestroyResource, "CRTC");
     if (!RRCrtcType)
         return FALSE;
-
-#ifdef NXAGENT_SERVER
-    RegisterResourceName(RRCrtcType, "CRTC");
-#endif
 
     return TRUE;
 }
@@ -966,9 +958,7 @@ RRCrtcInit(void)
 void
 RRCrtcInitErrorValue(void)
 {
-#ifndef NXAGENT_SERVER
     SetResourceTypeErrorValue(RRCrtcType, RRErrorBase + BadRRCrtc);
-#endif
 }
 
 int
@@ -1099,11 +1089,7 @@ ProcRRSetCrtcConfig(ClientPtr client)
     RROutput *outputIds;
     TimeStamp time;
     Rotation rotation;
-    int
-#ifndef NXAGENT_SERVER
-     ret,
-#endif
-     i, j;
+    int			    rc, i, j;
     CARD8 status;
 
     REQUEST_AT_LEAST_SIZE(xRRSetCrtcConfigReq);
@@ -1130,13 +1116,14 @@ ProcRRSetCrtcConfig(ClientPtr client)
         outputs = NULL;
 
     outputIds = (RROutput *) (stuff + 1);
-    for (i = 0; i < numOutputs; i++) {
-        int ret = dixLookupResourceByType((void **) (outputs + i), outputIds[i],
+    for (i = 0; i < numOutputs; i++)
+    {
+	rc = dixLookupResourceByType((void * *)(outputs + i), outputIds[i],
                                       RROutputType, client, DixSetAttrAccess);
-
-        if (ret != Success) {
+	if (rc != Success)
+	{
             free(outputs);
-            return ret;
+	    return rc;
         }
         /* validate crtc for this output */
         for (j = 0; j < outputs[i]->numCrtcs; j++)
@@ -1742,9 +1729,7 @@ constrain_all_screen_crtcs(
 
 void
 RRConstrainCursorHarder(
-#ifndef NXAGENT_SERVER
                         DeviceIntPtr pDev,
-#endif /* !defined(NXAGENT_SERVER) */
                         ScreenPtr pScreen, int mode, int *x,
                         int *y)
 {
