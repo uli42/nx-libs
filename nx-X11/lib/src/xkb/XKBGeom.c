@@ -208,7 +208,7 @@ XkbComputeSectionBounds(XkbGeometryPtr geom, XkbSectionPtr section)
 /***====================================================================***/
 
 char *
-XkbFindOverlayForKey(XkbGeometryPtr geom, XkbSectionPtr wanted, char *under)
+XkbFindOverlayForKey(XkbGeometryPtr geom, XkbSectionPtr wanted, const char *under)
 {
     int s;
     XkbSectionPtr section;

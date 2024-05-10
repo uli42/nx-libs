@@ -67,7 +67,7 @@ from The Open Group.
 #include <nx-X11/Xpoll.h>
 #if !USE_XCB
 #include <nx-X11/Xtrans/Xtrans.h>
-#include <nx-X11/extensions/xcmiscstr.h>
+#include <nx-X11/extensions/xcmiscproto.h>
 #endif /* !USE_XCB */
 #include <assert.h>
 #include <stdio.h>

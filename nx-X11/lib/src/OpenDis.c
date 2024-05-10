@@ -57,7 +57,7 @@ in this Software without prior written authorization from The Open Group.
 #include "Xxcbint.h"
 #else /* !USE_XCB */
 #include <nx-X11/Xtrans/Xtrans.h>
-#include <nx-X11/extensions/bigreqstr.h>
+#include <nx-X11/extensions/bigreqsproto.h>
 #endif /* USE_XCB */
 #include <nx-X11/Xatom.h>
 #include <nx-X11/Xresource.h>

@@ -650,7 +650,7 @@ XkbAllocGeometry(XkbDescPtr xkb, XkbGeometrySizesPtr sizes)
 /***====================================================================***/
 
 XkbPropertyPtr
-XkbAddGeomProperty(XkbGeometryPtr geom, char *name, char *value)
+XkbAddGeomProperty(XkbGeometryPtr geom, const char *name, const char *value)
 {
     register int i;
     register XkbPropertyPtr prop;
@@ -683,7 +683,7 @@ XkbAddGeomProperty(XkbGeometryPtr geom, char *name, char *value)
 }
 
 XkbKeyAliasPtr
-XkbAddGeomKeyAlias(XkbGeometryPtr geom, char *aliasStr, char *realStr)
+XkbAddGeomKeyAlias(XkbGeometryPtr geom, const char *aliasStr, const char *realStr)
 {
     register int i;
     register XkbKeyAliasPtr alias;
@@ -711,7 +711,7 @@ XkbAddGeomKeyAlias(XkbGeometryPtr geom, char *aliasStr, char *realStr)
 }
 
 XkbColorPtr
-XkbAddGeomColor(XkbGeometryPtr geom, char *spec, unsigned int pixel)
+XkbAddGeomColor(XkbGeometryPtr geom, const char *spec, unsigned int pixel)
 {
     register int i;
     register XkbColorPtr color;
@@ -898,8 +898,8 @@ XkbAddGeomDoodad(XkbGeometryPtr geom, XkbSectionPtr section, Atom name)
 XkbOverlayKeyPtr
 XkbAddGeomOverlayKey(XkbOverlayPtr overlay,
                      XkbOverlayRowPtr row,
-                     char *over,
-                     char *under)
+                     const char *over,
+                     const char *under)
 {
     register int i;
     XkbOverlayKeyPtr key;
