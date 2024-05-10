@@ -445,13 +445,23 @@ typedef    void (* MarkUnrealizedWindowProcPtr)(
 	WindowPtr /*pWin*/,
 	Bool /*fromConfigure*/);
 
-typedef    Bool (* DeviceCursorInitializeProcPtr)(
-        DeviceIntPtr /* pDev */,
-        ScreenPtr    /* pScreen */);
+typedef	   void (*ConstrainCursorHarderProcPtr)(
+	DeviceIntPtr /* pDev */,
+	ScreenPtr, /*pScreen*/
+	int, /*mode*/
+	int *, /*x*/
+	int *  /*y*/);
+typedef	   Bool (* DeviceCursorInitializeProcPtr)(
+	DeviceIntPtr /* pDev */,
+	ScreenPtr    /* pScreen */);
+typedef	    Bool (*ReplaceScanoutPixmapProcPtr)(
+	DrawablePtr, /*pDrawable*/
+	PixmapPtr, /*pPixmap*/
+	Bool /*enable*/);
 
-typedef    void (* DeviceCursorCleanupProcPtr)(
-        DeviceIntPtr /* pDev */,
-        ScreenPtr    /* pScreen */);
+typedef	   void (* DeviceCursorCleanupProcPtr)(
+	DeviceIntPtr /* pDev */,
+	ScreenPtr    /* pScreen */);
 
 typedef struct _Screen {
     int			myNum;	/* index of this instance in Screens[] */
@@ -533,6 +543,7 @@ typedef struct _Screen {
     /* Cursor Procedures */
 
     ConstrainCursorProcPtr	ConstrainCursor;
+    ConstrainCursorHarderProcPtr	ConstrainCursorHarder;
     CursorLimitsProcPtr		CursorLimits;
     DisplayCursorProcPtr	DisplayCursor;
     RealizeCursorProcPtr	RealizeCursor;
@@ -597,6 +608,8 @@ typedef struct _Screen {
 
     ChangeBorderWidthProcPtr	ChangeBorderWidth;
     MarkUnrealizedWindowProcPtr	MarkUnrealizedWindow;
+
+    ReplaceScanoutPixmapProcPtr ReplaceScanoutPixmap;
 
     /* Device cursor procedures */
     DeviceCursorInitializeProcPtr DeviceCursorInitialize;
