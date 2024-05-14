@@ -176,7 +176,7 @@ compRedirectWindow (ClientPtr pClient, WindowPtr pWin, int update)
 
 /*
  * Free one of the per-client per-window resources, clearing
- * redirect and the per-window pointer as appropriate
+ * redirect and the per-window void * as appropriate
  */
 void
 compFreeClientWindow (WindowPtr pWin, XID id)
