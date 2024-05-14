@@ -1,7 +1,25 @@
 /*
- * $Id: compwindow.c,v 1.11 2005/07/03 07:37:34 daniels Exp $
+ * Copyright © 2006 Sun Microsystems
  *
- * Copyright Â© 2003 Keith Packard
+ * Permission to use, copy, modify, distribute, and sell this software and its
+ * documentation for any purpose is hereby granted without fee, provided that
+ * the above copyright notice appear in all copies and that both that
+ * copyright notice and this permission notice appear in supporting
+ * documentation, and that the name of Sun Microsystems not be used in
+ * advertising or publicity pertaining to distribution of the software without
+ * specific, written prior permission.  Sun Microsystems makes no
+ * representations about the suitability of this software for any purpose.  It
+ * is provided "as is" without express or implied warranty.
+ *
+ * SUN MICROSYSTEMS DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
+ * INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+ * EVENT SHALL SUN MICROSYSTEMS BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+ * CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE,
+ * DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER
+ * TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ * PERFORMANCE OF THIS SOFTWARE.
+ *
+ * Copyright © 2003 Keith Packard
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
  * documentation for any purpose is hereby granted without fee, provided that
@@ -28,22 +46,18 @@
 
 #include "compint.h"
 
-#ifdef PANORAMIX
-#include "panoramiXsrv.h"
-#endif
-
 #ifdef COMPOSITE_DEBUG
 static int
 compCheckWindow (WindowPtr pWin, void * data)
 {
     ScreenPtr	pScreen = pWin->drawable.pScreen;
-    PixmapPtr	pWinPixmap = (*pScreen->GetWindowPixmap) (pWin);
+    _X_UNUSED PixmapPtr	pWinPixmap = (*pScreen->GetWindowPixmap) (pWin);
     PixmapPtr	pParentPixmap = pWin->parent ? (*pScreen->GetWindowPixmap) (pWin->parent) : 0;
-    PixmapPtr	pScreenPixmap = (*pScreen->GetScreenPixmap) (pScreen);
-    
+    _X_UNUSED PixmapPtr	pScreenPixmap = (*pScreen->GetScreenPixmap) (pScreen);
+
     if (!pWin->parent)
     {
-	assert (pWin->redirectDraw == RedriectDrawNone);
+	assert (pWin->redirectDraw == RedirectDrawNone);
 	assert (pWinPixmap == pScreenPixmap);
     }
     else if (pWin->redirectDraw != RedirectDrawNone)
@@ -77,18 +91,19 @@ typedef struct _compPixmapVisit {
 static Bool
 compRepaintBorder (ClientPtr pClient, void * closure)
 {
-    WindowPtr	pWindow;
-    int rc =
-        dixLookupWindow(&pWindow, (XID) (intptr_t) closure, pClient,
-                        DixWriteAccess);
+    #ifdef DEBUG
+    fprintf(stderr, "%s: entering...\n", __func__);
+    #endif
 
-    if (rc == Success)
-    {
+    WindowPtr pWindow;
+    int rc = dixLookupWindow(&pWindow, (XID)closure, pClient, DixWriteAccess);
+
+    if (rc == Success) {
 	RegionRec exposed;
 
 	RegionNull(&exposed);
 	RegionSubtract(&exposed, &pWindow->borderClip, &pWindow->winSize);
-	pWindow->drawable.pScreen->PaintWindowBorder(pWindow, &exposed, PW_BORDER);
+	miPaintWindow(pWindow, &exposed, PW_BORDER);
 	RegionUninit(&exposed);
     }
     return TRUE;
@@ -111,7 +126,7 @@ compSetPixmapVisitWindow (WindowPtr pWindow, void * data)
     SetWinSize (pWindow);
     SetBorderSize (pWindow);
     if (HasBorder (pWindow))
-	QueueWorkProc (compRepaintBorder, serverClient, 
+	QueueWorkProc (compRepaintBorder, serverClient,
 		       (void *) (intptr_t) pWindow->drawable.id);
     return WT_WALKCHILDREN;
 }
@@ -131,37 +146,25 @@ Bool
 compCheckRedirect (WindowPtr pWin)
 {
     CompWindowPtr   cw = GetCompWindow (pWin);
-    CompScreenPtr cs = GetCompScreen(pWin->drawable.pScreen);
+    CompScreenPtr   cs = GetCompScreen(pWin->drawable.pScreen);
     Bool	    should;
 
     should = pWin->realized && (pWin->drawable.class != InputOnly) &&
 	     (cw != NULL) && (pWin->parent != NULL);
-    
+
     /* Never redirect the overlay window */
     if (cs->pOverlayWin != NULL) {
-        if (pWin == cs->pOverlayWin) {
-            should = FALSE;
-        }
+	if (pWin == cs->pOverlayWin) {
+	    should = FALSE;
+	}
     }
 
     if (should != (pWin->redirectDraw != RedirectDrawNone))
     {
 	if (should)
 	    return compAllocPixmap (pWin);
-        else {
-            ScreenPtr pScreen = pWin->drawable.pScreen;
-            PixmapPtr pPixmap = (*pScreen->GetWindowPixmap) (pWin);
-
-            compSetParentPixmap(pWin);
-            compRestoreWindow(pWin, pPixmap);
-            (*pScreen->DestroyPixmap) (pPixmap);
-        }
-    }
-    else if (should) {
-        if (cw->update == CompositeRedirectAutomatic)
-            pWin->redirectDraw = RedirectDrawAutomatic;
 	else
-            pWin->redirectDraw = RedirectDrawManual;
+	    compFreePixmap (pWin);
     }
     return TRUE;
 }
@@ -169,38 +172,34 @@ compCheckRedirect (WindowPtr pWin)
 static int
 updateOverlayWindow(ScreenPtr pScreen)
 {
-    CompScreenPtr cs;
-    WindowPtr pWin;             /* overlay window */
-    XID vlist[2];
-    int w = pScreen->width;
-    int h = pScreen->height;
+	#ifdef DEBUG
+	fprintf(stderr, "%s: entering...\n", __func__);
+	#endif
 
-#ifdef PANORAMIX
-    if (!noPanoramiXExtension) {
-        w = PanoramiXPixWidth;
-        h = PanoramiXPixHeight;
-    }
-#endif
+	CompScreenPtr cs;
+	WindowPtr pWin; /* overlay window */
+	XID vlist[2];
 
-    cs = GetCompScreen(pScreen);
-    if ((pWin = cs->pOverlayWin) != NULL) {
-        if ((pWin->drawable.width == w) && (pWin->drawable.height == h))
-            return Success;
+	cs = GetCompScreen(pScreen);
+	if ((pWin = cs->pOverlayWin) != NULL) {
+		if ((pWin->drawable.width == pScreen->width) &&
+			(pWin->drawable.height == pScreen->height))
+			return Success;
 
-        /* Let's resize the overlay window. */
-        vlist[0] = w;
-        vlist[1] = h;
-        return ConfigureWindow(pWin, CWWidth | CWHeight, vlist, wClient(pWin));
-    }
+		/* Let's resize the overlay window. */
+		vlist[0] = pScreen->width;
+		vlist[1] = pScreen->height;
+		return ConfigureWindow(pWin, CWWidth | CWHeight, vlist, wClient(pWin));
+	}
 
-    /* Let's be on the safe side and not assume an overlay window is
-       always allocated. */
-    return Success;
+	/* Let's be on the safe side and not assume an overlay window is always allocated. */
+	return Success;
 }
 
 Bool
 compPositionWindow (WindowPtr pWin, int x, int y)
 {
+    fprintf(stderr, "%s: entering...\n", __func__);
     ScreenPtr	    pScreen = pWin->drawable.pScreen;
     CompScreenPtr   cs = GetCompScreen (pScreen);
     Bool	    ret = TRUE;
@@ -213,7 +212,7 @@ compPositionWindow (WindowPtr pWin, int x, int y)
      */
 #ifdef COMPOSITE_DEBUG
     if ((pWin->redirectDraw != RedirectDrawNone) !=
-        (pWin->viewable && (GetCompWindow(pWin) != NULL)))
+	(pWin->viewable && (GetCompWindow(pWin) != NULL)))
 	abort ();
 #endif
     if (pWin->redirectDraw != RedirectDrawNone)
@@ -237,13 +236,17 @@ compPositionWindow (WindowPtr pWin, int x, int y)
     pScreen->PositionWindow = compPositionWindow;
     compCheckTree (pWin->drawable.pScreen);
     if (updateOverlayWindow(pScreen) != Success)
-        ret = FALSE;
+	ret = FALSE;
     return ret;
 }
 
 Bool
 compRealizeWindow (WindowPtr pWin)
 {
+    #ifdef DEBUG
+    fprintf(stderr, "%s: entering...\n", __func__);
+    #endif
+
     ScreenPtr	    pScreen = pWin->drawable.pScreen;
     CompScreenPtr   cs = GetCompScreen (pScreen);
     Bool	    ret = TRUE;
@@ -261,6 +264,10 @@ compRealizeWindow (WindowPtr pWin)
 Bool
 compUnrealizeWindow (WindowPtr pWin)
 {
+    #ifdef DEBUG
+    fprintf(stderr, "%s: entering...\n", __func__);
+    #endif
+
     ScreenPtr	    pScreen = pWin->drawable.pScreen;
     CompScreenPtr   cs = GetCompScreen (pScreen);
     Bool	    ret = TRUE;
@@ -286,10 +293,10 @@ compClipNotify (WindowPtr pWin, int dx, int dy)
     ScreenPtr		pScreen = pWin->drawable.pScreen;
     CompScreenPtr	cs = GetCompScreen (pScreen);
     CompWindowPtr	cw = GetCompWindow (pWin);
-    
+
     if (cw)
     {
-	if (cw->borderClipX != pWin->drawable.x || 
+	if (cw->borderClipX != pWin->drawable.x ||
 	    cw->borderClipY != pWin->drawable.y)
 	{
 	    RegionTranslate(&cw->borderClip,
@@ -327,21 +334,6 @@ compIsAlternateVisual (ScreenPtr    pScreen,
 }
 
 static Bool
-compIsImplicitRedirectException(ScreenPtr pScreen,
-                                XID parentVisual, XID winVisual)
-{
-    CompScreenPtr cs = GetCompScreen(pScreen);
-    int i;
-
-    for (i = 0; i < cs->numImplicitRedirectExceptions; i++)
-        if (cs->implicitRedirectExceptions[i].parentVisual == parentVisual &&
-            cs->implicitRedirectExceptions[i].winVisual == winVisual)
-            return TRUE;
-
-    return FALSE;
-}
-
-static Bool
 compImplicitRedirect (WindowPtr pWin, WindowPtr pParent)
 {
     if (pParent)
@@ -350,9 +342,6 @@ compImplicitRedirect (WindowPtr pWin, WindowPtr pParent)
 	XID		winVisual = wVisual (pWin);
 	XID		parentVisual = wVisual (pParent);
 
-        if (compIsImplicitRedirectException(pScreen, parentVisual, winVisual))
-            return FALSE;
-    
 	if (winVisual != parentVisual &&
 	    (compIsAlternateVisual (pScreen, winVisual) ||
 	     compIsAlternateVisual (pScreen, parentVisual)))
@@ -361,33 +350,23 @@ compImplicitRedirect (WindowPtr pWin, WindowPtr pParent)
     return FALSE;
 }
 
-static void
-compFreeOldPixmap(WindowPtr pWin)
-{
-    ScreenPtr pScreen = pWin->drawable.pScreen;
-	
-    if (pWin->redirectDraw != RedirectDrawNone) {
-        CompWindowPtr cw = GetCompWindow(pWin);
-	
-        if (cw->pOldPixmap) {
-            (*pScreen->DestroyPixmap) (cw->pOldPixmap);
-            cw->pOldPixmap = NullPixmap;
-        }
-    }
-}
-
 void
 compMoveWindow (WindowPtr pWin, int x, int y, WindowPtr pSib, VTKind kind)
 {
+    #ifdef DEBUG
+    fprintf(stderr, "%s: entering...\n", __func__);
+    #endif
+
     ScreenPtr		pScreen = pWin->drawable.pScreen;
     CompScreenPtr	cs = GetCompScreen (pScreen);
 
     compCheckTree (pScreen);
-    if (pWin->redirectDraw != RedirectDrawNone) {
+    if (pWin->redirectDraw != RedirectDrawNone)
+    {
 	WindowPtr		pParent;
 	int			draw_x, draw_y;
 	unsigned int		w, h, bw;
-	
+
 	/* if this is a root window, can't be moved */
 	if (!(pParent = pWin->parent))
 	   return;
@@ -406,7 +385,16 @@ compMoveWindow (WindowPtr pWin, int x, int y, WindowPtr pSib, VTKind kind)
     cs->MoveWindow = pScreen->MoveWindow;
     pScreen->MoveWindow = compMoveWindow;
 
-    compFreeOldPixmap(pWin);
+    if (pWin->redirectDraw != RedirectDrawNone)
+    {
+	CompWindowPtr	cw = GetCompWindow (pWin);
+	if (cw->pOldPixmap)
+	{
+	    (*pScreen->DestroyPixmap) (cw->pOldPixmap);
+	    cw->pOldPixmap = NullPixmap;
+	}
+    }
+
     compCheckTree (pScreen);
 }
 
@@ -414,6 +402,10 @@ void
 compResizeWindow (WindowPtr pWin, int x, int y,
 		  unsigned int w, unsigned int h, WindowPtr pSib)
 {
+    #ifdef DEBUG
+    fprintf(stderr, "%s: entering...\n", __func__);
+    #endif
+
     ScreenPtr		pScreen = pWin->drawable.pScreen;
     CompScreenPtr	cs = GetCompScreen (pScreen);
 
@@ -427,7 +419,7 @@ compResizeWindow (WindowPtr pWin, int x, int y,
 	/* if this is a root window, can't be moved */
 	if (!(pParent = pWin->parent))
 	   return;
-	
+
 	bw = wBorderWidth (pWin);
 	draw_x = pParent->drawable.x + x + (int)bw;
 	draw_y = pParent->drawable.y + y + (int)bw;
@@ -439,8 +431,15 @@ compResizeWindow (WindowPtr pWin, int x, int y,
     (*pScreen->ResizeWindow) (pWin, x, y, w, h, pSib);
     cs->ResizeWindow = pScreen->ResizeWindow;
     pScreen->ResizeWindow = compResizeWindow;
-
-    compFreeOldPixmap(pWin);
+    if (pWin->redirectDraw != RedirectDrawNone)
+    {
+	CompWindowPtr	cw = GetCompWindow (pWin);
+	if (cw->pOldPixmap)
+	{
+	    (*pScreen->DestroyPixmap) (cw->pOldPixmap);
+	    cw->pOldPixmap = NullPixmap;
+	}
+    }
     compCheckTree (pWin->drawable.pScreen);
 }
 
@@ -467,20 +466,31 @@ compChangeBorderWidth (WindowPtr pWin, unsigned int bw)
 	h = pWin->drawable.height;
 	compReallocPixmap (pWin, draw_x, draw_y, w, h, bw);
     }
-
     compCheckTree (pScreen);
+
     pScreen->ChangeBorderWidth = cs->ChangeBorderWidth;
     (*pScreen->ChangeBorderWidth) (pWin, bw);
     cs->ChangeBorderWidth = pScreen->ChangeBorderWidth;
     pScreen->ChangeBorderWidth = compChangeBorderWidth;
-
-    compFreeOldPixmap(pWin);
+    if (pWin->redirectDraw != RedirectDrawNone)
+    {
+	CompWindowPtr	cw = GetCompWindow (pWin);
+	if (cw->pOldPixmap)
+	{
+	    (*pScreen->DestroyPixmap) (cw->pOldPixmap);
+	    cw->pOldPixmap = NullPixmap;
+	}
+    }
     compCheckTree (pWin->drawable.pScreen);
 }
 
 void
 compReparentWindow (WindowPtr pWin, WindowPtr pPriorParent)
 {
+    #ifdef DEBUG
+    fprintf(stderr, "%s: entering...\n", __func__);
+    #endif
+
     ScreenPtr		pScreen = pWin->drawable.pScreen;
     CompScreenPtr	cs = GetCompScreen (pScreen);
 
@@ -500,13 +510,13 @@ compReparentWindow (WindowPtr pWin, WindowPtr pPriorParent)
      */
     if (compImplicitRedirect (pWin, pWin->parent))
 	compRedirectWindow (serverClient, pWin, CompositeRedirectAutomatic);
-    
+
     /*
      * Allocate any necessary redirect pixmap
      * (this actually should never be true; pWin is always unmapped)
      */
     compCheckRedirect (pWin);
-    
+
     /*
      * Reset pixmap pointers as appropriate
      */
@@ -525,6 +535,10 @@ compReparentWindow (WindowPtr pWin, WindowPtr pPriorParent)
 void
 compCopyWindow (WindowPtr pWin, DDXPointRec ptOldOrg, RegionPtr prgnSrc)
 {
+    #ifdef DEBUG
+    fprintf(stderr, "%s: entering...\n", __func__);
+    #endif
+
     ScreenPtr	    pScreen = pWin->drawable.pScreen;
     CompScreenPtr   cs = GetCompScreen (pScreen);
     int		    dx = 0, dy = 0;
@@ -533,7 +547,7 @@ compCopyWindow (WindowPtr pWin, DDXPointRec ptOldOrg, RegionPtr prgnSrc)
     {
 	PixmapPtr	pPixmap = (*pScreen->GetWindowPixmap) (pWin);
 	CompWindowPtr	cw = GetCompWindow (pWin);
-	
+
 	assert (cw->oldx != COMP_ORIGIN_INVALID);
 	assert (cw->oldy != COMP_ORIGIN_INVALID);
 	if (cw->pOldPixmap)
@@ -544,7 +558,7 @@ compCopyWindow (WindowPtr pWin, DDXPointRec ptOldOrg, RegionPtr prgnSrc)
 	     */
 	    RegionRec	rgnDst;
 	    GCPtr	pGC;
-	    
+
 	    dx = ptOldOrg.x - pWin->drawable.x;
 	    dy = ptOldOrg.y - pWin->drawable.y;
 	    RegionTranslate(prgnSrc, -dx, -dy);
@@ -553,10 +567,10 @@ compCopyWindow (WindowPtr pWin, DDXPointRec ptOldOrg, RegionPtr prgnSrc)
 
 	    RegionIntersect(&rgnDst,
 			     &pWin->borderClip, prgnSrc);
-	    
+
 	    RegionTranslate(&rgnDst,
 			      -pPixmap->screen_x, -pPixmap->screen_y);
-	    
+
 	    dx = dx + pPixmap->screen_x - cw->oldx;
 	    dy = dy + pPixmap->screen_y - cw->oldy;
 	    pGC = GetScratchGC (pPixmap->drawable.depth, pScreen);
@@ -564,7 +578,7 @@ compCopyWindow (WindowPtr pWin, DDXPointRec ptOldOrg, RegionPtr prgnSrc)
 	    {
 		BoxPtr	pBox = RegionRects (&rgnDst);
 		int	nBox = RegionNumRects (&rgnDst);
-		
+
 		ValidateGC(&pPixmap->drawable, pGC);
 		while (nBox--)
 		{
@@ -587,7 +601,7 @@ compCopyWindow (WindowPtr pWin, DDXPointRec ptOldOrg, RegionPtr prgnSrc)
 	ptOldOrg.x += dx;
 	ptOldOrg.y += dy;
     }
-    
+
     pScreen->CopyWindow = cs->CopyWindow;
     if (ptOldOrg.x != pWin->drawable.x || ptOldOrg.y != pWin->drawable.y)
     {
@@ -614,6 +628,10 @@ compCopyWindow (WindowPtr pWin, DDXPointRec ptOldOrg, RegionPtr prgnSrc)
 Bool
 compCreateWindow (WindowPtr pWin)
 {
+    #ifdef DEBUG
+    fprintf(stderr, "%s: entering...\n", __func__);
+    #endif
+
     ScreenPtr		pScreen = pWin->drawable.pScreen;
     CompScreenPtr	cs = GetCompScreen (pScreen);
     Bool		ret;
@@ -624,11 +642,8 @@ compCreateWindow (WindowPtr pWin)
     {
 	CompSubwindowsPtr	csw = GetCompSubwindows (pWin->parent);
         CompClientWindowPtr	ccw;
-        PixmapPtr parent_pixmap = (*pScreen->GetWindowPixmap)(pWin->parent);
-        PixmapPtr window_pixmap = (*pScreen->GetWindowPixmap)(pWin);
 
-        if (window_pixmap != parent_pixmap)
-	    (*pScreen->SetWindowPixmap) (pWin, parent_pixmap);
+	(*pScreen->SetWindowPixmap) (pWin, (*pScreen->GetWindowPixmap) (pWin->parent));
 	if (csw)
 	    for (ccw = csw->clients; ccw; ccw = ccw->next)
 		compRedirectWindow (clients[CLIENT_ID(ccw->id)],
@@ -656,13 +671,9 @@ compDestroyWindow (WindowPtr pWin)
 	FreeResource (cw->clients->id, RT_NONE);
     while ((csw = GetCompSubwindows (pWin)))
 	FreeResource (csw->clients->id, RT_NONE);
-    
-    if (pWin->redirectDraw != RedirectDrawNone) {
-        PixmapPtr pPixmap = (*pScreen->GetWindowPixmap) (pWin);
 
-	compSetParentPixmap (pWin);
-        (*pScreen->DestroyPixmap) (pPixmap);
-    }
+    if (pWin->redirectDraw != RedirectDrawNone)
+	compFreePixmap (pWin);
     ret = (*pScreen->DestroyWindow) (pWin);
     cs->DestroyWindow = pScreen->DestroyWindow;
     pScreen->DestroyWindow = compDestroyWindow;
@@ -725,7 +736,7 @@ PictFormatPtr
 compWindowFormat (WindowPtr pWin)
 {
     ScreenPtr	pScreen = pWin->drawable.pScreen;
-    
+
     return PictureMatchVisual (pScreen, pWin->drawable.depth,
 			       compGetWindowVisual (pWin));
 }
@@ -742,24 +753,24 @@ compWindowUpdateAutomatic (WindowPtr pWin)
     int		    error;
     RegionPtr	    pRegion = DamageRegion (cw->damage);
     PicturePtr	    pSrcPicture = CreatePicture (0, &pSrcPixmap->drawable,
-						 pSrcFormat, 
+						 pSrcFormat,
 						 0, 0,
 						 serverClient,
 						 &error);
     XID		    subwindowMode = IncludeInferiors;
     PicturePtr	    pDstPicture = CreatePicture (0, &pParent->drawable,
 						 pDstFormat,
-						 CPSubwindowMode, 
+						 CPSubwindowMode,
 						 &subwindowMode,
 						 serverClient,
 						 &error);
-    
+
     /*
      * First move the region from window to screen coordinates
      */
     RegionTranslate(pRegion,
 		      pWin->drawable.x, pWin->drawable.y);
-    
+
     /*
      * Clip against the "real" border clip
      */
@@ -770,12 +781,12 @@ compWindowUpdateAutomatic (WindowPtr pWin)
      */
     RegionTranslate(pRegion,
 		      -pParent->drawable.x, -pParent->drawable.y);
-    
+
     /*
      * Clip the picture
      */
     SetPictureClipRegion (pDstPicture, 0, 0, pRegion);
-    
+
     /*
      * And paint
      */
@@ -798,103 +809,56 @@ compWindowUpdateAutomatic (WindowPtr pWin)
     DamageEmpty (cw->damage);
 }
 
-static void
-compPaintWindowToParent(WindowPtr pWin)
+void
+compWindowUpdate (WindowPtr pWin)
 {
-    compPaintChildrenToWindow(pWin->drawable.pScreen, pWin);
+    #ifdef DEBUG
+    fprintf(stderr, "%s: entering...\n", __func__);
+    #endif
 
-    if (pWin->redirectDraw != RedirectDrawNone) {
-        CompWindowPtr cw = GetCompWindow(pWin);
+    WindowPtr	pChild;
 
-        if (cw->damaged) {
-            compWindowUpdateAutomatic(pWin);
-            cw->damaged = FALSE;
-        }
+    for (pChild = pWin->lastChild; pChild; pChild = pChild->prevSib)
+	compWindowUpdate (pChild);
+    if (pWin->redirectDraw != RedirectDrawNone)
+    {
+	CompWindowPtr	cw = GetCompWindow(pWin);
+
+	if (cw->damaged)
+	{
+	    compWindowUpdateAutomatic (pWin);
+	    cw->damaged = FALSE;
+	}
     }
 }
 
-void
-compPaintChildrenToWindow(ScreenPtr pScreen, WindowPtr pWin)
-{
-    WindowPtr	pChild;
-    CompScreenPtr cs = GetCompScreen(pScreen);
-
-    if (!cs->damaged)
-        return;
-
-    for (pChild = pWin->lastChild; pChild; pChild = pChild->prevSib)
-        compPaintWindowToParent(pChild);
-
-    cs->damaged = FALSE;
-}
-
 WindowPtr
-CompositeRealChildHead(WindowPtr pWin)
+CompositeRealChildHead (WindowPtr pWin)
 {
     WindowPtr pChild, pChildBefore;
     CompScreenPtr cs;
 
     if (!pWin->parent &&
-        (screenIsSaved == SCREEN_SAVER_ON) &&
-        (HasSaverWindow(pWin->drawable.pScreen->myNum))) {
+	(screenIsSaved == SCREEN_SAVER_ON) &&
+	(HasSaverWindow (pWin->drawable.pScreen->myNum))) {
 
-        /* First child is the screen saver; see if next child is the overlay */
-        pChildBefore = pWin->firstChild;
-        pChild = pChildBefore->nextSib;
+	/* First child is the screen saver; see if next child is the overlay */
+	pChildBefore = pWin->firstChild;
+	pChild = pChildBefore->nextSib;
 
-    }
-    else {
-        pChildBefore = NullWindow;
-        pChild = pWin->firstChild;
+    } else {
+	pChildBefore = NullWindow;
+	pChild = pWin->firstChild;
     }
 
     if (!pChild) {
-        return NullWindow;
+	return NullWindow;
     }
 
     cs = GetCompScreen(pWin->drawable.pScreen);
     if (pChild == cs->pOverlayWin) {
-        return pChild;
+	return pChild;
+    } else {
+	return pChildBefore;
     }
-    else {
-        return pChildBefore;
-	}
 }
-
-/* ConfigNotify not implemented... replace with the old pixmap reallocation algorithm... */
-/*
-int
-compConfigNotify(WindowPtr pWin, int x, int y, int w, int h,
-                 int bw, WindowPtr pSib)
-{
-    ScreenPtr pScreen = pWin->drawable.pScreen;
-    CompScreenPtr cs = GetCompScreen(pScreen);
-    Bool ret = 0;
-    WindowPtr pParent = pWin->parent;
-    int draw_x, draw_y;
-    Bool alloc_ret;
-
-    if (cs->ConfigNotify) {
-        pScreen->ConfigNotify = cs->ConfigNotify;
-        ret = (*pScreen->ConfigNotify) (pWin, x, y, w, h, bw, pSib);
-        cs->ConfigNotify = pScreen->ConfigNotify;
-        pScreen->ConfigNotify = compConfigNotify;
-
-        if (ret)
-            return ret;
-    }
-
-    if (pWin->redirectDraw == RedirectDrawNone)
-        return Success;
-
-    compCheckTree(pScreen);
-
-    draw_x = pParent->drawable.x + x + bw;
-    draw_y = pParent->drawable.y + y + bw;
-    alloc_ret = compReallocPixmap(pWin, draw_x, draw_y, w, h, bw);
-
-    if (alloc_ret == FALSE)
-        return BadAlloc;
-    return Success;
-}
-*/

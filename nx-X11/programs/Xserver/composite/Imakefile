@@ -2,9 +2,9 @@
 
        NULL =
 
-       SRCS =	compalloc.c compext.c compinit.c compoverlay.c compwindow.c
+       SRCS =	compalloc.c compext.c compinit.c compwindow.c
 
-       OBJS =	compalloc.o compext.o compinit.o compoverlay.o compwindow.o
+       OBJS =	compalloc.o compext.o compinit.o compwindow.o
 
    INCLUDES =   -I../include -I../mi -I../Xext -I../render -I../xfixes \
 		-I../damageext -I../miext/damage -I$(EXTINCSRC) \
