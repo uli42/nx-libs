@@ -23,7 +23,7 @@
 /*                                                                        */
 /**************************************************************************/
 
-#if defined(TEST) || defined(DEBUG)
+#if defined(TEST) || defined(DEBUG) || defined(WARNING)
 /*
  * Simple table used to translate a request
  * opcode to the name of the X request.
