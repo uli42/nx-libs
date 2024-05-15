@@ -144,10 +144,21 @@ PixmapPtr nxagentCreatePixmap(ScreenPtr pScreen, int width, int height,
    * Initialize the privates of the real picture.
    */
 
-  dixSetPrivate(&pPixmap->devPrivates, nxagentPixmapPrivateKey,
-                (char *)pPixmap + pScreen->totalPixmapSize);
+  nxagentPrivPixmapPtr pPixmapPriv = calloc(1,sizeof(nxagentPrivPixmapRec));
+  if (!pPixmapPriv)
+  {
+    #ifdef WARNING
+    fprintf(stderr, "nxagentCreatePixmap: WARNING! Failed to create private data for pixmap with "
+                "width [%d] height [%d] depth [%d] and allocation hint [%d].\n",
+                width, height, depth, usage_hint);
+    #endif
 
-  nxagentPrivPixmapPtr pPixmapPriv = nxagentPixmapPriv(pPixmap);
+    nxagentDestroyPixmap(pPixmap);
+    return NullPixmap;
+  }
+
+  dixSetPrivate(&pPixmap->devPrivates, nxagentPixmapPrivateKey,
+                pPixmapPriv);
 
   pPixmapPriv -> isVirtual = False;
   pPixmapPriv -> isShared = nxagentShmPixmapTrap;
@@ -442,6 +453,7 @@ Bool nxagentDestroyPixmap(PixmapPtr pPixmap)
     FreeResource(pPixmapPriv -> mid, RT_NONE);
   }
 
+  dixFreePrivates(pPixmap->devPrivates);
   SAFE_free(pPixmap);
 
   return True;
