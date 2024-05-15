@@ -94,7 +94,7 @@ typedef struct _OtherInputMasks {
  */
 
 #define MasksPerDetailMask 8		/* 256 keycodes and 256 possible
-                                           modifier combinations, but only
+                                           modifier combinations, but only	
                                            3 buttons. */
 
 typedef struct _DetailRec {		/* Grab details may be bit masks */

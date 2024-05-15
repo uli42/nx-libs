@@ -106,7 +106,7 @@ typedef void (*DeviceUnwrapProc)(
     );
 
 typedef struct _DeviceRec {
-    void *	devicePrivate;
+    pointer	devicePrivate;
     ProcessInputProc processInputProc;	/* current */
     ProcessInputProc realInputProc;	/* deliver */
     ProcessInputProc enqueueInputProc;	/* enqueue */
@@ -244,7 +244,7 @@ extern Bool InitFocusClassDeviceStruct(
 typedef void (*BellProcPtr)(
     int /*percent*/,
     DeviceIntPtr /*device*/,
-    void * /*ctrl*/,
+    pointer /*ctrl*/,
     int);
 
 typedef void (*KbdCtrlProcPtr)(

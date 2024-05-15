@@ -127,16 +127,16 @@ VFBINCLUDES =  \
 
 INCLUDES = \
 	-I. \
-	-I../../../../extras/Mesa/include \
+	-I../../GL/glx/mesa792includes \
 	-I$(XBUILDINCDIR) \
 	-I../../mi \
 	-I../../Xi \
 	-I../../include \
 	-I../../os \
 	-I../../miext/cw \
-	-I../../GL/glx \
-	-I../../GL/include \
-	-I../../../../lib/GL/include \
+	-I../../miext/damage \
+	-I../../GL/glx/sysincl \
+	-I../../GL/glx/xorgincludes \
 	-I../../Xext \
 	-I../../../../lib/include/X11 \
 	-I$(EXTINCSRC) -I$(XINCLUDESRC) \

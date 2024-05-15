@@ -71,7 +71,7 @@ static int __glXDispatch(ClientPtr client)
                 opcode, client -> index);
     #endif
     
-    retval = xorg__glXDispatch(client);
+    retval = xorg___glXDispatch(client);
 
     nxagentGlxTrap = False;
 

@@ -9,10 +9,12 @@ NULL =
 
 #include <Server.tmpl>
 
+/*
 LinkSourceFile(glcontextmodes.c, $(MESASRCDIR)/src/mesa/drivers/dri/common)
 LinkSourceFile(glcontextmodes.h, $(MESASRCDIR)/src/mesa/drivers/dri/common)
 LinkSourceFile(indirect_size.c, $(MESASRCDIR)/src/glx/x11)
 LinkSourceFile(indirect_size.h, $(MESASRCDIR)/src/glx/x11)
+*/
 
 #if (!(defined(NXAgentServer) && NXAgentServer))
 NXAGENT_SKIP_SRCS =                     \
@@ -25,93 +27,136 @@ NXAGENT_SKIP_OBJS =                     \
        NX_DEFINES = -DNXAGENT_SERVER
 #endif
 
-         SRCS = global.c                \
-                glxbuf.c                \
-                glxcmds.c               \
-                glxcmdsswap.c           \
-                glxfb.c                 \
-                glximports.c            \
-                glxmem.c                \
-                glxpix.c                \
-                glxscreens.c            \
-                glxutil.c               \
-                render2.c               \
-                render2swap.c           \
-                renderpix.c             \
-                renderpixswap.c         \
-                rensize.c               \
-                rensizetab.c            \
-                single2.c               \
-                single2swap.c           \
-                singlepix.c             \
-                singlepixswap.c         \
-                singlesize.c            \
-                xfont.c                 \
-                g_disptab.c             \
-                g_disptab_EXT.c         \
-                g_render.c              \
-                g_renderswap.c          \
-                g_single.c              \
-                g_singleswap.c          \
-                glcontextmodes.c        \
-                indirect_size.c         \
-                $(MSRCS)                \
-                $(NXAGENT_SKIP_SRCS)    \
-                $(NULL)
+glapi_sources =				\
+	indirect_dispatch.c			\
+	indirect_dispatch_swap.c		\
+	indirect_reqsize.c			\
+	indirect_size_get.c			\
+	indirect_table.c			\
+	glapi.c				\
+	glthread.c
 
-         OBJS = global.o                \
-                glxbuf.o                \
-                glxcmds.o               \
-                glxcmdsswap.o           \
-                glxfb.o                 \
-                glximports.o            \
-                glxmem.o                \
-                glxpix.o                \
-                glxscreens.o            \
-                glxutil.o               \
-                render2.o               \
-                render2swap.o           \
-                renderpix.o             \
-                renderpixswap.o         \
-                rensize.o               \
-                rensizetab.o            \
-                single2.o               \
-                single2swap.o           \
-                singlepix.o             \
-                singlepixswap.o         \
-                singlesize.o            \
-                xfont.o                 \
-                g_disptab.o             \
-                g_disptab_EXT.o         \
-                g_render.o              \
-                g_renderswap.o          \
-                g_single.o              \
-                g_singleswap.o          \
-                glcontextmodes.o        \
-                indirect_size.o         \
-                $(MOBJS)                \
-                $(NXAGENT_SKIP_OBJS)    \
-                $(NULL)
+glapi_objects =				\
+	indirect_dispatch.o			\
+	indirect_dispatch_swap.o		\
+	indirect_reqsize.o			\
+	indirect_size_get.o			\
+	indirect_table.o			\
+	glapi.o				\
+	glthread.o				\
 
-     INCLUDES = -I$(SERVERSRC)/GL/glx                   \
-                -I$(SERVERSRC)/GL/include               \
-                -I$(SERVERSRC)/include                  \
-                -I$(INCLUDESRC)                         \
-                -I$(MESASRCDIR)/include                 \
-                -I$(XINCLUDESRC)                        \
-                -I$(SERVERSRC)/mi                       \
-                -I$(EXTINCSRC)                          \
-                -I$(LIBSRC)/GL/include                  \
-                -I$(XF86SRC)                            \
-                `pkg-config --cflags-only-I pixman-1`   \
-                $(NULL)
+libglxdri_la_SOURCES = \
+        glxdri.c \
+        extension_string.c \
+        extension_string.h
+
+libglxdri_la_OBJECTS = \
+        glxdri.o \
+        extension_string.o
+
+#if DRI2
+GLXDRI_SOURCE += glxdri2.c
+GLXDRI_OBJECT += glxdri2.o
+#endif
+
+libglx_la_SOURCES = \
+        $(indirect_sources) \
+        $(glapi_sources) \
+        indirect_util.c \
+        indirect_program.c \
+        indirect_texture_compression.c \
+        glxcmds.c \
+        glxcmdsswap.c \
+        glxext.c \
+        glxdriswrast.c \
+        glxdricommon.c \
+        glxscreens.c \
+        glxutil.c \
+	render2.c \
+        render2swap.c \
+        renderpix.c \
+        renderpixswap.c \
+        rensize.c \
+        single2.c \
+        single2swap.c \
+        singlepix.c \
+        singlepixswap.c \
+        singlesize.c \
+        swap_interval.c \
+        xfont.c
+
+libglx_la_OBJECTS = \
+	$(indirect_objects) \
+	$(glapi_objects) \
+	indirect_util.o \
+	indirect_program.o \
+	indirect_texture_compression.o \
+	glxcmds.o \
+	glxcmdsswap.o \
+	glxdriswrast.o \
+	glxdricommon.o \
+	glxscreens.o \
+        glxutil.o \
+	render2.o \
+	render2swap.o \
+	renderpix.o \
+	renderpixswap.o \
+	rensize.o \
+	single2.o \
+	single2swap.o \
+	singlepix.o \
+	singlepixswap.o \
+	singlesize.o \
+	swap_interval.o \
+	xfont.o
+
+	 SRCS = $(glapi_sources)	\
+		$(libglxdri_la_SOURCES) \
+		$(libglx_la_SOURCES)	\
+		$(NXAGENT_SKIP_SRCS)	\
+		$(NULL)
+
+	 OBJS = $(glapi_objects)	\
+		$(libglxdri_la_OBJECTS) \
+		$(libglx_la_OBJECTS)	\
+		$(NXAGENT_SKIP_SRCS)	\
+		$(NULL)
+
+/*   INCLUDES = -I$(SERVERSRC)/GL/glx			\
+		-I$(SERVERSRC)/GL/include		\
+		-I$(SERVERSRC)/include			\
+		-I$(INCLUDESRC)				\
+		-I$(MESASRCDIR)/include			\
+		-I$(XINCLUDESRC)			\
+		-I$(SERVERSRC)/mi			\
+		-I$(EXTINCSRC)				\
+		-I$(LIBSRC)/GL/include			\
+		-I$(XF86SRC)				\
+		`pkg-config --cflags-only-I pixman-1`	\
+		$(NULL)
+*/
+
+top_srcdir = /home/uli/work/nx/ArcticaProject/upstream/xorg-xserver/xorg-server-1.5.3
+
+INCLUDES = \
+	-I`pwd` \
+	-I`pwd`/sysincl \
+	-I$(top_srcdir)/hw/xfree86/os-support \
+	-I$(top_srcdir)/hw/xfree86/os-support/bus \
+	-I$(top_srcdir)/hw/xfree86/common \
+	-I$(top_srcdir)/hw/xfree86/dri \
+	-I$(top_srcdir)/hw/xfree86/dri2 \
+        -I`pwd`/mesa792includes \
+		-I/usr/include/libdrm \
+		-I/usr/include/X11/dri \
+		-I$(SERVERSRC)/include			\
+		-I$(SERVERSRC)/mi			\
+		-I$(SERVERSRC)/miext/damage		\
+		`pkg-config --cflags-only-I pixman-1`	\
+		$(NULL)
 
 #if defined(DarwinArchitecture) && ((OSMajorVersion == 6 && OSMinorVersion < 3) || OSMajorVersion < 6)
   NO_EXT_DEFS = -DMISSING_GL_EXTS
-#endif
-#if defined(Win32Architecture)
-# undef __stdcall
-  APIENTRY_DEFS = -DAPIENTRY=__stdcall
 #endif
 
 XCOMM If you add "-DDEBUG" in DEFINES, then make sure you also
@@ -121,6 +166,10 @@ XCOMM add DEBUG to the define in ../mesa/src/X/xf86glx.c
                 $(NO_EXT_DEFS)		\
                 $(APIENTRY_DEFS)	\
                 $(NX_DEFINES)		\
+                -DHAVE_DIX_CONFIG_H     \
+		-DHAVE_XORG_CONFIG_H    \
+		-D__DRI_TEX_OFFSET      \
+		-Wno-pedantic           \
                 $(NULL)
 
 NormalLibraryObjectRule()

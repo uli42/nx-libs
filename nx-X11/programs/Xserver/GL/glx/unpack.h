@@ -52,7 +52,7 @@
 ** Fetch a double from potentially unaligned memory.
 */
 #ifdef __GLX_ALIGN64
-#define __GLX_MEM_COPY(dst,src,n)	memmove(dst,src,n)
+#define __GLX_MEM_COPY(dst,src,n)	if (src && dst) memcpy(dst,src,n)
 #define __GLX_GET_DOUBLE(dst,src)	__GLX_MEM_COPY(&dst,src,8)
 #else
 #define __GLX_GET_DOUBLE(dst,src)	(dst) = *((GLdouble*)(src))
@@ -88,8 +88,7 @@ extern xGLXSingleReply __glXReply;
 ** pointer.
 */
 #define __GLX_GET_ANSWER_BUFFER(res,cl,size,align)			 \
-    if (size < 0) return BadLength;                                      \
-    else if ((size) > sizeof(answerBuffer)) {				 \
+    if ((size) > sizeof(answerBuffer)) {				 \
 	int bump;							 \
 	if ((cl)->returnBufSize < (size)+(align)) {			 \
 	    (cl)->returnBuf = (GLbyte*)realloc((cl)->returnBuf,	 \
@@ -122,19 +121,19 @@ extern xGLXSingleReply __glXReply;
   	*(GLdouble *)&__glXReply.pad3 = *(GLdouble *)answer
 	  
 #define __GLX_SEND_BYTE_ARRAY(len) \
-	WriteToClient(client, __GLX_PAD((len)*__GLX_SIZE_INT8), answer)
+	WriteToClient(client, __GLX_PAD((len)*__GLX_SIZE_INT8), (char *)answer)
 
 #define __GLX_SEND_SHORT_ARRAY(len) \
-	WriteToClient(client, __GLX_PAD((len)*__GLX_SIZE_INT16), answer)
+	WriteToClient(client, __GLX_PAD((len)*__GLX_SIZE_INT16), (char *)answer)
   
 #define __GLX_SEND_INT_ARRAY(len) \
-	WriteToClient(client, (len)*__GLX_SIZE_INT32, answer)
+	WriteToClient(client, (len)*__GLX_SIZE_INT32, (char *)answer)
   
 #define __GLX_SEND_FLOAT_ARRAY(len) \
-	WriteToClient(client, (len)*__GLX_SIZE_FLOAT32, answer)
+	WriteToClient(client, (len)*__GLX_SIZE_FLOAT32, (char *)answer)
   
 #define __GLX_SEND_DOUBLE_ARRAY(len) \
-	WriteToClient(client, (len)*__GLX_SIZE_FLOAT64, answer)
+	WriteToClient(client, (len)*__GLX_SIZE_FLOAT64, (char *)answer)
 
 
 #define __GLX_SEND_VOID_ARRAY(len)  __GLX_SEND_BYTE_ARRAY(len)
