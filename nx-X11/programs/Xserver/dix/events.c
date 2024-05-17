@@ -2752,7 +2752,7 @@ ActivateEnterGrab(DeviceIntPtr dev, WindowPtr old, WindowPtr win)
  * @return TRUE if the sprite has moved or FALSE otherwise.
  */
 static Bool
-CheckMotion(xEvent *xE)
+CheckMotion(DeviceEvent *ev, DeviceIntPtr pDev)
 #ifdef NXAGENT_SERVER
   ;
 #else
@@ -2779,9 +2779,8 @@ CheckMotion(xEvent *xE)
                 return FALSE;
         }
 
-
 #ifdef PANORAMIX
-    if(!noPanoramiXExtension)
+        if(!noPanoramiXExtension)
         {
             /* Motion events entering DIX get translated to Screen 0
                coordinates.  Replayed events have already been
@@ -2790,12 +2789,12 @@ CheckMotion(xEvent *xE)
             ev->root_y += pSprite->screen->y - screenInfo.screens[0]->y;
         } else
 #endif
-    {
+        {
             if (pSprite->hot.pScreen != pSprite->hotPhys.pScreen)
-	{
+	    {
                 pSprite->hot.pScreen = pSprite->hotPhys.pScreen;
                 RootWindow(pDev) = pSprite->hot.pScreen->root;
-	}
+	    }
         }
 
         pSprite->hot.x = ev->root_x;
