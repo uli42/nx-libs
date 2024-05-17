@@ -2618,7 +2618,11 @@ XYToWindow(DeviceIntPtr pDev, int x, int y)
 
     pSprite = pDev->spriteInfo->sprite;
     pSprite->spriteTraceGood = 1;	/* root window still there */
+#ifdef NXAGENT_SERVER
+    pWin = GetXYStartWindow(pDev, RootWindow(pDev)->firstChild);
+#else
     pWin = RootWindow(pDev)->firstChild;
+fi
     while (pWin)
     {
 	if ((pWin->mapped) &&

@@ -135,8 +135,6 @@ of the copyright holder.
 
 #include <nx-X11/Xlib.h>
 
-// define this to inform dix about having a own implementation of GetXYStartWindow()
-#define XYWINDOWCALLBACK
 #include "../../dix/events.c"
 
 #include "compext/Compext.h"
@@ -325,12 +323,10 @@ ProcSendEvent(ClientPtr client)
 /*
  * called from XYToWindow to determine where XYToWindow() should start
  * going through the list.
- * XYWINDOWCALLBACK needs to be defined for this to work, see dix/events.c.
- * It is called from XYtoWindow().
  */
 
 static WindowPtr 
-GetXYStartWindow(WindowPtr pWin)
+GetXYStartWindow(DeviceIntPtr pDev, WindowPtr pWin)
 {
     if (nxagentOption(Rootless))
     {
@@ -343,7 +339,7 @@ GetXYStartWindow(WindowPtr pWin)
 
       if (nxagentLastEnteredWindow == NULL)
       {
-        return ROOT;
+        return RootWindow(pDev);
       }
 
       /*
@@ -352,9 +348,10 @@ GetXYStartWindow(WindowPtr pWin)
        * the last window originated an EnterNotify event. In this way, we
        * can prevent shaded windows from getting mouse events.
        */
-      pWin = ROOT->lastChild;
 
-      while (pWin && pWin != ROOT->firstChild && pWin != nxagentLastEnteredWindow)
+      pWin = RootWindow(pDev)->lastChild;
+
+      while (pWin && pWin != RootWindow(pDev)->firstChild && pWin != nxagentLastEnteredWindow)
       {
         pWin = pWin->prevSib;
       }
