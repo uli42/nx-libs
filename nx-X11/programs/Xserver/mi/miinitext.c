@@ -217,13 +217,10 @@ extern void SecurityExtensionInit(void);
 extern void XFree86BigfontExtensionInit(void);
 #endif
 #ifdef GLXEXT
-#if 0
 typedef struct __GLXprovider __GLXprovider;
 extern __GLXprovider __glXDRISWRastProvider;
 extern void GlxPushProvider(__GLXprovider *impl);
-#endif
 extern void GlxExtensionInit(void);
-extern void GlxWrapInitVisuals(miInitVisualsProcPtr *);
 #endif
 #ifdef XF86DRI
 extern void XFree86DRIExtensionInit(void);
@@ -450,9 +447,7 @@ InitExtensions(argc, argv)
     if (!noDamageExtension) DamageExtensionInit();
 #endif
 #ifdef GLXEXT
-#if 0
     GlxPushProvider(&__glXDRISWRastProvider);
-#endif
     if (!noGlxExtension) GlxExtensionInit();
 #endif
 }
