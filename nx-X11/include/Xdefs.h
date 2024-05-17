@@ -49,6 +49,10 @@ typedef int Bool;
 #  endif
 #endif
 
+#ifndef _XTYPEDEF_POINTER
+#  define _XTYPEDEF_POINTER
+typedef void *pointer;
+#endif
 
 #ifndef _XTYPEDEF_CLIENTPTR
 typedef struct _Client *ClientPtr;
