@@ -63,8 +63,7 @@ INSTPGMFLAGS =
 #define AllFBLibs PreFbLibs $(FB) PostFbLibs
 
 #if BuildGlxExt
-      GLXLIB = GL/glx/ModuleLibraryTargetName(glx) \
-               GL/mesa/GLcore/ModuleLibraryTargetName(GLcore)
+      GLXLIB = GL/glx/ModuleLibraryTargetName(glx)
       GLXDIR = GL
       GLXEXT = $(GLXLIB)
 #endif
@@ -200,6 +199,9 @@ NXAGENTDDXDIR = hw/nxagent
 #else
 NXAGENTDDXDIR = hw
 #endif
+
+XCOMM required because glx loads the rasterizer with dlopen
+LOCAL_LDFLAGS=-rdynamic
 
 NXAGENTDIRS = $(STDDIRS) $(FBDIR) $(MIDAMAGEDIR) $(NXAGENTDDXDIR) $(DEPDIRS)
 
