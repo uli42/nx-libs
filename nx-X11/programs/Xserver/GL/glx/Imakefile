@@ -7,6 +7,8 @@ NULL =
    PICFLAGS = LargePositionIndependentCFlags
 #endif
 
+#define ServerCCOptions DefaultCCOptions -Wno-pedantic -Wno-array-parameter
+
 #include <Server.tmpl>
 
 /*
@@ -55,8 +57,8 @@ libglxdri_la_OBJECTS = \
         extension_string.o
 
 #if DRI2
-GLXDRI_SOURCE += glxdri2.c
-GLXDRI_OBJECT += glxdri2.o
+GLXDRI_SOURCE = glxdri2.c
+GLXDRI_OBJECT = glxdri2.o
 #endif
 
 libglx_la_SOURCES = \
@@ -113,12 +115,14 @@ libglx_la_OBJECTS = \
 	 SRCS = $(glapi_sources)	\
 		$(libglxdri_la_SOURCES) \
 		$(libglx_la_SOURCES)	\
+		$(GLXDRI_SOURCE)        \
 		$(NXAGENT_SKIP_SRCS)	\
 		$(NULL)
 
 	 OBJS = $(glapi_objects)	\
 		$(libglxdri_la_OBJECTS) \
 		$(libglx_la_OBJECTS)	\
+		$(GLXDRI_OBJECT)        \
 		$(NXAGENT_SKIP_SRCS)	\
 		$(NULL)
 
@@ -168,12 +172,13 @@ XCOMM add DEBUG to the define in ../mesa/src/X/xf86glx.c
                 $(NX_DEFINES)		\
                 -DHAVE_DIX_CONFIG_H     \
 		-DHAVE_XORG_CONFIG_H    \
-		-D__DRI_TEX_OFFSET      \
-		-Wno-pedantic           \
+		-DXFree86Server		\
+		-DGLX_USE_TLS -DPTHREADS \
                 $(NULL)
 
 NormalLibraryObjectRule()
-NormalLibraryTarget(glx,$(OBJS))
+NormalLibraryTarget(glx,$(libglx_la_OBJECTS))
+NormalLibraryTarget(glxdri,$(libglxdri_la_OBJECTS))
 #if defined(GlxUseWindows) && GlxUseWindows
 clean::
 	RemoveFiles($(foreach obj,$(OBJS), stdcall/$(obj)))
