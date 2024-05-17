@@ -6,7 +6,7 @@
 /* Building DRI-capable DDX. */
 #define XF86DRI
 
-/* Build DRI2 extension */
-#define DRI2
+/* don't build DRI2 extension for now */
+#undef DRI2
 
 #endif

@@ -10,12 +10,13 @@
 #define GLX_DRI
 
 /* Path to DRI drivers */
-#define DRI_DRIVER_PATH "/usr/lib/x86_64-linux-gnu/dri"
+//#define DRI_DRIVER_PATH "/usr/lib/x86_64-linux-gnu/dri"
+#define DRI_DRIVER_PATH "/tmp/mesa792build/lib/dri"
 
 /* Support DRI extension */
 #undef XF86DRI
 
-/* Build DRI2 extension */
+/* don't build DRI2 extension for now */
 #define DRI2
 
 #endif
