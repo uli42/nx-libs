@@ -151,11 +151,11 @@ static ShmFuncs fbFuncs = {fbShmCreatePixmap, NULL};
 
 #define VERIFY_SHMSEG(shmseg,shmdesc,client) \
 { \
-    int rc; \
-    rc = dixLookupResourceByType((void * *)&(shmdesc), shmseg, ShmSegType, \
+    int _rc; \
+    _rc = dixLookupResourceByType((void * *)&(shmdesc), shmseg, ShmSegType, \
                                  client, DixReadAccess); \
-    if (rc != Success) \
-	return rc; \
+    if (_rc != Success) \
+	return _rc; \
 }
 
 #define VERIFY_SHMPTR(shmseg,offset,needwrite,shmdesc,client) \
