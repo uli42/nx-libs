@@ -126,11 +126,10 @@ InitSelections(void)
 {
     xorg_InitSelections();
 
-//#ifdef NXAGENT_CLIPBOARD
-#if 0
+#ifdef NXAGENT_CLIPBOARD
     {
       Selection *newsels;
-      newsels = (Selection *)malloc(nxagentMaxSelections * sizeof(Selection));
+      newsels = malloc(nxagentMaxSelections * sizeof(Selection));
       if (!newsels)
         return;
       NumCurrentSelections += nxagentMaxSelections;
@@ -140,8 +139,7 @@ InitSelections(void)
 
       pSel = malloc(sizeof(Selection));
       psel->selection = XA_PRIMARY;
-      
-		    
+
       CurrentSelections[nxagentPrimarySelection].selection = XA_PRIMARY;
       CurrentSelections[nxagentPrimarySelection].lastTimeChanged = ClientTimeToServerTime(CurrentTime);
       CurrentSelections[nxagentPrimarySelection].window = screenInfo.screens[0]->root->drawable.id;
@@ -199,6 +197,7 @@ ProcConvertSelection(ClientPtr client)
 
     rc = dixLookupSelection(&pSel, stuff->selection, client, DixReadAccess);
 
+    memset(&event, 0, sizeof(xEvent));
     if (rc != Success && rc != BadMatch)
 	return rc;
     else if (rc == Success && pSel->window != None
@@ -212,7 +211,6 @@ ProcConvertSelection(ClientPtr client)
 	    && (pSel->client != NullClient)
 #endif
       ) {
-        memset(&event, 0, sizeof(xEvent));
 	event.u.u.type = SelectionRequest;
 	event.u.selectionRequest.owner = pSel->window;
 	event.u.selectionRequest.time = stuff->time;
@@ -220,19 +218,19 @@ ProcConvertSelection(ClientPtr client)
 	event.u.selectionRequest.selection = stuff->selection;
 	event.u.selectionRequest.target = stuff->target;
 	event.u.selectionRequest.property = stuff->property;
-	if (TryClientEvents(pSel->client, &event, 1, NoEventMask,
-			    NoEventMask /* CantBeFiltered */, NullGrab))
-	    return client->noClientException;
+	if (pSel->client && pSel->client != serverClient && !pSel->client->clientGone)
+	{
+	    WriteEventsToClient(pSel->client, 1, &event);
+	    return Success;
+	}
     }
 
-    memset(&event, 0, sizeof(xEvent));
     event.u.u.type = SelectionNotify;
     event.u.selectionNotify.time = stuff->time;
     event.u.selectionNotify.requestor = stuff->requestor;
     event.u.selectionNotify.selection = stuff->selection;
     event.u.selectionNotify.target = stuff->target;
     event.u.selectionNotify.property = None;
-    TryClientEvents(client, &event, 1, NoEventMask,
-		    NoEventMask /* CantBeFiltered */, NullGrab);
-    return client->noClientException;
+    WriteEventsToClient(client, 1, &event);
+    return Success;
 }
