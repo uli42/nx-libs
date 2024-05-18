@@ -1,6 +1,4 @@
 /*
- * $XFree86: xc/include/extensions/render.h,v 1.10 2002/11/06 22:47:49 keithp Exp $
- *
  * Copyright © 2000 SuSE, Inc.
  *
  * Permission to use, copy, modify, distribute, and sell this software and its
@@ -26,14 +24,16 @@
 #ifndef _RENDER_H_
 #define _RENDER_H_
 
-typedef unsigned long	Glyph;
-typedef unsigned long	GlyphSet;
-typedef unsigned long	Picture;
-typedef unsigned long	PictFormat;
+#include <X11/Xdefs.h>
+
+typedef XID		Glyph;
+typedef XID		GlyphSet;
+typedef XID		Picture;
+typedef XID		PictFormat;
 
 #define RENDER_NAME	"RENDER"
 #define RENDER_MAJOR	0
-#define RENDER_MINOR	10
+#define RENDER_MINOR	11
 
 #define X_RenderQueryVersion		    0
 #define X_RenderQueryPictFormats	    1
@@ -138,6 +138,27 @@ typedef unsigned long	PictFormat;
 #define PictOpConjointAtopReverse		    0x2a
 #define PictOpConjointXor			    0x2b
 #define PictOpConjointMaximum			    0x2b
+
+/*
+ * Operators only available in version 0.11
+ */
+#define PictOpBlendMinimum			    0x30
+#define PictOpMultiply				    0x30
+#define PictOpScreen				    0x31
+#define PictOpOverlay				    0x32
+#define PictOpDarken				    0x33
+#define PictOpLighten				    0x34
+#define PictOpColorDodge			    0x35
+#define PictOpColorBurn				    0x36
+#define PictOpHardLight				    0x37
+#define PictOpSoftLight				    0x38
+#define PictOpDifference			    0x39
+#define PictOpExclusion				    0x3a
+#define PictOpHSLHue				    0x3b
+#define PictOpHSLSaturation			    0x3c
+#define PictOpHSLColor				    0x3d
+#define PictOpHSLLuminosity			    0x3e
+#define PictOpBlendMaximum			    0x3e
 
 #define PolyEdgeSharp			    0
 #define PolyEdgeSmooth			    1

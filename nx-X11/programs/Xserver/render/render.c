@@ -542,7 +542,7 @@ ProcRenderQueryPictIndexValues (ClientPtr client)
     PictFormatPtr   pFormat;
     int		    rc, num;
     int		    rlength;
-    int		    i, n;
+    int		    i;
     REQUEST(xRenderQueryPictIndexValuesReq);
     xRenderQueryPictIndexValuesReply *reply;
     xIndexValue	    *values;
@@ -1694,7 +1694,7 @@ ProcRenderCreateCursor (ClientPtr client)
 		ncolor = 3;
 	}
     }
-    
+
     /*
      * Convert argb image to two plane cursor
      */
