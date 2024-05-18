@@ -217,8 +217,8 @@ InitRootWindow(WindowPtr pWin)
 void
 ResizeChildrenWinSize(register WindowPtr pWin, int dx, int dy, int dw, int dh)
 {
-    register ScreenPtr pScreen;
-    register WindowPtr pSib, pChild;
+    ScreenPtr pScreen;
+    WindowPtr pSib, pChild;
     Bool resized = (dw || dh);
 
     pScreen = pWin->drawable.pScreen;
@@ -263,6 +263,8 @@ ResizeChildrenWinSize(register WindowPtr pWin, int dx, int dy, int dw, int dh)
          */
 
         nxagentAddConfiguredWindow(pSib, CW_Update);
+	/* FIXME: should be possible to integrate that into our PositionWindow
+	   function */
 #else
         (*pScreen->PositionWindow)(pSib, pSib->drawable.x, pSib->drawable.y);
 #endif
@@ -277,10 +279,8 @@ ResizeChildrenWinSize(register WindowPtr pWin, int dx, int dy, int dw, int dh)
 				     pChild->origin.y;
 		SetWinSize (pChild);
 		SetBorderSize (pChild);
-
-                (*pScreen->PositionWindow)(pChild, pChild->drawable.x,
-                                               pChild->drawable.y);
-
+		(*pScreen->PositionWindow)(pChild,
+				    pChild->drawable.x, pChild->drawable.y);
 		if (pChild->firstChild)
 		{
 		    pChild = pChild->firstChild;
@@ -307,23 +307,23 @@ ConfigureWindow(register WindowPtr pWin, register Mask mask, XID *vlist, ClientP
 #define MOVE_WIN       1
 #define RESIZE_WIN     2
 #define REBORDER_WIN   3
-    register WindowPtr pSib = NullWindow;
-    register WindowPtr pParent = pWin->parent;
+    WindowPtr pSib = NullWindow;
+    WindowPtr pParent = pWin->parent;
     Window sibwid = 0;
     Mask index2, tmask;
-    register XID *pVlist;
+    XID *pVlist;
     short x,   y, beforeX, beforeY;
     unsigned short w = pWin->drawable.width,
 		   h = pWin->drawable.height,
 		   bw = pWin->borderWidth;
-    int action, smode = Above;
+    int rc, action, smode = Above;
     xEvent event = {0};
 
     if ((pWin->drawable.class == InputOnly) && (mask & IllegalInputOnlyConfigureMask))
-	return(BadMatch);
+	return BadMatch;
 
     if ((mask & CWSibling) && !(mask & CWStackMode))
-	return(BadMatch);
+	return BadMatch;
 
     pVlist = vlist;
 
@@ -339,7 +339,7 @@ ConfigureWindow(register WindowPtr pWin, register Mask mask, XID *vlist, ClientP
     }
     beforeX = x;
     beforeY = y;
-    action = RESTACK_WIN;	
+    action = RESTACK_WIN;
     if ((mask & (CWX | CWY)) && (!(mask & (CWHeight | CWWidth))))
     {
 	GET_INT16(CWX, x);
@@ -373,17 +373,16 @@ ConfigureWindow(register WindowPtr pWin, register Mask mask, XID *vlist, ClientP
 	  case CWSibling:
 	    sibwid = (Window ) *pVlist;
 	    pVlist++;
-	    pSib = (WindowPtr )SecurityLookupIDByType(client, sibwid,
-						RT_WINDOW, DixReadAccess);
-	    if (!pSib)
+	    rc = dixLookupWindow(&pSib, sibwid, client, DixGetAttrAccess);
+	    if (rc != Success)
 	    {
 		client->errorValue = sibwid;
-		return(BadWindow);
+		return rc;
 	    }
 	    if (pSib->parent != pParent)
-		return(BadMatch);
+		return BadMatch;
 	    if (pSib == pWin)
-		return(BadMatch);
+		return BadMatch;
 	    break;
 	  case CWStackMode:
 	    GET_CARD8(CWStackMode, smode);
@@ -391,12 +390,12 @@ ConfigureWindow(register WindowPtr pWin, register Mask mask, XID *vlist, ClientP
 		(smode != Opposite) && (smode != Above) && (smode != Below))
 	    {
 		client->errorValue = smode;
-		return(BadValue);
+		return BadValue;
 	    }
 	    break;
 	  default:
 	    client->errorValue = mask;
-	    return(BadValue);
+	    return BadValue;
 	}
     }
 	/* root really can't be reconfigured, so just return */
@@ -437,7 +436,7 @@ ConfigureWindow(register WindowPtr pWin, register Mask mask, XID *vlist, ClientP
 	pSib = pWin->nextSib;
 
 
-    if ((!pWin->overrideRedirect) && 
+    if ((!pWin->overrideRedirect) &&
 	(RedirectSend(pParent)
 	))
     {
@@ -456,8 +455,8 @@ ConfigureWindow(register WindowPtr pWin, register Mask mask, XID *vlist, ClientP
 	event.u.configureRequest.y = y;
 #ifdef PANORAMIX
 	if(!noPanoramiXExtension && (!pParent || !pParent->parent)) {
-            event.u.configureRequest.x += panoramiXdataPtr[0].x;
-            event.u.configureRequest.y += panoramiXdataPtr[0].y;
+            event.u.configureRequest.x += screenInfo.screens[0]->x;
+            event.u.configureRequest.y += screenInfo.screens[0]->y;
 	}
 #endif
 	event.u.configureRequest.width = w;
@@ -467,7 +466,7 @@ ConfigureWindow(register WindowPtr pWin, register Mask mask, XID *vlist, ClientP
 	event.u.configureRequest.parent = pParent->drawable.id;
 	if (MaybeDeliverEventsToClient(pParent, &event, 1,
 		SubstructureRedirectMask, client) == 1)
-	    return(Success);
+	    return Success;
     }
     if (action == RESIZE_WIN)
     {
@@ -475,7 +474,8 @@ ConfigureWindow(register WindowPtr pWin, register Mask mask, XID *vlist, ClientP
 			|| (h != pWin->drawable.height);
 	if (size_change && ((pWin->eventMask|wOtherEventMasks(pWin)) & ResizeRedirectMask))
 	{
-	    xEvent eventT = {0};
+	    xEvent eventT;
+	    memset(&eventT, 0, sizeof(xEvent));
 	    eventT.u.u.type = ResizeRequest;
 	    eventT.u.resizeRequest.window = pWin->drawable.id;
 	    eventT.u.resizeRequest.width = w;
@@ -517,9 +517,19 @@ ConfigureWindow(register WindowPtr pWin, register Mask mask, XID *vlist, ClientP
 #endif
 	    goto ActuallyDoSomething;
     }
-    return(Success);
+    return Success;
 
 ActuallyDoSomething:
+    if (pWin->drawable.pScreen->ConfigNotify)
+    {
+	int ret;
+	ret = (*pWin->drawable.pScreen->ConfigNotify)(pWin, x, y, w, h, bw, pSib);
+	if (ret) {
+	    client->errorValue = 0;
+	    return ret;
+	}
+    }
+
     if (SubStrSend(pWin, pParent))
     {
 	memset(&event, 0, sizeof(xEvent));
@@ -533,8 +543,8 @@ ActuallyDoSomething:
 	event.u.configureNotify.y = y;
 #ifdef PANORAMIX
 	if(!noPanoramiXExtension && (!pParent || !pParent->parent)) {
-	    event.u.configureNotify.x += panoramiXdataPtr[0].x;
-            event.u.configureNotify.y += panoramiXdataPtr[0].y;
+	    event.u.configureNotify.x += screenInfo.screens[0]->x;
+	    event.u.configureNotify.y += screenInfo.screens[0]->y;
 	}
 #endif
 	event.u.configureNotify.width = w;
@@ -575,7 +585,7 @@ ActuallyDoSomething:
     nxagentFlushConfigureWindow();
 #endif
 
-    return(Success);
+    return Success;
 #undef RESTACK_WIN
 #undef MOVE_WIN
 #undef RESIZE_WIN
@@ -592,19 +602,20 @@ ReparentWindow(register WindowPtr pWin, register WindowPtr pParent,
 {
     WindowPtr pPrev, pPriorParent;
     Bool WasMapped = (Bool)(pWin->mapped);
-    xEvent event = {0};
+    xEvent event;
     int bw = wBorderWidth (pWin);
-    register ScreenPtr pScreen;
+    ScreenPtr pScreen;
 
     pScreen = pWin->drawable.pScreen;
     if (TraverseTree(pWin, CompareWIDs, (void *)&pParent->drawable.id) == WT_STOPWALKING)
-	return(BadMatch);		
+	return BadMatch;
     if (!MakeWindowOptional(pWin))
-	return(BadAlloc);
+	return BadAlloc;
 
     if (WasMapped)
        UnmapWindow(pWin, FALSE);
 
+    memset(&event, 0, sizeof(xEvent));
     event.u.u.type = ReparentNotify;
     event.u.reparent.window = pWin->drawable.id;
     event.u.reparent.parent = pParent->drawable.id;
@@ -612,8 +623,8 @@ ReparentWindow(register WindowPtr pWin, register WindowPtr pParent,
     event.u.reparent.y = y;
 #ifdef PANORAMIX
     if(!noPanoramiXExtension && !pParent->parent) {
-	event.u.reparent.x += panoramiXdataPtr[0].x;
-	event.u.reparent.y += panoramiXdataPtr[0].y;
+	event.u.reparent.x += screenInfo.screens[0]->x;
+	event.u.reparent.y += screenInfo.screens[0]->y;
     }
 #endif
     event.u.reparent.override = pWin->overrideRedirect;
@@ -632,7 +643,7 @@ ReparentWindow(register WindowPtr pWin, register WindowPtr pParent,
     if (pWin->prevSib)
 	pWin->prevSib->nextSib = pWin->nextSib;
 
-    /* insert at beginning of pParent */
+    /* insert at begining of pParent */
     pWin->parent = pParent;
     pPrev = RealChildHead(pParent);
 
@@ -675,9 +686,7 @@ ReparentWindow(register WindowPtr pWin, register WindowPtr pParent,
 
     if (pScreen->ReparentWindow)
 	(*pScreen->ReparentWindow)(pWin, pPriorParent);
-
     (*pScreen->PositionWindow)(pWin, pWin->drawable.x, pWin->drawable.y);
-
     ResizeChildrenWinSize(pWin, 0, 0, 0, 0);
 
     CheckWindowOptionalNeed(pWin);
@@ -685,7 +694,7 @@ ReparentWindow(register WindowPtr pWin, register WindowPtr pParent,
     if (WasMapped)
 	MapWindow(pWin, client);
     RecalculateDeliverableEvents(pWin);
-    return(Success);
+    return Success;
 }
 
 /*****
@@ -699,12 +708,9 @@ ReparentWindow(register WindowPtr pWin, register WindowPtr pParent,
 int
 MapWindow(register WindowPtr pWin, ClientPtr client)
 {
-    register ScreenPtr pScreen;
+    ScreenPtr pScreen;
 
-    register WindowPtr pParent;
-#ifdef DO_SAVE_UNDERS
-    Bool	dosave = FALSE;
-#endif
+    WindowPtr pParent;
     WindowPtr  pLayerWin;
 
 #ifdef NXAGENT_SERVER
@@ -717,14 +723,12 @@ MapWindow(register WindowPtr pWin, ClientPtr client)
 #endif
 
     if (pWin->mapped)
-	return(Success);
+	return Success;
 
-#ifdef XACE
     /*  general check for permission to map window */
     if (XaceHook(XACE_RESOURCE_ACCESS, client, pWin->drawable.id, RT_WINDOW,
-                 pWin, RT_NONE, NULL, DixShowAccess) != Success)
-       return Success;
-#endif	
+		 pWin, RT_NONE, NULL, DixShowAccess) != Success)
+	return Success;
 
     pScreen = pWin->drawable.pScreen;
     if ( (pParent = pWin->parent) )
@@ -732,7 +736,7 @@ MapWindow(register WindowPtr pWin, ClientPtr client)
 	xEvent event;
 	Bool anyMarked;
 
-	if ((!pWin->overrideRedirect) && 
+	if ((!pWin->overrideRedirect) &&
 	    (RedirectSend(pParent)
 	))
 	{
@@ -743,7 +747,7 @@ MapWindow(register WindowPtr pWin, ClientPtr client)
 
 	    if (MaybeDeliverEventsToClient(pParent, &event, 1,
 		SubstructureRedirectMask, client) == 1)
-		return(Success);
+		return Success;
 	}
 
 	pWin->mapped = TRUE;
@@ -757,27 +761,17 @@ MapWindow(register WindowPtr pWin, ClientPtr client)
 	}
 
 	if (!pParent->realized)
-	    return(Success);
+	    return Success;
 	RealizeTree(pWin);
 	if (pWin->viewable)
 	{
 	    anyMarked = (*pScreen->MarkOverlappedWindows)(pWin, pWin,
 							  &pLayerWin);
-#ifdef DO_SAVE_UNDERS
-	    if (DO_SAVE_UNDERS(pWin))
-	    {
-		dosave = (*pScreen->ChangeSaveUnder)(pLayerWin, pWin->nextSib);
-	    }
-#endif /* DO_SAVE_UNDERS */
 	    if (anyMarked)
 	    {
 		(*pScreen->ValidateTree)(pLayerWin->parent, pLayerWin, VTMap);
 		(*pScreen->HandleExposures)(pLayerWin->parent);
 	    }
-#ifdef DO_SAVE_UNDERS
-	    if (dosave)
-		(*pScreen->PostChangeSaveUnder)(pLayerWin, pWin->nextSib);
-#endif /* DO_SAVE_UNDERS */
 	if (anyMarked && pScreen->PostValidateTree)
 	    (*pScreen->PostValidateTree)(pLayerWin->parent, pLayerWin, VTMap);
 	}
