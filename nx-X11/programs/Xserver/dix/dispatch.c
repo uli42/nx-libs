@@ -446,18 +446,18 @@ Dispatch(void)
 			      client->sequence, client->index, result);
 #endif
 
-		    if (client->noClientException != Success)
-		{
-                        CloseDownClient(client);
-		    break;
-		}
-		else if (result != Success)
-		{
-		        SendErrorToClient(client, MAJOROP,
-					  MinorOpcodeOfRequest(client),
-					  client->errorValue, result);
-		    break;
-	        }
+                if (client->noClientException != Success)
+                {
+                    CloseDownClient(client);
+                    break;
+                }
+                else if (result != Success)
+                {
+                    SendErrorToClient(client, MAJOROP,
+                                      MinorOpcodeOfRequest(client),
+                                      client->errorValue, result);
+                    break;
+                }
 	    }
 	    FlushAllOutput();
 	    client = clients[clientReady[nready]];
@@ -795,15 +795,15 @@ ProcReparentWindow(ClientPtr client)
     if (rc != Success)
         return rc;
     if (!SAME_SCREENS(pWin->drawable, pParent->drawable))
-	return BadMatch;
-        if ((pWin->backgroundState == ParentRelative) &&
-            (pParent->drawable.depth != pWin->drawable.depth))
-            return BadMatch;
-	if ((pWin->drawable.class != InputOnly) &&
-	    (pParent->drawable.class == InputOnly))
-	    return BadMatch;
+        return BadMatch;
+    if ((pWin->backgroundState == ParentRelative) &&
+        (pParent->drawable.depth != pWin->drawable.depth))
+        return BadMatch;
+    if ((pWin->drawable.class != InputOnly) &&
+        (pParent->drawable.class == InputOnly))
+        return BadMatch;
     return ReparentWindow(pWin, pParent,
-			 (short)stuff->x, (short)stuff->y, client);
+                     (short)stuff->x, (short)stuff->y, client);
 }
 #endif /* NXAGENT_SERVER */
 
