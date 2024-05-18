@@ -133,18 +133,11 @@ of the copyright holder.
 ******************************************************************/
 
 
-#include <nx-X11/Xlib.h>
-
 #include "../../dix/events.c"
-
-#include "compext/Compext.h"
 
 #include "Events.h"
 #include "Windows.h"
-#include "Args.h"
 #include "Clipboard.h"
-
-extern Display *nxagentDisplay;
 
 extern WindowPtr nxagentLastEnteredWindow;
 
