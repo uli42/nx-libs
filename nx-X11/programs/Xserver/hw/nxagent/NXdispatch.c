@@ -279,6 +279,7 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
     nxagentSetTimeoutTimer(0);
 #endif /* NXAGENT_SERVER */
 
+    SmartScheduleSlice = SmartScheduleInterval;
     while (!dispatchException)
     {
         if (*icheck[0] != *icheck[1])
@@ -390,10 +391,9 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
 	    while (!isItTimeToYield)
 	    {
 	        if (*icheck[0] != *icheck[1])
-		{
 		    ProcessInputEvents();
-		    FlushIfCriticalOutputPending();
-		}
+
+ 	        FlushIfCriticalOutputPending();
 		if ((SmartScheduleTime - start_tick) >= SmartScheduleSlice)
 		{
 		    /* Penalize clients which consume ticks */
@@ -461,7 +461,7 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
 		else {
 		    result = XaceHookDispatch(client, MAJOROP);
 		    if (result == Success)
-		    result = (* client->requestVector[MAJOROP])(client);
+		        result = (* client->requestVector[MAJOROP])(client);
 		    XaceHookAuditEnd(client, result);
 #ifdef NXAGENT_SERVER
                     #ifdef TEST
@@ -492,27 +492,26 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
 #endif
                 }
 
+                if (!SmartScheduleSignalEnable)
+                    SmartScheduleTime = GetTimeInMillis();
+
 #ifdef XSERVER_DTRACE
 		XSERVER_REQUEST_DONE(LookupMajorName(MAJOROP), MAJOROP,
 			      client->sequence, client->index, result);
 #endif
 
-                if (!SmartScheduleSignalEnable)
-                    SmartScheduleTime = GetTimeInMillis();
-
-		if (result != Success)
-		{
-		    if (client->noClientException != Success)
-                        CloseDownClient(client);
-                    else
-		        SendErrorToClient(client, MAJOROP,
-					  MinorOpcodeOfRequest(client),
-					  client->errorValue, result);
-		    break;
-	        }
-#ifdef DAMAGEEXT
-		FlushIfCriticalOutputPending ();
-#endif
+                if (client->noClientException != Success)
+                {
+                    CloseDownClient(client);
+                    break;
+                }
+                else if (result != Success)
+                {
+                    SendErrorToClient(client, MAJOROP,
+                                      MinorOpcodeOfRequest(client),
+                                      client->errorValue, result);
+                    break;
+                }
 	    }
 	    FlushAllOutput();
 	    client = clients[clientReady[nready]];
@@ -565,16 +564,14 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
     saveAgentState("TERMINATED");
 
     nxagentFreeFontData();
-#endif /* NXAGENT_SERVER */
 
     nxagentFreeAtomMap();
+#endif /* NXAGENT_SERVER */
 
     KillAllClients();
     free(clientReady);
     dispatchException &= ~DE_RESET;
-#ifdef XSERVER_DTRACE
-    FreeRequestNames();
-#endif
+    SmartScheduleLatencyLimited = 0;
 }
 
 #undef MAJOROP
@@ -584,56 +581,47 @@ ProcReparentWindow(ClientPtr client)
 {
     WindowPtr pWin, pParent;
     REQUEST(xReparentWindowReq);
-    int result;
+    int rc;
 
     REQUEST_SIZE_MATCH(xReparentWindowReq);
-    pWin = (WindowPtr)SecurityLookupWindow(stuff->window, client,
-					   DixWriteAccess);
-    if (!pWin)
-        return(BadWindow);
+    rc = dixLookupWindow(&pWin, stuff->window, client, DixManageAccess);
+    if (rc != Success)
+        return rc;
 
 #ifdef NXAGENT_SERVER
     nxagentRemoveSplashWindow();
 #endif
 
-    pParent = (WindowPtr)SecurityLookupWindow(stuff->parent, client,
-					      DixWriteAccess);
-    if (!pParent)
-        return(BadWindow);
-    if (SAME_SCREENS(pWin->drawable, pParent->drawable))
-    {
-        if ((pWin->backgroundState == ParentRelative) &&
-            (pParent->drawable.depth != pWin->drawable.depth))
-            return BadMatch;
-	if ((pWin->drawable.class != InputOnly) &&
-	    (pParent->drawable.class == InputOnly))
-	    return BadMatch;
-        result =  ReparentWindow(pWin, pParent,
-			 (short)stuff->x, (short)stuff->y, client);
-	if (client->noClientException != Success)
-            return(client->noClientException);
-	else
-            return(result);
-    }
-    else
-        return (BadMatch);
+    rc = dixLookupWindow(&pParent, stuff->parent, client, DixAddAccess);
+    if (rc != Success)
+        return rc;
+    if (!SAME_SCREENS(pWin->drawable, pParent->drawable))
+        return BadMatch;
+    if ((pWin->backgroundState == ParentRelative) &&
+        (pParent->drawable.depth != pWin->drawable.depth))
+        return BadMatch;
+    if ((pWin->drawable.class != InputOnly) &&
+        (pParent->drawable.class == InputOnly))
+        return BadMatch;
+    return ReparentWindow(pWin, pParent,
+                     (short)stuff->x, (short)stuff->y, client);
 }
 
 
 int
 ProcQueryTree(ClientPtr client)
 {
-    xQueryTreeReply reply = {0};
-    int numChildren = 0;
+    xQueryTreeReply reply;
+    int rc, numChildren = 0;
     WindowPtr pChild, pWin, pHead;
     Window  *childIDs = (Window *)NULL;
     REQUEST(xResourceReq);
 
     REQUEST_SIZE_MATCH(xResourceReq);
-    pWin = (WindowPtr)SecurityLookupWindow(stuff->id, client,
-					   DixReadAccess);
-    if (!pWin)
-        return(BadWindow);
+    rc = dixLookupWindow(&pWin, stuff->id, client, DixListAccess);
+    if (rc != Success)
+        return rc;
+    memset(&reply, 0, sizeof(xQueryTreeReply));
     reply.type = X_Reply;
     reply.root = pWin->drawable.pScreen->root->drawable.id;
     reply.sequenceNumber = client->sequence;
@@ -658,7 +646,7 @@ ProcQueryTree(ClientPtr client)
     {
 	int curChild = 0;
 
-	childIDs = (Window *) malloc(numChildren * sizeof(Window));
+	childIDs = malloc(numChildren * sizeof(Window));
 	if (!childIDs)
 	    return BadAlloc;
 	for (pChild = pWin->lastChild; pChild != pHead; pChild = pChild->prevSib)
@@ -675,7 +663,7 @@ ProcQueryTree(ClientPtr client)
     }
 
     reply.nChildren = numChildren;
-    reply.length = (numChildren * sizeof(Window)) >> 2;
+    reply.length = bytes_to_int32(numChildren * sizeof(Window));
 
     WriteReplyToClient(client, sizeof(xQueryTreeReply), &reply);
     if (numChildren)
@@ -685,7 +673,7 @@ ProcQueryTree(ClientPtr client)
 	free(childIDs);
     }
 
-    return(client->noClientException);
+    return Success;
 }
 
 int
@@ -717,7 +705,7 @@ ProcOpenFont(ClientPtr client)
 		stuff->nbytes, (char *)&stuff[1]);
     if (err == Success)
     {
-	return(client->noClientException);
+	return Success;
     }
     else
 	return err;
@@ -727,12 +715,13 @@ int
 ProcCloseFont(ClientPtr client)
 {
     FontPtr pFont;
+    int rc;
     REQUEST(xResourceReq);
 
     REQUEST_SIZE_MATCH(xResourceReq);
-    pFont = (FontPtr)SecurityLookupIDByType(client, stuff->id, RT_FONT,
-					    DixDestroyAccess);
-    if ( pFont != (FontPtr)NULL)	/* id was valid */
+    rc = dixLookupResourceByType((void * *)&pFont, stuff->id, RT_FONT,
+				 client, DixDestroyAccess);
+    if (rc == Success)	/* id was valid */
     {
         #ifdef NXAGENT_SERVER
 
@@ -825,13 +814,14 @@ int
 ProcFreePixmap(ClientPtr client)
 {
     PixmapPtr pMap;
+    int rc;
 
     REQUEST(xResourceReq);
 
     REQUEST_SIZE_MATCH(xResourceReq);
-    pMap = (PixmapPtr)SecurityLookupIDByType(client, stuff->id, RT_PIXMAP,
-					     DixDestroyAccess);
-    if (pMap)
+    rc = dixLookupResourceByType((void * *)&pMap, stuff->id, RT_PIXMAP, client,
+			   DixDestroyAccess);
+    if (rc == Success)
     {
         #ifdef NXAGENT_SERVER
 
