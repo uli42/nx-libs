@@ -160,9 +160,11 @@ addFormat (FormatInitRec    formats[256],
 
 #define Mask(n)	((n) == 32 ? 0xffffffff : ((1 << (n))-1))
 
-#ifndef NXAGENT_SERVER
 PictFormatPtr
 PictureCreateDefaultFormats (ScreenPtr pScreen, int *nformatp)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     int		    nformats, f;
     PictFormatPtr   pFormats;
@@ -747,7 +749,6 @@ SetPictureToDefaults (PicturePtr    pPicture)
     pPicture->pSourcePict = 0;
 }
 
-#ifndef NXAGENT_SERVER
 PicturePtr
 CreatePicture (Picture		pid,
 	       DrawablePtr	pDrawable,
@@ -756,6 +757,9 @@ CreatePicture (Picture		pid,
 	       XID		*vlist,
 	       ClientPtr	client,
 	       int		*error)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     PicturePtr		pPicture;
     PictureScreenPtr	ps = GetPictureScreen(pDrawable->pScreen);
@@ -900,8 +904,10 @@ static void initGradient(SourcePictPtr pGradient, int stopCount,
     pGradient->gradient.colorTableSize = 0;
 }
 
-#ifndef NXAGENT_SERVER
 static PicturePtr createSourcePicture(void)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     PicturePtr pPicture;
     pPicture = dixAllocateObjectWithPrivates(PictureRec, PRIVATE_PICTURE);
@@ -913,9 +919,13 @@ static PicturePtr createSourcePicture(void)
     SetPictureToDefaults(pPicture);
     return pPicture;
 }
+#endif
 
 PicturePtr
 CreateSolidPicture (Picture pid, xRenderColor *color, int *error)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     PicturePtr pPicture;
     pPicture = createSourcePicture();
@@ -925,7 +935,7 @@ CreateSolidPicture (Picture pid, xRenderColor *color, int *error)
     }
 
     pPicture->id = pid;
-    pPicture->pSourcePict = (SourcePictPtr) malloc(sizeof(PictSolidFill));
+    pPicture->pSourcePict = (SourcePictPtr) malloc(sizeof(SourcePict));
     if (!pPicture->pSourcePict) {
         *error = BadAlloc;
         free(pPicture);
@@ -955,7 +965,7 @@ CreateLinearGradientPicture (Picture pid, xPointFixed *p1, xPointFixed *p2,
     }
 
     pPicture->id = pid;
-    pPicture->pSourcePict = (SourcePictPtr) malloc(sizeof(PictLinearGradient));
+    pPicture->pSourcePict = (SourcePictPtr) malloc(sizeof(SourcePict));
     if (!pPicture->pSourcePict) {
         *error = BadAlloc;
         free(pPicture);
@@ -996,7 +1006,7 @@ CreateRadialGradientPicture (Picture pid, xPointFixed *inner, xPointFixed *outer
     }
 
     pPicture->id = pid;
-    pPicture->pSourcePict = (SourcePictPtr) malloc(sizeof(PictRadialGradient));
+    pPicture->pSourcePict = (SourcePictPtr) malloc(sizeof(SourcePict));
     if (!pPicture->pSourcePict) {
         *error = BadAlloc;
         free(pPicture);
@@ -1044,7 +1054,7 @@ CreateConicalGradientPicture (Picture pid, xPointFixed *center, xFixed angle,
     }
 
     pPicture->id = pid;
-    pPicture->pSourcePict = (SourcePictPtr) malloc(sizeof(PictConicalGradient));
+    pPicture->pSourcePict = (SourcePictPtr) malloc(sizeof(SourcePict));
     if (!pPicture->pSourcePict) {
         *error = BadAlloc;
         free(pPicture);
@@ -1522,10 +1532,12 @@ ValidatePicture(PicturePtr pPicture)
 	ValidateOnePicture (pPicture->alphaMap);
 }
 
-#ifndef NXAGENT_SERVER
 int
 FreePicture (void *	value,
 	     XID	pid)
+#ifdef NXAGENT_SERVER
+  ;
+#else
 {
     PicturePtr	pPicture = (PicturePtr) value;
 
