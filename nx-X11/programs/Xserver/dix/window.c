@@ -440,7 +440,7 @@ CreateRootWindow(ScreenPtr pScreen)
     if (enableBackingStore)
 	pScreen->backingStoreSupport = Always;
 
-	pScreen->saveUnderSupport = NotUseful;
+    pScreen->saveUnderSupport = NotUseful;
 
     return TRUE;
 }
