@@ -3855,6 +3855,34 @@ int nxagentInitXkbKeyboardState(void)
   return 1;
 }
 
+/* moved here from NXevents.c because of include clashes with Xlib.h */
+void nxagentWaitAndCollectGrabPointer(GrabPtr grab)
+{
+  /*
+   * from nxagent-1.5.0-20 changelog:
+   * In rootless mode, grabs exported to X in
+   * ActivatePointerGrab() are always made asynchronous. The
+   * synchronous behaviour is implemented by the agent, so that
+   * requiring a further synchronous grab down to the real X
+   * server is of little use and potentially harmful.
+   */
+
+  /*
+   * FIXME: We should use the correct value for the
+   * cursor. Temporarily we set it to None.
+   */
+
+  int resource = nxagentWaitForResource(NXGetCollectGrabPointerResource,
+                                            nxagentCollectGrabPointerPredicate);
+
+  NXCollectGrabPointer(nxagentDisplay, resource, nxagentWindow(grab -> window),
+                            1, grab -> eventMask & PointerGrabMask,
+                                GrabModeAsync, GrabModeAsync, (grab -> confineTo) ?
+                                    nxagentWindow(grab -> confineTo) : None,
+                                         None, CurrentTime);
+}
+
+
 int nxagentWaitForResource(GetResourceFuncPtr pGetResource, PredicateFuncPtr pPredicate)
 {
   int resource;

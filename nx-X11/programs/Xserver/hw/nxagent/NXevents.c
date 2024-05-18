@@ -152,6 +152,8 @@ extern WindowPtr nxagentLastEnteredWindow;
 extern void nxagentInitViewportFrame(ScreenPtr, WindowPtr);
 #endif
 extern int  nxagentShadowInit(ScreenPtr, WindowPtr);
+/* helper functions that enable us to reduce Xlib includes here */
+extern void nxagentWaitAndCollectGrabPointer(GrabPtr grab);
 
 void
 ActivatePointerGrab(DeviceIntPtr mouse, GrabPtr grab,
@@ -163,7 +165,7 @@ ActivatePointerGrab(DeviceIntPtr mouse, GrabPtr grab,
 
     xorg_ActivatePointerGrab(mouse, grab, time, autoGrab);
 
-    #ifdef NXAGENT_SERVER
+#ifdef NXAGENT_SERVER
 
     /*
      * If grab is synchronous, events are delivered to clients only if they send
@@ -190,31 +192,10 @@ ActivatePointerGrab(DeviceIntPtr mouse, GrabPtr grab,
 
     if (nxagentOption(Rootless))
     {
-      /*
-       * from nxagent-1.5.0-20 changelog:
-       * In rootless mode, grabs exported to X in
-       * ActivatePointerGrab() are always made asynchronous. The
-       * synchronous behaviour is implemented by the agent, so that
-       * requiring a further synchronous grab down to the real X
-       * server is of little use and potentially harmful.
-       */
-
-      /*
-       * FIXME: We should use the correct value for the
-       * cursor. Temporarily we set it to None.
-       */
-
-       int resource = nxagentWaitForResource(NXGetCollectGrabPointerResource,
-                                                 nxagentCollectGrabPointerPredicate);
-
-       NXCollectGrabPointer(nxagentDisplay, resource, nxagentWindow(grab -> window),
-                                1, grab -> eventMask & PointerGrabMask,
-                                    GrabModeAsync, GrabModeAsync, (grab -> confineTo) ?
-                                        nxagentWindow(grab -> confineTo) : None,
-                                            None, CurrentTime);
+        nxagentWaitAndCollectGrabPointer(grab);
     }
 
-    #endif /* NXAGENT_SERVER */
+#endif /* NXAGENT_SERVER */
 }
 
 void
