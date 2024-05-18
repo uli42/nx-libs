@@ -135,7 +135,7 @@ of the copyright holder.
 
 #include <nx-X11/extensions/XKBproto.h>
 #include <xkbsrv.h>
-extern Bool XkbFilterEvents(ClientPtr, int, xEvent *);
+extern void XkbFilterEvents(ClientPtr, int, xEvent *);
 
 #include "xace.h"
 
@@ -681,9 +681,7 @@ ConfineToShape(DeviceIntPtr pDev, RegionPtr shape, int *px, int *py)
     BoxRec box;
     int x = *px, y = *py;
     int incx = 1, incy = 1;
-    SpritePtr pSprite;
 
-    pSprite = pDev->spriteInfo->sprite;
     if (RegionContainsPoint(shape, x, y, &box))
 	return;
     box = *RegionExtents(shape);
@@ -734,10 +732,10 @@ CheckPhysLimits(
     else
 #endif
     {
-    if (pScreen)
-	new.pScreen = pScreen;
-    else
-	pScreen = new.pScreen;
+        if (pScreen)
+	    new.pScreen = pScreen;
+        else
+      	    pScreen = new.pScreen;
         (*pScreen->CursorLimits) (pDev, pScreen, cursor, &pSprite->hotLimits,
                 &pSprite->physLimits);
         pSprite->confined = confineToScreen;
@@ -2609,6 +2607,10 @@ PointInBorderSize(WindowPtr pWin, int x, int y)
  *
  * @returns the window at the given coordinates.
  */
+#ifdef NXAGENT_SERVER
+WindowPtr GetXYStartWindow(DeviceIntPtr pDev, WindowPtr pWin);
+#endif
+
 static WindowPtr
 XYToWindow(DeviceIntPtr pDev, int x, int y)
 {
@@ -2622,7 +2624,7 @@ XYToWindow(DeviceIntPtr pDev, int x, int y)
     pWin = GetXYStartWindow(pDev, RootWindow(pDev)->firstChild);
 #else
     pWin = RootWindow(pDev)->firstChild;
-fi
+#endif
     while (pWin)
     {
 	if ((pWin->mapped) &&
@@ -2755,11 +2757,11 @@ ActivateEnterGrab(DeviceIntPtr dev, WindowPtr old, WindowPtr win)
  *
  * @return TRUE if the sprite has moved or FALSE otherwise.
  */
+#ifdef NXAGENT_SERVER
+Bool CheckMotion(DeviceEvent *ev, DeviceIntPtr pDev);
+#else
 static Bool
 CheckMotion(DeviceEvent *ev, DeviceIntPtr pDev)
-#ifdef NXAGENT_SERVER
-  ;
-#else
 {
     WindowPtr prevSpriteWin, newSpriteWin;
     SpritePtr pSprite = pDev->spriteInfo->sprite;
@@ -4581,7 +4583,7 @@ ProcGrabPointer(ClientPtr client)
     WindowPtr confineTo;
     CursorPtr oldCursor;
     REQUEST(xGrabPointerReq);
-    TimeStamp time;
+    _X_UNUSED TimeStamp time;
     int rc;
 
     REQUEST_SIZE_MATCH(xGrabPointerReq);
@@ -4604,7 +4606,7 @@ ProcGrabPointer(ClientPtr client)
     }
 
     memset(&rep, 0, sizeof(xGrabPointerReply));
-	oldCursor = NullCursor;
+    oldCursor = NullCursor;
     grab = device->deviceGrab.grab;
 
 	if (grab)
@@ -5796,7 +5798,6 @@ PickPointer(ClientPtr client)
 
     if (!client->clientPtr)
     {
-        DeviceIntPtr it = inputInfo.devices;
         while (it)
         {
             if (IsMaster(it) && it->spriteInfo->spriteOwner)
