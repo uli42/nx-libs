@@ -486,7 +486,8 @@ void nxagentRenderExtensionInit(void)
   }
 }
 
-int nxagentCursorSaveRenderInfo(ScreenPtr pScreen, CursorPtr pCursor)
+/* FIXME: had to add pDev, check if we need to derive some data from there */
+int nxagentCursorSaveRenderInfo(DeviceIntPtr pDev, ScreenPtr pScreen, CursorPtr pCursor)
 {
   nxagentSetCursorPriv(pCursor, pScreen, malloc(sizeof(nxagentPrivCursor)));
 
