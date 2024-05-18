@@ -1,5 +1,7 @@
 #include <Server.tmpl>
 
+DEFINES = -DHAVE_DIX_CONFIG_H -DHAVE_XORG_CONFIG_H
+
 NULL =
 
 SUBDIRS = compext \
