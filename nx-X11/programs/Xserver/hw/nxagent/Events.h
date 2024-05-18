@@ -61,6 +61,7 @@ extern CARD32 nxagentLastEventTime;
  * Manage incoming events.
  */
 
+#ifdef _XLIB_H_
 typedef Bool (*PredicateFuncPtr)(Display*, XEvent*, XPointer);
 
 extern void nxagentDispatchEvents(PredicateFuncPtr);
@@ -72,6 +73,8 @@ int nxagentWaitForResource(GetResourceFuncPtr, PredicateFuncPtr);
 Bool nxagentCollectGrabPointerPredicate(Display *disp, XEvent *X, XPointer ptr);
 
 int nxagentInputEventPredicate(Display *disp, XEvent *event, XPointer parameter);
+
+#endif
 
 /*
  * Enable and disable notification of remote X server events.
@@ -100,6 +103,8 @@ extern Mask nxagentGetEventMask(WindowPtr pWin);
 
 extern int nxagentInitXkbKeyboardState(void);
 
+#ifdef _XLIB_H_
+
 /*
  * Update the keyboard state according to focus and XKB events
  * received from the remote X server.
@@ -127,6 +132,7 @@ extern int nxagentHandleKeyPress(XEvent *X, enum HandleEventResult*);
 extern int nxagentHandleReparentNotify(XEvent *X);
 extern int nxagentHandleConfigureNotify(XEvent *X);
 extern int nxagentHandleXFixesSelectionNotify(XEvent *X);
+#endif
 
 /*
  * Send a fake keystroke to the remote X server.
@@ -134,6 +140,7 @@ extern int nxagentHandleXFixesSelectionNotify(XEvent *X);
 
 extern void nxagentSendFakeKey(int key);
 
+#ifdef _XLIB_H_
 /*
  * Called to manage grab of pointer and keyboard when running in
  * fullscreen mode.
@@ -141,6 +148,7 @@ extern void nxagentSendFakeKey(int key);
 
 extern void nxagentGrabPointerAndKeyboard(XEvent *X);
 extern void nxagentUngrabPointerAndKeyboard(XEvent *X);
+#endif
 
 extern void nxagentDeactivatePointerGrab(void);
 
@@ -209,6 +217,7 @@ extern int nxagentInputEvent;
  * Event-handling utilities.
  */
 
+#ifdef _XLIB_H_
 int nxagentPendingEvents(Display *dpy);
 
 #define nxagentQueuedEvents(display) \
@@ -221,6 +230,7 @@ int nxagentPendingEvents(Display *dpy);
     XCheckIfEventNoFlush((display), (event), (predicate), (argument))
 
 int nxagentWaitEvents(Display *, useconds_t msec);
+#endif
 
 void ForwardClientMessage(ClientPtr client, xSendEventReq *stuff);
 

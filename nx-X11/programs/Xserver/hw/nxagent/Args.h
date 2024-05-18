@@ -85,7 +85,10 @@ extern Bool nxagentResizeDesktopAtStartup;
 
 extern int nxagentLockDeferLevel;
 
+#ifdef _XLIB_H_
 Bool nxagentPostProcessArgs(char *name, Display *dpy, Screen *scr);
+#endif
+
 void nxagentProcessOptions(char * string);
 void nxagentProcessOptionsFile(char * filename);
 
