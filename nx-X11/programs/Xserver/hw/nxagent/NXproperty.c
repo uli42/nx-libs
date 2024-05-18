@@ -136,9 +136,11 @@ ProcChangeProperty(ClientPtr client)
 #ifdef NXAGENT_CLIPBOARD
     pWin = nxagentGetClipboardWindow(stuff->property);
 
-    if (pWin == NULL)
+    if (pWin)
+       err = Success;
+    else
 #endif
-    err = dixLookupWindow(&pWin, stuff->window, client, DixSetPropAccess);
+        err = dixLookupWindow(&pWin, stuff->window, client, DixSetPropAccess);
     if (err != Success)
 	return err;
     if (!ValidAtom(stuff->property))
