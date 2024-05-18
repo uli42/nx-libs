@@ -210,9 +210,10 @@ DeactivatePointerGrab(DeviceIntPtr mouse)
      */
     if (nxagentOption(Rootless))
     {
+      SpritePtr pSprite = mouse->spriteInfo->sprite;
       nxagentUngrabPointer();
 
-      if (sprite.win == ROOT)
+      if (pSprite->win == RootWindow(mouse))
       {
         mouse -> button -> state &=
             ~(Button1Mask | Button2Mask | Button3Mask |
@@ -276,7 +277,7 @@ ProcSendEvent(ClientPtr client)
  * going through the list.
  */
 
-static WindowPtr 
+WindowPtr
 GetXYStartWindow(DeviceIntPtr pDev, WindowPtr pWin)
 {
     if (nxagentOption(Rootless))
@@ -310,38 +311,62 @@ GetXYStartWindow(DeviceIntPtr pDev, WindowPtr pWin)
     return pWin;
 }
 
-static Bool
-CheckMotion(xEvent *xE)
+Bool
+CheckMotion(DeviceEvent *ev, DeviceIntPtr pDev)
 {
-    WindowPtr prevSpriteWin = sprite.win;
+    WindowPtr prevSpriteWin, newSpriteWin;
+    SpritePtr pSprite = pDev->spriteInfo->sprite;
+
+    CHECKEVENT(ev);
+
+    prevSpriteWin = pSprite->win;
+
+    if (ev && !syncEvents.playingEvents)
+    {
+        /* GetPointerEvents() guarantees that void * events have the correct
+           rootX/Y set already. */
+        switch (ev->type)
+        {
+            case ET_ButtonPress:
+            case ET_ButtonRelease:
+            case ET_Motion:
+                break;
+            default:
+                /* all other events return FALSE */
+                return FALSE;
+        }
 
 #ifdef PANORAMIX
-    if(!noPanoramiXExtension)
-	return XineramaCheckMotion(xE);
+        if(!noPanoramiXExtension)
+        {
+            /* Motion events entering DIX get translated to Screen 0
+               coordinates.  Replayed events have already been
+               translated since they've entered DIX before */
+            ev->root_x += pSprite->screen->x - screenInfo.screens[0]->x;
+            ev->root_y += pSprite->screen->y - screenInfo.screens[0]->y;
+        } else
 #endif
+        {
+            if (pSprite->hot.pScreen != pSprite->hotPhys.pScreen)
+	    {
+                pSprite->hot.pScreen = pSprite->hotPhys.pScreen;
+                RootWindow(pDev) = pSprite->hot.pScreen->root;
+	    }
+        }
 
-    if (xE && !syncEvents.playingEvents)
-    {
-	if (sprite.hot.pScreen != sprite.hotPhys.pScreen)
-	{
-	    sprite.hot.pScreen = sprite.hotPhys.pScreen;
-	    ROOT = sprite.hot.pScreen->root;
-	}
-	sprite.hot.x = XE_KBPTR.rootX;
-	sprite.hot.y = XE_KBPTR.rootY;
-	if (sprite.hot.x < sprite.physLimits.x1)
-	    sprite.hot.x = sprite.physLimits.x1;
-	else if (sprite.hot.x >= sprite.physLimits.x2)
-	    sprite.hot.x = sprite.physLimits.x2 - 1;
-	if (sprite.hot.y < sprite.physLimits.y1)
-	    sprite.hot.y = sprite.physLimits.y1;
-	else if (sprite.hot.y >= sprite.physLimits.y2)
-	    sprite.hot.y = sprite.physLimits.y2 - 1;
-#ifdef SHAPE
-	if (sprite.hotShape)
-	    ConfineToShape(sprite.hotShape, &sprite.hot.x, &sprite.hot.y);
-#endif
-	sprite.hotPhys = sprite.hot;
+        pSprite->hot.x = ev->root_x;
+        pSprite->hot.y = ev->root_y;
+        if (pSprite->hot.x < pSprite->physLimits.x1)
+            pSprite->hot.x = pSprite->physLimits.x1;
+        else if (pSprite->hot.x >= pSprite->physLimits.x2)
+            pSprite->hot.x = pSprite->physLimits.x2 - 1;
+        if (pSprite->hot.y < pSprite->physLimits.y1)
+            pSprite->hot.y = pSprite->physLimits.y1;
+        else if (pSprite->hot.y >= pSprite->physLimits.y2)
+            pSprite->hot.y = pSprite->physLimits.y2 - 1;
+	if (pSprite->hotShape)
+	    ConfineToShape(pDev, pSprite->hotShape, &pSprite->hot.x, &pSprite->hot.y);
+	pSprite->hotPhys = pSprite->hot;
 
 #ifdef NXAGENT_SERVER
         /*
@@ -350,44 +375,56 @@ CheckMotion(xEvent *xE)
          * to do this and it interacts in an undesirable way
          * with toggling fullscreen.
          *
-         * if ((sprite.hotPhys.x != XE_KBPTR.rootX) ||
-         *          (sprite.hotPhys.y != XE_KBPTR.rootY))
+         * if ((pSprite->hotPhys.x != ev->root_x) ||
+         *     (pSprite->hotPhys.y != ev->root_y))
          * {
-         *   (*sprite.hotPhys.pScreen->SetCursorPosition)(
-         *       sprite.hotPhys.pScreen,
-         *           sprite.hotPhys.x, sprite.hotPhys.y, FALSE);
+         *   (*pSprite->hotPhys.pScreen->SetCursorPosition)(
+         *       pDev, pSprite->hotPhys.pScreen,
+         *           pSprite->hotPhys.x, pSprite->hotPhys.y, FALSE);
          * }
          */
 #else
-	if ((sprite.hotPhys.x != XE_KBPTR.rootX) ||
-	    (sprite.hotPhys.y != XE_KBPTR.rootY))
-	{
-	    (*sprite.hotPhys.pScreen->SetCursorPosition)(
-		sprite.hotPhys.pScreen,
-		sprite.hotPhys.x, sprite.hotPhys.y, FALSE);
-	}
+	if ((pSprite->hotPhys.x != ev->root_x) ||
+	    (pSprite->hotPhys.y != ev->root_y))
+#ifdef PANORAMIX
+            if (!noPanoramiXExtension)
+            {
+                XineramaSetCursorPosition(
+                        pDev, pSprite->hotPhys.x, pSprite->hotPhys.y, FALSE);
+            } else
 #endif
-	XE_KBPTR.rootX = sprite.hot.x;
-	XE_KBPTR.rootY = sprite.hot.y;
+	    {
+                (*pSprite->hotPhys.pScreen->SetCursorPosition)(
+                        pDev, pSprite->hotPhys.pScreen,
+                        pSprite->hotPhys.x, pSprite->hotPhys.y, FALSE);
+	    }
+#endif
+
+	ev->root_x = pSprite->hot.x;
+	ev->root_y = pSprite->hot.y;
     }
 
-    sprite.win = XYToWindow(sprite.hot.x, sprite.hot.y);
-#ifdef notyet
-    if (!(sprite.win->deliverableEvents &
-	  Motion_Filter(inputInfo.pointer->button))
-	!syncEvents.playingEvents)
+    newSpriteWin = XYToWindow(pDev, pSprite->hot.x, pSprite->hot.y);
+
+    if (newSpriteWin != prevSpriteWin)
     {
-	/* XXX Do PointerNonInterestBox here */
-    }
-#endif
-    if (sprite.win != prevSpriteWin)
-    {
-	if (prevSpriteWin != NullWindow) {
-	    if (!xE)
+        int sourceid;
+        if (!ev) {
 		UpdateCurrentTimeIf();
-	    DoEnterLeaveEvents(prevSpriteWin, sprite.win, NotifyNormal);
-	}
-	PostNewCursor();
+            sourceid = pDev->id; /* when from WindowsRestructured */
+        } else
+            sourceid = ev->sourceid;
+
+	if (prevSpriteWin != NullWindow) {
+            if (!ActivateEnterGrab(pDev, prevSpriteWin, newSpriteWin))
+                DoEnterLeaveEvents(pDev, sourceid, prevSpriteWin,
+                                   newSpriteWin, NotifyNormal);
+        }
+        /* set pSprite->win after ActivateEnterGrab, otherwise
+           sprite window == grab_window and no enter/leave events are
+           sent. */
+        pSprite->win = newSpriteWin;
+        PostNewCursor(pDev);
         return FALSE;
     }
     return TRUE;
