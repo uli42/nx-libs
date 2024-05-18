@@ -343,6 +343,7 @@ DisableLimitedSchedulingLatency(void)
 	SmartScheduleLatencyLimited = 0;
 }
 
+#ifndef NXAGENT_SERVER
 #define MAJOROP ((xReq *)client->requestBuffer)->reqType
 
 void
@@ -475,6 +476,7 @@ Dispatch(void)
 }
 
 #undef MAJOROP
+#endif /* NXAGENT_SERVER */
 
 static int  VendorRelease = VENDOR_RELEASE;
 static char *VendorString = VENDOR_NAME;
@@ -773,7 +775,7 @@ ProcChangeSaveSet(ClientPtr client)
         return BadMatch;
     if ((stuff->mode == SetModeInsert) || (stuff->mode == SetModeDelete))
         return AlterSaveSetForClient(client, pWin, stuff->mode, FALSE, TRUE);
-	client->errorValue = stuff->mode;
+    client->errorValue = stuff->mode;
     return BadValue;
 }
 
@@ -1233,7 +1235,9 @@ ProcOpenFont(ClientPtr client)
     else
 	return err;
 }
+#endif /* NXAGENT_SERVER */
 
+#ifndef NXAGENT_SERVER
 int
 ProcCloseFont(ClientPtr client)
 {
@@ -1359,7 +1363,9 @@ ProcListFonts(ClientPtr client)
     return ListFonts(client, (unsigned char *) &stuff[1], stuff->nbytes,
 	stuff->maxNames);
 }
+#endif /* NXAGENT_SERVER */
 
+#ifndef NXAGENT_SERVER
 int
 ProcListFontsWithInfo(ClientPtr client)
 {
@@ -2447,7 +2453,7 @@ ProcCopyColormapAndFree(ClientPtr client)
 			   client, DixReadAccess|DixRemoveAccess);
     if (rc == Success)
 	return CopyColormapAndFree(mid, pSrcMap, client->index);
-	client->errorValue = stuff->srcCmap;
+    client->errorValue = stuff->srcCmap;
     return rc;
 }
 
@@ -3203,9 +3209,9 @@ ProcChangeHosts(ClientPtr client)
     if (stuff->mode == HostDelete)
 	return RemoveHost(client, (int)stuff->hostFamily,
 			    stuff->hostLength, (void *)&stuff[1]);
-	client->errorValue = stuff->mode;
-        return BadValue;
-    }
+    client->errorValue = stuff->mode;
+    return BadValue;
+}
 
 int
 ProcListHosts(ClientPtr client)
