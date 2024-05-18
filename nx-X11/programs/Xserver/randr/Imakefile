@@ -64,6 +64,7 @@
    INCLUDES = -I../include -I../mi \
 		-I../fb -I$(EXTINCSRC) -I$(XINCLUDESRC) \
 		-I../render \
+		-I../Xext \
 		`pkg-config --cflags-only-I pixman-1`
 
 #if defined(BuildXinerama)
