@@ -235,7 +235,7 @@ AddResource(XID id, RESTYPE type, void * value)
     rrec = &clientTable[client];
     if (!rrec->buckets)
     {
-	ErrorF("AddResource(%lx, %lx, %lx), client=%d \n",
+	ErrorF("[dix] AddResource(%lx, %lx, %lx), client=%d \n",
 		(unsigned long)id, type, (unsigned long)value, client);
         FatalError("client not in use\n");
     }
@@ -244,7 +244,7 @@ AddResource(XID id, RESTYPE type, void * value)
     nxagentSwitchResourceType(client, type, value);
 
     #ifdef TEST
-    fprintf(stderr, "AddResource: Adding resource for client [%d] type [%lu] value [%p] id [%lu].\n",
+    fprintf(stderr, "[nx] AddResource: Adding resource for client [%d] type [%lu] value [%p] id [%lu].\n",
                 client, (unsigned long) type, (void *) value, (unsigned long) id);
     #endif
 #endif
@@ -253,10 +253,10 @@ AddResource(XID id, RESTYPE type, void * value)
 	(rrec->hashsize < MAXHASHSIZE))
 	RebuildTable(client);
     head = &rrec->resources[Hash(client, id)];
-    res = (ResourcePtr)malloc(sizeof(ResourceRec));
+    res = malloc(sizeof(ResourceRec));
     if (!res)
     {
-	(*DeleteFuncs[type & TypeMask])(value, id);
+	(*resourceTypes[type & TypeMask].deleteFunc)(value, id);
 	return FALSE;
     }
     res->next = *head;
@@ -315,7 +315,7 @@ FreeResource(XID id, RESTYPE skipDeleteFuncType)
 		CallResourceStateCallback(ResourceStateFreeing, res);
 
 		if (rtype != skipDeleteFuncType)
-		    (*DeleteFuncs[rtype & TypeMask])(res->value, res->id);
+		    (*resourceTypes[rtype & TypeMask].deleteFunc)(res->value, res->id);
 		free(res);
 		if (*eltptr != elements)
 		    prev = head; /* prev may no longer be valid */
@@ -354,7 +354,7 @@ FreeResourceByType(XID id, RESTYPE type, Bool skipFree)
 		CallResourceStateCallback(ResourceStateFreeing, res);
 
 		if (!skipFree)
-		    (*DeleteFuncs[type & TypeMask])(res->value, res->id);
+		    (*resourceTypes[type & TypeMask].deleteFunc)(res->value, res->id);
 		free(res);
 		break;
 	    }
@@ -529,6 +529,7 @@ LookupClientResourceComplex(
 ){
     ResourcePtr *resources;
     ResourcePtr this;
+    void * value;
     int i;
 
     if (!client)
@@ -549,17 +550,19 @@ RestartLoop:
     for (i = 0; i < clientTable[client->index].buckets; i++) {
         for (this = resources[i]; this; this = this->next) {
 	    if (!type || this->type == type) {
+		/* workaround func freeing the type as DRI1 does */
+		value = this->value;
 #ifdef NXAGENT_SERVER
-                Bool res = (*func)(this->value, this->id, cdata);
+                Bool res = (*func)(value, this->id, cdata);
 
                 if (*resptr != resources)
                     goto RestartLoop;
 
                 if (res)
-                    return this->value;
+                    return value;
 #else
-		if((*func)(this->value, this->id, cdata))
-		    return this->value;
+		if((*func)(value, this->id, cdata))
+		    return >value;
 #endif
 	    }
 	}
