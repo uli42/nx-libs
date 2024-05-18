@@ -96,7 +96,7 @@ static OsCommPtr AvailableInput = (OsCommPtr)NULL;
 #define get_req_len(req,cli) ((cli)->swapped ? \
 			      lswaps((req)->length) : (req)->length)
 
-#include <nx-X11/extensions/bigreqstr.h>
+#include <nx-X11/extensions/bigreqsproto.h>
 
 #define get_big_req_len(req,cli) ((cli)->swapped ? \
 				  lswapl(((xBigReq *)(req))->length) : \
