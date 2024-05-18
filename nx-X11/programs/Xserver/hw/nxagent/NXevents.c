@@ -148,10 +148,6 @@ extern Display *nxagentDisplay;
 
 extern WindowPtr nxagentLastEnteredWindow;
 
-#ifdef VIEWPORT_FRAME
-extern void nxagentInitViewportFrame(ScreenPtr, WindowPtr);
-#endif
-extern int  nxagentShadowInit(ScreenPtr, WindowPtr);
 /* helper functions that enable us to reduce Xlib includes here */
 extern void nxagentUngrabPointer(void);
 extern void nxagentWaitAndCollectGrabPointer(GrabPtr grab);
@@ -253,26 +249,6 @@ ProcAllowEvents(ClientPtr client)
      */
 
     return Success;
-}
-
-void
-DefineInitialRootWindow(WindowPtr win)
-{
-    ScreenPtr pScreen = win->drawable.pScreen;
-
-    xorg_DefineInitialRootWindow(win);
-
-    #ifdef VIEWPORT_FRAME
-    nxagentInitViewportFrame(pScreen, win);
-    #endif
-
-    if (nxagentOption(Shadow))
-    {
-      if (nxagentShadowInit(pScreen, win) == -1)
-      {
-        FatalError("Failed to connect to display '%s'", nxagentShadowDisplayName);
-      }
-    }
 }
 
 int

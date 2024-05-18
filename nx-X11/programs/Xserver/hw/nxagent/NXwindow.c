@@ -112,6 +112,7 @@ Equipment Corporation.
 #include "Composite.h"
 #include "Drawable.h"
 #include "Colormap.h"
+#include "Args.h"
 
 #include "../../dix/window.c"
 
@@ -128,6 +129,11 @@ extern Bool nxagentScreenTrap;
 #undef  DEBUG
 
 extern void nxagentSetVersionProperty(WindowPtr pWin);
+
+#ifdef VIEWPORT_FRAME
+extern void nxagentInitViewportFrame(ScreenPtr, WindowPtr);
+#endif
+extern int  nxagentShadowInit(ScreenPtr, WindowPtr);
 
 void
 InitRootWindow(WindowPtr pWin)
@@ -182,6 +188,29 @@ InitRootWindow(WindowPtr pWin)
     #endif
 
     nxagentSetVersionProperty(pWin);
+
+    /*
+     * The following code was run after DefineInitRootWindow in
+     * NXevents.c. But as the original DefineTootWindow was removed we
+     * needed to find a new place for that code. DefineInitRootWindow
+     * was only run for screen 0.
+     */
+
+    ScreenPtr pScreen = pWin->drawable.pScreen;
+    if (pScreen->myNum == 0)
+    {
+        #ifdef VIEWPORT_FRAME
+        nxagentInitViewportFrame(pScreen, pWin);
+        #endif
+
+        if (nxagentOption(Shadow))
+        {
+            if (nxagentShadowInit(pScreen, pWin) == -1)
+            {
+	      FatalError("Failed to connect to display '%s'", nxagentShadowDisplayName);
+	    }
+	}
+    }
 }
 
 /* XXX need to retile border on each window with ParentRelative origin */
