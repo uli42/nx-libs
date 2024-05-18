@@ -252,8 +252,14 @@ doOpenFont(ClientPtr client, OFclosurePtr c)
 	    c->fontname = newname;
 	    c->fnamelen = newlen;
 	    c->current_fpe = 0;
-	    if (--aliascount <= 0)
+	    if (--aliascount <= 0) {
+		/* We've tried resolving this alias 20 times, we're
+ 		 * probably stuck in an infinite loop of aliases pointing
+ 		 * to each other - time to take emergency exit!
+ 		 */
+ 		err = BadImplementation;
 		break;
+	    }
 	    continue;
 	}
 	if (err == BadFontName) {
@@ -261,15 +267,16 @@ doOpenFont(ClientPtr client, OFclosurePtr c)
 	    continue;
 	}
 	if (err == Suspended) {
-	    if (!c->slept) {
-		c->slept = TRUE;
-		ClientSleep(client, (ClientSleepProcPtr)doOpenFont, (void *) c);
+	    if (!ClientIsAsleep(client)) {
+		ClientSleep(client, (ClientSleepProcPtr)doOpenFont, c);
 #ifdef NXAGENT_SERVER
                 #ifdef DEBUG
                 fprintf(stderr, " NXdixfonts: doOpenFont: client [%lx] sleeping.\n", client);
                 #endif
 #endif
 	    }
+	    else
+		goto xinerama_sleep;
 	    return TRUE;
 	}
 	break;
@@ -324,7 +331,7 @@ doOpenFont(ClientPtr client, OFclosurePtr c)
 	goto bail;
     }
 #ifdef NXAGENT_SERVER
-    if( nxagentFontPriv(pfont) -> mirrorID == 0 )
+    if (nxagentFontPriv(pfont) -> mirrorID == 0)
     {
       extern RESTYPE RT_NX_FONT;
 
@@ -356,17 +363,13 @@ bail:
 	SendErrorToClient(c->client, X_OpenFont, 0,
 			  c->fontid, FontToXError(err));
     }
-    if (c->slept)
+    ClientWakeup(c->client);
 #ifdef NXAGENT_SERVER
-    {
-	ClientWakeup(c->client);
-        #ifdef DEBUG
-        fprintf(stderr, " NXdixfonts: doOpenFont: client [%lx] wakeup.\n", client);
-        #endif
-    }
-#else
-	ClientWakeup(c->client);
+    #ifdef DEBUG
+    fprintf(stderr, " NXdixfonts: doOpenFont: client [%lx] wakeup.\n", client);
+    #endif
 #endif
+xinerama_sleep:
     for (i = 0; i < c->num_fpes; i++) {
 	FreeFPE(c->fpe_list[i]);
     }
@@ -433,21 +436,22 @@ doListFontsAndAliases(ClientPtr client, LFclosurePtr c)
 		 c->names);
 
 	    if (err == Suspended) {
-		if (!c->slept) {
-		    c->slept = TRUE;
+	        if (!ClientIsAsleep(client)) {
 		    ClientSleep(client,
 			(ClientSleepProcPtr)doListFontsAndAliases,
-			(void *) c);
+				c);
 #ifdef NXAGENT_SERVER
                     #ifdef DEBUG
                     fprintf(stderr, " NXdixfonts: doListFont (1): client [%lx] sleeping.\n", client);
                     #endif
 #endif
 		}
+		else
+		    goto xinerama_sleep;
 		return TRUE;
 	    }
 
-	    err = BadFontName;
+    	    err = BadFontName;
 	}
 	else
 	{
@@ -470,17 +474,18 @@ doListFontsAndAliases(ClientPtr client, LFclosurePtr c)
 		     c->current.patlen, c->current.max_names - c->names->nnames,
 		     &c->current.private);
 		if (err == Suspended) {
-		    if (!c->slept) {
+		    if (!ClientIsAsleep(client)) {
 			ClientSleep(client,
 				    (ClientSleepProcPtr)doListFontsAndAliases,
-				    (void *) c);
-			c->slept = TRUE;
+				    c);
 #ifdef NXAGENT_SERVER
                         #ifdef DEBUG
                         fprintf(stderr, " NXdixfonts: doListFont (2): client [%lx] sleeping.\n", client);
                         #endif
 #endif
 		    }
+		    else
+			goto xinerama_sleep;
 		    return TRUE;
 		}
 		if (err == Successful)
@@ -497,22 +502,23 @@ doListFontsAndAliases(ClientPtr client, LFclosurePtr c)
 		    ((void *) c->client, fpe, &name, &namelen, &tmpname,
 		     &resolvedlen, c->current.private);
 		if (err == Suspended) {
-		    if (!c->slept) {
+		    if (ClientIsAsleep(client)) {
 			ClientSleep(client,
 				    (ClientSleepProcPtr)doListFontsAndAliases,
-				    (void *) c);
-			c->slept = TRUE;
+				    c);
 #ifdef NXAGENT_SERVER
                         #ifdef DEBUG
                         fprintf(stderr, " NXdixfonts: doListFont (3): client [%lx] sleeping.\n", client);
                         #endif
 #endif
 		    }
+		    else
+			goto xinerama_sleep;
 		    return TRUE;
 		}
 		if (err == FontNameAlias) {
-		    if (resolved) free(resolved);
-		    resolved = (char *) malloc(resolvedlen + 1);
+		    free(resolved);
+		    resolved = malloc(resolvedlen + 1);
 		    if (resolved)
 			memmove(resolved, tmpname, resolvedlen + 1);
 		}
@@ -578,7 +584,7 @@ doListFontsAndAliases(ClientPtr client, LFclosurePtr c)
 		    c->saved = c->current;
 		    c->haveSaved = TRUE;
 		    free(c->savedName);
-		    c->savedName = (char *)malloc(namelen + 1);
+		    c->savedName = malloc(namelen + 1);
 		    if (c->savedName)
 			memmove(c->savedName, name, namelen + 1);
 		    c->savedNameLen = namelen;
@@ -636,7 +642,7 @@ finish:
 
     memset(&reply, 0, sizeof(xListFontsReply));
     reply.type = X_Reply;
-    reply.length = (stringLens + nnames + 3) >> 2;
+    reply.length = bytes_to_int32(stringLens + nnames);
     reply.nFonts = nnames;
     reply.sequenceNumber = client->sequence;
 
@@ -684,33 +690,31 @@ finish:
 	}
     }
     nnames = reply.nFonts;
-    reply.length = (stringLens + nnames + 3) >> 2;
+    reply.length = bytes_to_int32(stringLens + nnames);
     client->pSwapReplyFunc = ReplySwapVector[X_ListFonts];
     WriteSwappedDataToClient(client, sizeof(xListFontsReply), &reply);
     WriteToClient(client, stringLens + nnames, bufferStart);
     free(bufferStart);
 
 bail:
-    if (c->slept)
-    {
-        ClientWakeup(client);
+	ClientWakeup(client);
 #ifdef NXAGENT_SERVER
         #ifdef DEBUG
         fprintf(stderr, " NXdixfonts: doListFont: client [%lx] wakeup.\n", client);
         #endif
 #endif
-    }
+xinerama_sleep:
     for (i = 0; i < c->num_fpes; i++)
 	FreeFPE(c->fpe_list[i]);
     free(c->fpe_list);
-    if (c->savedName) free(c->savedName);
+    free(c->savedName);
 #ifdef HAS_XFONT2
     xfont2_free_font_names(names);
 #else
     FreeFontNames(names);
 #endif /* HAS_XFONT2 */
     free(c);
-    if (resolved) free(resolved);
+    free(resolved);
     return TRUE;
 }
 
@@ -736,8 +740,7 @@ ListFonts(ClientPtr client, unsigned char *pattern, unsigned length,
 
     if (!(c = (LFclosurePtr) calloc(1, sizeof *c)))
 	return BadAlloc;
-    c->fpe_list = (FontPathElementPtr *)
-	malloc(sizeof(FontPathElementPtr) * num_fpes);
+    c->fpe_list = malloc(sizeof(FontPathElementPtr) * num_fpes);
     if (!c->fpe_list) {
 	free(c);
 	return BadAlloc;
@@ -774,7 +777,6 @@ ListFonts(ClientPtr client, unsigned char *pattern, unsigned length,
     c->current.list_started = FALSE;
     c->current.private = 0;
     c->haveSaved = FALSE;
-    c->slept = FALSE;
     c->savedName = 0;
     doListFontsAndAliases(client, c);
     return Success;
@@ -829,18 +831,20 @@ doListFontsWithInfo(ClientPtr client, LFWIclosurePtr c)
 		 c->current.max_names, &c->current.private);
 	    if (err == Suspended)
  	    {
-		if (!c->slept)
- 		{
-		    ClientSleep(client, (ClientSleepProcPtr)doListFontsWithInfo, c);
-		    c->slept = TRUE;
+	        if (!ClientIsAsleep(client)) {
+		    ClientSleep(client,
+				(ClientSleepProcPtr)doListFontsWithInfo, c);
 #ifdef NXAGENT_SERVER
                     #ifdef DEBUG
                     fprintf(stderr, " NXdixfonts: doListFontWinfo (1): client [%lx] sleeping.\n", client);
                     #endif
 #endif
 		}
+		else
+		    goto xinerama_sleep;
 		return TRUE;
 	    }
+
 	    if (err == Successful)
 		c->current.list_started = TRUE;
 	}
@@ -857,18 +861,17 @@ doListFontsWithInfo(ClientPtr client, LFWIclosurePtr c)
 		 &numFonts, c->current.private);
 	    if (err == Suspended)
  	    {
-		if (!c->slept)
- 		{
+	        if (!ClientIsAsleep(client)) {
 		    ClientSleep(client,
-		    	     (ClientSleepProcPtr)doListFontsWithInfo,
-			     c);
-		    c->slept = TRUE;
+				(ClientSleepProcPtr)doListFontsWithInfo, c);
 #ifdef NXAGENT_SERVER
                     #ifdef DEBUG
                     fprintf(stderr, " NXdixfonts: doListFontWinfo (2): client [%lx] sleeping.\n", client);
                     #endif
 #endif
-		}
+	        }
+	        else
+	            goto xinerama_sleep;
 		return TRUE;
 	    }
 	}
@@ -912,9 +915,8 @@ doListFontsWithInfo(ClientPtr client, LFWIclosurePtr c)
 		c->saved = c->current;
 		c->haveSaved = TRUE;
 		c->savedNumFonts = numFonts;
-		if (c->savedName)
 		free(c->savedName);
-		c->savedName = (char *)malloc(namelen + 1);
+		c->savedName = malloc(namelen + 1);
 		if (c->savedName)
 		  memmove(c->savedName, name, namelen + 1);
 		aliascount = 20;
@@ -1033,24 +1035,20 @@ doListFontsWithInfo(ClientPtr client, LFWIclosurePtr c)
     }
 finish:
     length = sizeof(xListFontsWithInfoReply);
-    bzero((char *) &finalReply, sizeof(xListFontsWithInfoReply));
+    memset((char *) &finalReply, 0, sizeof(xListFontsWithInfoReply));
     finalReply.type = X_Reply;
     finalReply.sequenceNumber = client->sequence;
-    finalReply.length = (sizeof(xListFontsWithInfoReply)
-		     - sizeof(xGenericReply)) >> 2;
+    finalReply.length = bytes_to_int32(sizeof(xListFontsWithInfoReply)
+		     - sizeof(xGenericReply));
     WriteSwappedDataToClient(client, length, &finalReply);
 bail:
-    if (c->slept)
+    ClientWakeup(client);
 #ifdef NXAGENT_SERVER
-    {
-	ClientWakeup(client);
-        #ifdef DEBUG
-        fprintf(stderr, " NXdixfonts: doListFontWinfo: client [%lx] wakeup.\n", client);
-        #endif
-    }
-#else
-	ClientWakeup(client);
+    #ifdef DEBUG
+    fprintf(stderr, " NXdixfonts: doListFontWinfo: client [%lx] wakeup.\n", client);
+    #endif
 #endif
+xinerama_sleep:
     for (i = 0; i < c->num_fpes; i++)
 	FreeFPE(c->fpe_list[i]);
     free(c->reply);
@@ -1128,15 +1126,16 @@ nxdoListFontsAndAliases(ClientPtr client, nxFsPtr fss)
 		 c->names);
 
 	    if (err == Suspended) {
-		if (!c->slept) {
-		    c->slept = TRUE;
+	        if (!ClientIsAsleep(client)) {
 		    ClientSleep(client,
 			(ClientSleepProcPtr)nxdoListFontsAndAliases,
-			(void *) fss);
+				(void *) fss);
                     #ifdef DEBUG
                     fprintf(stderr, " NXdixfonts: nxdoListFont (1): client [%lx] sleeping.\n", client);
                     #endif
 		}
+		else
+		    goto xinerama_sleep;
 		return TRUE;
 	    }
 
@@ -1163,15 +1162,16 @@ nxdoListFontsAndAliases(ClientPtr client, nxFsPtr fss)
 		     c->current.patlen, c->current.max_names - c->names->nnames,
 		     &c->current.private);
 		if (err == Suspended) {
-		    if (!c->slept) {
+		    if (!ClientIsAsleep(client)) {
 			ClientSleep(client,
 				    (ClientSleepProcPtr)nxdoListFontsAndAliases,
 				    (void *) fss);
-			c->slept = TRUE;
                         #ifdef DEBUG
                         fprintf(stderr, " NXdixfonts: nxdoListFont (2): client [%lx] sleeping.\n", client);
                         #endif
 		    }
+		    else
+			goto xinerama_sleep;
 		    return TRUE;
 		}
 		if (err == Successful)
@@ -1188,25 +1188,23 @@ nxdoListFontsAndAliases(ClientPtr client, nxFsPtr fss)
 		    ((void *) c->client, fpe, &name, &namelen, &tmpname,
 		     &resolvedlen, c->current.private);
 		if (err == Suspended) {
-		    if (!c->slept) {
+		    if (ClientIsAsleep(client)) {
 			ClientSleep(client,
 				    (ClientSleepProcPtr)nxdoListFontsAndAliases,
 				    (void *) fss);
-			c->slept = TRUE;
                         #ifdef DEBUG
                         fprintf(stderr, " NXdixfonts: nxdoListFont (3): client [%lx] sleeping.\n", client);
                         #endif
 		    }
+		    else
+			goto xinerama_sleep;
 		    return TRUE;
 		}
 		if (err == FontNameAlias) {
 		    free(resolved);
-		    resolved = (char *) malloc(resolvedlen + 1);
+		    resolved = malloc(resolvedlen + 1);
 		    if (resolved)
-                    {
-                        memmove(resolved, tmpname, resolvedlen);
-                        resolved[resolvedlen] = '\0';
-                    }
+                        memmove(resolved, tmpname, resolvedlen + 1);
 		}
 	    }
 
@@ -1294,10 +1292,7 @@ nxdoListFontsAndAliases(ClientPtr client, nxFsPtr fss)
 		    free(c->savedName);
 		    c->savedName = (char *)malloc(namelen + 1);
 		    if (c->savedName)
-                    {
-                        memmove(c->savedName, name, namelen);
-                        c->savedName[namelen] = '\0';
-                    }
+                        memmove(c->savedName, name, namelen + 1);
 		    c->savedNameLen = namelen;
 		    aliascount = 20;
 		}
@@ -1403,13 +1398,11 @@ finish:
 	}
     }
 
-    if (c->slept)
-    {
-       ClientWakeup(client);
-       #ifdef DEBUG
-       fprintf(stderr, " NXdixfonts: nxdoListFont: client [%lx] wakeup.\n", client);
-       #endif
-    }
+    ClientWakeup(client);
+    #ifdef DEBUG
+    fprintf(stderr, " NXdixfonts: nxdoListFont: client [%lx] wakeup.\n", client);
+    #endif
+xinerama_sleep:
     for (i = 0; i < c->num_fpes; i++)
 	FreeFPE(c->fpe_list[i]);
     free(c->fpe_list);
@@ -1439,7 +1432,7 @@ nxOpenFont(ClientPtr client, XID fid, Mask flags, unsigned lenfname, char *pfont
 
 #ifdef FONTDEBUG
     char *f;
-    f = (char *)malloc(lenfname + 1);
+    f = malloc(lenfname + 1);
     memmove(f, pfontname, lenfname);
     f[lenfname] = '\0';
     ErrorF("OpenFont: fontname is \"%s\"\n", f);
@@ -1480,17 +1473,16 @@ nxOpenFont(ClientPtr client, XID fid, Mask flags, unsigned lenfname, char *pfont
 	    return Success;
 	}
     }
-    if (!(fss = (nxFsPtr) malloc(sizeof(nxFs))))
+    if (!(fss = malloc(sizeof(nxFs))))
         return BadAlloc;
 
-    if (!(c = (LFclosurePtr) malloc(sizeof *c)))
+    if (!(c = malloc(sizeof *c)))
     {
 	free(fss);
 	return BadAlloc;
     }
 
-    c->fpe_list = (FontPathElementPtr *)
-	malloc(sizeof(FontPathElementPtr) * num_fpes);
+    c->fpe_list = malloc(sizeof(FontPathElementPtr) * num_fpes);
     if (!c->fpe_list) {
 	free(c);
 	free(fss);
@@ -1521,10 +1513,9 @@ nxOpenFont(ClientPtr client, XID fid, Mask flags, unsigned lenfname, char *pfont
     c->current.list_started = FALSE;
     c->current.private = 0;
     c->haveSaved = FALSE;
-    c->slept = FALSE;
     c->savedName = 0;
 
-    oc = (OFclosurePtr) malloc(sizeof(OFclosureRec));
+    oc = malloc(sizeof(OFclosureRec));
     if (!oc)
     {
       for (i = 0; i < c->num_fpes; i++)
@@ -1534,7 +1525,7 @@ nxOpenFont(ClientPtr client, XID fid, Mask flags, unsigned lenfname, char *pfont
       free(fss);
       return BadAlloc;
     }
-    oc->fontname = (char *) malloc(256);/* I don't want to deal with future reallocs errors */
+    oc->fontname = malloc(256);/* I don't want to deal with future reallocs errors */
     oc->origFontName = pfontname;
     oc->origFontNameLen = lenfname;
     if (!oc->fontname) {
@@ -1550,17 +1541,16 @@ nxOpenFont(ClientPtr client, XID fid, Mask flags, unsigned lenfname, char *pfont
      * copy the current FPE list, so that if it gets changed by another client
      * while we're blocking, the request still appears atomic
      */
-    oc->fpe_list = (FontPathElementPtr *)
-	malloc(sizeof(FontPathElementPtr) * num_fpes);
+    oc->fpe_list = malloc(sizeof(FontPathElementPtr) * num_fpes);
     if (!oc->fpe_list) {
 	free(oc->fontname);
 	free(oc);
-      for (i = 0; i < c->num_fpes; i++)
-         FreeFPE(c->fpe_list[i]);
-       free(c->fpe_list);
-       free(c);
-       free(fss);
-       return BadAlloc;
+        for (i = 0; i < c->num_fpes; i++)
+            FreeFPE(c->fpe_list[i]);
+        free(c->fpe_list);
+        free(c);
+        free(fss);
+        return BadAlloc;
     }
     memmove(oc->fontname, pfontname, lenfname);
     for (i = 0; i < num_fpes; i++) {
@@ -1572,7 +1562,6 @@ nxOpenFont(ClientPtr client, XID fid, Mask flags, unsigned lenfname, char *pfont
     oc->current_fpe = 0;
     oc->num_fpes = num_fpes;
     oc->fnamelen = lenfname;
-    oc->slept = FALSE;
     oc->flags = flags;
     oc->non_cachable_font = cached;
     fss->c=c;

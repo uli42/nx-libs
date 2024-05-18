@@ -117,12 +117,6 @@ extern _X_EXPORT int GetFontPath(ClientPtr client,
 		       int *length,
 		       unsigned char **result);
 
-extern int LoadGlyphs(ClientPtr /*client*/,
-		      FontPtr /*pfont*/,
-		      unsigned /*nchars*/,
-		      int /*item_size*/,
-		      unsigned char * /*data*/);
-
 extern _X_EXPORT void DeleteClientFontStuff(ClientPtr /*client*/);
 
 /* Quartz support on Mac OS X pulls in the QuickDraw
