@@ -3856,6 +3856,12 @@ int nxagentInitXkbKeyboardState(void)
 }
 
 /* moved here from NXevents.c because of include clashes with Xlib.h */
+void nxagentUngrabPointer(void)
+{
+  XUngrabPointer(nxagentDisplay, CurrentTime);
+}
+
+/* moved here from NXevents.c because of include clashes with Xlib.h */
 void nxagentWaitAndCollectGrabPointer(GrabPtr grab)
 {
   /*

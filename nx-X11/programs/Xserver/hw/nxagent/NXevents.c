@@ -153,6 +153,7 @@ extern void nxagentInitViewportFrame(ScreenPtr, WindowPtr);
 #endif
 extern int  nxagentShadowInit(ScreenPtr, WindowPtr);
 /* helper functions that enable us to reduce Xlib includes here */
+extern void nxagentUngrabPointer(void);
 extern void nxagentWaitAndCollectGrabPointer(GrabPtr grab);
 
 void
@@ -220,7 +221,7 @@ DeactivatePointerGrab(DeviceIntPtr mouse)
      */
     if (nxagentOption(Rootless))
     {
-      XUngrabPointer(nxagentDisplay, CurrentTime);
+      nxagentUngrabPointer();
 
       if (sprite.win == ROOT)
       {
