@@ -417,8 +417,7 @@ bail:
 	SendErrorToClient(c->client, X_OpenFont, 0,
 			  c->fontid, FontToXError(err));
     }
-    if (c->slept)
-	ClientWakeup(c->client);
+    ClientWakeup(c->client);
 xinerama_sleep:
     for (i = 0; i < c->num_fpes; i++) {
 	FreeFPE(c->fpe_list[i]);
@@ -1142,6 +1141,7 @@ doListFontsWithInfo(ClientPtr client, LFWIclosurePtr c)
 	    else if (c->current.max_names == 0)
 		break;
 	}
+
  	else if (err == Successful)
  	{
 	    length = sizeof(*reply) + pFontInfo->nprops * sizeof(xFontProp);
@@ -1337,6 +1337,7 @@ doPolyText(ClientPtr client, PTclosurePtr c)
     {
 	if (*c->pElt == FontChange)
         {
+	    Font fid;
 	    if (c->endReq - c->pElt < FontShiftSize)
 	    {
 		 err = BadLength;
@@ -1344,7 +1345,6 @@ doPolyText(ClientPtr client, PTclosurePtr c)
 	    }
 
 	    oldpFont = pFont;
-	    oldfid = fid;
 
 	    fid =  ((Font)*(c->pElt+4))		/* big-endian */
 		 | ((Font)*(c->pElt+3)) << 8
@@ -2019,7 +2019,7 @@ SetDefaultFontPath(char *path)
     /* get enough for string, plus values -- use up commas */
     len = strlen(temp_path) + 1;
     nump = cp = newpath = malloc(len);
-    if (!newpath)
+    if (!newpath) {
 	free(temp_path);
 	return BadAlloc;
     }
@@ -2294,8 +2294,9 @@ static
 FontPtr
 find_old_font(XID id)
 {
-    return (FontPtr) SecurityLookupIDByType(NullClient, id, RT_NONE,
-					    DixUnknownAccess);
+    void * pFont;
+    dixLookupResourceByType(&pFont, id, RT_NONE, serverClient, DixReadAccess);
+    return (FontPtr)pFont;
 }
 
 #ifdef HAS_XFONT2
