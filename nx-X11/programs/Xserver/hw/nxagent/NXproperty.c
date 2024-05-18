@@ -162,14 +162,14 @@ ProcChangeProperty(ClientPtr client)
 	 * Just return success.
 	 */
 	if (stuff->property == mcop_local_atom)
-	    return client->noClientException;
+	    return Success;
     }
 #endif
 
 #ifdef NXAGENT_SERVER
     /* prevent clients from changing the NX_AGENT_VERSION property */
     if (stuff->property == MakeAtom("NX_AGENT_VERSION", strlen("NX_AGENT_VERSION"), True))
-	return client->noClientException;
+        return Success;
 #endif
 
     err = dixChangeWindowProperty(client, pWin, stuff->property, stuff->type,
@@ -193,10 +193,10 @@ ProcChangeProperty(ClientPtr client)
 	#ifdef NX_DEBUG_INPUT
 	nxagentGuessDumpInputInfo(client, stuff->property, (char *) &stuff[1]);
 	#endif
-	return client->noClientException;
+	return Success;
     }
 #else
-	return client->noClientException;
+        return Success;
 #endif
 }
 
@@ -283,7 +283,7 @@ ProcGetProperty(ClientPtr client)
 
     /*
      * Creating a reply for WM_STATE property if it doesn't exist.
-     * This is intended to allow drag & drop work in JAva 1.6 when
+     * This is intended to allow drag & drop work in Java 1.6 when
      * the agent is connected to NXWin in multiwindow mode.
      */
 
@@ -299,7 +299,7 @@ ProcGetProperty(ClientPtr client)
       wmState.state = 1;
       wmState.icon = None;
 
-      if (ChangeWindowProperty(pWin, stuff->property, stuff->property, 32, 0, 2, &wmState, 1) == Success)
+      if (dixChangeWindowProperty(serverClient,pWin, stuff->property, stuff->property, 32, 0, 2, &wmState, 1) == Success)
       {
         nxagentExportProperty(pWin, stuff->property, stuff->property, 32, 0, 2, &wmState);
       }
@@ -331,7 +331,7 @@ ProcGetProperty(ClientPtr client)
         WriteSwappedDataToClient(client, len, (char *)wmsP + ind);
       }
 
-      return(client->noClientException);
+      return Success;
     }
 #endif
 
@@ -403,11 +403,10 @@ ProcGetProperty(ClientPtr client)
 	    prevProp->next = pProp->next;
 	}
 
-	dixFreePrivates(pProp->devPrivates);
 	free(pProp->data);
-	free(pProp);
+	dixFreeObjectWithPrivates(pProp, PRIVATE_PROPERTY);
     }
-    return(client->noClientException);
+    return Success;
 }
 
 int
@@ -417,7 +416,7 @@ ProcDeleteProperty(ClientPtr client)
     REQUEST_SIZE_MATCH(xDeletePropertyReq);
     /* prevent clients from deleting the NX_AGENT_VERSION property */
     if (stuff->property == MakeAtom("NX_AGENT_VERSION", strlen("NX_AGENT_VERSION"), True))
-      return client->noClientException;
+      return Success;
 
     return xorg_ProcDeleteProperty(client);
 }
