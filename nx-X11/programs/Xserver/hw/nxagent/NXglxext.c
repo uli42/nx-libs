@@ -55,7 +55,7 @@
 /*
 ** Top level dispatcher; all commands are executed from here down.
 */
-static int __glXDispatch(ClientPtr client)
+int __glXDispatch(ClientPtr client)
 {
     int retval;
 
