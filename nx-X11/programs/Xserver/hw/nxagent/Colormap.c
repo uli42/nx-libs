@@ -297,18 +297,16 @@ void nxagentSetInstalledColormapWindows(ScreenPtr pScreen)
     if (icws.numWindows)
     {
       ColormapPtr pCmap;
+      int rc;
 
       WindowPtr pWin = nxagentWindowPtr(icws.windows[0]);
       Visual *visual = nxagentVisualFromID(pScreen, wVisual(pWin));
 
       if (visual == nxagentDefaultVisual(pScreen))
-        pCmap = (ColormapPtr)LookupIDByType(wColormap(pWin),
-                                            RT_COLORMAP);
+        rc = dixLookupResourceByType((void *)&pCmap, wColormap(pWin), RT_COLORMAP, NullClient, DixUnknownAccess);
       else
-        pCmap = (ColormapPtr)LookupIDByType(pScreen->defColormap,
-                                            RT_COLORMAP);
-
-      if (pCmap != NULL)
+        rc = dixLookupResourceByType((void *)&pCmap, pScreen->defColormap, RT_COLORMAP, NullClient, DixUnknownAccess);
+      if (rc == Success)
       {
         XSetWindowColormap(nxagentDisplay,
                                nxagentDefaultWindows[pScreen->myNum],
@@ -363,8 +361,8 @@ void nxagentDirectInstallColormaps(ScreenPtr pScreen)
   int n = (*pScreen->ListInstalledColormaps)(pScreen, pCmapIDs);
 
   for (int i = 0; i < n; i++) {
-    ColormapPtr pCmap = (ColormapPtr)LookupIDByType(pCmapIDs[i], RT_COLORMAP);
-    if (pCmap)
+    ColormapPtr pCmap;
+    if (dixLookupResourceByType((void *)&pCmap, pCmapIDs[i], RT_COLORMAP, NullClient, DixUnknownAccess) == Success)
       XInstallColormap(nxagentDisplay, nxagentColormap(pCmap));
   }
 }
@@ -378,8 +376,8 @@ void nxagentDirectUninstallColormaps(ScreenPtr pScreen)
   int n = (*pScreen->ListInstalledColormaps)(pScreen, pCmapIDs);
 
   for (int i = 0; i < n; i++) {
-    ColormapPtr pCmap = (ColormapPtr)LookupIDByType(pCmapIDs[i], RT_COLORMAP);
-    if (pCmap)
+    ColormapPtr pCmap;
+    if (dixLookupResourceByType((void *)&pCmap, pCmapIDs[i], RT_COLORMAP, NullClient, DixUnknownAccess) == Success)
       XUninstallColormap(nxagentDisplay, nxagentColormap(pCmap));
   }
 }
@@ -414,8 +412,7 @@ void nxagentUninstallColormap(ColormapPtr pCmap)
   {
     if ((unsigned int)pCmap->mid != pCmap->pScreen->defColormap)
     {
-      pCurCmap = (ColormapPtr)LookupIDByType(pCmap->pScreen->defColormap,
-					     RT_COLORMAP);
+      dixLookupResourceByType((void *)&pCurCmap, pCmap->pScreen->defColormap, RT_COLORMAP, NullClient, DixUnknownAccess);
       (*pCmap->pScreen->InstallColormap)(pCurCmap);
     }
   }
