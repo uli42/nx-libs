@@ -182,7 +182,7 @@ ProcConvertSelection(ClientPtr client)
         if (nxagentConvertSelection(client, pWin, stuff->selection, stuff->requestor,
                                        stuff->property, stuff->target, stuff->time))
         {
-          return (client->noClientException);
+          return Success;
         }
       }
     }
