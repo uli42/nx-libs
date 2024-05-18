@@ -53,21 +53,7 @@
 #include "Drawable.h"
 #include "Render.h"
 
-/* prototypes */
-
-PictFormatPtr PictureCreateDefaultFormats (ScreenPtr pScreen, int *nformatp);
-PicturePtr CreatePicture (Picture       pid,
-                          DrawablePtr   pDrawable,
-                          PictFormatPtr pFormat,
-                          Mask          vmask,
-                          XID           *vlist,
-                          ClientPtr     client,
-                          int           *error);
-static PicturePtr createSourcePicture(void);
-int FreePicture (void *value, XID pid);
-
 #include "../../render/picture.c"
-
 
 #define PANIC
 #define WARNING
@@ -80,6 +66,7 @@ void *nxagentMatchingFormats(PictFormatPtr pForm);
 
 void nxagentPictureCreateDefaultFormats(ScreenPtr pScreen, FormatInitRec *formats, int *nformats);
 
+/* We only support a subset, see nxagentPictureCreateDefaultFormats */
 PictFormatPtr
 PictureCreateDefaultFormats (ScreenPtr pScreen, int *nformatp)
 {
@@ -94,11 +81,7 @@ PictureCreateDefaultFormats (ScreenPtr pScreen, int *nformatp)
     nxagentPictureCreateDefaultFormats(pScreen, formats, &nformats);
 #endif
 
-#ifdef NXAGENT_SERVER
-    pFormats = (PictFormatPtr) calloc (nformats, sizeof (PictFormatRec));
-#else
-    pFormats = (PictFormatPtr) malloc (nformats * sizeof (PictFormatRec));
-#endif
+    pFormats = calloc (nformats, sizeof (PictFormatRec));
     if (!pFormats)
 	return 0;
     for (f = 0; f < nformats; f++)
@@ -147,6 +130,26 @@ PictureCreateDefaultFormats (ScreenPtr pScreen, int *nformatp)
 	    pFormats[f].direct.redMask = Mask(PICT_FORMAT_R(format));
 	    pFormats[f].direct.red = 0;
 	    break;
+
+#ifdef NXAGENT_SERVER
+	case PICT_TYPE_BGRA:
+	    pFormats[f].type = PictTypeDirect;
+	    
+	    pFormats[f].direct.blueMask = Mask(PICT_FORMAT_B(format));
+	    pFormats[f].direct.blue = (PICT_FORMAT_BPP(format) - PICT_FORMAT_B(format));
+
+	    pFormats[f].direct.greenMask = Mask(PICT_FORMAT_G(format));
+	    pFormats[f].direct.green = (PICT_FORMAT_BPP(format) - PICT_FORMAT_B(format) -
+					PICT_FORMAT_G(format));
+
+	    pFormats[f].direct.redMask = Mask(PICT_FORMAT_R(format));
+	    pFormats[f].direct.red = (PICT_FORMAT_BPP(format) - PICT_FORMAT_B(format) -
+				      PICT_FORMAT_G(format) - PICT_FORMAT_R(format));
+
+	    pFormats[f].direct.alphaMask = Mask(PICT_FORMAT_A(format));
+	    pFormats[f].direct.alpha = 0;
+	    break;
+#endif
 
 	case PICT_TYPE_A:
 	    pFormats[f].type = PictTypeDirect;
@@ -203,7 +206,7 @@ CreatePicture (Picture		pid,
     PicturePtr		pPicture;
     PictureScreenPtr	ps = GetPictureScreen(pDrawable->pScreen);
 
-    pPicture = (PicturePtr)malloc(sizeof(PictureRec));
+    pPicture = dixAllocateObjectWithPrivates(PictureRec, PRIVATE_PICTURE);
     if (!pPicture)
     {
 	*error = BadAlloc;
@@ -214,7 +217,6 @@ CreatePicture (Picture		pid,
     pPicture->pDrawable = pDrawable;
     pPicture->pFormat = pFormat;
     pPicture->format = pFormat->format | (pDrawable->bitsPerPixel << 24);
-    pPicture->devPrivates = NULL;
 
 #ifdef NXAGENT_SERVER
     nxagentPicturePriv(pPicture) -> picture = 0;
@@ -265,14 +267,13 @@ out:
 static PicturePtr createSourcePicture(void)
 {
     PicturePtr pPicture;
-    pPicture = (PicturePtr) calloc(1, sizeof(PictureRec));
+    pPicture = dixAllocateObjectWithPrivates(PictureRec, PRIVATE_PICTURE);
     if (!pPicture)
         return 0;
     pPicture->pDrawable = 0;
     pPicture->pFormat = 0;
     pPicture->pNext = 0;
     pPicture->format = PICT_a8r8g8b8;
-    pPicture->devPrivates = 0;
 
 #ifdef NXAGENT_SERVER
     nxagentPicturePriv(pPicture) -> picture = 0;
@@ -294,7 +295,7 @@ CreateSolidPicture (Picture pid, xRenderColor *color, int *error)
     }
 
     pPicture->id = pid;
-    pPicture->pSourcePict = (SourcePictPtr) calloc(1, sizeof(PictSolidFill));
+    pPicture->pSourcePict = (SourcePictPtr) calloc(1, sizeof(SourcePict));
     if (!pPicture->pSourcePict) {
         *error = BadAlloc;
         free(pPicture);
@@ -302,12 +303,14 @@ CreateSolidPicture (Picture pid, xRenderColor *color, int *error)
     }
     pPicture->pSourcePict->type = SourcePictTypeSolidFill;
     pPicture->pSourcePict->solidFill.color = xRenderColorToCard32(*color);
+
 #ifdef NXAGENT_SERVER
-    pPicture->pSourcePict->solidFill.fullColor.alpha=color->alpha;
-    pPicture->pSourcePict->solidFill.fullColor.red=color->red;
-    pPicture->pSourcePict->solidFill.fullColor.green=color->green;
-    pPicture->pSourcePict->solidFill.fullColor.blue=color->blue;
+    pPicture->pSourcePict->solidFill.fullColor.alpha = color->alpha;
+    pPicture->pSourcePict->solidFill.fullColor.red = color->red;
+    pPicture->pSourcePict->solidFill.fullColor.green = color->green;
+    pPicture->pSourcePict->solidFill.fullColor.blue = color->blue;
 #endif
+
     return pPicture;
 }
 
@@ -322,8 +325,7 @@ FreePicture (void *	value,
 #ifdef NXAGENT_SERVER
         nxagentDestroyPicture(pPicture);
 #endif
-	if (pPicture->transform)
-	    free (pPicture->transform);
+	free (pPicture->transform);
 
 	if (pPicture->pSourcePict)
 	{
@@ -364,8 +366,7 @@ FreePicture (void *	value,
                 (*pScreen->DestroyPixmap) ((PixmapPtr)pPicture->pDrawable);
             }
         }
-	dixFreePrivates(pPicture->devPrivates);
-	free (pPicture);
+	dixFreeObjectWithPrivates(pPicture, PRIVATE_PICTURE);
     }
     return Success;
 }
@@ -487,7 +488,7 @@ Bool nxagentReconnectAllPictFormat(void *p)
 }
 
 /*
- * It seem we don't have nothing
+ * It seems there's nothing
  * to do for reconnect PictureFormat.
  */
 
@@ -505,91 +506,222 @@ void nxagentReconnectPictFormat(void *p0, XID x1, void *p2)
  * is that all picture formats have to be available on the new X
  * server.  To reduce such problems, we use a limited set of pictures
  * available on the most X servers.
+ * The code here is derived vom picture.c/PictureCreateDefaultFormats()
  */
 
 void nxagentPictureCreateDefaultFormats(ScreenPtr pScreen, FormatInitRec *formats, int *nformats)
 {
-  DepthPtr  pDepth;
-  VisualPtr pVisual;
+    CARD32 format;
+    CARD8 depth;
+    VisualPtr pVisual;
+    int v;
+    int bpp;
+    int type;
+    int r, g, b;
+    int d;
+    DepthPtr  pDepth;
 
-  CARD32 format;
-  CARD8 depth;
+    /* formats required by protocol */
+    formats[*nformats].format = PICT_a1;
+    formats[*nformats].depth = 1;
+    *nformats += 1;
+    formats[*nformats].format = PICT_FORMAT(BitsPerPixel(8),
+					    PICT_TYPE_A,
+					    8, 0, 0, 0);
+    formats[*nformats].depth = 8;
+    *nformats += 1;
+    formats[*nformats].format = PICT_FORMAT(BitsPerPixel(4),
+					    PICT_TYPE_A,
+					    4, 0, 0, 0);
+    formats[*nformats].depth = 4;
+    *nformats += 1;
+    formats[*nformats].format = PICT_a8r8g8b8;
+    formats[*nformats].depth = 32;
+    *nformats += 1;
+#ifndef NXAGENT_SERVER
+    formats[*nformats].format = PICT_x8r8g8b8;
+    formats[*nformats].depth = 32;
+    *nformats += 1;
+    formats[*nformats].format = PICT_b8g8r8a8;
+    formats[*nformats].depth = 32;
+    *nformats += 1;
+    formats[*nformats].format = PICT_b8g8r8x8;
+    formats[*nformats].depth = 32;
+    *nformats += 1;
+#endif
 
-  int r, g, b;
-  int bpp;
-  int d;
-  int v;
-
-
-  formats[*nformats].format = PICT_a1;
-  formats[*nformats].depth = 1;
-  *nformats += 1;
-  formats[*nformats].format = PICT_a4;
-  formats[*nformats].depth = 4;
-  *nformats += 1;
-  formats[*nformats].format = PICT_a8;
-  formats[*nformats].depth = 8;
-  *nformats += 1;
-  formats[*nformats].format = PICT_a8r8g8b8;
-  formats[*nformats].depth = 32;
-  *nformats += 1;
-
-  /*
-   * This format should be required by the
-   * protocol, but it's not used by Xgl.
-   *
-   * formats[*nformats].format = PICT_x8r8g8b8;
-   * formats[*nformats].depth = 32;
-   * *nformats += 1;
-   */
-
-  /* now look through the depths and visuals adding other formats */
-  for (v = 0; v < pScreen->numVisuals; v++)
-  {
-    pVisual = &pScreen->visuals[v];
-    depth = visualDepth (pScreen, pVisual);
-    if (!depth)
-      continue;
-
-    bpp = BitsPerPixel (depth);
-
-    switch (pVisual->class)
+    /* now look through the depths and visuals adding other formats */
+    for (v = 0; v < pScreen->numVisuals; v++)
     {
-      case DirectColor:
-      case TrueColor:
-        r = Ones (pVisual->redMask);
-        g = Ones (pVisual->greenMask);
-        b = Ones (pVisual->blueMask);
+	pVisual = &pScreen->visuals[v];
+	depth = visualDepth (pScreen, pVisual);
+	if (!depth)
+	    continue;
 
-        if (pVisual->offsetBlue == 0 &&
-            pVisual->offsetGreen == b &&
-            pVisual->offsetRed == b + g)
-        {
-    	  format = PICT_FORMAT(bpp, PICT_TYPE_ARGB, 0, r, g, b);
-    	  *nformats = addFormat (formats, *nformats, format, depth);
-        }
-        break;
-      case StaticColor:
-      case PseudoColor:
-      case StaticGray:
-      case GrayScale:
-        break;
+	bpp = BitsPerPixel (depth);
+
+	switch (pVisual->class)
+	{
+	case DirectColor:
+	case TrueColor:
+	    r = Ones (pVisual->redMask);
+	    g = Ones (pVisual->greenMask);
+	    b = Ones (pVisual->blueMask);
+	    type = PICT_TYPE_OTHER;
+	    /*
+	     * Current rendering code supports only three direct formats,
+	     * fields must be packed together at the bottom of the pixel
+	     */
+	    if (pVisual->offsetBlue == 0 &&
+		pVisual->offsetGreen == b &&
+		pVisual->offsetRed == b + g)
+	    {
+	        type = PICT_TYPE_ARGB;
+	    }
+#ifndef NXAGENT_SERVER	
+	    else if (pVisual->offsetRed == 0 &&
+		     pVisual->offsetGreen == r && 
+		     pVisual->offsetBlue == r + g)
+	    {
+	        type = PICT_TYPE_ABGR;
+	    }
+	    else if (pVisual->offsetRed == pVisual->offsetGreen - r &&
+		     pVisual->offsetGreen == pVisual->offsetBlue - g && 
+		     pVisual->offsetBlue == bpp - b)
+	    {
+	        type = PICT_TYPE_BGRA;
+	    }
+#endif
+	    if (type != PICT_TYPE_OTHER)
+	    {
+	        format = PICT_FORMAT(bpp, type, 0, r, g, b);
+		*nformats = addFormat (formats, *nformats, format, depth);
+	    }
+	    break;
+	case StaticColor:
+	case PseudoColor:
+#ifndef NXAGENT_SERVER
+	    format = PICT_VISFORMAT (bpp, PICT_TYPE_COLOR, v);
+	    *nformats = addFormat (formats, *nformats, format, depth);
+	    break;
+#endif
+	case StaticGray:
+	case GrayScale:
+#ifndef NXAGENT_SERVER
+	    format = PICT_VISFORMAT (bpp, PICT_TYPE_GRAY, v);
+	    *nformats = addFormat (formats, *nformats, format, depth);
+#endif
+            break;
+	}
     }
-  }
 
-  for (d = 0; d < pScreen -> numDepths; d++)
-  {
-    pDepth = &pScreen -> allowedDepths[d];
-    bpp = BitsPerPixel(pDepth -> depth);
+    /*
+     * Walk supported depths and add useful Direct formats
+     */
+    for (d = 0; d < pScreen->numDepths; d++)
+    {
+	pDepth = &pScreen->allowedDepths[d];
+	bpp = BitsPerPixel (pDepth->depth);
+	format = 0;
+	switch (bpp) {
+	case 16:
+#ifndef NXAGENT_SERVER
+	    /* depth 12 formats */
+	    if (pDepth->depth >= 12)
+	    {
+		*nformats = addFormat (formats, *nformats,
+				      PICT_x4r4g4b4, pDepth->depth);
+		*nformats = addFormat (formats, *nformats,
+				      PICT_x4b4g4r4, pDepth->depth);
+	    }
+#endif
+	    /* depth 15 formats */
+	    if (pDepth->depth >= 15)
+	    {
+		*nformats = addFormat (formats, *nformats,
+				      PICT_x1r5g5b5, pDepth->depth);
+#ifndef NXAGENT_SERVER
+		*nformats = addFormat (formats, *nformats,
+				      PICT_x1b5g5r5, pDepth->depth);
+#endif
+	    }
+	    /* depth 16 formats */
+	    if (pDepth->depth >= 16) 
+	    {
+#ifndef NXAGENT_SERVER
+	        *nformats = addFormat (formats, *nformats,
+				      PICT_a1r5g5b5, pDepth->depth);
+		*nformats = addFormat (formats, *nformats,
+				      PICT_a1b5g5r5, pDepth->depth);
+#endif
+		*nformats = addFormat (formats, *nformats,
+				      PICT_r5g6b5, pDepth->depth);
+#ifndef NXAGENT_SERVER
+		*nformats = addFormat (formats, *nformats,
+				      PICT_b5g6r5, pDepth->depth);
+		*nformats = addFormat (formats, *nformats,
+				      PICT_a4r4g4b4, pDepth->depth);
+		*nformats = addFormat (formats, *nformats,
+				      PICT_a4b4g4r4, pDepth->depth);
+#endif
+	    }
+	    break;
+	case 24:
+	    if (pDepth->depth >= 24)
+	    {
+		*nformats = addFormat (formats, *nformats,
+				      PICT_r8g8b8, pDepth->depth);
+#ifndef NXAGENT_SERVER
+		*nformats = addFormat (formats, *nformats,
+				      PICT_b8g8r8, pDepth->depth);
+#endif
+	    }
+	    break;
+	case 32:
+	    if (pDepth->depth >= 24)
+	    {
+		*nformats = addFormat (formats, *nformats,
+				      PICT_x8r8g8b8, pDepth->depth);
+#ifndef NXAGENT_SERVER
+		*nformats = addFormat (formats, *nformats,
+				      PICT_x8b8g8r8, pDepth->depth);
+#endif
+	    }
+#ifndef NXAGENT_SERVER
+	    if (pDepth->depth >= 30)
+	    {
+		*nformats = addFormat (formats, *nformats,
+				      PICT_a2r10g10b10, pDepth->depth);
+		*nformats = addFormat (formats, *nformats,
+				      PICT_x2r10g10b10, pDepth->depth);
+		*nformats = addFormat (formats, *nformats,
+				      PICT_a2b10g10r10, pDepth->depth);
+		*nformats = addFormat (formats, *nformats,
+				      PICT_x2b10g10r10, pDepth->depth);
+	    }
+#endif
+	    break;
+	}
+    }
 
-    switch (bpp) {
-    case 16:
-      if (pDepth->depth == 15)
+
+    /*
+     * Walk supported depths and add useful Direct formats
+     */
+    for (d = 0; d < pScreen -> numDepths; d++)
+    {
+        pDepth = &pScreen -> allowedDepths[d];
+	bpp = BitsPerPixel(pDepth -> depth);
+
+	switch (bpp) {
+	case 16:
+	    /* depth 15 formats */
+	    if (pDepth->depth == 15)
       {
         *nformats = addFormat (formats, *nformats,
     			      PICT_x1r5g5b5, pDepth->depth);
       }
-
+      /* depth 16 formats */
       if (pDepth->depth == 16) 
       {
         *nformats = addFormat (formats, *nformats,
