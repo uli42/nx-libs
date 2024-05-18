@@ -87,14 +87,6 @@ ShmExtensionInit(void)
   ShmFuncsPtr store[MAXSCREENS];
   static ShmFuncs nullfuncs = {NULL, NULL};
 
-#ifdef MUST_CHECK_FOR_SHM_SYSCALL
-  if (!CheckForShmSyscall())
-  {
-    ErrorF("MIT-SHM extension disabled due to lack of kernel support\n");
-    return;
-  }
-#endif
-
 #ifdef NXAGENT_SERVER
   if (!nxagentOption(SharedMemory))
   {
@@ -117,8 +109,9 @@ ShmExtensionInit(void)
   {
     for (int i = 0; i < screenInfo.numScreens; i++)
     {
-      store[i] = shmFuncs[i];
-      shmFuncs[i] = &nullfuncs;
+      ShmScrPrivateRec *screen_priv = ShmInitScreenPriv(screenInfo.screens[i]);
+      store[i] = screen_priv->shmFuncs;
+      screen_priv->shmFuncs = &nullfuncs;
     }
   }
 
@@ -134,15 +127,16 @@ ShmExtensionInit(void)
   {
     for (int i = 0; i < screenInfo.numScreens; i++)
     {
-      if (shmFuncs[i] == &nullfuncs)
+      ShmScrPrivateRec *screen_priv = ShmInitScreenPriv(screenInfo.screens[i]);
+      if (screen_priv->shmFuncs == &nullfuncs)
       {
         if (store[i] == NULL)
         {
-          shmFuncs[i] = &miFuncs;
+          screen_priv->shmFuncs = &miFuncs;
         }
         else
         {
-          shmFuncs[i] = store[i];
+          screen_priv->shmFuncs = store[i];
         }
       }
     }
@@ -246,8 +240,7 @@ nxagentShmPutImage(dst, pGC, depth, format, w, h, sx, sy, sw, sh, dx, dy, data)
 }
 
 static int
-ProcShmPutImage(client)
-    register ClientPtr client;
+ProcShmPutImage(ClientPtr client)
 {
     GCPtr pGC;
     DrawablePtr pDraw;
@@ -331,7 +324,9 @@ ProcShmPutImage(client)
     it leads to very strange issues when coupled with libXcomp and using
     connection speed settings lower than LAN (and even on LAN some icons
     are not showing up correctly, e.g., when using MATE).
-
+    2024-05-18: Note that this is a Mate bug. Unfortunately I lost the link
+    where this is described.
+    
     Further investigation on why this happens pending and might happen at a
     later time.
 
@@ -375,9 +370,7 @@ ProcShmPutImage(client)
     {
 	xShmCompletionEvent ev;
 
-#ifdef NXAGENT_SERVER
 	memset(&ev, 0, sizeof(xShmCompletionEvent));
-#endif
 	ev.type = ShmCompletionCode;
 	ev.drawable = stuff->drawable;
 	ev.minorEvent = X_ShmPutImage;
@@ -387,7 +380,7 @@ ProcShmPutImage(client)
 	WriteEventsToClient(client, 1, (xEvent *) &ev);
     }
 
-    return (client->noClientException);
+    return Success;
 }
 
 /* derived from Xext/shm.c */
@@ -450,7 +443,7 @@ fbShmCreatePixmap (pScreen, width, height, depth, addr)
 }
 
 static int
-ProcShmDispatch (register ClientPtr client)
+ProcShmDispatch (ClientPtr client)
 {
     #ifdef TEST
     REQUEST(xReq);
@@ -471,7 +464,7 @@ ProcShmDispatch (register ClientPtr client)
 }
 
 static int
-SProcShmDispatch (register ClientPtr client)
+SProcShmDispatch (ClientPtr client)
 {
     #ifdef TEST
     REQUEST(xReq);
