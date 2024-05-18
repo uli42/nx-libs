@@ -91,6 +91,12 @@ the first one we find.
 cursor metrics.
 */
 
+/*
+ * FIXME: we can probably (un)wrap
+ * CreatePixmap/DetroyPixmap/PolyFillrect/GetImage and call the
+ * upstream version
+ */
+
 int
 ServerBitsFromGlyph(FontPtr pfont, unsigned ch, CursorMetricPtr cm, unsigned char **ppbits)
 {
@@ -109,11 +115,9 @@ ServerBitsFromGlyph(FontPtr pfont, unsigned ch, CursorMetricPtr cm, unsigned cha
 
     pScreen = screenInfo.screens[0];
     nby = BitmapBytePad(cm->width) * (long)cm->height;
-    pbits = (char *)malloc(nby);
+    pbits = calloc(1, nby);
     if (!pbits)
 	return BadAlloc;
-    /* zeroing the (pad) bits seems to help some ddx cursor handling */
-    bzero(pbits, nby);
 
 #ifndef NXAGENT_SERVER
     ppix = (PixmapPtr)(*pScreen->CreatePixmap)(pScreen, cm->width,
@@ -139,6 +143,7 @@ ServerBitsFromGlyph(FontPtr pfont, unsigned ch, CursorMetricPtr cm, unsigned cha
 	return BadAlloc;
     }
 
+#ifdef NXAGENT_SERVER
     #ifdef TEST
     fprintf(stderr, "ServerBitsFromGlyph: Created virtual pixmap at [%p] with width [%d] height [%d] depth [%d].\n",
                 (void *) ppix, cm->width, cm->height, 1);
@@ -149,6 +154,7 @@ ServerBitsFromGlyph(FontPtr pfont, unsigned ch, CursorMetricPtr cm, unsigned cha
     nxagentPixmapPriv(ppix) -> isVirtual = True;
     nxagentPixmapPriv(ppix) -> pRealPixmap = NULL;
     nxagentPixmapPriv(ppix) -> pVirtualPixmap = NULL;
+#endif
 
     rect.x = 0;
     rect.y = 0;
@@ -159,8 +165,7 @@ ServerBitsFromGlyph(FontPtr pfont, unsigned ch, CursorMetricPtr cm, unsigned cha
     gcval[0].val = GXcopy;
     gcval[1].val = 0;
     gcval[2].ptr = (void *)pfont;
-    dixChangeGC(NullClient, pGC, GCFunction | GCForeground | GCFont,
-		NULL, gcval);
+    ChangeGC(NullClient, pGC, GCFunction | GCForeground | GCFont, gcval);
     ValidateGC((DrawablePtr)ppix, pGC);
 #ifndef NXAGENT_SERVER
     (*pGC->ops->PolyFillRect)((DrawablePtr)ppix, pGC, 1, &rect);
@@ -170,7 +175,7 @@ ServerBitsFromGlyph(FontPtr pfont, unsigned ch, CursorMetricPtr cm, unsigned cha
 
     /* draw the glyph */
     gcval[0].val = 1;
-    dixChangeGC(NullClient, pGC, GCForeground, NULL, gcval);
+    ChangeGC(NullClient, pGC, GCForeground, gcval);
     ValidateGC((DrawablePtr)ppix, pGC);
 #ifndef NXAGENT_SERVER
     (*pGC->ops->PolyText16)((DrawablePtr)ppix, pGC, cm->xhot, cm->yhot,
@@ -179,7 +184,7 @@ ServerBitsFromGlyph(FontPtr pfont, unsigned ch, CursorMetricPtr cm, unsigned cha
 			 XYPixmap, 1, pbits);
 #else
     miPolyText16((DrawablePtr)ppix, pGC, (int)cm->xhot, (int)cm->yhot,
-                 (int)1, (unsigned short*)char2b);
+                 1, (unsigned short*)char2b);
     fbGetImage((DrawablePtr)ppix, 0, 0, cm->width, cm->height,
                          XYPixmap, 1, pbits);
 #endif
@@ -189,12 +194,12 @@ ServerBitsFromGlyph(FontPtr pfont, unsigned ch, CursorMetricPtr cm, unsigned cha
     (*pScreen->DestroyPixmap)(ppix);
 #else
     fbDestroyPixmap(ppix);
-#endif
 
     #ifdef TEST
     fprintf(stderr, "ServerBitsFromGlyph: Destroyed virtual pixmap at [%p].\n",
                 (void *) ppix);
     #endif
+#endif
 
     return Success;
 }
