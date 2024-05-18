@@ -1,1 +1,0 @@
-../../../../programs/Xserver/Xi/stubs.c
