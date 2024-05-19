@@ -471,7 +471,7 @@ FIXME: The popup could be synchronized with one single put image,
       }
       else
       {
-        CARD32 targetAttributes[2];
+        ChangeGCVal targetAttributes[2];
 
         /*
          * Setting the clip mask origin. This operation must precede
@@ -479,10 +479,10 @@ FIXME: The popup could be synchronized with one single put image,
          * the XSetClipRectangles().
          */
 
-        targetAttributes[0] = 0;
-        targetAttributes[1] = 0;
+        targetAttributes[0].val = 0;
+        targetAttributes[1].val = 0;
 
-        ChangeGC(targetGC, GCClipXOrigin | GCClipYOrigin, targetAttributes);
+        ChangeGC(NullClient, targetGC, GCClipXOrigin | GCClipYOrigin, targetAttributes);
 
         /*
          * Setting the new clip mask.
