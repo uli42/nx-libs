@@ -385,7 +385,8 @@ Bool nxagentReconnectAllCursor(void *p0)
 {
   Bool r = True;
 
-  GrabPtr grab = inputInfo.pointer -> grab;
+  //GrabPtr grab = inputInfo.pointer -> grab;
+  GrabPtr grab = inputInfo.pointer -> deviceGrab.grab;
 
   #if defined(NXAGENT_RECONNECT_DEBUG) || defined(NXAGENT_RECONNECT_CURSOR_DEBUG)
   fprintf(stderr, "%s\n", __func__);
@@ -492,7 +493,8 @@ void nxagentDisconnectAllCursor(void)
 {
   Bool r = True;
 
-  GrabPtr grab = inputInfo.pointer -> grab;
+  //GrabPtr grab = inputInfo.pointer -> grab;
+  GrabPtr grab = inputInfo.pointer -> deviceGrab.grab;
 
   #ifdef TEST
   fprintf(stderr, "%s: Going to iterate through cursor resources.\n", __func__);

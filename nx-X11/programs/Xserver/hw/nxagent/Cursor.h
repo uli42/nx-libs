@@ -67,14 +67,15 @@ typedef struct _AnimCur {
 
 extern CursorBitsPtr nxagentAnimCursorBits;
 
+
 #define nxagentIsAnimCursor(c)        ((c)->bits == nxagentAnimCursorBits)
 #define nxagentGetAnimCursor(c)       ((AnimCurPtr) ((c) + 1))
 
-#define nxagentGetCursorPriv(pCursor, pScreen) \
-    ((nxagentPrivCursor *)dixLookupPrivate(&(pCursor)->devPrivates, pScreen))
+#define nxagentGetCursorPriv(pCursor, pScreen) ((nxagentPrivCursor *) \
+    dixLookupPrivate(&(pCursor)->devPrivates, CursorScreenKey(pScreen)))
 
 #define nxagentSetCursorPriv(pCursor, pScreen, v) \
-    dixSetPrivate(&(pCursor)->devPrivates, pScreen, v)
+    dixSetPrivate(&(pCursor)->devPrivates, CursorScreenKey(pScreen), v)
 
 #define nxagentCursor(pCursor, pScreen)		\
   (nxagentGetCursorPriv(pCursor, pScreen)->cursor)
