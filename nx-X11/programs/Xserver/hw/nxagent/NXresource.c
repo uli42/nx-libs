@@ -562,7 +562,7 @@ RestartLoop:
                     return value;
 #else
 		if((*func)(value, this->id, cdata))
-		    return >value;
+		    return value;
 #endif
 	    }
 	}
