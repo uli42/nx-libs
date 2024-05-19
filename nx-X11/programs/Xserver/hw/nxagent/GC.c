@@ -78,7 +78,7 @@ RESTYPE RT_NX_GC;
 
 #include "Literals.h"
 
-DevPrivateKey nxagentGCPrivateKey = &nxagentGCPrivateKey;
+DevPrivateKeyRec nxagentGCPrivateKeyRec;
 
 nxagentGraphicContextsPtr nxagentGraphicContexts;
 int nxagentGraphicContextsSize;
@@ -1445,13 +1445,13 @@ GCPtr nxagentCreateGraphicContext(int depth)
    * Color used in nxagentFillRemoteRegion().
    */
 
-  XID attributes[2];
+  ChangeGCVal attributes[2];
 
-  attributes[0] = 0xc1c1c1;
+  attributes[0].val = 0xc1c1c1;
 
   if (depth == 15 || depth == 16)
   {
-    Color32to16(attributes[0]);
+    Color32to16(attributes[0].val);
   }
 
   /*
@@ -1459,9 +1459,8 @@ GCPtr nxagentCreateGraphicContext(int depth)
    * synchronizing windows covered by an invisible child.
    */
 
-  attributes[1] = IncludeInferiors;
-
-  ChangeGC(pGC, GCForeground | GCSubwindowMode, attributes);
+  attributes[1].val = IncludeInferiors;
+  ChangeGC(NullClient, pGC, GCForeground | GCSubwindowMode, attributes);
 
   nxagentGraphicContexts[nxagentGraphicContextsSize].pGC   = pGC;
   nxagentGraphicContexts[nxagentGraphicContextsSize].depth = depth;
