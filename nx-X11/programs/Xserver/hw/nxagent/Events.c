@@ -88,6 +88,9 @@
 #include "XKBlib.h"
 #undef Time
 
+#include "xkbsrv.h"
+#include "xkbstr.h"
+
 #define GC     XlibGC
 #define Font   XlibFont
 #define KeySym XlibKeySym
@@ -140,7 +143,7 @@ int nxagentDebugInput = 0;
 extern Bool nxagentRootlessTreesMatch(void);
 #endif
 
-extern xEvent *nxagentEvents;
+extern EventList *nxagentEvents;
 
 extern Selection *CurrentSelections;
 extern int NumCurrentSelections;
@@ -201,6 +204,21 @@ static Cursor viewportCursor;
 static Mask defaultEventMask;
 
 static int lastEventSerial = 0;
+
+/* borrowed from dix/events.c */
+#ifndef MotionMask
+#define MotionMask (				\
+	PointerMotionMask | Button1MotionMask | \
+	Button2MotionMask | Button3MotionMask | Button4MotionMask | \
+	Button5MotionMask | ButtonMotionMask )
+#endif
+#ifndef PointerGrabMask
+#define PointerGrabMask (		      \
+	ButtonPressMask | ButtonReleaseMask | \
+	EnterWindowMask | LeaveWindowMask | \
+	PointerMotionHintMask | KeymapStateMask | \
+	MotionMask )
+#endif
 
 /*
  * Used to mask the appropriate bits in the state reported by
@@ -832,9 +850,9 @@ static int nxagentChangeVisibilityPrivate(WindowPtr pWin, void * ptr)
  */
 void nxagentQueueKeyEvent(int type, unsigned int keycode, Bool update_last_event_time, Time use_time)
 {
+#if 0
   Time now = GetTimeInMillis();
 
-#if 0
   xEvent x = {
       .u.u.type = type,
       .u.u.detail = keycode,
@@ -852,17 +870,17 @@ void nxagentQueueKeyEvent(int type, unsigned int keycode, Bool update_last_event
       x.u.keyButtonPointer.time = use_time;
     }
   }
-#endif
 
   if (update_last_event_time)
     nxagentLastEventTime = now;
 
-#if 0
   mieqEnqueue(&x);
 #else
+  GetEventList(&nxagentEvents);
+  nxagentLastEventTime = GetTimeInMillis();
   int n = GetKeyboardEvents(nxagentEvents, nxagentKeyboardDevice, type, keycode);
   for (int i = 0; i < n; i++)
-    mieqEnqueue(nxagentKeyboardDevice, nxagentEvents + i);
+    mieqEnqueue(nxagentKeyboardDevice, (InternalEvent*)(nxagentEvents + i)->event);
 #endif
 }
 
@@ -1325,7 +1343,7 @@ FIXME: Don't enqueue the KeyRelease event if the key was not already
                                    inputInfo.pointer -> button -> map[nxagentReversePointerMap[X.xbutton.button]],
                                    POINTER_ABSOLUTE, 0, 2, valuators);
           for (int i = 0; i < n; i++)
-            mieqEnqueue(nxagentPointerDevice, nxagentEvents + i);
+            mieqEnqueue(nxagentPointerDevice, (InternalEvent*)(nxagentEvents + i)->event);
 #endif
 
           SetCriticalOutputPending();
@@ -1410,7 +1428,7 @@ FIXME: Don't enqueue the KeyRelease event if the key was not already
                                    inputInfo.pointer -> button -> map[nxagentReversePointerMap[X.xbutton.button]],
                                    POINTER_ABSOLUTE, 0, 2, valuators);
           for (int i = 0; i < n; i++)
-            mieqEnqueue(nxagentPointerDevice, nxagentEvents + i);
+            mieqEnqueue(nxagentPointerDevice, (InternalEvent*)(nxagentEvents + i)->event);
 #endif
 
           SetCriticalOutputPending();
@@ -1510,15 +1528,13 @@ FIXME: Don't enqueue the KeyRelease event if the key was not already
 #if 0
           mieqEnqueue(&x);
 #else
-          /* FIXME: drop the event x altogether; this is just to make it compile */
-          //miPointerAbsoluteCursor(x.u.keyButtonPointer.rootX, x.u.keyButtonPointer.rootY, x.u.keyButtonPointer.time);
           int valuators[2];
           valuators[0] = x.u.keyButtonPointer.rootX;
           valuators[1] = x.u.keyButtonPointer.rootY;
           int n = GetPointerEvents(nxagentEvents, nxagentPointerDevice, MotionNotify,
                                    0, POINTER_ABSOLUTE, 0, 2, valuators);
           for (int i = 0; i < n; i++)
-            mieqEnqueue(nxagentPointerDevice, nxagentEvents + i);
+            mieqEnqueue(nxagentPointerDevice, (InternalEvent*)(nxagentEvents + i)->event);
 #endif
         }
 
@@ -1671,7 +1687,7 @@ FIXME: Don't enqueue the KeyRelease event if the key was not already
                   #endif
 
                   if (!nxagentOption(Rootless) ||
-                          inputInfo.keyboard->key->modifierMap[i * 8 + k])
+                          inputInfo.keyboard->key->xkbInfo->desc->map->modmap[i * 8 + k])
                   {
                     memset(&x, 0, sizeof(xEvent));
                     x.u.u.type = KeyRelease;
@@ -1685,7 +1701,8 @@ FIXME: Don't enqueue the KeyRelease event if the key was not already
                       xM.xkey.display = nxagentDisplay;
                       xM.xkey.type = KeyRelease;
                       xM.xkey.keycode = i * 8 + k;
-                      xM.xkey.state = inputInfo.keyboard->key->state;
+		      // xM.xkey.state = inputInfo.keyboard->key->state;
+		      xM.xkey.state = XkbStateFieldFromRec(&inputInfo.keyboard->key->xkbInfo->state);
                       xM.xkey.time = GetTimeInMillis();
                       NXShadowEvent(nxagentDisplay, xM);
                     }
@@ -1806,7 +1823,7 @@ FIXME: Don't enqueue the KeyRelease event if the key was not already
 
           if (pScreen)
           {
-            NewCurrentScreen(pScreen, X.xcrossing.x, X.xcrossing.y);
+            NewCurrentScreen(inputInfo.pointer, pScreen, X.xcrossing.x, X.xcrossing.y);
 
             memset(&x, 0, sizeof(xEvent));
             x.u.u.type = MotionNotify;
@@ -1828,15 +1845,13 @@ FIXME: Don't enqueue the KeyRelease event if the key was not already
 #if 0
             mieqEnqueue(&x);
 #else
-            /* FIXME: drop the event x altogether; this is just to make it compile */
-            //miPointerAbsoluteCursor(x.u.keyButtonPointer.rootX, x.u.keyButtonPointer.rootY, x.u.keyButtonPointer.time);
             int valuators[2];
             valuators[0] = x.u.keyButtonPointer.rootX;
             valuators[1] = x.u.keyButtonPointer.rootY;
             int n = GetPointerEvents(nxagentEvents, nxagentPointerDevice, MotionNotify,
                                      0, POINTER_ABSOLUTE, 0, 2, valuators);
             for (int i = 0; i < n; i++)
-              mieqEnqueue(nxagentPointerDevice, nxagentEvents + i);
+              mieqEnqueue(nxagentPointerDevice, (InternalEvent*)(nxagentEvents + i)->event);
 #endif
             nxagentDirectInstallColormaps(pScreen);
           }
@@ -2735,7 +2750,7 @@ int nxagentHandleClientMessageEvent(XEvent *X, enum HandleEventResult *result)
       }
       #endif
 
-      TryClientEvents(wClient(pWin), &x, 1, 1, 1, 0);
+      WriteEventsToClient(wClient(pWin), 1, &x);
     }
     else
     {
@@ -3334,7 +3349,7 @@ int nxagentHandleConfigureNotify(XEvent* X)
         x.u.configureNotify.borderWidth = X -> xconfigure.border_width;
         x.u.configureNotify.override = X -> xconfigure.override_redirect;
 
-        TryClientEvents(wClient(pWinWindow), &x, 1, 1, 1, 0);
+        WriteEventsToClient(wClient(pWinWindow), 1, &x);
       }
 
       return 1;
@@ -4018,7 +4033,8 @@ void nxagentUngrabPointerAndKeyboard(XEvent *X)
 
 void nxagentDeactivatePointerGrab(void)
 {
-  GrabPtr grab = inputInfo.pointer -> grab;
+  //GrabPtr grab = inputInfo.pointer -> grab;
+  GrabPtr grab = inputInfo.pointer -> deviceGrab.grab;
 
   if (grab)
   {
