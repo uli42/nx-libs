@@ -215,13 +215,11 @@ Dispatch(void)
      * completed. We can now handle our clients.
      */
 
-    #ifdef XKB
 
     nxagentInitXkbWrapper();
 
     nxagentTuneXkbWrapper();
 
-    #endif
 
     #ifdef NXAGENT_ONSTART
 
