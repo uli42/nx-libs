@@ -232,7 +232,7 @@ void checkX2goAgent(int argc, char * argv[])
 
 #endif
 
-xEvent *nxagentEvents = NULL;
+EventList *nxagentEvents = NULL;
 
 /*
  * Called at X server's initialization.
@@ -375,18 +375,18 @@ FIXME: These variables, if not removed at all because have probably
    * Get our own privates' index.
    */
 
-  RT_NX_GC = CreateNewResourceType(nxagentDestroyNewGCResourceType);
+  RT_NX_GC = CreateNewResourceType(nxagentDestroyNewGCResourceType, "NX_GC");
 #ifdef HAS_XFONT2
   nxagentFontPrivateIndex = xfont2_allocate_font_private_index();
 #else
   nxagentFontPrivateIndex = AllocateFontPrivateIndex();
 #endif /* HAS_XFONT2 */
-  RT_NX_FONT = CreateNewResourceType(nxagentDestroyNewFontResourceType); 
-  RT_NX_PIXMAP = CreateNewResourceType(nxagentDestroyNewPixmapResourceType); 
+  RT_NX_FONT = CreateNewResourceType(nxagentDestroyNewFontResourceType, "NX_FONT");
+  RT_NX_PIXMAP = CreateNewResourceType(nxagentDestroyNewPixmapResourceType, "NX_PIXMAP");
 
-  RT_NX_CORR_BACKGROUND = CreateNewResourceType(nxagentDestroyCorruptedBackgroundResource);
-  RT_NX_CORR_WINDOW = CreateNewResourceType(nxagentDestroyCorruptedWindowResource);
-  RT_NX_CORR_PIXMAP = CreateNewResourceType(nxagentDestroyCorruptedPixmapResource);
+  RT_NX_CORR_BACKGROUND = CreateNewResourceType(nxagentDestroyCorruptedBackgroundResource, "NX_CORR_BACKGROUND");
+  RT_NX_CORR_WINDOW = CreateNewResourceType(nxagentDestroyCorruptedWindowResource, "NX_CORR_WINDOW");
+  RT_NX_CORR_PIXMAP = CreateNewResourceType(nxagentDestroyCorruptedPixmapResource, "NX_CORR_PIXMAP");
 
   if (nxagentNumScreens == 0)
   {
@@ -409,13 +409,6 @@ FIXME: These variables, if not removed at all because have probably
 
   nxagentDoFullGeneration = nxagentFullGeneration;
 
-  /*
-   * Use a solid black root window background.
-   */
-
-  if (!whiteRoot)
-    blackRoot = TRUE;
-
   nxagentInitKeystrokes(False);
 
 #ifdef NXAGENT_CLIPBOARD
@@ -436,18 +429,26 @@ void nxagentNotifyConnection(int fd, int ready, void *data)
 
 void InitInput(int argc, char *argv[])
 {
-  nxagentKeyboardDevice = AddInputDevice(nxagentKeyboardProc, True);
-  nxagentPointerDevice = AddInputDevice(nxagentPointerProc, True);
+  int rc;
+  rc = AllocDevicePair(serverClient, "nxagent",
+                       &nxagentPointerDevice,
+                       &nxagentKeyboardDevice,
+                       nxagentPointerProc,
+                       nxagentKeyboardProc,
+                       FALSE);
 
-  if (!nxagentEvents)
-      nxagentEvents = (xEvent *) calloc(sizeof(xEvent), GetMaximumEventsNum());
-  if (!nxagentEvents)
-      FatalError("couldn't allocate room for events\n");
+  if (rc != Success)
+      FatalError("Failed to init Xnest default devices.\n");
 
-  RegisterKeyboardDevice(nxagentKeyboardDevice);
-  RegisterPointerDevice(nxagentPointerDevice);
+  GetEventList(&nxagentEvents);
+
+  // RegisterKeyboardDevice(nxagentKeyboardDevice);
+  // RegisterPointerDevice(nxagentPointerDevice);
 
   mieqInit();
+
+  // from xnest. Required?
+  // AddEnabledDevice(XConnectionNumber(nxagentDisplay));
 
   /*
    * Add the display descriptor to the set of descriptors awaited by
