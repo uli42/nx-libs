@@ -453,7 +453,8 @@ Bool nxagentDestroyPixmap(PixmapPtr pPixmap)
     FreeResource(pPixmapPriv -> mid, RT_NONE);
   }
 
-  dixFreePrivates(pPixmap->devPrivates);
+  free(pPixmapPriv);
+
   SAFE_free(pPixmap);
 
   return True;
@@ -1089,13 +1090,13 @@ void nxagentSynchronizeShmPixmap(DrawablePtr pDrawable, int xPict, int yPict,
 
     GCPtr pGC = nxagentGetScratchGC(pDrawable -> depth, pDrawable -> pScreen);
 
-    CARD32 attributes[3];
+    ChangeGCVal attributes[3];
 
-    attributes[0] = 0x228b22;
-    attributes[1] = 0xffffff;
-    attributes[2] = FillSolid;
+    attributes[0].val = 0x228b22;
+    attributes[1].val = 0xffffff;
+    attributes[2].val = FillSolid;
 
-    ChangeGC(pGC, GCForeground | GCBackground | GCFillStyle, attributes);
+    ChangeGC(NullClient, pGC, GCForeground | GCBackground | GCFillStyle, attributes);
 
     ValidateGC(pDrawable, pGC);
 
