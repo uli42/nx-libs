@@ -1179,7 +1179,7 @@ Bool nxagentOpenScreen(int index, ScreenPtr pScreen, int argc, char *argv[])
      * Initialize the depths.
      */
 
-    DepthPtr depths = (DepthPtr) malloc(nxagentNumDepths * sizeof(DepthRec));
+    DepthPtr depths = malloc(nxagentNumDepths * sizeof(DepthRec));
     if (!depths)
     {
       #ifdef WARNING
@@ -1533,8 +1533,7 @@ N/A
     pScreen->SaveScreen = nxagentSaveScreen;
     pScreen->GetImage = nxagentGetImage;
     pScreen->GetSpans = nxagentGetSpans;
-    pScreen->PointerNonInterestBox = (void (*)()) 0;
-    pScreen->SourceValidate = (void (*)()) 0;
+    pScreen->SourceValidate = NULL;
 
     pScreen->CreateScreenResources = nxagentCreateScreenResources;
 
@@ -2174,9 +2173,6 @@ static void nxagentSetRootClip (ScreenPtr pScreen, Bool enable)
     Bool        WasViewable = (Bool)(pWin->viewable);
     Bool        anyMarked = FALSE;
     RegionPtr   pOldClip = NULL;
-#ifdef DO_SAVE_UNDERS
-    Bool        dosave = FALSE;
-#endif
     WindowPtr   pLayerWin;
 
     if (WasViewable)
@@ -2246,12 +2242,6 @@ static void nxagentSetRootClip (ScreenPtr pScreen, Bool enable)
             anyMarked = TRUE;
         }
 
-#ifdef DO_SAVE_UNDERS
-        if (DO_SAVE_UNDERS(pWin))
-        {
-            dosave = (*pScreen->ChangeSaveUnder)(pLayerWin, pLayerWin);
-        }
-#endif /* DO_SAVE_UNDERS */
 
         if (anyMarked)
             (*pScreen->ValidateTree)(pWin, NullWindow, VTOther);
@@ -2283,10 +2273,6 @@ static void nxagentSetRootClip (ScreenPtr pScreen, Bool enable)
     {
         if (anyMarked)
             (*pScreen->HandleExposures)(pWin);
-#ifdef DO_SAVE_UNDERS
-        if (dosave)
-            (*pScreen->PostChangeSaveUnder)(pLayerWin, pLayerWin);
-#endif /* DO_SAVE_UNDERS */
         if (anyMarked && pScreen->PostValidateTree)
             (*pScreen->PostValidateTree)(pWin, NullWindow, VTOther);
     }
