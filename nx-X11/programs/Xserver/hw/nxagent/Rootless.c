@@ -518,10 +518,10 @@ int nxagentExportProperty(WindowPtr pWin,
 
     if ((wmHints.flags & IconPixmapHint) && (wmHints.icon_pixmap != None))
     {
-      PixmapPtr icon = (PixmapPtr)SecurityLookupIDByType(pClient, wmHints.icon_pixmap,
-                                                             RT_PIXMAP, DixDestroyAccess);
+      PixmapPtr icon;
+      int rc = dixLookupResourceByType((void **)&icon, wmHints.icon_pixmap, RT_PIXMAP, pClient, DixDestroyAccess);
 
-      if (icon)
+      if (rc == Success)
       {
         if (nxagentDrawableStatus((DrawablePtr) icon) == NotSynchronized)
         {
@@ -545,12 +545,11 @@ int nxagentExportProperty(WindowPtr pWin,
 
     if ((wmHints.flags & IconWindowHint) && (wmHints.icon_window != None))
     {
-      WindowPtr icon = (WindowPtr)SecurityLookupWindow(wmHints.icon_window, pClient,
-                                                  DixDestroyAccess);
-
-      if (icon)
+      WindowPtr window;
+      int rc = dixLookupWindow(&window, wmHints.icon_window, pClient, DixDestroyAccess);
+      if (rc == Success)
       {
-        propHints.iconWindow = nxagentWindow(icon);
+        propHints.iconWindow = nxagentWindow(window);
       }
       else
       {
@@ -567,10 +566,10 @@ int nxagentExportProperty(WindowPtr pWin,
 
     if ((wmHints.flags & IconMaskHint) && (wmHints.icon_mask != None))
     {
-      PixmapPtr icon = (PixmapPtr)SecurityLookupIDByType(pClient, wmHints.icon_mask,
-                                                             RT_PIXMAP, DixDestroyAccess);
+      PixmapPtr icon;
+      int rc = dixLookupResourceByType((void **)&icon, wmHints.icon_mask, RT_PIXMAP, pClient, DixDestroyAccess);
 
-      if (icon)
+      if (rc == Success)
       {
         propHints.iconMask = nxagentPixmap(icon);
       }
@@ -589,10 +588,10 @@ int nxagentExportProperty(WindowPtr pWin,
 
     if ((wmHints.flags & WindowGroupHint) && (wmHints.window_group != None))
     {
-      WindowPtr window = (WindowPtr)SecurityLookupWindow(wmHints.window_group, pClient,
-                                                  DixDestroyAccess);
+      WindowPtr window;
+      int rc = dixLookupWindow(&window, wmHints.window_group, pClient, DixDestroyAccess);
 
-      if (window)
+      if (rc == Success)
       {
         propHints.windowGroup = nxagentWindow(window);
       }
@@ -686,9 +685,9 @@ int nxagentExportProperty(WindowPtr pWin,
 
     for (int i = 0; i < nUnits; i++)
     {
-      WindowPtr pWindow = (WindowPtr)SecurityLookupWindow(input[i], pClient,
-                                                              DixDestroyAccess);
-      if ((input[i] != None) && pWindow)
+      WindowPtr pWindow;
+      int rc = dixLookupWindow(&pWindow, input[i], pClient, DixDestroyAccess);
+      if (rc == Success && (input[i] != None))
       {
         wind[i] = nxagentWindow(pWindow);
       }
