@@ -208,6 +208,8 @@ BOOTSTRAPCFLAGS =
                   $(XTRANS_FAILDEFINES)			\
                   $(XTRANS_DEFINES)			\
                   $(NX_DEFINES)				\
+                  -DHAVE_DIX_CONFIG_H			\
+                  -DHAVE_XORG_CONFIG_H			\
                   $(NULL)
 
        INCLUDES = -I.					\

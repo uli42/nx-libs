@@ -4,7 +4,7 @@
 #include <dix-config.h>
 
 /* Building DRI-capable DDX. */
-#define XF86DRI
+#undef XF86DRI
 
 /* don't build DRI2 extension for now */
 #undef DRI2
