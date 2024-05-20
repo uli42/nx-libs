@@ -31,7 +31,7 @@
  * layer that doesn't use Xlib.
  */
 
-#if !defined(_XLIB_H_) && !defined(_XKBSRV_H_)
+#if !defined(_XLIB_H_)
 
 #define NeedFunctionPrototypes  1
 
