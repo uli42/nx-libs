@@ -258,7 +258,7 @@ WalkTree(ScreenPtr pScreen, VisitWindowProcPtr func, void * data)
 /* hack for forcing backing store on all windows */
 int	defaultBackingStore = NotUseful;
 /* hack to force no backing store */
-Bool	disable_backing_store = FALSE;
+Bool	disableBackingStore = FALSE;
 Bool	enableBackingStore = FALSE;
 
 static void
@@ -435,7 +435,7 @@ CreateRootWindow(ScreenPtr pScreen)
     if (!AddResource(pWin->drawable.id, RT_WINDOW, (void *)pWin))
 	return FALSE;
 
-    if (disable_backing_store)
+    if (disableBackingStore)
 	pScreen->backingStoreSupport = NotUseful;
     if (enableBackingStore)
 	pScreen->backingStoreSupport = Always;
