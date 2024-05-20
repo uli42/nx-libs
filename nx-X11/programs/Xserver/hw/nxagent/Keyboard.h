@@ -107,7 +107,6 @@ void nxagentNotifyKeyboardChanges(int oldMinKeycode, int oldMaxKeycode);
 
 int nxagentResetKeyboard(void);
 
-#ifdef XKB
 
 void nxagentInitXkbWrapper(void);
 
@@ -120,7 +119,6 @@ void nxagentTuneXkbWrapper(void);
 void nxagentKeycodeConversionSetup(void);
 
 Bool nxagentGetRemoteXkbExtension(void);
-#endif
 
 CARD8 nxagentConvertKeycode(CARD8 k);
 
