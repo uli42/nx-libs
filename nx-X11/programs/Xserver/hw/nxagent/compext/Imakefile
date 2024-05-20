@@ -31,6 +31,7 @@ OBJS =	\
 	$(NULL)
 
 INCLUDES = -I$(SERVERSRC)/include \
+	   -I$(SERVERSRC)/Xext \
 	   -I$(XBUILDINCDIR) \
 	   -I../../../../../lib/include/X11 \
 	   `pkg-config --cflags-only-I pixman-1` \
