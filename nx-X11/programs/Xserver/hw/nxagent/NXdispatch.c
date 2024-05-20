@@ -129,6 +129,8 @@ Equipment Corporation.
 #include "Init.h"
 #include "Utils.h"
 
+#include "Privs.h"
+
 const int nxagentMaxFontNames = 10000;
 
 /*

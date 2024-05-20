@@ -56,6 +56,8 @@ is" without express or implied warranty.
 #include "Args.h"
 #include "Utils.h"
 
+#include "Privs.h"
+
 #define PANIC
 #define WARNING
 #undef  TEST

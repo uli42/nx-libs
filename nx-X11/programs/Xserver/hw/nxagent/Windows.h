@@ -82,8 +82,7 @@ typedef struct
 
 typedef nxagentPrivWin *nxagentPrivWindowPtr;
 
-extern DevPrivateKeyRec nxagentWindowPrivateKeyRec;
-#define nxagentWindowPrivateKey (&nxagentWindowPrivateKeyRec)
+#include "Privs.h"
 
 #define nxagentWindowPriv(pWin) ((nxagentPrivWin *) \
     dixLookupPrivate(&(pWin)->devPrivates, nxagentWindowPrivateKey))

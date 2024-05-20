@@ -69,8 +69,7 @@ typedef nxagentGraphicContextsRec *nxagentGraphicContextsPtr;
 extern nxagentGraphicContextsPtr nxagentGraphicContexts;
 extern int nxagentGraphicContextsSize;
 
-extern DevPrivateKeyRec nxagentGCPrivateKeyRec;
-#define nxagentGCPrivateKey (&nxagentGCPrivateKeyRec)
+#include "Privs.h"
 
 #define nxagentGCPriv(pGC) ((nxagentPrivGC *) \
     dixLookupPrivate(&(pGC)->devPrivates, nxagentGCPrivateKey))

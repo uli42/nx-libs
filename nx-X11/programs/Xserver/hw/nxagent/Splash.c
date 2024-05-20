@@ -39,6 +39,8 @@
 #include "Trap.h"
 #include "Init.h"
 
+#include "Privs.h"
+
 /*
  * Set here the required log level.
  */

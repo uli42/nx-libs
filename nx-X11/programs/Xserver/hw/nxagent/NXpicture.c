@@ -53,6 +53,8 @@
 #include "Drawable.h"
 #include "Render.h"
 
+#include "Privs.h"
+
 #include "../../render/picture.c"
 
 #define PANIC

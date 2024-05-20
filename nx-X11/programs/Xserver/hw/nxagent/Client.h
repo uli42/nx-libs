@@ -57,8 +57,7 @@ typedef struct _PrivClientRec
   char *clientInfoString;
 } PrivClientRec;
 
-extern DevPrivateKeyRec nxagentClientPrivateKeyRec;
-#define nxagentClientPrivateKey (&nxagentClientPrivateKeyRec)
+#include "Privs.h"
 
 #define nxagentClientPriv(pClient)					\
   ((PrivClientRec *)dixLookupPrivate(&(pClient)->devPrivates, nxagentClientPrivateKey))

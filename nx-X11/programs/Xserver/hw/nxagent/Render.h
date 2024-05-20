@@ -83,8 +83,7 @@ typedef struct
 
 } nxagentPrivPictureRec, *nxagentPrivPicturePtr;
 
-extern DevPrivateKeyRec nxagentPicturePrivateKeyRec;
-#define nxagentPicturePrivateKey (&nxagentPicturePrivateKeyRec)
+#include "Privs.h"
 
 #define nxagentPicturePriv(pPicture) ((nxagentPrivPicturePtr) \
      dixLookupPrivate(&(pPicture)->devPrivates, nxagentPicturePrivateKey))

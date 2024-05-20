@@ -34,6 +34,8 @@
 #include "Events.h"
 #include "GCs.h"
 
+#include "Privs.h"
+
 #include "compext/Compext.h"
 
 /*

@@ -32,6 +32,8 @@
 #include "Options.h"
 #include "Windows.h"
 
+#include "Privs.h"
+
 #include "X11/include/Xcomposite_nxagent.h"
 
 /*

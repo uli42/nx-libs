@@ -76,6 +76,8 @@ SOFTWARE.
 #include "../../fb/fb.h"
 #include "Pixmaps.h"
 
+#include "Privs.h"
+
 #ifndef True
 #define True  1
 #endif

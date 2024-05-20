@@ -58,6 +58,8 @@ is" without express or implied warranty.
 #include "Screen.h"
 #include "Utils.h"
 
+#include "Privs.h"
+
 #include "compext/Compext.h"
 
 /*

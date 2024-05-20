@@ -44,6 +44,8 @@
 #include "GCOps.h"
 #include "Utils.h"
 
+#include "Privs.h"
+
 #include "compext/Compext.h"
 
 #include "mibstorest.h"

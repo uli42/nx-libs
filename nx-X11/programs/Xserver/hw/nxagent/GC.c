@@ -63,6 +63,8 @@ is" without express or implied warranty.
 #include "Pixels.h"
 #include "Utils.h"
 
+#include "Privs.h"
+
 #include "../../fb/fb.h"
 
 RESTYPE RT_NX_GC;
