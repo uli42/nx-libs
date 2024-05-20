@@ -45,6 +45,8 @@ is" without express or implied warranty.
 #include "scrnintstr.h"
 #include "servermd.h"
 #include "mipointer.h"
+#include "exevents.h"
+#include "xserver-properties.h"
 
 #include "Agent.h"
 #include "Args.h"
@@ -123,14 +125,31 @@ int nxagentPointerProc(DeviceIntPtr pDev, int onoff)
       }
 
       CARD8 map[MAXBUTTONS];
-
+      Atom btn_labels[MAXBUTTONS] = {0};
+      Atom axes_labels[2] = {0};
+  
       int nmap = XGetPointerMapping(nxagentDisplay, map, MAXBUTTONS);
       for (int i = 0; i <= nmap; i++)
 	map[i] = i; /* buttons are already mapped */
-      InitPointerDeviceStruct((DevicePtr) pDev, map, nmap,
-			      GetMotionHistory,
+
+      btn_labels[0] = XIGetKnownProperty(BTN_LABEL_PROP_BTN_LEFT);
+      btn_labels[1] = XIGetKnownProperty(BTN_LABEL_PROP_BTN_MIDDLE);
+      btn_labels[2] = XIGetKnownProperty(BTN_LABEL_PROP_BTN_RIGHT);
+      btn_labels[3] = XIGetKnownProperty(BTN_LABEL_PROP_BTN_WHEEL_UP);
+      btn_labels[4] = XIGetKnownProperty(BTN_LABEL_PROP_BTN_WHEEL_DOWN);
+      btn_labels[5] = XIGetKnownProperty(BTN_LABEL_PROP_BTN_HWHEEL_LEFT);
+      btn_labels[6] = XIGetKnownProperty(BTN_LABEL_PROP_BTN_HWHEEL_RIGHT);
+
+      axes_labels[0] = XIGetKnownProperty(AXIS_LABEL_PROP_REL_X);
+      axes_labels[1] = XIGetKnownProperty(AXIS_LABEL_PROP_REL_Y);
+
+      XGetPointerControl(nxagentDisplay,
+                         &defaultPointerControl.num,
+                         &defaultPointerControl.den,
+                         &defaultPointerControl.threshold);
+      InitPointerDeviceStruct(&pDev->public, map, nmap, btn_labels,
 			      nxagentChangePointerControl,
-			      GetMotionHistorySize(), 2);
+			      GetMotionHistorySize(), 2, axes_labels);
       break;
     case DEVICE_ON:
 
@@ -168,8 +187,6 @@ int nxagentPointerProc(DeviceIntPtr pDev, int onoff)
       #ifdef TEST
       fprintf(stderr, "%s: Called for [DEVICE_CLOSE].\n", __func__);
       #endif
-
-      dixFreePrivates(pDev->devPrivates);
 
       break;
     }
