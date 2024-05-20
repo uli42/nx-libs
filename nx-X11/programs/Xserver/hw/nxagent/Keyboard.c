@@ -49,6 +49,7 @@ is" without express or implied warranty.
 #include "scrnintstr.h"
 #include "servermd.h"
 #include "extnsionst.h"
+#include "globals.h"
 
 #include "Agent.h"
 #include "Display.h"
@@ -64,16 +65,8 @@ is" without express or implied warranty.
 
 #include <nx/Shadow.h>
 
-#ifdef XKB
-
 #include <nx-X11/extensions/XKB.h>
-
-/*
-  we need the client side header here, xkbsrv.h will not work because
-  server and libX11 have different struct sizes on
-  64bit. Interestingly upstream xnest does not take care of this.
-*/
-#include <nx-X11/extensions/XKBsrv.h>
+#include "xkbsrv.h"
 #include <nx-X11/extensions/XKBconfig.h>
 
 #include "Xatom.h"
@@ -87,8 +80,6 @@ void nxagentKeycodeConversionSetup(void);
 
 static void nxagentWriteKeyboardDir(void);
 static void nxagentWriteKeyboardFile(char *rules, char *model, char *layout, char *variant, char *options);
-
-#endif /* XKB */
 
 /*
  * Set here the required log level.
@@ -110,7 +101,6 @@ static void nxagentWriteKeyboardFile(char *rules, char *model, char *layout, cha
  * problem than our.
  */
 
-#ifdef XKB
 
 extern Bool XkbQueryExtension(
 #if NeedFunctionPrototypes
@@ -149,7 +139,6 @@ static char *nxagentRemoteLayout = NULL;
 static char *nxagentRemoteVariant = NULL;
 static char *nxagentRemoteOptions = NULL;
 
-#endif /* XKB */
 
 DeviceIntPtr nxagentKeyboardDevice = NULL;
 
@@ -280,7 +269,6 @@ void DDXRingBell(int volume, int pitch, int duration)
 
 void nxagentChangeKeyboardControl(DeviceIntPtr pDev, KeybdCtrl *ctrl)
 {
-  #ifdef XKB
 
   if (!noXkbExtension)
   {
@@ -307,7 +295,6 @@ void nxagentChangeKeyboardControl(DeviceIntPtr pDev, KeybdCtrl *ctrl)
     #endif
   }
 
-  #endif
 
   /*
    * If enabled, propagate the changes to the devices attached to the
@@ -372,17 +359,15 @@ int nxagentKeyboardProc(DeviceIntPtr pDev, int onoff)
   int min_keycode, max_keycode;
   CARD8 modmap[MAP_LENGTH];
   XKeyboardState values;
-#ifdef XKB
   char *model = NULL, *layout = NULL;
   XkbDescPtr xkb = NULL;
-#endif
 
   switch (onoff)
   {
     case DEVICE_INIT:
 
       if (!pDev->name)
-	pDev->name = strdup("NX keyboard");
+        pDev->name = strdup("NX keyboard");
 
       #ifdef TEST
       fprintf(stderr, "%s: Called for [DEVICE_INIT].\n", __func__);
@@ -503,14 +488,13 @@ N/A
 
       nxagentCheckRemoteKeycodes();
 
-      KeySymsRec keySyms = {
-        .minKeyCode = min_keycode,
-        .maxKeyCode = max_keycode,
-        .mapWidth = mapWidth,
-        .map = keymap,
-      };
+      //      KeySymsRec keySyms = {
+      //  .minKeyCode = min_keycode,
+      //  .maxKeyCode = max_keycode,
+      //  .mapWidth = mapWidth,
+      //  .map = keymap,
+      //};
 
-#ifdef XKB
       if (!nxagentGetRemoteXkbExtension())
       {
         ErrorF("Unable to query XKEYBOARD extension.\n");
@@ -528,7 +512,6 @@ XkbError:
         fprintf(stderr, "%s: XKB error.\n", __func__);
         #endif
 
-#endif
         XGetKeyboardControl(nxagentDisplay, &values);
 
         memmove((char *) defaultKeyboardControl.autoRepeats,
@@ -538,7 +521,7 @@ XkbError:
         {
           int ret =
         #endif
-          InitKeyboardDeviceStruct((DevicePtr) pDev, &keySyms, modmap,
+          InitKeyboardDeviceStruct(pDev, NULL,
                                  nxagentBell, nxagentChangeKeyboardControl);
 
         #ifdef TEST
@@ -546,16 +529,15 @@ XkbError:
         }
         #endif
 
-#ifdef XKB
       } else { /* if (noXkbExtension) */
-        XkbComponentNamesRec names = {0};
+        //XkbComponentNamesRec names = {0};
         char *rules = NULL, *variant = NULL, *options = NULL; /* use xkb default */
 
-	/* handle empty string like the NULL pointer */
-	if (nxagentKeyboard && nxagentKeyboard[0] == '\0')
-	{
-	  SAFE_free(nxagentKeyboard);
-	}
+        /* handle empty string like the NULL pointer */
+        if (nxagentKeyboard && nxagentKeyboard[0] == '\0')
+        {
+          SAFE_free(nxagentKeyboard);
+        }
 
         #ifdef TEST
         fprintf(stderr, "%s: Using XKB extension.\n", __func__);
@@ -596,7 +578,8 @@ XkbError:
             full RMLVO config, separated by #, e.g.
             rlmvo/base#pc105#de,us#nodeadkeys#lv3:rwin_switch
           */
-          if (strncmp(nxagentKeyboard, "rlmvo/", 6) == 0)
+          /* support "rlmvo" (spelled wrong) which was being used for some time */
+          if ((strncmp(nxagentKeyboard, "rmlvo/", 6) == 0) || (strncmp(nxagentKeyboard, "rlmvo/", 6) == 0))
           {
             const char * sep = "#";
             char * rmlvo = strdup(&nxagentKeyboard[i+1]);
@@ -767,7 +750,7 @@ XkbError:
           {
             nxagentNumLockKeycode = 0;
             #ifdef TEST
-            fprintf(stderr, "%s: Numock key is mapped to some other modifier - disabling special treatment\n", __func__);
+            fprintf(stderr, "%s: NumLock key is mapped to some other modifier - disabling special treatment\n", __func__);
             #endif
           }
         }
@@ -779,9 +762,18 @@ XkbError:
                         variant?variant:"(default)", options?options:"(default)");
         #endif
 
-        XkbSetRulesDflts(rules, model, layout, variant, options);
-        XkbInitKeyboardDeviceStruct((void *)pDev, &names, &keySyms, modmap,
-                                    nxagentBell, nxagentChangeKeyboardControl);
+        ///XkbSetRulesDflts(rules, model, layout, variant, options);
+        //        XkbInitKeyboardDeviceStruct(pDev, &names, &keySyms, modmap,
+        //                            nxagentBell, nxagentChangeKeyboardControl);
+        XkbRMLVOSet rmlvo;
+        rmlvo.rules = rules;
+        rmlvo.model = model;
+        rmlvo.layout = layout;
+        rmlvo.variant = variant;
+        rmlvo.options = options;
+        XkbSetRulesDflts(&rmlvo);
+        InitKeyboardDeviceStruct(pDev, &rmlvo,
+                                 nxagentBell, nxagentChangeKeyboardControl);
 
         if (nxagentKeyboard && strcmp(nxagentKeyboard, "query") == 0)
         {
@@ -795,12 +787,21 @@ XkbError:
 
         if (nxagentOption(Shadow) && pDev && pDev->key)
         {
-          NXShadowInitKeymap(&(pDev->key->curKeySyms));
+          KeySymsPtr syms = XkbGetCoreMap(pDev);
+          if (!syms)
+            goto XkbError;
+          //NXShadowInitKeymap(&(pDev->key->curKeySyms));
+          NXShadowInitKeymap(syms);
+          /* FIXME: we cannot free here because NXShadowInitKeymap just copies the pointer */
+          /*
+           * free(syms->map);
+           * free(syms);
+           */
         }
 
-	SAFE_free(rules);
-	SAFE_free(variant);
-	SAFE_free(options);
+        SAFE_free(rules);
+        SAFE_free(variant);
+        SAFE_free(options);
       }
 
       if (xkb)
@@ -811,7 +812,6 @@ XkbError:
 
       SAFE_free(model);
       SAFE_free(layout);
-#endif
 
       #ifdef WATCH
 
@@ -885,8 +885,6 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
       fprintf(stderr, "%s: Called for [DEVICE_CLOSE].\n", __func__);
       #endif
 
-      dixFreePrivates(pDev->devPrivates);
-
       break;
   }
 
@@ -900,7 +898,6 @@ Bool LegalModifier(unsigned int key, DeviceIntPtr pDev)
 
 void nxagentNotifyKeyboardChanges(int oldMinKeycode, int oldMaxKeycode)
 {
-  #ifdef XKB
 
   if (!noXkbExtension)
   {
@@ -923,14 +920,16 @@ void nxagentNotifyKeyboardChanges(int oldMinKeycode, int oldMaxKeycode)
   else
   {
 
-  #endif
 
     xEvent event = {0};
     event.u.u.type = MappingNotify;
     event.u.mappingNotify.request = MappingKeyboard;
-    event.u.mappingNotify.firstKeyCode = inputInfo.keyboard -> key -> curKeySyms.minKeyCode;
-    event.u.mappingNotify.count = inputInfo.keyboard -> key -> curKeySyms.maxKeyCode -
-                                      inputInfo.keyboard -> key -> curKeySyms.minKeyCode;
+    //    event.u.mappingNotify.firstKeyCode = inputInfo.keyboard -> key -> curKeySyms.minKeyCode;
+    event.u.mappingNotify.firstKeyCode = inputInfo.keyboard -> key -> xkbInfo->desc->min_key_code;
+    //event.u.mappingNotify.count = inputInfo.keyboard -> key -> curKeySyms.maxKeyCode -
+    //                                  inputInfo.keyboard -> key -> curKeySyms.minKeyCode;
+    event.u.mappingNotify.count = inputInfo.keyboard -> key -> xkbInfo->desc->max_key_code -
+                                      inputInfo.keyboard -> key -> xkbInfo->desc->min_key_code;
 
     /*
      *  0 is the server client
@@ -945,11 +944,9 @@ void nxagentNotifyKeyboardChanges(int oldMinKeycode, int oldMaxKeycode)
       }
     }
 
-  #ifdef XKB
 
   }
 
-  #endif
 
 }
 
@@ -990,13 +987,11 @@ int nxagentResetKeyboard(void)
 
   if (dev->key)
   {
-    #ifdef XKB
     if (!noXkbExtension && dev->key->xkbInfo)
     {
       oldMinKeycode = dev->key->xkbInfo -> desc -> min_key_code;
       oldMaxKeycode = dev->key->xkbInfo -> desc -> max_key_code;
     }
-    #endif
 
     dev->key = NULL;
   }
@@ -1004,9 +999,7 @@ int nxagentResetKeyboard(void)
   dev->focus = NULL;
   dev->kbdfeed = NULL;
 
-  #ifdef XKB
   nxagentTuneXkbWrapper();
-  #endif
 
   int result = (*inputInfo.keyboard -> deviceProc)(inputInfo.keyboard, DEVICE_INIT);
 
@@ -1148,16 +1141,14 @@ static int nxagentFreeKeyboardDeviceData(DeviceIntPtr dev)
 
   if (dev->key)
   {
-    #ifdef XKB
     if (!noXkbExtension && dev->key->xkbInfo)
     {
         XkbFreeInfo(dev->key->xkbInfo);
         dev->key->xkbInfo = NULL;
     }
-    #endif
 
-    SAFE_free(dev->key->curKeySyms.map);
-    SAFE_free(dev->key->modifierKeyMap);
+    //SAFE_free(dev->key->curKeySyms.map);
+    //SAFE_free(dev->key->modifierKeyMap);
     SAFE_free(dev->key);
   }
 
@@ -1172,10 +1163,8 @@ static int nxagentFreeKeyboardDeviceData(DeviceIntPtr dev)
     for (KbdFeedbackPtr k = dev->kbdfeed, knext; k; k = knext)
     {
       knext = k->next;
-      #ifdef XKB
       if (k->xkb_sli)
         XkbFreeSrvLedInfo(k->xkb_sli);
-      #endif
       SAFE_free(k);
     }
     dev->kbdfeed = NULL;
@@ -1188,7 +1177,6 @@ static int nxagentFreeKeyboardDeviceData(DeviceIntPtr dev)
   return 1;
 }
 
-#if XKB
 
 int ProcXkbInhibited(register ClientPtr client)
 {
@@ -1637,4 +1625,3 @@ Bool nxagentGetRemoteXkbExtension(void)
 
   return result;
 }
-#endif /* XKB */
