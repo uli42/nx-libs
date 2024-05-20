@@ -72,7 +72,8 @@ typedef struct
 
 typedef nxagentPrivPixmapRec *nxagentPrivPixmapPtr;
 
-extern DevPrivateKey nxagentPixmapPrivateKey;
+extern DevPrivateKeyRec nxagentPixmapPrivateKeyRec;
+#define nxagentPixmapPrivateKey (&nxagentPixmapPrivateKeyRec)
 
 /*
  * Pixmap privates macro.

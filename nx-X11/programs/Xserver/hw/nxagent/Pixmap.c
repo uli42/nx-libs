@@ -69,7 +69,7 @@ RESTYPE  RT_NX_PIXMAP;
 #include "Font.h"
 #endif
 
-DevPrivateKey nxagentPixmapPrivateKey = &nxagentPixmapPrivateKey;
+DevPrivateKeyRec nxagentPixmapPrivateKeyRec;
 
 /*
  * Force deallocation of the virtual pixmap.
