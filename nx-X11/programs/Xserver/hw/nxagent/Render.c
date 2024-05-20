@@ -103,7 +103,7 @@ int nxagentRenderEnable = UNDEFINED;
 int nxagentRenderVersionMajor;
 int nxagentRenderVersionMinor;
 
-DevPrivateKey nxagentPicturePrivateKey = &nxagentPicturePrivateKey;
+DevPrivateKeyRec nxagentPicturePrivateKeyRec;
 
 static int nxagentNumFormats = 0;
 
@@ -2224,7 +2224,7 @@ Bool nxagentPictureInit(ScreenPtr pScreen, PictFormatPtr formats, int nformats)
     return FALSE;
   }
 
-  if (!dixRequestPrivate(nxagentPicturePrivateKey, sizeof(nxagentPrivPictureRec)))
+  if (!dixRegisterPrivateKey(&nxagentPicturePrivateKeyRec, PRIVATE_PICTURE, sizeof(nxagentPrivPictureRec)))
   {
     #ifdef DEBUG
     fprintf(stderr, "%s: failed to request PicturePrivates.\n", __func__);

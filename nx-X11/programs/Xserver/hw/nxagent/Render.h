@@ -81,11 +81,10 @@ typedef struct
 
   XRenderPictureAttributes_ lastServerValues;
 
-} nxagentPrivPictureRec;
+} nxagentPrivPictureRec, *nxagentPrivPicturePtr;
 
-extern DevPrivateKey nxagentPicturePrivateKey;
-
-typedef nxagentPrivPictureRec *nxagentPrivPicturePtr;
+extern DevPrivateKeyRec nxagentPicturePrivateKeyRec;
+#define nxagentPicturePrivateKey (&nxagentPicturePrivateKeyRec)
 
 #define nxagentPicturePriv(pPicture) ((nxagentPrivPicturePtr) \
      dixLookupPrivate(&(pPicture)->devPrivates, nxagentPicturePrivateKey))
