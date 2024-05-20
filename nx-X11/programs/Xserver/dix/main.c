@@ -214,7 +214,7 @@ int main(int argc, char *argv[], char *envp[])
 #endif /* of HAS_XFONT2 */
 	dixResetPrivates();
 	dixResetRegistry();
-	ResetFontPrivateIndex();
+	InitFonts();
 	InitCallbackManager();
 	InitOutput(&screenInfo, argc, argv);
 
@@ -239,7 +239,6 @@ int main(int argc, char *argv[], char *envp[])
 	}
 	ReserveClientIds(serverClient);
 
-	InitFonts();
 	if (SetDefaultFontPath(defaultFontPath) != Success) {
 	    ErrorF("[dix] failed to set default font path '%s'", defaultFontPath);
 	}
