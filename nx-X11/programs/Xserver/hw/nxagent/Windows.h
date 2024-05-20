@@ -80,9 +80,17 @@ typedef struct
 
   SplitResourcePtr splitResource;
 
-} nxagentPrivWindowRec;
+} nxagentPrivWin;
 
-typedef nxagentPrivWindowRec *nxagentPrivWindowPtr;
+typedef nxagentPrivWin *nxagentPrivWindowPtr;
+
+extern DevPrivateKeyRec nxagentWindowPrivateKeyRec;
+#define nxagentWindowPrivateKey (&nxagentWindowPrivateKeyRec)
+
+#define nxagentWindowPriv(pWin) ((nxagentPrivWin *) \
+    dixLookupPrivate(&(pWin)->devPrivates, nxagentWindowPrivateKey))
+
+#define nxagentWindow(pWin) (nxagentWindowPriv(pWin)->window)
 
 typedef struct
 {
@@ -105,13 +113,6 @@ int nxagentRemoveItemBSPixmapList(unsigned long);
 void nxagentInitBSPixmapList(void);
 int nxagentEmptyBSPixmapList(void);
 StoringPixmapPtr nxagentFindItemBSPixmapList (unsigned long);
-
-extern DevPrivateKey nxagentWindowPrivateKey;
-
-#define nxagentWindowPriv(pWin) \
- ((nxagentPrivWindowPtr)dixLookupPrivate(&(pWin)->devPrivates, nxagentWindowPrivateKey))
-
-#define nxagentWindow(pWin) (nxagentWindowPriv(pWin)->window)
 
 /*
  * Window is either a child of our root or a child of the root of the

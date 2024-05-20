@@ -73,7 +73,7 @@
  * Used to register the window's privates.
  */
 
-DevPrivateKey nxagentWindowPrivateKey = &nxagentWindowPrivateKey;
+DevPrivateKeyRec nxagentWindowPrivateKeyRec;
 
 /*
  * Used to track nxagent window's visibility.
@@ -286,7 +286,8 @@ Bool nxagentCreateWindow(WindowPtr pWin)
         mask |= CWColormap;
         if (pWin->optional->colormap)
         {
-          pCmap = (ColormapPtr)LookupIDByType(wColormap(pWin), RT_COLORMAP);
+          dixLookupResourceByType((pointer *)&pCmap, wColormap(pWin),
+                                  RT_COLORMAP, serverClient, DixUseAccess);
           attributes.colormap = nxagentColormap(pCmap);
         }
         else
@@ -309,7 +310,8 @@ Bool nxagentCreateWindow(WindowPtr pWin)
     {
       /* root windows have their own colormaps at creation time */
       visual = nxagentVisualFromID(pWin->drawable.pScreen, wVisual(pWin));
-      pCmap = (ColormapPtr)LookupIDByType(wColormap(pWin), RT_COLORMAP);
+      dixLookupResourceByType((pointer *)&pCmap, wColormap(pWin),
+                              RT_COLORMAP, serverClient, DixUseAccess);
       mask |= CWColormap;
       attributes.colormap = nxagentColormap(pCmap);
     }
@@ -1776,8 +1778,10 @@ Bool nxagentChangeWindowAttributes(WindowPtr pWin, unsigned long mask)
 
   if (mask & CWColormap)
   {
-    ColormapPtr pCmap = (ColormapPtr) LookupIDByType(wColormap(pWin), RT_COLORMAP);
+    ColormapPtr pCmap;
 
+    dixLookupResourceByType((pointer *)&pCmap, wColormap(pWin), RT_COLORMAP,
+                            serverClient, DixUseAccess);
     /*
       FIXME: When the caller is nxagentReconfigureWindow sometimes
              wColormap(pWin) is 0. Could a window have no colormap?
@@ -2911,7 +2915,9 @@ static void nxagentReconnectWindow(void * param0, XID param1, void * data_buffer
         mask |= CWColormap;
         if (pWin->optional->colormap)
         {
-          pCmap = (ColormapPtr)LookupIDByType(wColormap(pWin), RT_COLORMAP);
+          dixLookupResourceByType((void *)&pCmap, wColormap(pWin), RT_COLORMAP,
+                                  serverClient, DixUseAccess);
+
           attributes.colormap = nxagentColormap(pCmap);
         }
         else
@@ -2928,7 +2934,8 @@ static void nxagentReconnectWindow(void * param0, XID param1, void * data_buffer
     {
       /* root windows have their own colormaps at creation time */
       visual = nxagentVisualFromID(pWin->drawable.pScreen, wVisual(pWin));
-      pCmap = (ColormapPtr)LookupIDByType(wColormap(pWin), RT_COLORMAP);
+      dixLookupResourceByType((pointer *)&pCmap, wColormap(pWin), RT_COLORMAP,
+                              serverClient, DixUseAccess);
       mask |= CWColormap;
       attributes.colormap = nxagentColormap(pCmap);
     }
