@@ -136,7 +136,7 @@ void nxagentQueryFormats(void);
 
 void nxagentCreateGlyphSet(GlyphSetPtr pGly);
 
-int nxagentCursorSaveRenderInfo(ScreenPtr pScreen, CursorPtr pCursor);
+int nxagentCursorSaveRenderInfo(DeviceIntPtr pDev, ScreenPtr pScreen, CursorPtr pCursor);
 
 void nxagentCursorPostSaveRenderInfo(CursorPtr pCursor, ScreenPtr pScreen,
                                          PicturePtr pPicture, int x, int y);
