@@ -471,10 +471,8 @@ Bool nxagentCreateWindow(WindowPtr pWin)
     nxagentWindowPriv(pWin->nextSib)->siblingAbove = nxagentWindow(pWin);
   }
 
-  #ifdef SHAPE
   nxagentWindowPriv(pWin)->boundingShape = NULL;
   nxagentWindowPriv(pWin)->clipShape = NULL;
-  #endif /* SHAPE */
 
   fbCreateWindow(pWin);
 
@@ -579,7 +577,6 @@ Bool nxagentDestroyWindow(WindowPtr pWin)
            pWindowPriv->siblingAbove;
   }
 
-  #ifdef SHAPE
   if (pWindowPriv->boundingShape)
   {
     RegionDestroy(pWindowPriv->boundingShape);
@@ -589,7 +586,6 @@ Bool nxagentDestroyWindow(WindowPtr pWin)
   {
     RegionDestroy(pWindowPriv->clipShape);
   }
-  #endif
 
   if (pWindowPriv -> corruptedRegion)
   {
@@ -1495,12 +1491,10 @@ void nxagentConfigureWindow(WindowPtr pWin, unsigned int mask)
     }
   }
 
-  #ifdef SHAPE
   if (mask & CW_Shape)
   {
     nxagentShapeWindow(pWin);
   }
-  #endif
 
   if (mask & CW_Map &&
          (!nxagentOption(Rootless) ||
@@ -2075,11 +2069,9 @@ void nxagentClipNotify(WindowPtr pWin, int dx, int dy)
   nxagentAddConfiguredWindow(pWin, CWStackMode);
   nxagentAddConfiguredWindow(pWin, CW_Shape);
 
-  #ifdef SHAPE
   /*
    * nxagentShapeWindow(pWin);
    */
-  #endif /* SHAPE */
 }
 
 /*
@@ -2285,7 +2277,6 @@ void nxagentWindowExposures(WindowPtr pWin, RegionPtr pRgn, RegionPtr other_expo
   return;
 }
 
-#ifdef SHAPE
 static Bool nxagentRegionEqual(RegionPtr pReg1, RegionPtr pReg2)
 {
   if (pReg1 == pReg2)
@@ -2445,7 +2436,6 @@ void nxagentShapeWindow(WindowPtr pWin)
     }
   }
 }
-#endif /* SHAPE */
 
 static int nxagentForceExposure(WindowPtr pWin, void * ptr)
 {
@@ -3236,7 +3226,6 @@ static void nxagentReconfigureWindow(void * param0, XID param1, void * data_buff
   }
   nxagentChangeWindowAttributes(pWin, mask);
 
-  #ifdef SHAPE
   if (nxagentWindowPriv(pWin) -> boundingShape)
   {
     RegionDestroy(nxagentWindowPriv(pWin) -> boundingShape);
@@ -3249,7 +3238,6 @@ static void nxagentReconfigureWindow(void * param0, XID param1, void * data_buff
     nxagentWindowPriv(pWin) -> clipShape = NULL;
   }
   nxagentShapeWindow(pWin);
-  #endif
 
   if (pWin != screenInfo.screens[0]->root)
   {

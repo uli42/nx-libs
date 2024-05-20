@@ -42,10 +42,8 @@ typedef struct
   unsigned int borderWidth;
   Window siblingAbove;
   int backingStore;
-#ifdef SHAPE
   RegionPtr boundingShape;
   RegionPtr clipShape;
-#endif /* SHAPE */
 
   void *pPicture;
 
@@ -266,11 +264,9 @@ WindowPtr nxagentGetWindowFromID(Window id);
  * Handle the shape bitmap for windows.
  */
 
-#ifdef SHAPE
 
 void nxagentShapeWindow(WindowPtr pWin);
 
-#endif
 
 extern Window nxagentConfiguredSynchroWindow;
 extern Bool nxagentExposeArrayIsInitialized;
