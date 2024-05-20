@@ -114,7 +114,7 @@ extern Bool (*nxagentSetCursorPositionW)(DeviceIntPtr pDev, ScreenPtr pScreen, i
 
 void nxagentDisconnectCursor(void * p0, XID x1, void * p2);
 void nxagentReconnectCursor(void * p0, XID x1, void * p2);
-void nxagentReDisplayCurrentCursor(DeviceIntPtr pDev);
+void nxagentReDisplayCurrentCursor(void);
 Bool nxagentReconnectAllCursor(void *p0);
 void nxagentDisconnectAllCursor(void);
 

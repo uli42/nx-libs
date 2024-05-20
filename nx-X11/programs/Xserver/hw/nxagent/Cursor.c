@@ -365,7 +365,7 @@ void nxagentReconnectCursor(void * p0, XID x1, void * p2)
   #endif
 }
 
-void nxagentReDisplayCurrentCursor(DeviceIntPtr pDev)
+void nxagentReDisplayCurrentCursor(void)
 {
   CursorPtr pCursor = GetSpriteCursor();
 
@@ -373,7 +373,7 @@ void nxagentReDisplayCurrentCursor(DeviceIntPtr pDev)
           nxagentGetCursorPriv(pCursor, nxagentDefaultScreen) &&
               nxagentCursor(pCursor, nxagentDefaultScreen))
   {
-    nxagentDisplayCursor(pDev, nxagentDefaultScreen, pCursor);
+    nxagentDisplayCursor(inputInfo.pointer, nxagentDefaultScreen, pCursor);
   }
 }
 
