@@ -513,8 +513,8 @@ extern _X_EXPORT KeySymsPtr XkbGetCoreMap(
 extern _X_EXPORT void XkbApplyMappingChange(
     DeviceIntPtr	/* pXDev */,
     KeySymsPtr          /* map */,
-    KeyCode 		/* firstKey */,
-    CARD8 		/* num */,
+    KeyCode		/* firstKey */,
+    CARD8		/* num */,
     CARD8 *             /* modmap */,
     ClientPtr		/* client */
 );
@@ -848,7 +848,7 @@ extern _X_EXPORT XkbGeometryPtr XkbLookupNamedGeometry(
 );
 
 extern _X_EXPORT char *	Xstrdup(
-	const char *	  		/* str */
+	const char *		/* str */
 );
 
 extern _X_EXPORT void	XkbConvertCase(
