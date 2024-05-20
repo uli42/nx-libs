@@ -26,6 +26,7 @@ HEADERS = \
 	Xarch.h \
 	Xatom.h \
 	Xdefs.h \
+	Xdmcp.h \
 	Xfuncproto.h \
 	Xfuncs.h \
 	Xmd.h \
@@ -60,6 +61,7 @@ InstallDriverSDKNonExecFile(X.h,$(DRIVERSDKINCLUDEDIR))
 InstallDriverSDKNonExecFile(Xarch.h,$(DRIVERSDKINCLUDEDIR))
 InstallDriverSDKNonExecFile(Xdefs.h,$(DRIVERSDKINCLUDEDIR))
 InstallDriverSDKNonExecFile(Xdefs.h,$(DRIVERSDKINCLUDEDIR)/X11)
+InstallDriverSDKNonExecFile(Xdmcp.h,$(DRIVERSDKINCLUDEDIR))
 InstallDriverSDKNonExecFile(Xfuncproto.h,$(DRIVERSDKINCLUDEDIR))
 InstallDriverSDKNonExecFile(Xfuncs.h,$(DRIVERSDKINCLUDEDIR))
 InstallDriverSDKNonExecFile(Xmd.h,$(DRIVERSDKINCLUDEDIR))
