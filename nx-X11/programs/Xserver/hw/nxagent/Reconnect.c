@@ -56,9 +56,7 @@
 #include "Utils.h"
 #include "Init.h"
 
-#ifdef XKB
-#include "XKBsrv.h"
-#endif
+#include "xkbsrv.h"
 
 #include <nx/NX.h>
 #include "compext/Compext.h"
