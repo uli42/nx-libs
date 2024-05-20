@@ -53,6 +53,9 @@
 #include "Render.h"
 #include "Drawable.h"
 
+/* for miGetImage */
+#include "mi.h"
+
 #define PANIC
 #define WARNING
 #undef  DEBUG
@@ -87,7 +90,6 @@ AddGlyph (GlyphSetPtr glyphSet, GlyphPtr glyph, Glyph id)
 	    if (ps)
 		(*ps->UnrealizeGlyph) (screenInfo.screens[i], glyph);
 	}
-	FreeGlyphPrivates(glyph);
 	free (glyph);
 	glyph = gr->glyph;
     }
