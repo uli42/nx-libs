@@ -71,7 +71,7 @@ int XdmcpTimeOutRtx;
 
 #endif
 
-extern char *defaultDisplayClass;
+static char *defaultDisplayClass = COMPILEDDISPLAYCLASS;
 
 static int		    xdmcpSocket, sessionSocket;
 static xdmcp_states	    state;
