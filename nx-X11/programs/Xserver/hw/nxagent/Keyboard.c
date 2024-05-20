@@ -270,31 +270,27 @@ void DDXRingBell(int volume, int pitch, int duration)
 void nxagentChangeKeyboardControl(DeviceIntPtr pDev, KeybdCtrl *ctrl)
 {
 
-  if (!noXkbExtension)
-  {
-    XkbSrvInfoPtr xkbi = pDev -> key -> xkbInfo;
-    XkbControlsPtr xkbc = xkbi -> desc -> ctrls;
+  XkbSrvInfoPtr xkbi = pDev -> key -> xkbInfo;
+  XkbControlsPtr xkbc = xkbi -> desc -> ctrls;
 
-    /*
-     * We want to prevent agent generating auto-repeated
-     * keystrokes. Let's intercept any attempt by appli- cations to
-     * change the default timeouts on the nxagent device.
-     */
+  /*
+   * We want to prevent agent generating auto-repeated
+   * keystrokes. Let's intercept any attempt by appli- cations to
+   * change the default timeouts on the nxagent device.
+   */
 
-    #ifdef TEST
-    fprintf(stderr, "%s: Repeat delay was [%d] interval was [%d].\n", __func__,
-                xkbc -> repeat_delay, xkbc -> repeat_interval);
-    #endif
+  #ifdef TEST
+  fprintf(stderr, "%s: Repeat delay was [%d] interval was [%d].\n", __func__,
+              xkbc -> repeat_delay, xkbc -> repeat_interval);
+  #endif
 
-    xkbc -> repeat_delay = ~ 0;
-    xkbc -> repeat_interval = ~ 0;
+  xkbc -> repeat_delay = ~ 0;
+  xkbc -> repeat_interval = ~ 0;
 
-    #ifdef TEST
-    fprintf(stderr, "%s: Repeat delay is now [%d] interval is now [%d].\n", __func__,
-                xkbc -> repeat_delay, xkbc -> repeat_interval);
-    #endif
-  }
-
+  #ifdef TEST
+  fprintf(stderr, "%s: Repeat delay is now [%d] interval is now [%d].\n", __func__,
+              xkbc -> repeat_delay, xkbc -> repeat_interval);
+  #endif
 
   /*
    * If enabled, propagate the changes to the devices attached to the
@@ -498,13 +494,6 @@ N/A
       if (!nxagentGetRemoteXkbExtension())
       {
         ErrorF("Unable to query XKEYBOARD extension.\n");
-        goto XkbError;
-      }
-
-      if (noXkbExtension) {
-        #ifdef TEST
-        fprintf(stderr, "%s: No XKB extension.\n", __func__);
-        #endif
 
 XkbError:
 
@@ -529,7 +518,7 @@ XkbError:
         }
         #endif
 
-      } else { /* if (noXkbExtension) */
+      } else {
         //XkbComponentNamesRec names = {0};
         char *rules = NULL, *variant = NULL, *options = NULL; /* use xkb default */
 
@@ -899,55 +888,21 @@ Bool LegalModifier(unsigned int key, DeviceIntPtr pDev)
 void nxagentNotifyKeyboardChanges(int oldMinKeycode, int oldMaxKeycode)
 {
 
-  if (!noXkbExtension)
-  {
-    DeviceIntPtr dev;
-    xkbNewKeyboardNotify nkn = {0};
+  DeviceIntPtr dev;
+  xkbNewKeyboardNotify nkn = {0};
 
-    dev = inputInfo.keyboard;
+  dev = inputInfo.keyboard;
 
-    nkn.deviceID = nkn.oldDeviceID = dev -> id;
-    nkn.minKeyCode = 8;
-    nkn.maxKeyCode = 255;
-    nkn.oldMinKeyCode = oldMinKeycode;
-    nkn.oldMaxKeyCode = oldMaxKeycode;
-    nkn.requestMajor = XkbReqCode;
-    nkn.requestMinor = X_kbGetKbdByName;
-    nkn.changed = XkbNKN_KeycodesMask;
+  nkn.deviceID = nkn.oldDeviceID = dev -> id;
+  nkn.minKeyCode = 8;
+  nkn.maxKeyCode = 255;
+  nkn.oldMinKeyCode = oldMinKeycode;
+  nkn.oldMaxKeyCode = oldMaxKeycode;
+  nkn.requestMajor = XkbReqCode;
+  nkn.requestMinor = X_kbGetKbdByName;
+  nkn.changed = XkbNKN_KeycodesMask;
 
-    XkbSendNewKeyboardNotify(dev, &nkn);
-  }
-  else
-  {
-
-
-    xEvent event = {0};
-    event.u.u.type = MappingNotify;
-    event.u.mappingNotify.request = MappingKeyboard;
-    //    event.u.mappingNotify.firstKeyCode = inputInfo.keyboard -> key -> curKeySyms.minKeyCode;
-    event.u.mappingNotify.firstKeyCode = inputInfo.keyboard -> key -> xkbInfo->desc->min_key_code;
-    //event.u.mappingNotify.count = inputInfo.keyboard -> key -> curKeySyms.maxKeyCode -
-    //                                  inputInfo.keyboard -> key -> curKeySyms.minKeyCode;
-    event.u.mappingNotify.count = inputInfo.keyboard -> key -> xkbInfo->desc->max_key_code -
-                                      inputInfo.keyboard -> key -> xkbInfo->desc->min_key_code;
-
-    /*
-     *  0 is the server client
-     */
-
-    for (int i = 1; i < currentMaxClients; i++)
-    {
-      if (clients[i] && clients[i] -> clientState == ClientStateRunning)
-      {
-        event.u.u.sequenceNumber = clients[i] -> sequence;
-        WriteEventsToClient(clients[i], 1, &event);
-      }
-    }
-
-
-  }
-
-
+  XkbSendNewKeyboardNotify(dev, &nkn);
 }
 
 int nxagentResetKeyboard(void)
@@ -987,7 +942,7 @@ int nxagentResetKeyboard(void)
 
   if (dev->key)
   {
-    if (!noXkbExtension && dev->key->xkbInfo)
+    if (dev->key->xkbInfo)
     {
       oldMinKeycode = dev->key->xkbInfo -> desc -> min_key_code;
       oldMaxKeycode = dev->key->xkbInfo -> desc -> max_key_code;
@@ -1141,7 +1096,7 @@ static int nxagentFreeKeyboardDeviceData(DeviceIntPtr dev)
 
   if (dev->key)
   {
-    if (!noXkbExtension && dev->key->xkbInfo)
+    if (dev->key->xkbInfo)
     {
         XkbFreeInfo(dev->key->xkbInfo);
         dev->key->xkbInfo = NULL;
