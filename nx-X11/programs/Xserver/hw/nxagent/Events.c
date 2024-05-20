@@ -4615,8 +4615,9 @@ void ForwardClientMessage(ClientPtr client, xSendEventReq *stuff)
 {
     Atom netwmstate = MakeAtom("_NET_WM_STATE", strlen("_NET_WM_STATE"), False);
     Atom wmchangestate = MakeAtom("WM_CHANGE_STATE", strlen("WM_CHANGE_STATE"), False);
-    WindowPtr pWin = (WindowPtr)SecurityLookupWindow(stuff->destination, client,
-                                                     DixReadAccess);
+    WindowPtr pWin;
+    if (dixLookupWindow(&pWin, stuff->destination, client, DixReadAccess) != Success)
+      return;
 
     if (stuff->event.u.clientMessage.u.l.type == netwmstate || stuff->event.u.clientMessage.u.l.type == wmchangestate)
     {
@@ -4629,8 +4630,8 @@ void ForwardClientMessage(ClientPtr client, xSendEventReq *stuff)
             XEvent X = {0};
             X.xany.type = ClientMessage;
 
-            WindowPtr pWin2 = (WindowPtr)SecurityLookupWindow(stuff->event.u.clientMessage.window, client,
-                                                              DixReadAccess);
+            WindowPtr pWin2;
+            dixLookupWindow(&pWin2, stuff->event.u.clientMessage.window, client, DixReadAccess);
             X.xclient.window = nxagentWindowPriv(pWin2)->window;
             X.xclient.format = stuff->event.u.u.detail;
             X.xclient.send_event = True;
