@@ -218,15 +218,15 @@ void nxagentPaintLogo(XlibWindow win, int scale, int width, int height)
     return;
   }
 
-  if (blackRoot)
-  {
-    XSetForeground(nxagentDisplay, gc, LOGOBLACK);
-    XSetBackground(nxagentDisplay, gc, LOGOWHITE);
-  }
-  else
+  if (whiteRoot)
   {
     XSetForeground(nxagentDisplay, gc, LOGOWHITE);
     XSetBackground(nxagentDisplay, gc, LOGOBLACK);
+  }
+  else
+  {
+    XSetForeground(nxagentDisplay, gc, LOGOBLACK);
+    XSetBackground(nxagentDisplay, gc, LOGOWHITE);
   }
 
   XPoint rect[15];
@@ -242,11 +242,10 @@ void nxagentPaintLogo(XlibWindow win, int scale, int width, int height)
   fprintf(stderr, "%s: filled background\n", __func__);
   #endif
 
-  if (blackRoot)
-    XSetForeground(nxagentDisplay, gc, LOGODARKGRAY);
-  else
+  if (whiteRoot)
     XSetForeground(nxagentDisplay, gc, LOGOLIGHTGRAY);
-
+  else
+    XSetForeground(nxagentDisplay, gc, LOGODARKGRAY);
 
   #ifdef NXAGENT_LOGO_DEBUG
   /* mark center */
