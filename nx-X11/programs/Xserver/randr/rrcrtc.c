@@ -1685,10 +1685,7 @@ check_all_screen_crtcs(ScreenPtr pScreen, int *x, int *y)
 }
 
 static Bool
-constrain_all_screen_crtcs(
-#ifndef NXAGENT_SERVER
-                           DeviceIntPtr pDev,
-#endif /* !defined(NXAGENT_SERVER) */
+constrain_all_screen_crtcs(DeviceIntPtr pDev,
                            ScreenPtr pScreen, int *x, int *y)
 {
     rrScrPriv(pScreen);
@@ -1704,12 +1701,7 @@ constrain_all_screen_crtcs(
             continue;
 
         crtc_bounds(crtc, &left, &right, &top, &bottom);
-#ifndef NXAGENT_SERVER
         miPointerGetPosition(pDev, &nx, &ny);
-#else                           /* !defined(NXAGENT_SERVER) */
-
-        miPointerPosition(&nx, &ny);
-#endif                          /* !defined(NXAGENT_SERVER) */
 
         if ((nx >= left) && (nx < right) && (ny >= top) && (ny < bottom)) {
             if (*x < left)
@@ -1757,11 +1749,7 @@ RRConstrainCursorHarder(
 #endif /* !defined(NXAGENT_SERVER) */
 
     /* if we're trying to escape, clamp to the CRTC we're coming from */
-    ret = constrain_all_screen_crtcs(
-#ifndef NXAGENT_SERVER
-                                      pDev,
-#endif /* !defined(NXAGENT_SERVER) */
-                                      pScreen, x, y);
+    ret = constrain_all_screen_crtcs(pDev, pScreen, x, y);
     if (ret == TRUE)
         return;
 
