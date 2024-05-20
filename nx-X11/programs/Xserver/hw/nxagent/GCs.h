@@ -69,12 +69,13 @@ typedef nxagentGraphicContextsRec *nxagentGraphicContextsPtr;
 extern nxagentGraphicContextsPtr nxagentGraphicContexts;
 extern int nxagentGraphicContextsSize;
 
-extern DevPrivateKey nxagentGCPrivateKey;
- 
+extern DevPrivateKeyRec nxagentGCPrivateKeyRec;
+#define nxagentGCPrivateKey (&nxagentGCPrivateKeyRec)
+
 #define nxagentGCPriv(pGC) ((nxagentPrivGC *) \
-     dixLookupPrivate(&(pGC)->devPrivates, nxagentGCPrivateKey))
- 
-#define nxagentGC(pGC) (nxagentGCPriv(pGC) -> gc)
+    dixLookupPrivate(&(pGC)->devPrivates, nxagentGCPrivateKey))
+
+#define nxagentGC(pGC) (nxagentGCPriv(pGC)->gc)
 
 #define nxagentCopyGCPriv(valueMask, valueField, src, mask, dst) \
 \
