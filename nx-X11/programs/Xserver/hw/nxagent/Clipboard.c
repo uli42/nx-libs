@@ -610,7 +610,7 @@ static Status sendSelectionNotifyEventToXServer(XSelectionEvent *event_to_send)
 
 static int sendEventToClient(ClientPtr client, xEvent *pEvents)
 {
-  return TryClientEvents(client, pEvents, 1, NoEventMask, NoEventMask, NullGrab);
+  return TryClientEvents(client, NULL, pEvents, 1, NoEventMask, NoEventMask, NullGrab);
 }
 
 static void sendSelectionNotifyEventToClient(ClientPtr client,
