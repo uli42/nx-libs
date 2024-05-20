@@ -479,6 +479,11 @@ void InitInput(int argc, char *argv[])
   NXSetDisplayPolicy(nxagentDisplay, NXPolicyDeferred);
 }
 
+void CloseInput(void)
+{
+  /* Cleanup waht InitInput allocated */
+}
+
 /*
  * DDX specific abort routine. This is called by AbortServer() that,
  * in turn, is called by FatalError().
