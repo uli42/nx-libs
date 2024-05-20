@@ -228,6 +228,22 @@ XkbSetRulesUsed(XkbRMLVOSet *rmlvo)
     return;
 }
 
+/* backport xorg-xserver 6f44d672aa34d343f63f0ea81ad58154a66b57ec */
+void
+XkbDeleteRulesUsed(void)
+{
+    free(XkbRulesUsed);
+    XkbRulesUsed = NULL;
+    free(XkbModelUsed);
+    XkbModelUsed = NULL;
+    free(XkbLayoutUsed);
+    XkbLayoutUsed = NULL;
+    free(XkbVariantUsed);
+    XkbVariantUsed = NULL;
+    free(XkbOptionsUsed);
+    XkbOptionsUsed = NULL;
+}
+
 void
 XkbSetRulesDflts(XkbRMLVOSet *rmlvo)
 {
