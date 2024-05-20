@@ -34,78 +34,80 @@ FFS_DEFINES = -DHAS_FFS
 MIINITEXTSRC = miinitext.c
 MIINITEXTOBJ = miinitext.o
 
-SRCS =  mivaltree.c             \
-        mipolyseg.c             \
-        mipolyrect.c            \
+SRCS =  miarc.c                 \
+        mibitblt.c              \
+        mibstore.c              \
+        micmap.c                \
+        micopy.c                \
+        micursor.c              \
+        midash.c                \
+        midispcur.c             \
+        $(MIINITEXTSRC)         \
+        mieq.c                  \
+        miexpose.c              \
+        mifillarc.c             \
+        mifillrct.c             \
+        mifpolycon.c            \
+        migc.c                  \
+        miglblt.c               \
+        mioverlay.c             \
+        mipointer.c             \
         mipoly.c                \
         mipolycon.c             \
         mipolygen.c             \
-        mipolyutil.c            \
-        mifillrct.c             \
-        miwideline.c            \
-        mispans.c               \
-        miarc.c                 \
-        mizerarc.c              \
-        mifillarc.c             \
-        miwindow.c              \
-        micursor.c              \
-        mipolytext.c            \
-        mibitblt.c              \
         mipolypnt.c             \
+        mipolyrect.c            \
+        mipolyseg.c             \
+        mipolytext.c            \
+        mipolyutil.c            \
         mipushpxl.c             \
-        miglblt.c               \
-        mizerline.c             \
-        mizerclip.c             \
-        mifpolycon.c            \
-        midash.c                \
-        mibstore.c              \
-        $(MIINITEXTSRC)         \
-        mieq.c                  \
-        mipointer.c             \
-        misprite.c              \
-        midispcur.c             \
         miscrinit.c             \
-        migc.c                  \
-        micmap.c                \
-        mioverlay.c             \
-        miexpose.c              \
+        mispans.c               \
+        misprite.c              \
+        mivaltree.c             \
+        miwideline.c            \
+        miwindow.c              \
+        mizerarc.c              \
+        mizerclip.c             \
+        mizerline.c             \
         $(NULL)
 
-OBJS =  mivaltree.o             \
-        mipolyseg.o             \
-        mipolyrect.o            \
+OBJS =  miarc.o                 \
+        mibitblt.o              \
+        mibstore.o              \
+        micmap.o                \
+        micopy.o                \
+        micursor.o              \
+        midash.o                \
+        midispcur.o             \
+        $(MIINITEXTSRC)         \
+        mieq.o                  \
+        miexpose.o              \
+        mifillarc.o             \
+        mifillrct.o             \
+        mifpolycon.o            \
+        migc.o                  \
+        miglblt.o               \
+        mioverlay.o             \
+        mipointer.o             \
         mipoly.o                \
         mipolycon.o             \
         mipolygen.o             \
-        mipolyutil.o            \
-        mifillrct.o             \
-        miwideline.o            \
-        mispans.o               \
-        miarc.o                 \
-        mizerarc.o              \
-        mifillarc.o             \
-        miwindow.o              \
-        micursor.o              \
-        mipolytext.o            \
-        mibitblt.o              \
         mipolypnt.o             \
+        mipolyrect.o            \
+        mipolyseg.o             \
+        mipolytext.o            \
+        mipolyutil.o            \
         mipushpxl.o             \
-        miglblt.o               \
-        mizerline.o             \
-        mizerclip.o             \
-        mifpolycon.o            \
-        midash.o                \
-        mibstore.o              \
-        $(MIINITEXTOBJ)         \
-        mieq.o                  \
-        mipointer.o             \
-        misprite.o              \
-        midispcur.o             \
         miscrinit.o             \
-        migc.o                  \
-        micmap.o                \
-        mioverlay.o             \
-        miexpose.o              \
+        mispans.o               \
+        misprite.o              \
+        mivaltree.o             \
+        miwideline.o            \
+        miwindow.o              \
+        mizerarc.o              \
+        mizerclip.o             \
+        mizerline.o             \
         $(NULL)
 
 #if defined(XorgVersion)
@@ -152,7 +154,11 @@ LINTLIBS =                      \
            ../os/llib-los.ln    \
            $(NULL)
 
-DEFINES  = $(FFS_DEFINES) $(NX_DEFINES)
+DEFINES  = $(FFS_DEFINES) $(NX_DEFINES) \
+           -DHAVE_DIX_CONFIG_H \
+           -DHAVE_XORG_CONFIG_H \
+           $(NULL)
+
 
 NormalLibraryObjectRule()
 NormalLibraryTarget(mi,$(OBJS))
