@@ -92,7 +92,7 @@ extern XlibGC nxagentBitmapGC;
 
 extern CursorPtr GetSpriteCursor(void);
 
-void nxagentConstrainCursor(ScreenPtr pScreen, BoxPtr pBox)
+void nxagentConstrainCursor(DeviceIntPtr pDev, ScreenPtr pScreen, BoxPtr pBox)
 {
   #ifdef TEST
   int width  = nxagentOption(RootWidth);
@@ -112,13 +112,13 @@ void nxagentConstrainCursor(ScreenPtr pScreen, BoxPtr pBox)
   #endif
 }
 
-void nxagentCursorLimits(ScreenPtr pScreen, CursorPtr pCursor,
+void nxagentCursorLimits(DeviceIntPtr pDev, ScreenPtr pScreen, CursorPtr pCursor,
                              BoxPtr pHotBox, BoxPtr pTopLeftBox)
 {
   *pTopLeftBox = *pHotBox;
 }
 
-Bool nxagentDisplayCursor(ScreenPtr pScreen, CursorPtr pCursor)
+Bool nxagentDisplayCursor(DeviceIntPtr pDev, ScreenPtr pScreen, CursorPtr pCursor)
 {
   /*
    * Don't define the root cursor so that nxagent root window inherits
@@ -142,7 +142,7 @@ Bool nxagentDisplayCursor(ScreenPtr pScreen, CursorPtr pCursor)
   return True;
 }
 
-Bool nxagentRealizeCursor(ScreenPtr pScreen, CursorPtr pCursor)
+Bool nxagentRealizeCursor(DeviceIntPtr pDev, ScreenPtr pScreen, CursorPtr pCursor)
 {
   #ifdef TEST
   fprintf(stderr, "%s: Called for cursor at [%p].\n", __func__, (void *) pCursor);
@@ -245,7 +245,7 @@ Bool nxagentRealizeCursor(ScreenPtr pScreen, CursorPtr pCursor)
   return True;
 }
 
-Bool nxagentUnrealizeCursor(ScreenPtr pScreen, CursorPtr pCursor)
+Bool nxagentUnrealizeCursor(DeviceIntPtr pDev, ScreenPtr pScreen, CursorPtr pCursor)
 {
   if (nxagentCursorUsesRender(pCursor, pScreen))
   {
@@ -264,7 +264,7 @@ Bool nxagentUnrealizeCursor(ScreenPtr pScreen, CursorPtr pCursor)
   return True;
 }
 
-void nxagentRecolorCursor(ScreenPtr pScreen, CursorPtr pCursor,
+void nxagentRecolorCursor(DeviceIntPtr pDev, ScreenPtr pScreen, CursorPtr pCursor,
                               Bool displayed)
 {
   XColor fg_color = {
@@ -284,15 +284,15 @@ void nxagentRecolorCursor(ScreenPtr pScreen, CursorPtr pCursor,
                  &fg_color, &bg_color);
 }
 
-Bool (*nxagentSetCursorPositionW)(ScreenPtr pScreen, int x, int y,
+Bool (*nxagentSetCursorPositionW)(DeviceIntPtr pDev, ScreenPtr pScreen, int x, int y,
                                       Bool generateEvent);
 
-Bool nxagentSetCursorPosition(ScreenPtr pScreen, int x, int y,
+Bool nxagentSetCursorPosition(DeviceIntPtr pDev, ScreenPtr pScreen, int x, int y,
                                   Bool generateEvent)
 {
   if (generateEvent != 0)
   {
-    return (*nxagentSetCursorPositionW)(pScreen, x, y, generateEvent);
+    return (*nxagentSetCursorPositionW)(pDev, pScreen, x, y, generateEvent);
   }
   else
   {
@@ -352,7 +352,7 @@ void nxagentReconnectCursor(void * p0, XID x1, void * p2)
     else
     {
       free(nxagentGetCursorPriv(pCursor, nxagentDefaultScreen));
-      if (!nxagentRealizeCursor(nxagentDefaultScreen, pCursor))
+      if (!nxagentRealizeCursor(inputInfo.pointer, nxagentDefaultScreen, pCursor))
       {
         fprintf(stderr, "%s: nxagentRealizeCursor failed\n", __func__);
         *pBool = False;
@@ -365,11 +365,7 @@ void nxagentReconnectCursor(void * p0, XID x1, void * p2)
   #endif
 }
 
-/*
- * The parameter is ignored at the moment.
- */
-
-void nxagentReDisplayCurrentCursor(void)
+void nxagentReDisplayCurrentCursor(DeviceIntPtr pDev)
 {
   CursorPtr pCursor = GetSpriteCursor();
 
@@ -377,10 +373,11 @@ void nxagentReDisplayCurrentCursor(void)
           nxagentGetCursorPriv(pCursor, nxagentDefaultScreen) &&
               nxagentCursor(pCursor, nxagentDefaultScreen))
   {
-    nxagentDisplayCursor(nxagentDefaultScreen, pCursor);
+    nxagentDisplayCursor(pDev, nxagentDefaultScreen, pCursor);
   }
 }
 
+/* FIXME: maybe we have to loop over all pointer devices here */
 Bool nxagentReconnectAllCursor(void *p0)
 {
   Bool r = True;
@@ -489,6 +486,7 @@ void nxagentDisconnectCursor(void * p0, XID x1, void * p2)
   }
 }
 
+/* FIXME: maybe we have to loop over all pointer devices here */
 void nxagentDisconnectAllCursor(void)
 {
   Bool r = True;

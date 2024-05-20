@@ -92,29 +92,29 @@ extern CursorBitsPtr nxagentAnimCursorBits;
 #define nxagentCursorYOffset(pCursor, pScreen) \
   (nxagentGetCursorPriv(pCursor, pScreen)->y)
 
-void nxagentConstrainCursor(ScreenPtr pScreen, BoxPtr pBox);
+void nxagentConstrainCursor(DeviceIntPtr pDev, ScreenPtr pScreen, BoxPtr pBox);
 
-void nxagentCursorLimits(ScreenPtr pScreen, CursorPtr pCursor,
+void nxagentCursorLimits(DeviceIntPtr pDev, ScreenPtr pScreen, CursorPtr pCursor,
                              BoxPtr pHotBox, BoxPtr pTopLeftBox);
 
-Bool nxagentDisplayCursor(ScreenPtr pScreen, CursorPtr pCursor);
+Bool nxagentDisplayCursor(DeviceIntPtr pDev, ScreenPtr pScreen, CursorPtr pCursor);
 
-Bool nxagentRealizeCursor(ScreenPtr pScreen, CursorPtr pCursor);
+Bool nxagentRealizeCursor(DeviceIntPtr pDev, ScreenPtr pScreen, CursorPtr pCursor);
 
-Bool nxagentUnrealizeCursor(ScreenPtr pScreen, CursorPtr pCursor);
+Bool nxagentUnrealizeCursor(DeviceIntPtr pDev, ScreenPtr pScreen, CursorPtr pCursor);
 
-void nxagentRecolorCursor(ScreenPtr pScreen, CursorPtr pCursor,
+void nxagentRecolorCursor(DeviceIntPtr pDev, ScreenPtr pScreen, CursorPtr pCursor,
                               Bool displayed);
 
-Bool nxagentSetCursorPosition(ScreenPtr pScreen, int x, int y,
+Bool nxagentSetCursorPosition(DeviceIntPtr pDev, ScreenPtr pScreen, int x, int y,
                                   Bool generateEvent);
 
-extern Bool (*nxagentSetCursorPositionW)(ScreenPtr pScreen, int x, int y,
+extern Bool (*nxagentSetCursorPositionW)(DeviceIntPtr pDev, ScreenPtr pScreen, int x, int y,
                                              Bool generateEvent);
 
 void nxagentDisconnectCursor(void * p0, XID x1, void * p2);
 void nxagentReconnectCursor(void * p0, XID x1, void * p2);
-void nxagentReDisplayCurrentCursor(void);
+void nxagentReDisplayCurrentCursor(DeviceIntPtr pDev);
 Bool nxagentReconnectAllCursor(void *p0);
 void nxagentDisconnectAllCursor(void);
 
