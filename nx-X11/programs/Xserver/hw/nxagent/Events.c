@@ -2750,7 +2750,7 @@ int nxagentHandleClientMessageEvent(XEvent *X, enum HandleEventResult *result)
       }
       #endif
 
-      WriteEventsToClient(wClient(pWin), 1, &x);
+      TryClientEvents(wClient(pWin), NULL, &x, 1, 1, 1, 0);
     }
     else
     {
@@ -3349,7 +3349,7 @@ int nxagentHandleConfigureNotify(XEvent* X)
         x.u.configureNotify.borderWidth = X -> xconfigure.border_width;
         x.u.configureNotify.override = X -> xconfigure.override_redirect;
 
-        WriteEventsToClient(wClient(pWinWindow), 1, &x);
+        TryClientEvents(wClient(pWinWindow), NULL, &x, 1, 1, 1, 0);
       }
 
       return 1;
