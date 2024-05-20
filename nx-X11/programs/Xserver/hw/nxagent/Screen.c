@@ -212,6 +212,8 @@ extern Bool nxagentAutoDPI;
 
 extern char *nxagentKeyboard;
 
+DevPrivateKeyRec nxagentCursorScreenKeyRec;
+
 /*
  * From randr/randr.c. This was originally static
  * but we need it here.
@@ -1162,13 +1164,16 @@ Bool nxagentOpenScreen(int index, ScreenPtr pScreen, int argc, char *argv[])
      * Initialize all our privates.
      */
 
-    if (!dixRequestPrivate(nxagentWindowPrivateKey, sizeof(nxagentPrivWindowRec)) ||
-        !dixRequestPrivate(nxagentGCPrivateKey, sizeof(nxagentPrivGC)) ||
-	!dixRequestPrivate(nxagentClientPrivateKey, sizeof(PrivClientRec)) ||
-	!dixRequestPrivate(nxagentPixmapPrivateKey, sizeof(nxagentPrivPixmapRec)))
-    {
-      return False;
-    }
+    if (!dixRegisterPrivateKey(&nxagentWindowPrivateKeyRec, PRIVATE_WINDOW, sizeof(nxagentPrivWin)))
+      return FALSE;
+    if (!dixRegisterPrivateKey(&nxagentGCPrivateKeyRec, PRIVATE_GC, sizeof(nxagentPrivGC)))
+      return FALSE;
+    if (!dixRegisterPrivateKey(&nxagentClientPrivateKeyRec, PRIVATE_PIXMAP, sizeof (PrivClientRec)))
+      return FALSE;
+    if (!dixRegisterPrivateKey(&nxagentPixmapPrivateKeyRec, PRIVATE_PIXMAP, sizeof (nxagentPrivPixmapRec)))
+      return FALSE;
+    if (!dixRegisterPrivateKey(&nxagentCursorScreenKeyRec, PRIVATE_SCREEN, 0))
+      return FALSE;
 
     /*
      * Initialize the depths.
