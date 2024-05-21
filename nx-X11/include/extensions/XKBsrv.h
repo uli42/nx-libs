@@ -327,9 +327,75 @@ extern	int	DeviceButtonPress,DeviceButtonRelease;
 #undef	IsKeypadKey
 #define	IsKeypadKey(s)		XkbKSIsKeypad(s)
 
+/* kbproto used defines for some time. This worked for nxagent where we are calling
+   Xlib and Xkb function from inside the server code, which comes with an own Xkb implementation.
+
+   In 2009 this kbproto commit changed the defines to typedefs:
+
+   commit 5273e7bc22cc7f11f2461ba1f5f30cbdecda1289
+   Author: Jeremy Huddleston <jeremyhu@freedesktop.org>
+   Date:   Mon Apr 6 17:54:12 2009 -0700
+
+       Made some defines typedefs for better compatability
+
+diff --git a/XKBsrv.h b/XKBsrv.h
+index 49630af..26a4ed8 100644
+--- a/XKBsrv.h
++++ b/XKBsrv.h
+@@ -330,9 +330,9 @@ extern      int     DeviceButtonPress,DeviceButtonRelease;
+ #undef IsKeypadKey
+ #define        IsKeypadKey(s)          XkbKSIsKeypad(s)
+
+-#define        Status          int
+-#define        XPointer        pointer
+-#define        Display         struct _XDisplay
++typedef int Status;
++typedef pointer XPointer;
++typedef struct _XDisplay Display;
+
+   (Note that pointer has been replaced by void * meanwhile).
+
+   With this change we could no longer compile nxagent's code because of
+   errors like these:
+
+In file included from Agent.h:114,
+                 from Keyboard.c:54:
+../../../../exports/include/nx-X11/Xlib.h:80:16: error: two or more data types in declaration specifiers
+   80 | #define Status int
+      |                ^~~
+../../../../exports/include/nx-X11/extensions/XKBsrv.h:363:13: note: in expansion of macro ‘Status’
+  363 | typedef int Status;
+      |             ^~~~~~
+In file included from Keyboard.c:77:
+../../../../exports/include/nx-X11/extensions/XKBsrv.h:363:1: warning: useless type name in empty declaration
+  363 | typedef int Status;
+      | ^~~~~~~
+../../../../exports/include/nx-X11/extensions/XKBsrv.h:364:16: error: conflicting types for ‘XPointer’; have ‘void *’
+  364 | typedef void * XPointer;
+      |                ^~~~~~~~
+../../../../exports/include/nx-X11/Xlib.h:77:15: note: previous declaration of ‘XPointer’ with type ‘XPointer’ {aka ‘char *’}
+   77 | typedef char *XPointer;
+      |               ^~~~~~~~
+../../../../exports/include/nx-X11/extensions/XKBsrv.h:365:26: warning: redefinition of typedef ‘Display’ [-Wpedantic]
+  365 | typedef struct _XDisplay Display;
+      |                          ^~~~~~~
+../../../../exports/include/nx-X11/Xlib.h:484:26: note: previous declaration of ‘Display’ with type ‘Display’ {aka ‘struct _XDisplay’}
+  484 | typedef struct _XDisplay Display;
+      |                          ^~~~~~~
+
+   Reverting the commit and using the defines again made it work.
+   FIXME: We will have to re-visit this one day...
+*/
+
+#if 1
+#define        Status          int
+#define        XPointer        void *
+#define        Display         struct _XDisplay
+#else
 typedef int Status;
-typedef pointer XPointer;
+typedef void * XPointer;
 typedef struct _XDisplay Display;
+#endif
 
 #ifndef True
 #define	True	1
