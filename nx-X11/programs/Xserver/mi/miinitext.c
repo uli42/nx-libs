@@ -411,11 +411,9 @@ InitExtensions(int argc, char *argv[])
 #endif
 
 #ifdef GLXEXT
-#if 0
     if (serverGeneration == 1)
-    GlxPushProvider(&__glXDRISWRastProvider);
+        GlxPushProvider(&__glXDRISWRastProvider);
     if (!noGlxExtension) GlxExtensionInit();
-#endif
 #endif
 }
 
