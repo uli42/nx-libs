@@ -744,23 +744,22 @@ XkbError:
           }
         }
 
+        XkbRMLVOSet rmlvo;
+        XkbGetRulesDflts(&rmlvo);
+        if (rules) rmlvo.rules = rules;
+        if (model) rmlvo.model = model;
+        if (layout) rmlvo.layout = layout;
+        if (variant) rmlvo.variant = variant;
+        if (options) rmlvo.options = options;
+
         #ifdef DEBUG
         fprintf(stderr, "%s: Going to set rules and init device: "
                         "[rules='%s',model='%s',layout='%s',variant='%s',options='%s'].\n", __func__,
-                        rules?rules:"(default)", model?model:"(default)", layout?layout:"(default)",
-                        variant?variant:"(default)", options?options:"(default)");
+                        rmlvo.rules, rmlvo.model, rmlvo.layout, rmlvo.variant, rmlvo.options);
         #endif
 
-        ///XkbSetRulesDflts(rules, model, layout, variant, options);
-        //        XkbInitKeyboardDeviceStruct(pDev, &names, &keySyms, modmap,
-        //                            nxagentBell, nxagentChangeKeyboardControl);
-        XkbRMLVOSet rmlvo;
-        rmlvo.rules = rules;
-        rmlvo.model = model;
-        rmlvo.layout = layout;
-        rmlvo.variant = variant;
-        rmlvo.options = options;
-        XkbSetRulesDflts(&rmlvo);
+
+	//        XkbSetRulesDflts(&rmlvo);
         InitKeyboardDeviceStruct(pDev, &rmlvo,
                                  nxagentBell, nxagentChangeKeyboardControl);
 
