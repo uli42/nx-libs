@@ -5798,6 +5798,7 @@ PickPointer(ClientPtr client)
 
     if (!client->clientPtr)
     {
+        DeviceIntPtr it = inputInfo.devices;
         while (it)
         {
             if (IsMaster(it) && it->spriteInfo->spriteOwner)
