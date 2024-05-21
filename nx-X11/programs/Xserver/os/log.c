@@ -375,12 +375,19 @@ LogVWrite(int verb, const char *f, va_list args)
         *tmpBuffer = toupper(*tmpBuffer);
 
         /*
-         * Remove the trailing newline.
+         * Remove the trailing newline.  Note that this is somehow
+         * contradicting the newline handling of this
+         * call. Unfortunately we end up here for the UsageMsg as
+         * well, and for that we actually NEED the newlines.  So
+         * instead of simply removing the newline we now track if we
+         * removed a newline and add it again later.
          */
 
+        newline = FALSE;
         if (strlen(tmpBuffer) > 0 &&
                 *(tmpBuffer + strlen(tmpBuffer) - 1) == '\n') {
             *(tmpBuffer + strlen(tmpBuffer) - 1) = '\0';
+            newline = TRUE;
         }
 
         /*
@@ -391,6 +398,9 @@ LogVWrite(int verb, const char *f, va_list args)
                 *(tmpBuffer + strlen(tmpBuffer) - 1) == '.') {
             *(tmpBuffer + strlen(tmpBuffer) - 1) = '\0';
         }
+
+        if (newline)
+            *(tmpBuffer + strlen(tmpBuffer)) = '\n';
 #endif /* #ifdef NX_TRANS_EXIT */
 	len = strlen(tmpBuffer);
     }
