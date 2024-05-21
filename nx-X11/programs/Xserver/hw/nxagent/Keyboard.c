@@ -66,7 +66,13 @@ is" without express or implied warranty.
 #include <nx/Shadow.h>
 
 #include <nx-X11/extensions/XKB.h>
-#include "xkbsrv.h"
+
+/*
+  we need the client side header here, xkbsrv.h will not work because
+  server and libX11 have different struct sizes on
+  64bit. Interestingly upstream xnest does not take care of this.
+*/
+#include <nx-X11/extensions/XKBsrv.h>
 #include <nx-X11/extensions/XKBconfig.h>
 
 #include "Xatom.h"
@@ -87,8 +93,8 @@ static void nxagentWriteKeyboardFile(char *rules, char *model, char *layout, cha
 
 #define PANIC
 #define WARNING
-#undef  TEST
-#undef  DEBUG
+#define  TEST
+#define  DEBUG
 #undef  WATCH
 
 #ifdef WATCH
@@ -127,6 +133,14 @@ extern        Status        XkbGetControls(
         unsigned long    /* which */,
         XkbDescPtr       /* desc */
 #endif
+);
+
+extern _X_EXPORT KeySymsPtr XkbGetCoreMap(
+    DeviceIntPtr        /* keybd */
+);
+
+extern _X_EXPORT void	XkbGetRulesDflts(
+        XkbRMLVOSet *           /* rmlvo */
 );
 
 extern int XkbDfltRepeatDelay;
@@ -689,7 +703,7 @@ XkbError:
         /* we don't need the remote keyboard information anymore */
         nxagentXkbClearRemoteNames();
 
-        xkb = XkbGetKeyboard(nxagentDisplay, XkbGBN_AllComponentsMask, XkbUseCoreKbd);
+        xkb = XkbGetKeyboard(nxagentDisplay, XkbAllComponentsMask, XkbUseCoreKbd);
 
         if (xkb && xkb->geom)
         {
