@@ -327,8 +327,6 @@ void InitOutput(ScreenInfo *scrInfo, int argc, char *argv[])
     }
   }
 
-  nxagentInitBSPixmapList();
-
   /*
    * Open the display. We are at the early startup and the information
    * we'll get from the remote X server will mandate some of the
@@ -438,17 +436,11 @@ void InitInput(int argc, char *argv[])
                        FALSE);
 
   if (rc != Success)
-      FatalError("Failed to init Xnest default devices.\n");
+      FatalError("Failed to init NX default devices.\n");
 
   GetEventList(&nxagentEvents);
 
-  // RegisterKeyboardDevice(nxagentKeyboardDevice);
-  // RegisterPointerDevice(nxagentPointerDevice);
-
   mieqInit();
-
-  // from xnest. Required?
-  // AddEnabledDevice(XConnectionNumber(nxagentDisplay));
 
   /*
    * Add the display descriptor to the set of descriptors awaited by

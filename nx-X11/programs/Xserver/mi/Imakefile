@@ -36,7 +36,6 @@ MIINITEXTOBJ = miinitext.o
 
 SRCS =  miarc.c                 \
         mibitblt.c              \
-        mibstore.c              \
         micmap.c                \
         micopy.c                \
         micursor.c              \
@@ -74,7 +73,6 @@ SRCS =  miarc.c                 \
 
 OBJS =  miarc.o                 \
         mibitblt.o              \
-        mibstore.o              \
         micmap.o                \
         micopy.o                \
         micursor.o              \
@@ -180,7 +178,6 @@ AllTarget($(EXTRAMIINITEXTOBJ))
 DependTarget()
 
 InstallDriverSDKNonExecFile(mi.h,$(DRIVERSDKINCLUDEDIR))
-InstallDriverSDKNonExecFile(mibstore.h,$(DRIVERSDKINCLUDEDIR))
 InstallDriverSDKNonExecFile(micmap.h,$(DRIVERSDKINCLUDEDIR))
 InstallDriverSDKNonExecFile(migc.h,$(DRIVERSDKINCLUDEDIR))
 InstallDriverSDKNonExecFile(miline.h,$(DRIVERSDKINCLUDEDIR))

@@ -48,8 +48,6 @@
 
 #include "compext/Compext.h"
 
-#include "mibstorest.h"
-
 #define PANIC
 #define WARNING
 #undef  TEST
@@ -2846,7 +2844,6 @@ int nxagentSynchronizationPredicate(void)
 void nxagentSendBackgroundExpose(WindowPtr pWin, PixmapPtr pBackground, RegionPtr pExpose)
 {
   RegionRec expose;
-  miBSWindowPtr pBackingStore;
 
   RegionInit(&expose, NullBox, 1);
 
@@ -2901,21 +2898,6 @@ void nxagentSendBackgroundExpose(WindowPtr pWin, PixmapPtr pBackground, RegionPt
   fprintf(stderr, "nxagentSendBackgroundExpose: Sending expose [%d,%d,%d,%d].\n",
               expose.extents.x1, expose.extents.y1, expose.extents.x2, expose.extents.y2);
   #endif
-
-  /*
-   * This prevents hidden region to be exposed.
-   */
-
-  pBackingStore = (miBSWindowPtr)pWin->backStorage;
-
-  if ((pBackingStore != NULL) && !RegionNil(&pBackingStore->SavedRegion))
-  {
-    RegionTranslate(&expose, -pWin -> drawable.x, -pWin -> drawable.y);
-
-    RegionSubtract(&expose, &expose, &pBackingStore -> SavedRegion);
-
-    RegionTranslate(&expose, pWin -> drawable.x, pWin -> drawable.y);
-  }
 
   RegionIntersect(&expose, &expose, &pWin -> clipList);
 

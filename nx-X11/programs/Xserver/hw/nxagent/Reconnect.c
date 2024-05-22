@@ -393,8 +393,6 @@ void nxagentDisconnectSession(void)
     nxagentDisconnectAllPicture();
   }
 
-  nxagentEmptyAllBackingStoreRegions();
-
   nxagentDisconnectAllWindows();
   nxagentDisconnectAllCursor();
   nxagentDisconnectAllPixmaps();
@@ -511,8 +509,6 @@ Bool nxagentReconnectSession(void)
 #endif
 
   NXTransContinue(NULL);
-
-  nxagentEmptyBSPixmapList();
 
   /* FIXME: nxagentReconnectAllPixmaps will always return 1 */
   if (!nxagentReconnectAllPixmaps(reconnectLossyLevel[PIXMAP_STEP]))

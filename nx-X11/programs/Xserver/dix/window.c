@@ -274,7 +274,6 @@ SetWindowToDefaults(WindowPtr pWin)
 
     pWin->backingStore = NotUseful;
     pWin->DIXsaveUnder = FALSE;
-    pWin->backStorage = (void *) NULL;
 
     pWin->mapped = FALSE;	    /* off */
     pWin->realized = FALSE;	/* off */

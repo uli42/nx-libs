@@ -105,12 +105,6 @@ typedef struct
 
 typedef StoringPixmapRec *StoringPixmapPtr;
 
-int nxagentAddItemBSPixmapList(unsigned long, PixmapPtr, WindowPtr, int, int);
-int nxagentRemoveItemBSPixmapList(unsigned long);
-void nxagentInitBSPixmapList(void);
-int nxagentEmptyBSPixmapList(void);
-StoringPixmapPtr nxagentFindItemBSPixmapList (unsigned long);
-
 /*
  * Window is either a child of our root or a child of the root of the
  * real X server.

@@ -38,7 +38,6 @@
 #include "selection.h"
 #include "mi.h"
 #include "fb.h"
-#include "mibstorest.h"
 
 #include "Agent.h"
 #include "Display.h"
@@ -111,13 +110,10 @@ extern WindowPtr nxagentViewportFrameBelow;
 extern Bool nxagentReportPrivateWindowIds;
 
 #define RECTLIMIT 25
-#define BSPIXMAPLIMIT 128
 
 Bool nxagentExposeArrayIsInitialized = False;
 Window nxagentConfiguredSynchroWindow;
 static int nxagentExposeSerial = 0;
-
-StoringPixmapPtr nxagentBSPixmapList[BSPIXMAPLIMIT];
 
 /*
  * Used to walk through the window hierarchy to find a window
@@ -3738,180 +3734,4 @@ StaticResizedWindowStruct *nxagentFindStaticResizedWindow(unsigned long sequence
   }
 
   return ret;
-}
-
-void nxagentEmptyBackingStoreRegion(void * param0, XID param1, void * data_buffer)
-{
-  WindowPtr pWin = (WindowPtr) param0;
-
-  miBSWindowPtr pBackingStore = (miBSWindowPtr)pWin->backStorage;
-
-  if (pBackingStore != NULL)
-  {
-    RegionEmpty(&pBackingStore->SavedRegion);
-
-    #ifdef TEST
-    fprintf(stderr, "nxagentEmptyBackingStoreRegion: Emptying saved region for window at [%p].\n", (void*) pWin);
-    #endif
-
-    if (pBackingStore -> pBackingPixmap != NULL)
-    {
-      #ifdef TEST
-      fprintf(stderr, "nxagentEmptyBackingStoreRegion: Emptying corrupted region for drawable at [%p].\n",
-                  (void*) pBackingStore -> pBackingPixmap);
-      #endif
-
-      nxagentUnmarkCorruptedRegion((DrawablePtr) pBackingStore -> pBackingPixmap, NullRegion);
-    }
-  }
-}
-
-void nxagentEmptyAllBackingStoreRegions(void)
-{
-  if (nxagentLoopOverWindows(nxagentEmptyBackingStoreRegion) == 0)
-  {
-    #ifdef WARNING
-    fprintf(stderr, "nxagentEmptyAllSavedRegions: Failed to empty backing store saved regions.\n");
-    #endif
-  }
-}
-
-void nxagentInitBSPixmapList(void)
-{
-  memset(nxagentBSPixmapList, 0, BSPIXMAPLIMIT * sizeof( StoringPixmapPtr));
-}
-
-int nxagentAddItemBSPixmapList(unsigned long id, PixmapPtr pPixmap, WindowPtr pWin, int bsx, int bsy)
-{
-  for (int i = 0; i < BSPIXMAPLIMIT; i++)
-  {
-    if (nxagentBSPixmapList[i] == NULL)
-    {
-      nxagentBSPixmapList[i] = malloc(sizeof(StoringPixmapRec));
-
-      if (nxagentBSPixmapList[i] == NULL)
-      {
-        FatalError("nxagentAddItemBSPixmapList: Failed to allocate memory for nxagentBSPixmapList.\n");
-      }
-
-      nxagentBSPixmapList[i] -> storingPixmapId = id;
-      nxagentBSPixmapList[i] -> pStoringPixmap = pPixmap;
-      nxagentBSPixmapList[i] -> pSavedWindow = pWin;
-      nxagentBSPixmapList[i] -> backingStoreX = bsx;
-      nxagentBSPixmapList[i] -> backingStoreY = bsy;
-
-      #ifdef TEST
-      fprintf(stderr, "nxagentAddItemBSPixmapList: Added Pixmap with id [%lu] to nxagentBSPixmapList.\n", id);
-      #endif
-
-      return 1;
-    }
-
-    if (nxagentBSPixmapList[i] -> storingPixmapId == id)
-    {
-      nxagentBSPixmapList[i] -> pStoringPixmap = pPixmap;
-      nxagentBSPixmapList[i] -> pSavedWindow = pWin;
-      nxagentBSPixmapList[i] -> backingStoreX = bsx;
-      nxagentBSPixmapList[i] -> backingStoreY = bsy;
-
-      #ifdef TEST
-      fprintf(stderr, "nxagentAddItemBSPixmapList: Updated existing item for id [%lu].\n", id);
-      #endif
-
-      return 1;
-    }
-  }
-
-  #ifdef TEST
-  fprintf(stderr, "nxagentAddItemBSPixmapList: WARNING! List item full.\n");
-  #endif
-
-  return 0;
-}
-
-int nxagentRemoveItemBSPixmapList(unsigned long pixmapId)
-{
-  if (pixmapId == 0 || nxagentBSPixmapList[0] == NULL)
-  {
-    return 0;
-  }
-
-  for (int i = 0; i < BSPIXMAPLIMIT; i++)
-  {
-    if ((nxagentBSPixmapList[i] != NULL) &&
-            (nxagentBSPixmapList[i] -> storingPixmapId == pixmapId))
-    {
-      SAFE_free(nxagentBSPixmapList[i]);
-
-      if (i < BSPIXMAPLIMIT - 1)
-      {
-        int j;
-
-        for (j = i; j < BSPIXMAPLIMIT -1; j++)
-        {
-          nxagentBSPixmapList[j] = nxagentBSPixmapList[j + 1];
-        }
-
-        if (nxagentBSPixmapList[j] == nxagentBSPixmapList[j - 1])
-        {
-          nxagentBSPixmapList[j] = NULL;
-        }
-      }
-
-      #ifdef TEST
-      fprintf(stderr, "nxagentRemoveItemBSPixmapList: Removed Pixmap with id [%lu] from list.\n",
-                  pixmapId);
-      #endif
-
-      return 1;
-    }
-  }
-
-  #ifdef TEST
-  fprintf(stderr, "nxagentRemoveItemBSPixmapList: WARNING! Can't remove item [%lu]: item not found.\n",
-              pixmapId);
-  #endif
-
-  return 0;
-}
-
-int nxagentEmptyBSPixmapList(void)
-{
-  for (int i = 0; i < BSPIXMAPLIMIT; i++)
-  {
-    SAFE_free(nxagentBSPixmapList[i]);
-  }
-
-  return 1;
-}
-
-StoringPixmapPtr nxagentFindItemBSPixmapList(unsigned long pixmapId)
-{
-  for (int i = 0; i < BSPIXMAPLIMIT; i++)
-  {
-    if ((nxagentBSPixmapList[i] != NULL) &&
-            (nxagentBSPixmapList[i] -> storingPixmapId == pixmapId))
-    {
-      #ifdef TEST
-      fprintf(stderr, "%s: pixmapId [%lu].\n", __func__, pixmapId);
-      fprintf(stderr, "%s: nxagentBSPixmapList[%d] = [%p].\n", __func__,
-                  i, (void *) nxagentBSPixmapList[i]);
-      fprintf(stderr, "%s: nxagentBSPixmapList[%d] -> storingPixmapId [%lu].\n", __func__,
-                  i, nxagentBSPixmapList[i] -> storingPixmapId);
-      #endif
-
-      return nxagentBSPixmapList[i];
-    }
-  }
-
-  #ifdef TEST
-  fprintf(stderr, "%s: WARNING! Item not found.\n", __func__);
-  #endif
-
-  #ifdef TEST
-  fprintf(stderr, "%s: Pixmap with id [%lu] not found.\n", __func__,
-              pixmapId);
-  #endif
-
-  return NULL;
 }

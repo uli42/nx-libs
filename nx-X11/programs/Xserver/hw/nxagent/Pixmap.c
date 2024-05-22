@@ -404,8 +404,6 @@ Bool nxagentDestroyPixmap(PixmapPtr pPixmap)
               (void *) pPixmap);
   #endif
 
-  nxagentRemoveItemBSPixmapList(nxagentPixmap(pPixmap));
-
   nxagentDestroyVirtualPixmap(pPixmap);
 
   if (pPixmapPriv -> corruptedRegion != NullRegion)
