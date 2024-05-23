@@ -1,7 +1,7 @@
 /*
- * Copyright ? 2006 Nokia Corporation
- * Copyright ? 2006-2007 Daniel Stone
- * Copyright ? 2008 Red Hat, Inc.
+ * Copyright © 2006 Nokia Corporation
+ * Copyright © 2006-2007 Daniel Stone
+ * Copyright © 2008 Red Hat, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -358,7 +358,7 @@ void
 AllocateMotionHistory(DeviceIntPtr pDev)
 {
     int size;
-        free(pDev->valuator->motion);
+    free(pDev->valuator->motion);
 
     if (pDev->valuator->numMotionEvents < 1)
         return;
@@ -500,7 +500,7 @@ GetMotionHistory(DeviceIntPtr pDev, xTimecoord **buff, unsigned long start,
                     ocbuf++;
                 }
             } else
-            memcpy(obuff, ibuff, size);
+                memcpy(obuff, ibuff, size);
 
             /* don't advance by size here. size may be different to the
              * actually written size if the MD has less valuators than MAX */
@@ -564,16 +564,16 @@ updateMotionHistory(DeviceIntPtr pDev, CARD32 ms, int first_valuator,
     } else
     {
 
-    buff += ((sizeof(INT32) * pDev->valuator->numAxes) + sizeof(CARD32)) *
+        buff += ((sizeof(INT32) * pDev->valuator->numAxes) + sizeof(CARD32)) *
             pDev->valuator->last_motion;
 
         memcpy(buff, &ms, sizeof(Time));
-    buff += sizeof(Time);
+        buff += sizeof(Time);
 
         memset(buff, 0, sizeof(INT32) * pDev->valuator->numAxes);
-    buff += sizeof(INT32) * first_valuator;
+        buff += sizeof(INT32) * first_valuator;
 
-    memcpy(buff, valuators, sizeof(INT32) * num_valuators);
+        memcpy(buff, valuators, sizeof(INT32) * num_valuators);
     }
 
     pDev->valuator->last_motion = (pDev->valuator->last_motion + 1) %
@@ -625,7 +625,7 @@ clipAxis(DeviceIntPtr pDev, int axisNum, int *val)
         *val = axis->min_value;
     if (*val > axis->max_value)
         *val = axis->max_value;
-            }
+}
 
 /**
  * Clip every axis in the list of valuators to its bounds.
@@ -638,7 +638,7 @@ clipValuators(DeviceIntPtr pDev, int first_valuator, int num_valuators,
 
     for (i = 0; i < num_valuators; i++)
         clipAxis(pDev, i + first_valuator, &(valuators[i]));
-        }
+}
 
 /**
  * Create the DCCE event (does not update the master's device state yet, this
@@ -815,7 +815,7 @@ positionSprite(DeviceIntPtr dev, int *x, int *y, float x_frac, float y_frac,
     } else {
         *screeny = dev->last.valuators[1];
         *screeny_frac = dev->last.remainder[1];
-        }
+    }
 
     /* Hit the left screen edge? */
     if (*screenx <= 0 && *screenx_frac < 0.0f)
@@ -841,7 +841,7 @@ positionSprite(DeviceIntPtr dev, int *x, int *y, float x_frac, float y_frac,
         dev->u.master->last.valuators[1] = *screeny;
         dev->u.master->last.remainder[0] = *screenx_frac;
         dev->u.master->last.remainder[1] = *screeny_frac;
-}
+    }
 
     /* Crossed screen? Scale back to device coordiantes */
     if(*screenx != old_screenx)
@@ -946,7 +946,7 @@ GetKeyboardValuatorEvents(EventList *events, DeviceIntPtr pDev, int type,
     ms = GetTimeInMillis();
 
     raw = (RawDeviceEvent*)events->event;
-        events++;
+    events++;
     num_events++;
 
     memcpy(valuators, valuators_in, num_valuators * sizeof(int));
@@ -980,7 +980,7 @@ GetKeyboardValuatorEvents(EventList *events, DeviceIntPtr pDev, int type,
     set_valuators(pDev, event, first_valuator, num_valuators, valuators);
 
     return num_events;
-    }
+}
 
 /**
  * Initialize an event list and fill with 32 byte sized events.
@@ -1012,7 +1012,7 @@ InitEventList(int num_events)
             events = NULL;
             break;
         }
-}
+    }
 
     return events;
 }
@@ -1088,7 +1088,7 @@ GetPointerEvents(EventList *events, DeviceIntPtr pDev, int type, int buttons,
     if (!pDev->enabled)
         return 0;
 
-    ms = GetTimeInMillis(); /* before void * update to help precision */
+    ms = GetTimeInMillis(); /* before pointer update to help precision */
 
     if (!scr || !pDev->valuator || first_valuator < 0 ||
         num_valuators > MAX_VALUATORS ||
@@ -1157,11 +1157,11 @@ GetPointerEvents(EventList *events, DeviceIntPtr pDev, int type, int buttons,
     event = (DeviceEvent*) events->event;
     init_event(pDev, event, ms);
 
-        if (type == MotionNotify) {
+    if (type == MotionNotify) {
         event->type = ET_Motion;
         event->detail.button = 0;
-        }
-        else {
+    }
+    else {
         if (type == ButtonPress) {
             event->type = ET_ButtonPress;
             set_button_down(pDev, buttons, BUTTON_POSTED);
@@ -1226,7 +1226,7 @@ GetProximityEvents(EventList *events, DeviceIntPtr pDev, int type,
     if (num_valuators) {
         memcpy(valuators, valuators_in, num_valuators * sizeof(int));
         clipValuators(pDev, first_valuator, num_valuators, valuators);
-}
+    }
 
     set_valuators(pDev, event, first_valuator, num_valuators, valuators);
 
