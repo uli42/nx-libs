@@ -928,6 +928,10 @@ ProcXChangeDeviceProperty (ClientPtr client)
     rc = check_change_property(client, stuff->property, stuff->type,
                                stuff->format, stuff->mode, stuff->nUnits);
 
+    /* backport b8a84cb0f2807b07ab70ca9915fcdee21301b8ca */
+    if (rc != Success)
+        return rc;
+
     len = stuff->nUnits;
     if (len > (bytes_to_int32(0xffffffff - sizeof(xChangeDevicePropertyReq))))
         return BadLength;
@@ -1164,6 +1168,10 @@ ProcXIChangeProperty(ClientPtr client)
 
     rc = check_change_property(client, stuff->property, stuff->type,
                                stuff->format, stuff->mode, stuff->num_items);
+    /* backport b8a84cb0f2807b07ab70ca9915fcdee21301b8ca */
+    if (rc != Success)
+        return rc;
+
     len = stuff->num_items;
     if (len > bytes_to_int32(0xffffffff - sizeof(xXIChangePropertyReq)))
         return BadLength;
