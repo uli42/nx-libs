@@ -1127,7 +1127,7 @@ ProcShmCreatePixmap(ClientPtr client)
     PixmapPtr pMap;
     DrawablePtr pDraw;
     DepthPtr pDepth;
-    register int i, rc;
+    int i, rc;
     ShmDescPtr shmdesc;
     ShmScrPrivateRec *screen_priv;
     REQUEST(xShmCreatePixmapReq);
