@@ -52,13 +52,16 @@ SOFTWARE.
 #ifndef _OSDEP_H_
 #define _OSDEP_H_ 1
 
+#define BOTIMEOUT 200 /* in milliseconds */
 #define BUFSIZE 4096
 #define BUFWATERMARK 8192
 #ifndef MAXBUFSIZE
 #define MAXBUFSIZE (1 << 22)
 #endif
 
-#include <X11/Xdmcp.h>
+#if defined(XDMCP) || defined(HASXDMAUTH)
+#include <nx-X11/Xdmcp.h>
+#endif
 
 #ifdef _POSIX_SOURCE
 #include <limits.h>
@@ -205,6 +208,7 @@ extern int *ConnectionTranslation;
 extern Bool NewOutputPending;
 extern Bool AnyWritesPending;
 extern Bool NumNotifyWriteFd;
+extern Bool AnyClientsWriteBlocked;
 
 extern WorkQueuePtr workQueue;
 
@@ -248,9 +252,7 @@ extern int  SecureRPCRemove   (AuthRemCArgs);
 extern int  SecureRPCReset    (AuthRstCArgs);
 #endif
 
-/* in secauth.c */
-extern XID AuthSecurityCheck (AuthCheckArgs);
-
+#ifdef XDMCP
 /* in xdmcp.c */
 extern void XdmcpUseMsg (void);
 extern int XdmcpOptions(int argc, char **argv, int i);
@@ -276,6 +278,7 @@ extern int XdmcpCheckAuthentication (ARRAY8Ptr Name, ARRAY8Ptr Data, int packet_
 
 struct sockaddr_in;
 extern void XdmcpRegisterBroadcastAddress (const struct sockaddr_in *addr);
+#endif
 
 #ifdef HASXDMAUTH
 extern void XdmAuthenticationInit (const char *cookie, int cookie_length);
