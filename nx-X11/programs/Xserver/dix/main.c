@@ -212,7 +212,6 @@ int main(int argc, char *argv[], char *envp[])
 #else
 	InitGlyphCaching();
 #endif /* of HAS_XFONT2 */
-	dixResetPrivates();
 	dixResetRegistry();
 	InitFonts();
 	InitCallbackManager();
