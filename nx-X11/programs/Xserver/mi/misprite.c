@@ -1016,3 +1016,4 @@ miSpriteComputeSaved (DeviceIntPtr pDev, ScreenPtr pScreen)
     pCursorInfo->saved.x2 = pCursorInfo->saved.x1 + w + wpad * 2;
     pCursorInfo->saved.y2 = pCursorInfo->saved.y1 + h + hpad * 2;
 }
+

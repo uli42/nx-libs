@@ -542,6 +542,7 @@ miPointerGetPosition(DeviceIntPtr pDev, int *x, int *y)
     *y = MIPOINTER(pDev)->y;
 }
 
+
 void
 miPointerMove (DeviceIntPtr pDev, ScreenPtr pScreen, int x, int y)
 {
