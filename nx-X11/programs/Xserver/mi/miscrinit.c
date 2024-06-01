@@ -54,7 +54,7 @@ from The Open Group.
 
 typedef struct
 {
-    void * pbits; /* void * to framebuffer */
+    void * pbits; /* pointer to framebuffer */
     int width;    /* delta to add to a framebuffer addr to move one row down */
 } miScreenInitParmsRec, *miScreenInitParmsPtr;
 
@@ -205,7 +205,7 @@ miSetScreenPixmap(PixmapPtr pPix)
 Bool
 miScreenInit(
     ScreenPtr pScreen,
-    void * pbits,		/* void * to screen bits */
+    void * pbits,		/* pointer to screen bits */
     int xsize, int ysize,	/* in pixels */
     int dpix, int dpiy,		/* dots per inch */
     int width,			/* pixel width of frame buffer */
