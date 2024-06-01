@@ -71,12 +71,12 @@ fbPolyArc (DrawablePtr	pDrawable,
 	    BoxRec	box;
 	    int		x2, y2;
 	    RegionPtr	cclip;
-	    
-	    cclip = fbGetCompositeClip (pGC);
-	    fbGetDrawable (pDrawable, dst, dstStride, dstBpp, dstXoff, dstYoff);
 #ifdef FB_ACCESS_WRAPPER
 	    int wrapped = 1;
 #endif
+
+	    cclip = fbGetCompositeClip (pGC);
+	    fbGetDrawable (pDrawable, dst, dstStride, dstBpp, dstXoff, dstYoff);
 	    while (narcs--)
 	    {
 		if (miCanZeroArc (parcs))

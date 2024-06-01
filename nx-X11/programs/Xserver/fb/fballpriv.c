@@ -50,7 +50,7 @@ fbAllocatePrivates(ScreenPtr pScreen, DevPrivateKey *pGCKey)
 	return FALSE;
 #ifdef FB_SCREEN_PRIVATE
     if (!dixRegisterPrivateKey(&fbScreenPrivateKeyRec, PRIVATE_SCREEN, sizeof (FbScreenPrivRec)))
-	    return FALSE;
+	return FALSE;
 #endif
     if (!dixRegisterPrivateKey(&fbWinPrivateKeyRec, PRIVATE_WINDOW, 0))
 	return FALSE;

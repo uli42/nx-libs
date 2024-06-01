@@ -58,7 +58,6 @@ fbBlt (FbBits   *srcLine,
        Bool	reverse,
        Bool	upsidedown)
 {
-  //FbBits  *src, *dst;
     int	    leftShift, rightShift;
     FbBits  startmask, endmask;
     FbBits  bits, bits1;
