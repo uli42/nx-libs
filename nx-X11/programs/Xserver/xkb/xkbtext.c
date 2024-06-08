@@ -905,8 +905,8 @@ char			tbuf[32];
     else {
 	int nOut= 0;
 	if (tmp&XkbRepeatKeysMask) {
-	    sprintf(tbuf,"%sRepeatKeys",(nOut>0?"+":""));
-	    TryCopyStr(buf,tbuf,sz);
+	    /* backport bad94e88cef8b692982ed0af112e7b2191ba558b */
+	    TryCopyStr(buf,"RepeatKeys",sz);
 	    nOut++;
 	}
 	if (tmp&XkbSlowKeysMask) {
