@@ -355,9 +355,8 @@ ProcListExtensions(ClientPtr client)
     }
     WriteReplyToClient(client, sizeof(xListExtensionsReply), &reply);
     if (reply.length)
-    {
         WriteToClient(client, total_length, buffer);
-        free(buffer);
-    }
+    /* backport 0b288c8738a97cf6aa3f36aa5c05e7ac2a5cbca8 */
+    free(buffer);
     return Success;
 }
