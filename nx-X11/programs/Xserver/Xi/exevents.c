@@ -213,7 +213,6 @@ DeepCopyFeedbackClasses(DeviceIntPtr from, DeviceIntPtr to)
 {
     ClassesPtr classes;
 
-
     if (from->intfeed)
     {
         IntegerFeedbackPtr *i, it;
@@ -244,7 +243,6 @@ DeepCopyFeedbackClasses(DeviceIntPtr from, DeviceIntPtr to)
 	    }
     } else if (to->intfeed && !from->intfeed)
     {
-        ClassesPtr classes;
         classes = to->unused_classes;
         classes->intfeed = to->intfeed;
         to->intfeed      = NULL;
@@ -280,7 +278,6 @@ DeepCopyFeedbackClasses(DeviceIntPtr from, DeviceIntPtr to)
         }
     } else if (to->stringfeed && !from->stringfeed)
     {
-        ClassesPtr classes;
         classes = to->unused_classes;
         classes->stringfeed = to->stringfeed;
         to->stringfeed      = NULL;
@@ -317,7 +314,6 @@ DeepCopyFeedbackClasses(DeviceIntPtr from, DeviceIntPtr to)
         }
     } else if (to->bell && !from->bell)
     {
-        ClassesPtr classes;
         classes = to->unused_classes;
         classes->bell = to->bell;
         to->bell      = NULL;
@@ -356,7 +352,6 @@ DeepCopyFeedbackClasses(DeviceIntPtr from, DeviceIntPtr to)
         }
     } else if (to->leds && !from->leds)
     {
-        ClassesPtr classes;
         classes = to->unused_classes;
         classes->leds = to->leds;
         to->leds      = NULL;
@@ -408,7 +403,6 @@ DeepCopyKeyboardClasses(DeviceIntPtr from, DeviceIntPtr to)
         }
     } else if (to->kbdfeed && !from->kbdfeed)
     {
-        ClassesPtr classes;
         classes = to->unused_classes;
         classes->kbdfeed = to->kbdfeed;
         to->kbdfeed      = NULL;
@@ -429,7 +423,6 @@ DeepCopyKeyboardClasses(DeviceIntPtr from, DeviceIntPtr to)
         CopyKeyClass(from, to);
     } else if (to->key && !from->key)
     {
-        ClassesPtr classes;
         classes = to->unused_classes;
         classes->key = to->key;
         to->key      = NULL;
@@ -489,7 +482,6 @@ DeepCopyKeyboardClasses(DeviceIntPtr from, DeviceIntPtr to)
         }
     } else if (to->focus)
     {
-        ClassesPtr classes;
         classes = to->unused_classes;
         classes->focus = to->focus;
         to->focus      = NULL;
@@ -532,7 +524,6 @@ DeepCopyPointerClasses(DeviceIntPtr from, DeviceIntPtr to)
         }
     } else if (to->ptrfeed && !from->ptrfeed)
     {
-        ClassesPtr classes;
         classes = to->unused_classes;
         classes->ptrfeed = to->ptrfeed;
         to->ptrfeed      = NULL;
@@ -565,7 +556,6 @@ DeepCopyPointerClasses(DeviceIntPtr from, DeviceIntPtr to)
         v->mode = from->valuator->mode;
     } else if (to->valuator && !from->valuator)
     {
-        ClassesPtr classes;
         classes = to->unused_classes;
         classes->valuator = to->valuator;
         to->valuator      = NULL;
@@ -604,7 +594,6 @@ DeepCopyPointerClasses(DeviceIntPtr from, DeviceIntPtr to)
         to->button->sourceid = from->id;
     } else if (to->button && !from->button)
     {
-        ClassesPtr classes;
         classes = to->unused_classes;
         classes->button = to->button;
         to->button      = NULL;
@@ -628,7 +617,6 @@ DeepCopyPointerClasses(DeviceIntPtr from, DeviceIntPtr to)
         to->proximity->sourceid = from->id;
     } else if (to->proximity)
     {
-        ClassesPtr classes;
         classes = to->unused_classes;
         classes->proximity = to->proximity;
         to->proximity      = NULL;
@@ -652,7 +640,6 @@ DeepCopyPointerClasses(DeviceIntPtr from, DeviceIntPtr to)
         to->absolute->sourceid = from->id;
     } else if (to->absolute)
     {
-        ClassesPtr classes;
         classes = to->unused_classes;
         classes->absolute = to->absolute;
         to->absolute      = NULL;
