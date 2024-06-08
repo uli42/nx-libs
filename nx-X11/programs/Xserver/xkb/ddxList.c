@@ -177,7 +177,7 @@ Bool	haveDir;
     }
     status= Success;
     if (!haveDir)
-    {  
+    {
 	in= Popen(buf,"r");
     }
     if (!in)
@@ -187,7 +187,7 @@ Bool	haveDir;
 	return BadImplementation;
     }
     list->nFound[what]= 0;
-        free(buf);
+    free(buf);
     buf = malloc(PATH_MAX * sizeof(char));
     if (!buf) {
         /* backport 45b6667b651a0a26b17f64c9e99d70784045e4bf */
