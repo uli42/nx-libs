@@ -970,22 +970,22 @@ ProcessOtherEvent(InternalEvent *ev, DeviceIntPtr device)
 
     if (kbd && kbd->key)
     {
-        XkbStatePtr state;
+        XkbStatePtr _state;
         /* we need the state before the event happens */
         if (event->type == ET_KeyPress || event->type == ET_KeyRelease)
-            state = &kbd->key->xkbInfo->prev_state;
+            _state = &kbd->key->xkbInfo->prev_state;
         else
-            state = &kbd->key->xkbInfo->state;
+            _state = &kbd->key->xkbInfo->state;
 
-        event->mods.base = state->base_mods;
-        event->mods.latched = state->latched_mods;
-        event->mods.locked = state->locked_mods;
-        event->mods.effective = state->mods;
+        event->mods.base = _state->base_mods;
+        event->mods.latched = _state->latched_mods;
+        event->mods.locked = _state->locked_mods;
+        event->mods.effective = _state->mods;
 
-        event->group.base = state->base_group;
-        event->group.latched = state->latched_group;
-        event->group.locked = state->locked_group;
-        event->group.effective = state->group;
+        event->group.base = _state->base_group;
+        event->group.latched = _state->latched_group;
+        event->group.locked = _state->locked_group;
+        event->group.effective = _state->group;
     }
 
     ret = UpdateDeviceState(device, event);
