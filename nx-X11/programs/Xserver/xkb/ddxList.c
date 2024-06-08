@@ -189,8 +189,11 @@ Bool	haveDir;
     list->nFound[what]= 0;
         free(buf);
     buf = malloc(PATH_MAX * sizeof(char));
-    if (!buf)
+    if (!buf) {
+        /* backport 45b6667b651a0a26b17f64c9e99d70784045e4bf */
+        fclose(in);
         return BadAlloc;
+    }
     while ((status==Success)&&((tmp=fgets(buf,PATH_MAX,in))!=NULL)) {
 	unsigned flags;
 	register unsigned int i;
