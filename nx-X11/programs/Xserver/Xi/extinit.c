@@ -418,7 +418,7 @@ ProcIDispatch(ClientPtr client)
 
 /*******************************************************************************
  *
- * SProcXDispatch 
+ * SProcXDispatch
  *
  * Main swapped dispatch routine for requests to this extension.
  * This routine is used if server and client do not have the same byte ordering.
@@ -895,7 +895,7 @@ AllowPropagateSuppress(Mask mask)
  *
  * Since extension event types will never be less than 64, we can use
  * 0-63 in the EventInfo array as the "type" to be used to look up this
- * mask.  This means that the corresponding macros such as 
+ * mask.  This means that the corresponding macros such as
  * DevicePointerMotionHint must have access to the same constants.
  *
  */
@@ -1036,7 +1036,7 @@ FixExtensionEvents(ExtensionEntry * extEntry)
 
 /************************************************************************
  *
- * This function restores extension event types and masks to their 
+ * This function restores extension event types and masks to their
  * initial state.
  *
  */
