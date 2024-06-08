@@ -358,7 +358,8 @@ int ChangeDeviceNotify;
 int DevicePresenceNotify;
 int DevicePropertyNotify;
 
-int RT_INPUTCLIENT;
+/* backport 2cb3dc020cbec1ba64848dac532b3bb2d84d0635 */
+RESTYPE RT_INPUTCLIENT;
 
 /*****************************************************************
  *

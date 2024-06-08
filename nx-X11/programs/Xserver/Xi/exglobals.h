@@ -76,7 +76,8 @@ extern int ChangeDeviceNotify;
 extern int DevicePresenceNotify;
 extern int DevicePropertyNotify;
 
-extern int RT_INPUTCLIENT;
+/* backport 2cb3dc020cbec1ba64848dac532b3bb2d84d0635 */
+extern RESTYPE RT_INPUTCLIENT;
 
 extern DevPrivateKeyRec XIClientPrivateKeyRec;
 #define XIClientPrivateKey (&XIClientPrivateKeyRec)
