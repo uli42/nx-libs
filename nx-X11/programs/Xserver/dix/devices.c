@@ -959,6 +959,9 @@ CloseDevice(DeviceIntPtr dev)
     }
 
     free(dev->deviceGrab.sync.event);
+    /* backport 8d30aff4aa708b9b885d492602ced7493a96a4df */
+    free(dev->config_info);     /* Allocated in xf86ActivateDevice. */
+    dev->config_info = NULL;
     dixFreeObjectWithPrivates(dev, PRIVATE_DEVICE);
 }
 
