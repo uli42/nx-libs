@@ -458,6 +458,9 @@ void miFillUniqueSpanGroup(DrawablePtr pDraw, GCPtr pGC, SpanGroup *spanGroup)
 			    }
 			    free (yspans);
 			    free (ysizes);
+			    /* backport 7ae46b69ba3f05f46529131e6a864904967cde3a */
+			    free(newpoints);
+			    free(newwidths);
 			    miDisposeSpanGroup (spanGroup);
 			    return;
 			}
