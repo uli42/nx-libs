@@ -105,8 +105,11 @@ ProcXIQueryDevice(ClientPtr client)
     }
 
     info = calloc(1, len);
-    if (!info)
+    if (!info) {
+        /* backport 623bb34342641811e2151232f1ab4e2ee3d6b871 */
+        free(skip);
         return BadAlloc;
+    }
 
     memset(&rep, 0, sizeof(xXIQueryDeviceReply));
     rep.repType = X_Reply;
