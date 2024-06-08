@@ -5861,16 +5861,9 @@ ProcXkbGetKbdByName(ClientPtr client)
 	XkbFreeKeyboard(new,XkbAllComponentsMask,TRUE);
 	new= NULL;
     }
-    free(names.keycodes);
-    names.keycodes = NULL;
-    free(names.types);
-    names.types = NULL;
-    free(names.compat);
-    names.compat = NULL;
-    free(names.symbols);
-    names.symbols = NULL;
-    free(names.geometry);
-    names.geometry = NULL;
+    /* backport 5c47f8beac7f87680c6f7331483b9cf94a1dbc86 */
+    XkbFreeComponentNames(&names, FALSE);
+
     return Success;
 }
 
