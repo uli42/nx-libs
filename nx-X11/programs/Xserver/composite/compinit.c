@@ -349,6 +349,10 @@ compScreenInit (ScreenPtr pScreen)
 	return FALSE;
     }
 
+    /* backport a2b2c271e0ca87d3188ba2741b6db9bbbdc599f5 */
+    if (!disableBackingStore)
+        pScreen->backingStoreSupport = WhenMapped;
+
     cs->PositionWindow = pScreen->PositionWindow;
     pScreen->PositionWindow = compPositionWindow;
 
