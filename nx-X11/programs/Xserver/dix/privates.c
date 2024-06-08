@@ -273,7 +273,8 @@ _dixInitPrivates(PrivatePtr *privates, void *addr, DevPrivateType type)
     if (keys[type].offset == 0)
 	addr = 0;
     *privates = addr;
-    memset(addr, '\0', keys[type].offset);
+    if (addr)
+        memset(addr, '\0', keys[type].offset);
     }
 
 /*
