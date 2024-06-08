@@ -21,11 +21,12 @@ extern _X_EXPORT int XineramaDeleteResource(void *, XID);
 
 extern _X_EXPORT void XineramaReinitData(ScreenPtr);
 
-extern _X_EXPORT unsigned long XRC_DRAWABLE;
-extern _X_EXPORT unsigned long XRT_WINDOW;
-extern _X_EXPORT unsigned long XRT_PIXMAP;
-extern _X_EXPORT unsigned long XRT_GC;
-extern _X_EXPORT unsigned long XRT_COLORMAP;
+/* backport cd58924d294de2abddbd2f03c2db021894fe9759 */
+extern _X_EXPORT RESTYPE XRC_DRAWABLE;
+extern _X_EXPORT RESTYPE XRT_WINDOW;
+extern _X_EXPORT RESTYPE XRT_PIXMAP;
+extern _X_EXPORT RESTYPE XRT_GC;
+extern _X_EXPORT RESTYPE XRT_COLORMAP;
 
 /*
  * Drivers are allowed to wrap this function.  Each wrapper can decide that the

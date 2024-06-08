@@ -76,11 +76,12 @@ static DepthPtr		PanoramiXDepths;
 static int		PanoramiXNumVisuals;
 static VisualPtr	PanoramiXVisuals;
 
-_X_EXPORT unsigned long XRC_DRAWABLE;
-_X_EXPORT unsigned long XRT_WINDOW;
-_X_EXPORT unsigned long XRT_PIXMAP;
-_X_EXPORT unsigned long XRT_GC;
-_X_EXPORT unsigned long XRT_COLORMAP;
+/* backport cd58924d294de2abddbd2f03c2db021894fe9759 */
+_X_EXPORT RESTYPE XRC_DRAWABLE;
+_X_EXPORT RESTYPE XRT_WINDOW;
+_X_EXPORT RESTYPE XRT_PIXMAP;
+_X_EXPORT RESTYPE XRT_GC;
+_X_EXPORT RESTYPE XRT_COLORMAP;
 static Bool VisualsEqual(VisualPtr, ScreenPtr, VisualPtr);
 XineramaVisualsEqualProcPtr XineramaVisualsEqualPtr = &VisualsEqual;
 

@@ -234,7 +234,8 @@ RenderClientCallback (CallbackListPtr	*list,
 }
 
 #ifdef PANORAMIX
-unsigned long	XRT_PICTURE;
+/* backport cd58924d294de2abddbd2f03c2db021894fe9759 */
+RESTYPE		XRT_PICTURE;
 #endif
 
 void
