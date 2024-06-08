@@ -67,6 +67,7 @@ SOFTWARE.
 #include "privates.h"
 #include "xace.h"
 #include "mi.h"
+#include "list.h"
 
 #include "dispatch.h"
 #include "swaprep.h"
@@ -509,6 +510,28 @@ DisableDevice(DeviceIntPtr dev, BOOL sendevent)
 
     return TRUE;
 }
+
+/* backport 4c68f5d395c66f28b56e488cb3cd12f36820357b */
+void
+DisableAllDevices(void)
+{
+    DeviceIntPtr dev, tmp;
+
+    nt_list_for_each_entry_safe(dev, tmp, inputInfo.devices, next) {
+        if (!IsMaster(dev))
+            DisableDevice(dev, FALSE);
+    }
+    /* master keyboards need to be disabled first */
+    nt_list_for_each_entry_safe(dev, tmp, inputInfo.devices, next) {
+        if (dev->enabled && IsMaster(dev) && IsKeyboardDevice(dev))
+            DisableDevice(dev, FALSE);
+    }
+    nt_list_for_each_entry_safe(dev, tmp, inputInfo.devices, next) {
+        if (dev->enabled)
+            DisableDevice(dev, FALSE);
+    }
+}
+
 
 /**
  * Initialise a new device through the driver and tell all clients about the

@@ -293,6 +293,9 @@ int main(int argc, char *argv[], char *envp[])
 
         UndisplayDevices();
 
+	/* backport 4c68f5d395c66f28b56e488cb3cd12f36820357b */
+	DisableAllDevices();
+
 	/* Now free up whatever must be freed */
 	if (screenIsSaved == SCREEN_SAVER_ON)
 	    dixSaveScreens(serverClient, SCREEN_SAVER_OFF, ScreenSaverReset);
@@ -314,7 +317,9 @@ int main(int argc, char *argv[], char *envp[])
 
 	for (i = 0; i < screenInfo.numScreens; i++)
 	   screenInfo.screens[i]->root = NullWindow;
+
 	CloseDownDevices();
+
 	CloseDownEvents();
 
 	for (i = screenInfo.numScreens - 1; i >= 0; i--)

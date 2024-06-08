@@ -262,6 +262,9 @@ extern _X_EXPORT Bool DisableDevice(
     DeviceIntPtr /*device*/,
     BOOL /* sendevent */);
 
+/* backport 4c68f5d395c66f28b56e488cb3cd12f36820357b */
+extern void DisableAllDevices(void);
+
 extern int InitAndStartDevices(void);
 
 extern void CloseDownDevices(void);
