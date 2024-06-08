@@ -174,6 +174,8 @@ extern _X_EXPORT void MakeClientGrabPervious(ClientPtr /*client*/);
 extern void AvailableClientInput(ClientPtr /* client */);
 
 extern _X_EXPORT CARD32 GetTimeInMillis(void);
+/* backport 2d96948ab5c952b68875ac63844cf7d778d4bf63 */
+extern _X_EXPORT CARD64 GetTimeInMicros(void);
 
 extern _X_EXPORT void AdjustWaitForDelay(
     void * /*waitTime*/,
