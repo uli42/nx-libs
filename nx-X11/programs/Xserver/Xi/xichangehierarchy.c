@@ -114,7 +114,10 @@ void XISendDeviceHierarchyEvent(int flags[MAXDEVICES])
 
     ev->length = bytes_to_int32(ev->num_info * sizeof(xXIHierarchyInfo));
 
+    /* backport f0f0eec869d932a2d9228ff3e41e9e7cda155e68 */
+    memset(&dummyDev, 0, sizeof(dummyDev));
     dummyDev.id = XIAllDevices;
+    dummyDev.type = SLAVE;
     SendEventToAllWindows(&dummyDev, (XI_HierarchyChangedMask >> 8), (xEvent*)ev, 1);
     free(ev);
 }
