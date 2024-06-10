@@ -3056,6 +3056,18 @@ InitializeSprite(DeviceIntPtr pDev, WindowPtr pWin)
 #endif
 }
 
+/* backport e57d6a89027c55fef987cdc259668c48a8b4ea1b */
+void FreeSprite(DeviceIntPtr dev)
+{
+    if (DevHasCursor(dev) && dev->spriteInfo->sprite) {
+        if (dev->spriteInfo->sprite->current)
+            FreeCursor(dev->spriteInfo->sprite->current, None);
+        free(dev->spriteInfo->sprite->spriteTrace);
+        free(dev->spriteInfo->sprite);
+    }
+    dev->spriteInfo->sprite = NULL;
+}
+
 /**
  * Update the mouse sprite info when the server switches from a pScreen to another.
  * Otherwise, the pScreen of the mouse sprite is never updated when we switch

@@ -477,6 +477,9 @@ DisableDevice(DeviceIntPtr dev, BOOL sendevent)
     (void)(*dev->deviceProc)(dev, DEVICE_OFF);
     dev->enabled = FALSE;
 
+    /* backport df1704365e700d3cf1d36a241bdfc479159a8df7 */
+    FreeSprite(dev);
+
     /* now that the device is disabled, we can reset the signal handler's
      * last.slave */
     OsBlockSignals();
@@ -941,12 +944,8 @@ CloseDevice(DeviceIntPtr dev)
 	free(classes);
     }
 
-    if (DevHasCursor(dev) && dev->spriteInfo->sprite) {
-	if (dev->spriteInfo->sprite->current)
-	    FreeCursor(dev->spriteInfo->sprite->current, None);
-        free(dev->spriteInfo->sprite->spriteTrace);
-        free(dev->spriteInfo->sprite);
-    }
+    /* backport e57d6a89027c55fef987cdc259668c48a8b4ea1b */
+    FreeSprite(dev);
 
     /* a client may have the device set as client void * */
     for (j = 0; j < currentMaxClients; j++)

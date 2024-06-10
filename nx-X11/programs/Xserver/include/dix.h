@@ -391,6 +391,10 @@ extern void InitializeSprite(
     DeviceIntPtr /* pDev */,
     WindowPtr    /* pWin */);
 
+/* backport e57d6a89027c55fef987cdc259668c48a8b4ea1b */
+extern void
+FreeSprite(DeviceIntPtr pDev);
+
 extern void UpdateSpriteForScreen(
     DeviceIntPtr /* pDev */,
      ScreenPtr /* pScreen */);
