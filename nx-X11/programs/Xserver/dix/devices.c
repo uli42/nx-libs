@@ -469,14 +469,15 @@ DisableDevice(DeviceIntPtr dev, BOOL sendevent)
     {
         for (other = inputInfo.devices; other; other = other->next)
         {
-            if (other->spriteInfo->paired == dev)
-            {
-                ErrorF("[dix] cannot disable device, still paired. "
-                        "This is a bug. \n");
-                return FALSE;
-            }
-        }
+            /* backport e433d1046c222f9d969c2c28a4651ff9097614f4 */
+	    if (other->spriteInfo->paired == dev && !other->spriteInfo->spriteOwner)
+                DisableDevice(other, sendevent);
+       }
     }
+
+    /* backport e433d1046c222f9d969c2c28a4651ff9097614f4 */
+    if (dev->spriteInfo->paired)
+        dev->spriteInfo->paired = NULL;
 
     (void)(*dev->deviceProc)(dev, DEVICE_OFF);
     dev->enabled = FALSE;
