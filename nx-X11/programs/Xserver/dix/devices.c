@@ -433,6 +433,10 @@ DisableDevice(DeviceIntPtr dev, BOOL sendevent)
     BOOL enabled;
     int flags[MAXDEVICES] = {0};
 
+    /* backport 46adcefb0e08515195d8e49985a4e210395700b3 */
+    if (!dev->enabled)
+        return TRUE;
+
     for (prev = &inputInfo.devices;
 	 *prev && (*prev != dev);
 	 prev = &(*prev)->next)
