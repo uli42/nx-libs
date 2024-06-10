@@ -218,9 +218,6 @@ void nxagentValidateGC(GCPtr pGC, unsigned long changes, DrawablePtr pDrawable)
               (void *) pGC, (void *) pDrawable, changes);
   #endif
 
-  pGC->lastWinOrg.x = pDrawable->x;
-  pGC->lastWinOrg.y = pDrawable->y;
-
   #ifdef DEBUG
   if (!pGC->tileIsPixel)
     fprintf(stderr, "nxagentValidateGC: no pixel, tile.pixmap [%p] PixmapIsVirtual [%d] virtual pixmap [%p].\n",

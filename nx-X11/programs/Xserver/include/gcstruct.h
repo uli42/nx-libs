@@ -306,7 +306,6 @@ typedef struct _GC {
     DDXPointRec		patOrg;		/* origin for (tile, stipple) */
     struct _Font	*font;
     DDXPointRec		clipOrg;
-    DDXPointRec		lastWinOrg;	/* position of window last validated */
     void *		clientClip;
     unsigned long	stateChanges;	/* masked with GC_<kind> */
     unsigned long       serialNumber;
