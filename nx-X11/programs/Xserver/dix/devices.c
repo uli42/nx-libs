@@ -927,7 +927,10 @@ CloseDevice(DeviceIntPtr dev)
 	(void)(*dev->deviceProc)(dev, DEVICE_CLOSE);
 
     /* free sprite memory */
-    if (IsMaster(dev) && dev->spriteInfo->sprite)
+    /* backport b92d86a982504af2605042c19ef796d135074ee1 */
+    FreeSprite(dev);
+
+    if (IsMaster(dev))
         screen->DeviceCursorCleanup(dev, screen);
 
     /* free acceleration info */
@@ -948,9 +951,6 @@ CloseDevice(DeviceIntPtr dev)
         FreeAllDeviceClasses(classes);
 	free(classes);
     }
-
-    /* backport e57d6a89027c55fef987cdc259668c48a8b4ea1b */
-    FreeSprite(dev);
 
     /* a client may have the device set as client void * */
     for (j = 0; j < currentMaxClients; j++)
