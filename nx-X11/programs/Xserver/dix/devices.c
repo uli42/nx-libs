@@ -2497,7 +2497,8 @@ GetPairedDevice(DeviceIntPtr dev)
     if (!IsMaster(dev) && dev->u.master)
         dev = dev->u.master;
 
-    return dev->spriteInfo->paired;
+    /* backport e693c9657f98c334e9921ca2f8ebf710497c0c6a */
+    return dev->spriteInfo? dev->spriteInfo->paired: NULL;
 }
 
 
