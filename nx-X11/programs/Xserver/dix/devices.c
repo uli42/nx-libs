@@ -2600,8 +2600,11 @@ AllocDevicePair (ClientPtr client, char* name,
     keyboard->type = (master) ? MASTER_KEYBOARD : SLAVE;
 
     /* The ClassesRec stores the device classes currently not used. */
-    pointer->unused_classes = calloc(1, sizeof(ClassesRec));
-    keyboard->unused_classes = calloc(1, sizeof(ClassesRec));
+    /* backport 27356a45b4f6bad4d0bbf356e6d976d0c8dd257b */
+    if (IsMaster(pointer)) {
+        pointer->unused_classes = calloc(1, sizeof(ClassesRec));
+        keyboard->unused_classes = calloc(1, sizeof(ClassesRec));
+    }
 
     *ptr = pointer;
     *keybd = keyboard;
