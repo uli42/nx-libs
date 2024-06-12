@@ -2556,6 +2556,9 @@ AllocDevicePair (ClientPtr client, char* name,
     DeviceIntPtr keyboard;
     *ptr = *keybd = NULL;
 
+    /* backport 59c2c4f645b4d782599c274f4bc752de9623d308 */
+    XkbInitPrivates();
+
     pointer = AddInputDevice(client, ptr_proc, TRUE);
     if (!pointer)
         return BadAlloc;
