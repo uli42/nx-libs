@@ -393,7 +393,8 @@ AllocateGlyph (xGlyphInfo *gi, int fdepth)
     glyph = (GlyphPtr) malloc (size);
     if (!glyph)
 	return 0;
-    glyph->refcnt = 0;
+    /* backport bdca6c3d1f5057eeb31609b1280fc93237b00c77 */
+    glyph->refcnt = 1;
     glyph->size = size + sizeof (xGlyphInfo);
     glyph->info = *gi;
     dixInitPrivates(glyph, (char *) glyph + head_size, PRIVATE_GLYPH);

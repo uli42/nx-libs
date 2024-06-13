@@ -1155,6 +1155,8 @@ ProcRenderAddGlyphs (ClientPtr client)
 	if (glyph_new->glyph && glyph_new->glyph != DeletedGlyph)
 	{
 	    glyph_new->found = TRUE;
+	    /* backport bdca6c3d1f5057eeb31609b1280fc93237b00c77 */
+	    ++glyph_new->glyph->refcnt;
 	}
 	else
 	{
@@ -1273,9 +1275,14 @@ bail:
 	FreePicture ((void *) pSrc, 0);
     if (pSrcPix)
 	FreeScratchPixmapHeader (pSrcPix);
-    for (i = 0; i < nglyphs; i++)
-	if (glyphs[i].glyph && ! glyphs[i].found)
-	    free (glyphs[i].glyph);
+    /* backport bdca6c3d1f5057eeb31609b1280fc93237b00c77 */
+    for (i = 0; i < nglyphs; i++) {
+        if (glyphs[i].glyph) {
+            --glyphs[i].glyph->refcnt;
+            if (!glyphs[i].found)
+                free(glyphs[i].glyph);
+        }
+    }
     if (glyphsBase != glyphsLocal)
 	free (glyphsBase);
     return err;
