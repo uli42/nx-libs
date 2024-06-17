@@ -135,7 +135,7 @@ Bool nxagentDisplayCursor(DeviceIntPtr pDev, ScreenPtr pScreen, CursorPtr pCurso
 
     #ifdef TEST
     fprintf(stderr, "%s: Called for cursor at [%p] with private [%p].\n", __func__,
-	    (void *) pCursor, nxagentGetCursorPriv(pCursor, pScreen->myNum();
+            (void *) pCursor, pCursor ? (void *)nxagentGetCursorPriv(pCursor, pScreen) : NULL);
     #endif
   }
 
@@ -234,7 +234,7 @@ Bool nxagentRealizeCursor(DeviceIntPtr pDev, ScreenPtr pScreen, CursorPtr pCurso
   nxagentCursorUsesRender(pCursor, pScreen) = 0;
 
   #ifdef TEST
-  fprintf(stderr, "%s: Set cursor private at [%p] cursor is [%ld].\n", __func__,
+  fprintf(stderr, "%s: Set cursor private at [%p] cursor is [%d].\n", __func__,
               (void *) nxagentGetCursorPriv(pCursor, pScreen),
                   nxagentCursor(pCursor, pScreen));
   #endif
@@ -310,7 +310,7 @@ void nxagentReconnectCursor(void * p0, XID x1, void * p2)
   CursorPtr pCursor = (CursorPtr) p0;
 
   #if defined( TEST) || defined(NXAGENT_RECONNECT_CURSOR_DEBUG)
-  fprintf(stderr, "%s:  pCursor at [%p]\n", __func__, pCursor);
+  fprintf(stderr, "%s:  pCursor at [%p]\n", __func__, (void *)pCursor);
   #endif
 
   if (!*pBool || !pCursor)
@@ -323,7 +323,7 @@ void nxagentReconnectCursor(void * p0, XID x1, void * p2)
     if (nxagentIsAnimCursor(pCursor))
     {
       #ifdef TEST
-      fprintf(stderr, "%s: nxagentIsAnimCursor   pCursor at [%p]\n", __func__, pCursor);
+      fprintf(stderr, "%s: nxagentIsAnimCursor   pCursor at [%p]\n", __func__, (void *)pCursor);
       #endif
 
       AnimCurPtr ac = nxagentGetAnimCursor(pCursor);
@@ -333,7 +333,7 @@ void nxagentReconnectCursor(void * p0, XID x1, void * p2)
         nxagentReconnectCursor (ac->elts[j].pCursor, x1, p2);
 
         #ifdef TEST
-        fprintf(stderr, "%s: Iteration [%d]   pCursor at [%p]\n", __func__, j, ac->elts[j].pCursor);
+        fprintf(stderr, "%s: Iteration [%d]   pCursor at [%p]\n", __func__, j, (void *)ac->elts[j].pCursor);
         #endif
       }
     }
@@ -428,7 +428,7 @@ void nxagentDisconnectCursor(void * p0, XID x1, void * p2)
     if (nxagentIsAnimCursor(pCursor))
     {
       #ifdef TEST
-      fprintf(stderr, "%s: nxagentIsAnimCursor   pCursor at [%p]\n", __func__, pCursor);
+      fprintf(stderr, "%s: nxagentIsAnimCursor   pCursor at [%p]\n", __func__, (void *)pCursor);
       #endif
 
       AnimCurPtr ac = nxagentGetAnimCursor(pCursor);
@@ -438,7 +438,7 @@ void nxagentDisconnectCursor(void * p0, XID x1, void * p2)
         nxagentDisconnectCursor (ac->elts[j].pCursor, x1, p2);
 
         #ifdef TEST
-        fprintf(stderr, "%s: Iteration [%d]   pCursor at [%p]\n", __func__, j, ac->elts[j].pCursor);
+        fprintf(stderr, "%s: Iteration [%d]   pCursor at [%p]\n", __func__, j, (void *)ac->elts[j].pCursor);
         #endif
       }
     }
@@ -467,7 +467,7 @@ void nxagentDisconnectCursor(void * p0, XID x1, void * p2)
   fprintf(stderr, "%s: Dummy screen number is [%d].\n", __func__,
               nxagentDefaultScreen -> myNum);
 
-  fprintf(stderr, "%s: Cursor is [%ld].\n", __func__,
+  fprintf(stderr, "%s: Cursor is [%d].\n", __func__,
               nxagentCursor(pCursor, nxagentDefaultScreen));
   #endif
 

@@ -205,9 +205,10 @@ int nxagentSwitchResourceType(int client, RESTYPE type, void * value)
               pResource -> value == value)
       {
         #ifdef TEST
-        fprintf(stderr, "nxagentSwitchResourceType: Changing resource [%p] type from [%lu] to "
-                    "[%lu] for server client [%d].\n", (void *) value,
-                        (unsigned long) pResource -> type, (unsigned long) type, serverClient -> index);
+        fprintf(stderr, "nxagentSwitchResourceType: Changing resource [%p] type from [%lu][%s] to "
+                    "[%lu][%s] for server client [%d].\n", (void *) value,
+                        (unsigned long) pResource -> type, LookupResourceName(pResource->type),
+                            (unsigned long) type, LookupResourceName(type), serverClient -> index);
         #endif
 
         FreeResource(pResource -> id, RT_NONE);
@@ -244,8 +245,8 @@ AddResource(XID id, RESTYPE type, void * value)
     nxagentSwitchResourceType(client, type, value);
 
     #ifdef TEST
-    fprintf(stderr, "[nx] AddResource: Adding resource for client [%d] type [%lu] value [%p] id [%lu].\n",
-                client, (unsigned long) type, (void *) value, (unsigned long) id);
+    fprintf(stderr, "[nx] AddResource: Adding resource for client [%d] type [%lu][%s] value [%p] id [%lu].\n",
+                client, (unsigned long) type, LookupResourceName(type), (void *) value, (unsigned long) id);
     #endif
 #endif
 
@@ -286,7 +287,7 @@ FreeResource(XID id, RESTYPE skipDeleteFuncType)
 
 #ifdef NXAGENT_SERVER
     #ifdef TEST
-    fprintf(stderr, "FreeResource: Freeing resource id [%lu].\n", (unsigned long) id);
+    fprintf(stderr, "%s: Freeing resource id [%lu].\n", __func__, (unsigned long) id);
     #endif
 #endif
 

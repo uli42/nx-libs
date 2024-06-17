@@ -136,7 +136,7 @@ FindGlyph (GlyphSetPtr glyphSet, Glyph id)
     else if (gr -> corruptedGlyph == 1)
     {
 	#ifdef DEBUG
-	fprintf(stderr, "FindGlyphRef: Going to synchronize the glyph [%p] for glyphset [%p].\n",
+	fprintf(stderr, "%s: Going to synchronize the glyph [%p] for glyphset [%p].\n", __func__,
 		 (void *) glyph, (void *) glyphSet);
 	#endif
 

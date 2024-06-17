@@ -303,7 +303,7 @@ Bool nxagentIsParentOf(Display *d, XlibWindow possible_parent, XlibWindow candid
     SAFE_XFree(children);
 
     #ifdef TEST
-    fprintf(stderr, "%s: parent of full screen window [%p] root [%p] possible_parent [%p] candidate [%p]\n", __func__, parent, root, possible_parent, candidate);
+    fprintf(stderr, "%s: parent of full screen window [%p] root [%p] possible_parent [%p] candidate [%p]\n", __func__, (void *)parent, (void *)root, (void *)possible_parent, (void *)candidate);
     #endif
     return (parent == possible_parent);
   }
@@ -2492,7 +2492,7 @@ int nxagentShadowInit(ScreenPtr pScreen, WindowPtr pWin)
     if(nxagentKeyboard[i] == '\0' || nxagentKeyboard[i + 1] == '\0' || i == 0)
     {
       #ifdef WARNING
-      fprintf(stderr,"WARNING! Wrong keyboard type: %s.\n", nxagentKeyboard);
+      fprintf(stderr,"WARNING! Wrong keyboard type: [%s].\n", nxagentKeyboard);
       #endif
     }
     else
@@ -2610,7 +2610,7 @@ int nxagentShadowInit(ScreenPtr pScreen, WindowPtr pWin)
       else if (nxagentShadowDepth == 8)
       {
         #ifdef PANIC
-        fprintf(stderr, "nxagentShadowInit: PANIC! Unable to shadow a %d bit "
+        fprintf(stderr, "nxagentShadowInit: PANIC! Unable to shadow a [%d] bit "
                     "display with a 8 bit screen depth.\n", nxagentMasterDepth);
         #endif
 
@@ -2647,7 +2647,7 @@ int nxagentShadowInit(ScreenPtr pScreen, WindowPtr pWin)
       {
         #ifdef PANIC
         fprintf(stderr, "nxagentShadowInit: PANIC! Unable to shadow a 8 bit "
-                    "display with a %d bit screen depth.\n", nxagentShadowDepth);
+                    "display with a [%d] bit screen depth.\n", nxagentShadowDepth);
         #endif
 
         return -1;
@@ -3423,7 +3423,7 @@ Bool nxagentReconnectScreen(void *p0)
                                          pPixmap -> drawable.height,
                                          pPixmap -> drawable.depth);
 #ifdef NXAGENT_RECONNECT_SCREEN_DEBUG
-  fprintf(stderr, "nxagentReconnectScreen: recreated %p - ID %lx\n",
+  fprintf(stderr, "nxagentReconnectScreen: recreated [%p] - ID [%lx]\n",
                    pPixmap,
                    nxagentPixmap( pPixmap ));
 #endif
@@ -3710,7 +3710,7 @@ int nxagentChangeScreenConfig(int screen, int width, int height, Bool doresize)
   ScreenPtr pScreen = screenInfo.screens[screen] -> root -> drawable.pScreen;
 
   #ifdef TEST
-  fprintf(stderr, "nxagentChangeScreenConfig: Changing config to %d x %d\n", width, height);
+  fprintf(stderr, "nxagentChangeScreenConfig: Changing config to [%d x %d]\n", width, height);
   #endif
 
   int r = nxagentResizeScreen(pScreen, width, height, 0, 0, doresize);
@@ -3732,7 +3732,7 @@ int nxagentChangeScreenConfig(int screen, int width, int height, Bool doresize)
   }
 
   #ifdef DEBUG
-  fprintf(stderr, "nxagentChangeScreenConfig: current geometry: %d,%d %dx%d\n", nxagentOption(X), nxagentOption(Y), nxagentOption(Width), nxagentOption(Height));
+  fprintf(stderr, "nxagentChangeScreenConfig: current geometry: [%d,%d %dx%d]\n", nxagentOption(X), nxagentOption(Y), nxagentOption(Width), nxagentOption(Height));
   fprintf(stderr, "nxagentChangeScreenConfig: returning [%d]\n", r);
   #endif
 
@@ -3752,7 +3752,7 @@ void nxagentDropOutput(RROutputPtr o)
       if (c->outputs[i] == o)
       {
         #ifdef DEBUG
-        fprintf(stderr, "nxagentDropOutput: output [%s] is in use by crtc [%p], removing it from there\n", o->name, c);
+        fprintf(stderr, "nxagentDropOutput: output [%s] is in use by crtc [%p], removing it from there\n", o->name, (void *)c);
         #endif
         RRCrtcSet(c, NULL, 0, 0, RR_Rotate_0, 0, NULL);
       }
@@ -4065,13 +4065,13 @@ int nxagentAdjustRandRXinerama(ScreenPtr pScreen)
         else
         {
           #ifdef DEBUG
-          fprintf(stderr, "nxagentAdjustRandRXinerama: setting mode [%s] ([%p]) refcnt [%d] for output %d [%s]\n", mymode->name, (void *) mymode, mymode->refcnt, i, pScrPriv->outputs[i]->name);
+          fprintf(stderr, "nxagentAdjustRandRXinerama: setting mode [%s] ([%p]) refcnt [%d] for output [%d] [%s]\n", mymode->name, (void *) mymode, mymode->refcnt, i, pScrPriv->outputs[i]->name);
           #endif
           RROutputSetModes(pScrPriv->outputs[i], &mymode, 1, 0);
         }
 
         #ifdef DEBUG
-        fprintf(stderr, "nxagentAdjustRandRXinerama: setting mode [%s] ([%p]) refcnt [%d] for crtc %d\n", mymode->name, (void *) mymode, mymode->refcnt, i);
+        fprintf(stderr, "nxagentAdjustRandRXinerama: setting mode [%s] ([%p]) refcnt [%d] for crtc [%d]\n", mymode->name, (void *) mymode, mymode->refcnt, i);
         #endif
         RRCrtcSet(pScrPriv->crtcs[i], mymode, new_x, new_y, RR_Rotate_0, 1, &(pScrPriv->outputs[i]));
       } /* if disable_output */
@@ -4128,7 +4128,7 @@ int nxagentAdjustRandRXinerama(ScreenPtr pScreen)
   /* FIXME: adjust maximum screen size according to remote randr/xinerama setup */
 
   #ifdef DEBUG
-  fprintf(stderr, "nxagentAdjustRandRXinerama: Min %dx%d, Max %dx%d \n", pScrPriv->minWidth, pScrPriv->minHeight, pScrPriv->maxWidth, pScrPriv->maxHeight);
+  fprintf(stderr, "nxagentAdjustRandRXinerama: Min [%dx%d], Max [%dx%d]\n", pScrPriv->minWidth, pScrPriv->minHeight, pScrPriv->maxWidth, pScrPriv->maxHeight);
   #endif
 
   return TRUE;
@@ -4443,7 +4443,7 @@ FIXME
   memcpy(image -> data, data, length);
 */
 
-  fprintf(stderr, "nxagentFbRestoreArea: Cleaning %d bytes of image.\n", length);
+  fprintf(stderr, "nxagentFbRestoreArea: Cleaning [%d] bytes of image.\n", length);
 
   XGCValues value = {
                      .foreground = 0xffffff,

@@ -149,7 +149,7 @@ int nxagentSynchronizeDrawable(DrawablePtr pDrawable, int wait, unsigned int bre
     if (nxagentDrawableStatus(pDrawable) == Synchronized)
     {
       #ifdef TEST
-      fprintf(stderr, "nxagentSynchronizeDrawable: Drawable [%s][%p] with id [%ld] already "
+      fprintf(stderr, "nxagentSynchronizeDrawable: Drawable [%s][%p] with id [%d] already "
                   "synchronized.\n", nxagentDrawableType(pDrawable),
                       (void *) pDrawable, pDrawable -> id);
       #endif
@@ -183,12 +183,12 @@ int nxagentSynchronizeDrawable(DrawablePtr pDrawable, int wait, unsigned int bre
   #ifdef TEST
   if (nxagentDrawableStatus(pDrawable) == Synchronized)
   {
-    fprintf(stderr, "nxagentSynchronizeDrawable: Drawable %s [%p] with id [%ld] now synchronized.\n",
+    fprintf(stderr, "nxagentSynchronizeDrawable: Drawable %s [%p] with id [%d] now synchronized.\n",
                 nxagentDrawableType(pDrawable), (void *) pDrawable, pDrawable -> id);
   }
   else
   {
-    fprintf(stderr, "nxagentSynchronizeDrawable: Drawable %s [%p] with id [%ld] not fully synchronized.\n",
+    fprintf(stderr, "nxagentSynchronizeDrawable: Drawable %s [%p] with id [%d] not fully synchronized.\n",
                 nxagentDrawableType(pDrawable), (void *) pDrawable, pDrawable -> id);
   }
   #endif
@@ -370,7 +370,7 @@ int nxagentSynchronizeRegion(DrawablePtr pDrawable, RegionPtr pRegion, unsigned 
   {
     #ifdef TEST
     fprintf(stderr, "nxagentSynchronizeRegion: Drawable [%s] at [%p] has a synchronization bitmap at [%p] "
-                "[%d,%d,%d,%d] with [%ld] rects.\n", nxagentDrawableType(pDrawable),
+                "[%d,%d,%d,%d] with [%d] rects.\n", nxagentDrawableType(pDrawable),
                     (void *) pDrawable, (void *) nxagentDrawableBitmap(pDrawable),
                         nxagentCorruptedRegion((DrawablePtr) nxagentDrawableBitmap(pDrawable)) -> extents.x1,
                             nxagentCorruptedRegion((DrawablePtr) nxagentDrawableBitmap(pDrawable)) -> extents.y1,
@@ -527,7 +527,7 @@ int nxagentSynchronizeRegion(DrawablePtr pDrawable, RegionPtr pRegion, unsigned 
   ValidateGC(pDrawable, pGC);
 
   #ifdef TEST
-  fprintf(stderr, "nxagentSynchronizeRegion: Going to synchronize [%ld] rects of [%s] at [%p].\n",
+  fprintf(stderr, "nxagentSynchronizeRegion: Going to synchronize [%d] rects of [%s] at [%p].\n",
               RegionNumRects(clipRegion), nxagentDrawableType(pDrawable), (void *) pDrawable);
 
   fprintf(stderr, "nxagentSynchronizeRegion: Extents geometry [%d,%d,%d,%d].\n",
@@ -1157,7 +1157,7 @@ FIXME: This condition sounds only as a complication, as the break
                   (void *) pDrawable, pDrawable -> width, pDrawable -> height);
 
   fprintf(stderr, "nxagentSynchronizeDrawablePredicate: Corrupted extents [%d,%d,%d,%d] "
-              "with [%ld] rects.\n", nxagentCorruptedRegion(pDrawable) -> extents.x1,
+              "with [%d] rects.\n", nxagentCorruptedRegion(pDrawable) -> extents.x1,
                   nxagentCorruptedRegion(pDrawable) -> extents.y1, nxagentCorruptedRegion(pDrawable) ->
                       extents.x2, nxagentCorruptedRegion(pDrawable) -> extents.y2,
                           RegionNumRects(nxagentCorruptedRegion(pDrawable)));
@@ -2277,7 +2277,7 @@ void nxagentPointsToDirtyRegion(DrawablePtr pDrawable, int mode,
   RegionReset(pRegion, &extents);
 
   #ifdef TEST
-  fprintf(stderr, "nxagentPointsToDirtyRegion: The resulting dirty region has [%ld] rects and"
+  fprintf(stderr, "nxagentPointsToDirtyRegion: The resulting dirty region has [%d] rects and"
               " extents (%d,%d,%d,%d).\n", RegionNumRects(pRegion), extents.x1,
                   extents.y1, extents.x2, extents.y2);
   #endif

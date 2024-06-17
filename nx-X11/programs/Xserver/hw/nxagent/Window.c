@@ -261,7 +261,7 @@ Bool nxagentCreateWindow(WindowPtr pWin)
     attributes.backing_store = NotUseful;
 
     #ifdef TEST
-    fprintf(stderr, "nxagentCreateWindow: Backing store on window at [%p] is [%d].\n",
+    fprintf(stderr, "%s: Backing store on window at [%p] is [%d].\n", __func__,
                 (void*)pWin, attributes.backing_store);
     #endif
 
@@ -330,16 +330,16 @@ Bool nxagentCreateWindow(WindowPtr pWin)
    */
 
   #ifdef TEST
-  fprintf(stderr, "nxagentCreateWindow: Going to create new window.\n");
+  fprintf(stderr, "%s: Going to create new window.\n", __func__);
   #endif
 
   #ifdef TEST
-  fprintf(stderr, "nxagentCreateWindow: Creating %swindow at %p current event mask = %lX mask & CWEventMask = %ld "
-              "event_mask = %lX\n",
-                  nxagentWindowTopLevel(pWin) ? "toplevel " : "", (void*)pWin, pWin -> eventMask,
+  fprintf(stderr, "%s: Creating %swindow at [%p][0x%x] current event mask [%X] mask & CWEventMask [%ld] "
+              "event_mask [%lX]\n", __func__,
+                  nxagentWindowTopLevel(pWin) ? "toplevel " : "", (void*)pWin, pWin->drawable.id, pWin -> eventMask,
                       mask & CWEventMask, attributes.event_mask);
 
-  fprintf(stderr, "nxagentCreateWindow: position [%d,%d] size [%d,%d] depth [%d] border [%d] class [%d].\n",
+  fprintf(stderr, "%s: position [%d,%d] size [%d,%d] depth [%d] border [%d] class [%d].\n", __func__,
               pWin->origin.x - wBorderWidth(pWin), pWin->origin.y - wBorderWidth(pWin),
                   pWin->drawable.width, pWin->drawable.height, pWin->drawable.depth, pWin->borderWidth,
                       pWin->drawable.class);
@@ -347,17 +347,16 @@ Bool nxagentCreateWindow(WindowPtr pWin)
 
   nxagentWindowPriv(pWin)->window = XCreateWindow(nxagentDisplay,
                                                   nxagentWindowParent(pWin),
-                                                  pWin->origin.x -
-                                                  wBorderWidth(pWin),
-                                                  pWin->origin.y -
-                                                  wBorderWidth(pWin),
+                                                  pWin->origin.x - wBorderWidth(pWin),
+                                                  pWin->origin.y - wBorderWidth(pWin),
                                                   pWin->drawable.width,
                                                   pWin->drawable.height,
                                                   pWin->borderWidth,
                                                   pWin->drawable.depth,
                                                   pWin->drawable.class,
                                                   visual,
-                                                  mask, &attributes);
+                                                  mask,
+                                                  &attributes);
 
   nxagentWindowPriv(pWin) -> isMapped = 0;
   nxagentWindowPriv(pWin) -> isRedirected = 0;
@@ -409,8 +408,7 @@ Bool nxagentCreateWindow(WindowPtr pWin)
   #endif
 
   #ifdef TEST
-  fprintf(stderr, "%s: Created new window with id [0x%x].\n", __func__,
-              nxagentWindowPriv(pWin)->window);
+  fprintf(stderr, "%s: Created new remote window with id [0x%x].\n", __func__, nxagentWindow(pWin));
   #endif
 
   /*
@@ -444,12 +442,12 @@ Bool nxagentCreateWindow(WindowPtr pWin)
 
     if (ChangeWindowProperty(pWin, prop, XA_WINDOW, 32, PropModeReplace, 1, nxagentWindowPriv(pWin), 1) != Success)
     {
-      fprintf(stderr, "nxagentCreateWindow: Adding NX_REAL_WINDOW failed.\n");
+      fprintf(stderr, "%s: Adding NX_REAL_WINDOW failed.\n", __func__);
     }
     #ifdef DEBUG
     else
     {
-      fprintf(stderr, "nxagentCreateWindow: Added NX_REAL_WINDOW for Window ID [%x].\n", nxagentWindowPriv(pWin)->window);
+      fprintf(stderr, "%s: Added NX_REAL_WINDOW for Window ID [0x%x].\n", __func__, nxagentWindow(pWin));
     }
     #endif
   }
@@ -498,7 +496,7 @@ void nxagentSetVersionProperty(WindowPtr pWin)
   #ifdef DEBUG
   else
   {
-    fprintf(stderr, "%s: Added property [%s], value [%s] for root window [%x].\n", __func__, name, NX_VERSION_CURRENT_STRING, pWin);
+    fprintf(stderr, "%s: Added property [%s], value [%s] for root window [%p].\n", __func__, name, NX_VERSION_CURRENT_STRING, (void *)pWin);
   }
   #endif
 }
@@ -538,6 +536,11 @@ Bool nxagentDestroyWindow(WindowPtr pWin)
   {
     return 1;
   }
+
+  #ifdef DEBUG
+  fprintf(stderr, "%s: Called with window [%p][0x%x] remote [0x%x].\n", __func__,
+             (void *) pWin, pWin->drawable.id, nxagentWindow(pWin));
+  #endif
 
   nxagentClearClipboard(NULL, pWin);
 
@@ -594,7 +597,7 @@ Bool nxagentDestroyWindow(WindowPtr pWin)
     nxagentSynchronization.pDrawable = NULL;
 
     #ifdef TEST
-    fprintf(stderr, "nxagentDestroyWindow: Synchronization drawable [%p] removed from resources.\n",
+    fprintf(stderr, "%s: Synchronization drawable [%p] removed from resources.\n", __func__,
                 (void *) pWin);
     #endif
   }
@@ -625,7 +628,7 @@ Bool nxagentDestroyWindow(WindowPtr pWin)
           !nxagentLastWindowDestroyed && nxagentSomeWindowsAreMapped() == False)
   {
     #ifdef TEST
-    fprintf(stderr, "nxagentDestroyWindow: Last mapped window as been destroyed.\n");
+    fprintf(stderr, "%s: Last mapped window as been destroyed.\n", __func__);
     #endif
 
     nxagentLastWindowDestroyed     = True;
@@ -657,8 +660,8 @@ Bool nxagentPositionWindow(WindowPtr pWin, int x, int y)
   }
 
   #ifdef TEST
-  fprintf(stderr, "nxagentPositionWindow: Changing position of window [%p][%ld] to [%d,%d].\n",
-              (void *) pWin, nxagentWindow(pWin), x, y);
+  fprintf(stderr, "%s: Changing position of window [%p][0x%x] remote [0x%x] to [%d,%d].\n", __func__,
+             (void *) pWin, pWin->drawable.id, nxagentWindow(pWin), x, y);
   #endif
 
   nxagentAddConfiguredWindow(pWin, CWSibling | CWX | CWY | CWWidth |
@@ -673,6 +676,11 @@ void nxagentRestackWindow(WindowPtr pWin, WindowPtr pOldNextSib)
   {
     return;
   }
+
+  #ifdef DEBUG
+  fprintf(stderr, "%s: Called with window [%p][0x%x] remote [0x%x].\n", __func__,
+              (void *) pWin, pWin->drawable.id, nxagentWindow(pWin));
+  #endif
 
   nxagentAddConfiguredWindow(pWin, CW_RootlessRestack);
 }
@@ -1067,7 +1075,7 @@ void nxagentMoveViewport(ScreenPtr pScreen, int hShift, int vShift)
    */
 
   #ifdef DEBUG
-  fprintf(stderr, "nxagentMoveViewport: RootX[%i] RootY[%i], hShift[%i] vShift[%i].\n",
+  fprintf(stderr, "%s: RootX[%i] RootY[%i], hShift[%i] vShift[%i].\n", __func__,
           nxagentOption(RootX), nxagentOption(RootY), hShift, vShift);
   #endif
 
@@ -1139,12 +1147,12 @@ void nxagentMoveViewport(ScreenPtr pScreen, int hShift, int vShift)
   if (doMove)
   {
     #ifdef TEST
-    fprintf(stderr, "nxagentMoveViewport: New viewport geometry: (%d, %d)-"
-                "(%d, %d)\n", -nxagentOption(RootX), -nxagentOption(RootY),
+    fprintf(stderr, "%s: New viewport geometry: (%d, %d)-"
+                "(%d, %d)\n", __func__, -nxagentOption(RootX), -nxagentOption(RootY),
                     -nxagentOption(RootX) + nxagentOption(Width),
                         -nxagentOption(RootY) + nxagentOption(Height));
 
-    fprintf(stderr, "nxagentMoveViewport: Root geometry x=[%d] y=[%d]\n",
+    fprintf(stderr, "%s: Root geometry x=[%d] y=[%d]\n", __func__,
                 pScreen->root -> drawable.x,
                     pScreen->root -> drawable.y );
     #endif
@@ -1176,7 +1184,7 @@ void nxagentMoveViewport(ScreenPtr pScreen, int hShift, int vShift)
       }
 
       #ifdef DEBUG
-      fprintf(stderr, "nxagentMoveViewport: hRect p1[%i, %i] - p2[%i, %i].\n", hRect.x1, hRect.y1, hRect.x2, hRect.y2);
+      fprintf(stderr, "%s: hRect p1[%i, %i] - p2[%i, %i].\n", __func__, hRect.x1, hRect.y1, hRect.x2, hRect.y2);
       #endif
 
       BoxRec vRect = {.x1 = -newX, .y1 = -newY};
@@ -1194,7 +1202,7 @@ void nxagentMoveViewport(ScreenPtr pScreen, int hShift, int vShift)
       }
 
       #ifdef DEBUG
-      fprintf(stderr, "nxagentMoveViewport: vRect p1[%i, %i] - p2[%i, %i].\n", vRect.x1, vRect.y1, vRect.x2, vRect.y2);
+      fprintf(stderr, "%s: vRect p1[%i, %i] - p2[%i, %i].\n", __func__, vRect.x1, vRect.y1, vRect.x2, vRect.y2);
       #endif
 
       if (oldX != newX && hRect.x1 != hRect.x2 && hRect.y1 != hRect.y2)
@@ -1252,8 +1260,8 @@ void nxagentConfigureWindow(WindowPtr pWin, unsigned int mask)
   }
 
   #ifdef TEST
-  fprintf(stderr, "nxagentConfigureWindow: Called with window [%p][%ld] and mask [%x].\n",
-              (void *) pWin, nxagentWindow(pWin), mask);
+  fprintf(stderr, "%s: Called with window [%p][0x%x] remote [0x%x] and mask [%x].\n", __func__,
+             (void *) pWin, pWin->drawable.id, nxagentWindow(pWin), mask);
   #endif
 
   nxagentMoveCorruptedRegion(pWin, mask);
@@ -1304,8 +1312,8 @@ void nxagentConfigureWindow(WindowPtr pWin, unsigned int mask)
   if (valuemask)
   {
     #ifdef TEST
-    fprintf(stderr, "nxagentConfigureWindow: Going to configure window [%p][%ld] with mask [%x].\n",
-                (void *) pWin, nxagentWindow(pWin), valuemask);
+    fprintf(stderr, "%s: Going to configure window [%p][0x%x] remote [0x%x] with mask [%x].\n", __func__,
+                (void *) pWin, pWin->drawable.id, nxagentWindow(pWin), valuemask);
     #endif
 
     if (pWin->bitGravity == StaticGravity &&
@@ -1313,8 +1321,8 @@ void nxagentConfigureWindow(WindowPtr pWin, unsigned int mask)
                 ((mask & CWWidth) || (mask & CWHeight)))
     {
       #ifdef TEST
-      fprintf(stderr, "nxagentConfigureWindow: Window has StaticGravity. Going to translate Expose events by offset [%d, %d].\n",
-                  offX, offY);
+      fprintf(stderr, "%s: Window has StaticGravity. Going to translate Expose events by offset [%d, %d].\n",
+                  __func__, offX, offY);
       #endif
 
       nxagentAddStaticResizedWindow(pWin, XNextRequest(nxagentDisplay), offX, offY);
@@ -1356,8 +1364,8 @@ void nxagentConfigureWindow(WindowPtr pWin, unsigned int mask)
     values.stack_mode = Above;
 
     #ifdef TEST
-    fprintf(stderr, "nxagentConfigureWindow: Going to configure top sibling [%ld] "
-                "with mask [%x] and parent [%ld].\n", nxagentWindow(pSib),
+    fprintf(stderr, "%s: Going to configure top sibling [0x%x] "
+                "with mask [%x] and parent [0x%x].\n", __func__, nxagentWindow(pSib),
                     valuemask, nxagentWindowParent(pWin));
     #endif
 
@@ -1380,8 +1388,8 @@ void nxagentConfigureWindow(WindowPtr pWin, unsigned int mask)
       values.sibling = nxagentWindowSiblingAbove(pSib);
 
       #ifdef TEST
-      fprintf(stderr, "nxagentConfigureWindow: Going to configure other sibling [%ld] "
-                  "with mask [%x] and parent [%ld] below [%ld].\n", nxagentWindow(pSib),
+      fprintf(stderr, "%s: Going to configure other sibling [0x%x] "
+                  "with mask [%x] and parent [0x%x] below [0x%lx].\n", __func__, nxagentWindow(pSib),
                       valuemask, nxagentWindowParent(pWin), nxagentWindowSiblingAbove(pSib));
       #endif
 
@@ -1404,7 +1412,7 @@ void nxagentConfigureWindow(WindowPtr pWin, unsigned int mask)
 
       if (result)
       {
-        fprintf(stderr, "nxagentConfigureWindow: Children of the root: ");
+        fprintf(stderr, "%s: Children of the root: ", __func__);
         while(nchildren_return > 0)
         {
           pSib = nxagentWindowPtr(children_return[--nchildren_return]);
@@ -1417,7 +1425,7 @@ void nxagentConfigureWindow(WindowPtr pWin, unsigned int mask)
       }
       else
       {
-        fprintf(stderr, "nxagentConfigureWindow: Failed QueryTree request.\n ");
+        fprintf(stderr, "%s: Failed QueryTree request.\n", __func__);
       }
 
       SAFE_XFree(children_return);
@@ -1440,7 +1448,7 @@ void nxagentConfigureWindow(WindowPtr pWin, unsigned int mask)
    *      values.stack_mode = Above;
    *
    *      #ifdef TEST
-   *      fprintf(stderr, "nxagentConfigureWindow: Going to configure splash window [%ld].\n",
+   *      fprintf(stderr, "%s: Going to configure splash window [0x%x].\n", __func__,
    *                  nxagentSplashWindow);
    *      #endif
    *
@@ -1456,8 +1464,8 @@ void nxagentConfigureWindow(WindowPtr pWin, unsigned int mask)
     if (!pWin -> prevSib)
     {
       #ifdef TEST
-      fprintf(stderr, "nxagentConfigureWindow: Raising window [%p][%ld].\n",
-                  (void *) pWin, nxagentWindow(pWin));
+      fprintf(stderr, "%s: Raising window [%p][0x%x] remote [0x%x].\n", __func__,
+                  (void *) pWin, pWin->drawable.id, nxagentWindow(pWin));
       #endif
 
       XRaiseWindow(nxagentDisplay, nxagentWindow(pWin));
@@ -1465,8 +1473,8 @@ void nxagentConfigureWindow(WindowPtr pWin, unsigned int mask)
     else if (!pWin -> nextSib)
     {
       #ifdef TEST
-      fprintf(stderr, "nxagentConfigureWindow: Lowering window [%p][%ld].\n",
-                  (void *) pWin, nxagentWindow(pWin));
+      fprintf(stderr, "%sw: Lowering window [%p][0x%x] remote [0x%x].\n", __func__,
+                  (void *) pWin, pWin->drawable.id, nxagentWindow(pWin));
       #endif
 
       XLowerWindow(nxagentDisplay, nxagentWindow(pWin));
@@ -1476,8 +1484,8 @@ void nxagentConfigureWindow(WindowPtr pWin, unsigned int mask)
       XlibWindow windowList[2];
 
       #ifdef TEST
-      fprintf(stderr, "nxagentConfigureWindow: Putting window [%p][%ld] in the middle.\n",
-                  (void *) pWin, nxagentWindow(pWin));
+      fprintf(stderr, "%s: Putting window [%p][0x%x] remote [0x%x] in the middle.\n", __func__,
+                  (void *) pWin, pWin->drawable.id, nxagentWindow(pWin));
       #endif
 
       windowList[0] = nxagentWindow(pWin->prevSib);
@@ -1519,9 +1527,9 @@ void nxagentReparentWindow(WindowPtr pWin, WindowPtr pOldParent)
   }
 
   #ifdef TEST
-  fprintf(stderr, "nxagentReparentWindow:  window at %p [%lx] previous parent at %p [%lx].\n",
-              (void*)pWin, nxagentWindow(pWin),
-                  (void*)pOldParent, nxagentWindow(pOldParent));
+  fprintf(stderr, "%s: window at [%p][0x%x] remote [0x%x] previous parent at [%p][0x%x] remote [0x%x].\n", __func__,
+             (void*)pWin, pWin->drawable.id, nxagentWindow(pWin),
+                 (void*)pOldParent, pOldParent->drawable.id, nxagentWindow(pOldParent));
   #endif
 
   XReparentWindow(nxagentDisplay, nxagentWindow(pWin),
@@ -1545,8 +1553,8 @@ Bool nxagentChangeWindowAttributes(WindowPtr pWin, unsigned long mask)
   XSetWindowAttributes attributes;
 
   #ifdef TEST
-  fprintf(stderr, "nxagentChangeWindowAttributes: Changing attributes for window at [%p] with mask [%lu].\n",
-              (void *) pWin, mask);
+  fprintf(stderr, "%s: Changing attributes for window at [%p][0x%x] remote [0x%x] with mask [%lu].\n", __func__,
+             (void*)pWin, pWin->drawable.id, nxagentWindow(pWin), mask);
   #endif
 
   if (nxagentScreenTrap)
@@ -1596,8 +1604,8 @@ Bool nxagentChangeWindowAttributes(WindowPtr pWin, unsigned long mask)
           nxagentWindowPriv(pWin -> parent) -> hasTransparentChildren = 1;
 
           #ifdef DEBUG
-          fprintf(stderr, "nxagentChangeWindowAttributes: WARNING! Window at [%p] got the "
-                      "hasTransparentChildren flag.\n", (void *) pWin);
+          fprintf(stderr, "%s: WARNING! Window at [%p] got the "
+                      "hasTransparentChildren flag.\n", __func__, (void *) pWin);
           #endif
         }
 
@@ -1620,8 +1628,8 @@ Bool nxagentChangeWindowAttributes(WindowPtr pWin, unsigned long mask)
         if (nxagentDrawableStatus((DrawablePtr) pWin -> background.pixmap) == NotSynchronized)
         {
           #ifdef TEST
-          fprintf(stderr, "nxagentChangeWindowAttributes: The window at [%p] has the background at [%p] "
-                      "not synchronized.\n", (void *) pWin, (void *) pWin -> background.pixmap);
+          fprintf(stderr, "%s: The window at [%p] has the background at [%p] "
+                      "not synchronized.\n", __func__, (void *) pWin, (void *) pWin -> background.pixmap);
           #endif
 
           if (nxagentIsCorruptedBackground(pWin -> background.pixmap) == 0)
@@ -1710,8 +1718,8 @@ Bool nxagentChangeWindowAttributes(WindowPtr pWin, unsigned long mask)
     attributes.backing_store = pWin -> backingStore;
 
     #ifdef TEST
-    fprintf(stderr, "nxagentChangeWindowAttributes: Changing backing store value to %d"
-                " for window at %p.\n", pWin -> backingStore, (void*)pWin);
+    fprintf(stderr, "%s: Changing backing store value to [%d] for window at [%p].\n",
+                __func__, pWin -> backingStore, (void*)pWin);
     #endif
   }
 
@@ -1785,8 +1793,8 @@ Bool nxagentChangeWindowAttributes(WindowPtr pWin, unsigned long mask)
     else
     {
       #ifdef WARNING
-      fprintf(stderr, "nxagentChangeWindowAttributes: WARNING! Bad colormap "
-                  "[%lu] for window at [%p].\n", wColormap(pWin), (void *) pWin);
+      fprintf(stderr, "%s: WARNING! Bad colormap [%lu] for window at [%p].\n",
+                  __func__, wColormap(pWin), (void *) pWin);
       #endif
 
       mask &= ~CWColormap;
@@ -1857,7 +1865,9 @@ void nxagentSetWMState(WindowPtr pWin, CARD32 desired)
 Bool nxagentRealizeWindow(WindowPtr pWin)
 {
   #ifdef DEBUG
-  fprintf(stderr, "%s: running for window [0x%x]....\n", __func__, pWin->drawable.id);
+  fprintf(stderr, "%s: Called with window [%p][0x%x] remote [0x%x].\n", __func__,
+              (void *) pWin, pWin->drawable.id, nxagentWindow(pWin));
+  fprintf(stderr, "%s: fbGetWindowPixmap(%p) [%p]\n", __func__, (void*)pWin, (void *)fbGetWindowPixmap(pWin));
   #endif
 
   if (nxagentScreenTrap)
@@ -1914,7 +1924,8 @@ Bool nxagentRealizeWindow(WindowPtr pWin)
 Bool nxagentUnrealizeWindow(WindowPtr pWin)
 {
   #ifdef DEBUG
-  fprintf(stderr, "%s: running for window [0x%x]....\n", __func__, pWin->drawable.id);
+  fprintf(stderr, "%s: Called with window [%p][0x%x] remote [0x%x].\n", __func__,
+              (void *) pWin, pWin->drawable.id, nxagentWindow(pWin));
   #endif
 
   if (nxagentScreenTrap)
@@ -1946,8 +1957,11 @@ extern void xorg_miPaintWindow(WindowPtr pWin, RegionPtr pRegion, int what);
 void miPaintWindow(WindowPtr pWin, RegionPtr pRegion, int what)
 {
   #ifdef DEBUG
-  fprintf(stderr, "%s: running for window [0x%x]....\n", __func__, pWin->drawable.id);
+  fprintf(stderr, "%s: Called with window [%p][0x%x] remote [0x%x].\n", __func__,
+              (void *) pWin, pWin->drawable.id, nxagentWindow(pWin));
+  fprintf(stderr, "%s: fbGetWindowPixmap(%p) [%p]\n", __func__, (void*)pWin, (void *)fbGetWindowPixmap(pWin));
   #endif
+
 
   if (what == PW_BACKGROUND)
   {
@@ -2041,7 +2055,8 @@ void miPaintWindow(WindowPtr pWin, RegionPtr pRegion, int what)
 void nxagentCopyWindow(WindowPtr pWin, xPoint oldOrigin, RegionPtr oldRegion)
 {
   #ifdef DEBUG
-  fprintf(stderr, "%s: running for window [0x%x]....\n", __func__, pWin->drawable.id);
+  fprintf(stderr, "%s: Called with window [%p][0x%x] remote [0x%x].\n", __func__,
+              (void *) pWin, pWin->drawable.id, nxagentWindow(pWin));
   #endif
 
   fbCopyWindow(pWin, oldOrigin, oldRegion);
@@ -2058,6 +2073,11 @@ void nxagentCopyWindow(WindowPtr pWin, xPoint oldOrigin, RegionPtr oldRegion)
  */
 void nxagentClipNotify(WindowPtr pWin, int dx, int dy)
 {
+  #ifdef DEBUG
+  fprintf(stderr, "%s: Called with window [%p][0x%x] remote [0x%x].\n", __func__,
+              (void *) pWin, pWin->drawable.id, nxagentWindow(pWin));
+  #endif
+
   /*
    * nxagentConfigureWindow(pWin, CWStackMode);
    */
@@ -2087,7 +2107,9 @@ void nxagentClipNotify(WindowPtr pWin, int dx, int dy)
 void nxagentWindowExposures(WindowPtr pWin, RegionPtr pRgn, RegionPtr other_exposed)
 {
   #ifdef DEBUG
-  fprintf(stderr, "%s: running for window [0x%x]....\n", __func__, pWin->drawable.id);
+  fprintf(stderr, "%s: Called with window [%p][0x%x] remote [0x%x].\n", __func__,
+              (void *) pWin, pWin->drawable.id, nxagentWindow(pWin));
+  fprintf(stderr, "%s: fbGetWindowPixmap(%p) [%p]\n", __func__, (void*)pWin, (void *)fbGetWindowPixmap(pWin));
   #endif
 
   /*
@@ -2131,7 +2153,7 @@ void nxagentWindowExposures(WindowPtr pWin, RegionPtr pRgn, RegionPtr other_expo
     if (!nxagentExposeArrayIsInitialized)
     {
       #ifdef TEST
-      fprintf(stderr, "nxagentWindowExposures: Initializing expose queue.\n");
+      fprintf(stderr, "%s: Initializing expose queue.\n", __func__);
       #endif
 
       for (int i = 0; i < EXPOSED_SIZE; i++)
@@ -2199,8 +2221,8 @@ void nxagentWindowExposures(WindowPtr pWin, RegionPtr pRgn, RegionPtr other_expo
                            nxagentExposeQueue.exposures[index].remoteRegion, &temp);
 
           #ifdef TEST
-          fprintf(stderr, "nxagentWindowExposures: Added region to remoteRegion for window [%ld] to position [%d].\n",
-                      nxagentWindow(pWin), nxagentExposeQueue.length);
+          fprintf(stderr, "%s: Added region to remoteRegion for window [%p][0x%x] remote [0x%x] to queue pos [%d].\n", __func__,
+                      (void *)pWin, pWin->drawable.id, nxagentWindow(pWin), nxagentExposeQueue.length);
           #endif
         }
         else
@@ -2209,8 +2231,8 @@ void nxagentWindowExposures(WindowPtr pWin, RegionPtr pRgn, RegionPtr other_expo
                            nxagentExposeQueue.exposures[index].localRegion, &temp);
 
           #ifdef TEST
-          fprintf(stderr, "nxagentWindowExposures: Added region to localRegion for window [%ld] to position [%d].\n",
-                      nxagentWindow(pWin), nxagentExposeQueue.length);
+          fprintf(stderr, "%s: Added region to localRegion for window [%p][0x%x] remote [0x%x] to queue pos [%d].\n", __func__,
+                      (void *)pWin, pWin->drawable.id, nxagentWindow(pWin), nxagentExposeQueue.length);
           #endif
         }
 
@@ -2219,7 +2241,7 @@ void nxagentWindowExposures(WindowPtr pWin, RegionPtr pRgn, RegionPtr other_expo
         nxagentExposeQueue.exposures[index].serial = nxagentExposeSerial;
 
         #ifdef TEST
-        fprintf(stderr, "nxagentWindowExposures: Added region to queue with serial [%d].\n", nxagentExposeSerial);
+        fprintf(stderr, "%s: Added region to queue with serial [%d].\n", __func__, nxagentExposeSerial);
         #endif
 
         /*
@@ -2244,7 +2266,7 @@ void nxagentWindowExposures(WindowPtr pWin, RegionPtr pRgn, RegionPtr other_expo
         RegionUninit(&temp);
 
         #ifdef TEST
-        fprintf(stderr, "nxagentWindowExposures: WARNING! Reached maximum size of collect exposures vector.\n");
+        fprintf(stderr, "%s: WARNING! Reached maximum size of collect exposures vector.\n", __func__);
         #endif
 
         if ((pRgn != NULL && RegionNotEmpty(pRgn) != 0) ||
@@ -2317,8 +2339,8 @@ void nxagentShapeWindow(WindowPtr pWin)
   }
 
   #ifdef DEBUG
-  fprintf(stderr, "nxagentShapeWindow: Window at [%p][%ld].\n",
-              (void *) pWin, nxagentWindow(pWin));
+  fprintf(stderr, "%s: Called with window [%p][0x%x] remote [0x%x].\n", __func__,
+              (void *) pWin, pWin->drawable.id, nxagentWindow(pWin));
   #endif
 
   /*
@@ -2329,13 +2351,13 @@ void nxagentShapeWindow(WindowPtr pWin)
                         wBoundingShape(pWin)))
   {
     #ifdef DEBUG
-    fprintf(stderr, "nxagentShapeWindow: Bounding shape differs.\n");
+    fprintf(stderr, "%s: Bounding shape differs.\n", __func__);
     #endif
 
     if (wBoundingShape(pWin))
     {
       #ifdef DEBUG
-      fprintf(stderr, "nxagentShapeWindow: wBounding shape has [%ld] rects.\n",
+      fprintf(stderr, "%s: wBounding shape has [%d] rects.\n", __func__,
                   RegionNumRects(wBoundingShape(pWin)));
       #endif
 
@@ -2369,7 +2391,7 @@ void nxagentShapeWindow(WindowPtr pWin)
     else
     {
       #ifdef DEBUG
-      fprintf(stderr, "nxagentShapeWindow: wBounding shape does not exist. Removing the shape.\n");
+      fprintf(stderr, "%s: wBounding shape does not exist. Removing the shape.\n", __func__);
       #endif
 
       RegionEmpty(nxagentWindowPriv(pWin)->boundingShape);
@@ -2382,13 +2404,13 @@ void nxagentShapeWindow(WindowPtr pWin)
   if (!nxagentRegionEqual(nxagentWindowPriv(pWin)->clipShape, wClipShape(pWin)))
   {
     #ifdef DEBUG
-    fprintf(stderr, "nxagentShapeWindow: Clip shape differs.\n");
+    fprintf(stderr, "%s: Clip shape differs.\n", __func__);
     #endif
 
     if (wClipShape(pWin))
     {
       #ifdef DEBUG
-      fprintf(stderr, "nxagentShapeWindow: wClip shape has [%ld] rects.\n",
+      fprintf(stderr, "%s: wClip shape has [%d] rects.\n", __func__,
                   RegionNumRects(wClipShape(pWin)));
       #endif
 
@@ -2422,7 +2444,7 @@ void nxagentShapeWindow(WindowPtr pWin)
     else
     {
       #ifdef DEBUG
-      fprintf(stderr, "nxagentShapeWindow: wClip shape does not exist. Removing the shape.\n");
+      fprintf(stderr, "%s: wClip shape does not exist. Removing the shape.\n", __func__);
       #endif
 
       RegionEmpty(nxagentWindowPriv(pWin)->clipShape);
@@ -2435,6 +2457,11 @@ void nxagentShapeWindow(WindowPtr pWin)
 
 static int nxagentForceExposure(WindowPtr pWin, void * ptr)
 {
+  #ifdef DEBUG
+  fprintf(stderr, "%s: Called with window [%p][0x%x] remote [0x%x].\n", __func__,
+              (void *) pWin, pWin->drawable.id, nxagentWindow(pWin));
+  #endif
+
   if (pWin -> drawable.class != InputOnly)
   {
     WindowPtr pRoot = pWin->drawable.pScreen->root;
@@ -2502,7 +2529,7 @@ void nxagentMapDefaultWindows(void)
        */
 
       #ifdef TEST
-      fprintf(stderr, "nxagentMapDefaultWindows: Showing the splash window.\n");
+      fprintf(stderr, "%s: Showing the splash window.\n", __func__);
       #endif
 
       nxagentShowSplashWindow(nxagentDefaultWindows[pScreen->myNum]);
@@ -2518,7 +2545,7 @@ void nxagentMapDefaultWindows(void)
       if (!nxagentOption(Shadow) || !nxagentWMIsRunning)
       {
         #ifdef TEST
-        fprintf(stderr, "nxagentMapDefaultWindows: Mapping default window id [%ld].\n",
+        fprintf(stderr, "%s: Mapping default window id [0x%x].\n", __func__,
                     nxagentDefaultWindows[pScreen->myNum]);
         #endif
 
@@ -2564,7 +2591,7 @@ void nxagentMapDefaultWindows(void)
   if (nxagentIconWindow != None)
   {
     #ifdef TEST
-    fprintf(stderr, "nxagentMapDefaultWindows: Mapping icon window id [%ld].\n",
+    fprintf(stderr, "%s: Mapping icon window id [0x%x].\n", __func__,
                 nxagentIconWindow);
     #endif
 
@@ -2582,7 +2609,7 @@ void nxagentMapDefaultWindows(void)
   }
 
   #ifdef TEST
-  fprintf(stderr, "nxagentMapDefaultWindows: Completed mapping of default windows.\n");
+  fprintf(stderr, "%s: Completed mapping of default windows.\n", __func__);
   #endif
 }
 
@@ -2591,7 +2618,7 @@ Bool nxagentDisconnectAllWindows(void)
   Bool succeeded = True;
 
   #if defined(NXAGENT_RECONNECT_DEBUG) || defined(NXAGENT_RECONNECT_WINDOW_DEBUG)
-  fprintf(stderr, "nxagentDisconnectAllWindows\n");
+  fprintf(stderr, "%s\n", __func__);
   #endif
 
   for (int i = 0; i < screenInfo.numScreens; i++)
@@ -2601,7 +2628,7 @@ Bool nxagentDisconnectAllWindows(void)
   }
 
   #ifdef NXAGENT_RECONNECT_WINDOW_DEBUG
-  fprintf(stderr, "nxagentDisconnectAllWindows: all windows disconnected\n");
+  fprintf(stderr, "%s: all windows disconnected\n", __func__);
   #endif
 
   return succeeded;
@@ -2631,8 +2658,8 @@ void nxagentDisconnectWindow(void * p0, XID x1, void * p2)
     #endif
 
     #ifdef NXAGENT_RECONNECT_CURSOR_DEBUG
-    fprintf(stderr, "nxagentDisconnectWindow: window %p - disconnecting cursor %p ID %lx\n",
-                pWin, pCursor, nxagentCursor(pCursor, pScreen));
+    fprintf(stderr, "%s: window [%p] - disconnecting cursor [%p][0x%x]\n", __func__,
+                (void *)pWin, (void *))pCursor, nxagentCursor(pCursor, pScreen));
     #endif
 
     nxagentDisconnectCursor(pCursor, (XID)0, pBool);
@@ -2640,8 +2667,8 @@ void nxagentDisconnectWindow(void * p0, XID x1, void * p2)
     if (!*pBool)
     {
       #ifdef WARNING
-      fprintf(stderr, "nxagentDisconnectWindow: WARNING failed disconnection of cursor at [%p]"
-                  " for window at [%p]: ignoring it.\n", (void*)pCursor, (void*)pWin);
+      fprintf(stderr, "%s: WARNING failed disconnection of cursor at [%p]"
+                  " for window at [%p]: ignoring it.\n", __func__, (void*)pCursor, (void*)pWin);
       #endif
 
       *pBool = True;
@@ -2650,8 +2677,8 @@ void nxagentDisconnectWindow(void * p0, XID x1, void * p2)
   #ifdef NXAGENT_RECONNECT_CURSOR_DEBUG
   else if (pCursor)
   {
-    fprintf(stderr, "nxagentDisconnectWindow: window %p - cursor %p already disconnected\n",
-                pWin, pCursor);
+    fprintf(stderr, "%s: window [%p] - cursor [%p] already disconnected\n", __func__,
+                (void *)pWin, (void *)pCursor);
   }
   #endif
 
@@ -2661,12 +2688,12 @@ void nxagentDisconnectWindow(void * p0, XID x1, void * p2)
 
     if (DeleteProperty(serverClient, pWin, prop) != Success)
     {
-      fprintf(stderr, "nxagentDisconnectWindow: Deleting NX_REAL_WINDOW failed.\n");
+      fprintf(stderr, "%s: Deleting NX_REAL_WINDOW failed.\n", __func__);
     }
     #ifdef DEBUG
     else
     {
-      fprintf(stderr, "nxagentDisconnectWindow: Deleting NX_REAL_WINDOW from Window ID [%x].\n", nxagentWindowPriv(pWin)->window);
+      fprintf(stderr, "%s: Deleting NX_REAL_WINDOW from Window ID [%x].\n", __func__, nxagentWindow(pWin));
     }
     #endif
   }
@@ -2687,13 +2714,13 @@ Bool nxagentReconnectAllWindows(void *p0)
   */
 
   #if defined(NXAGENT_RECONNECT_DEBUG) || defined(NXAGENT_RECONNECT_WINDOW_DEBUG)
-  fprintf(stderr, "nxagentReconnectAllWindows\n");
+  fprintf(stderr, "%s\n", __func__);
   #endif
 
   if (screenInfo.screens[0]->root -> backgroundState == BackgroundPixmap &&
           screenInfo.screens[0]->root -> background.pixmap == NULL)
   {
-    FatalError("nxagentReconnectAllWindows: correct the FIXME\n");
+    FatalError("%s: correct the FIXME\n", __func__);
   }
 
   if (nxagentOption(Fullscreen))
@@ -2705,7 +2732,7 @@ Bool nxagentReconnectAllWindows(void *p0)
   if (!nxagentLoopOverWindows(nxagentReconnectWindow))
   {
     #ifdef WARNING
-    fprintf(stderr, "nxagentReconnectAllWindows: couldn't recreate windows\n");
+    fprintf(stderr, "%s: couldn't recreate windows\n", __func__);
     #endif
 
     return False;
@@ -2713,13 +2740,13 @@ Bool nxagentReconnectAllWindows(void *p0)
 
   #ifdef NXAGENT_RECONNECT_WINDOW_DEBUG
   XSync(nxagentDisplay, 0);
-  fprintf(stderr, "nxagentReconnectAllWindows: all windows recreated\n");
+  fprintf(stderr, "%s: all windows recreated\n", __func__);
   #endif
 
   if (!nxagentLoopOverWindows(nxagentReconfigureWindow))
   {
     #ifdef WARNING
-    fprintf(stderr, "nxagentReconnectAllWindows: couldn't reconfigure windows\n");
+    fprintf(stderr, "%s: couldn't reconfigure windows\n", __func__);
     #endif
 
     return False;
@@ -2748,13 +2775,13 @@ Bool nxagentReconnectAllWindows(void *p0)
 
   #ifdef NXAGENT_RECONNECT_WINDOW_DEBUG
   XSync(nxagentDisplay, 0);
-  fprintf(stderr, "nxagentReconnectAllWindows: All windows reconfigured.\n");
+  fprintf(stderr, "%s: All windows reconfigured.\n", __func__);
   #endif
 
   if (!nxagentInitClipboard(screenInfo.screens[0]->root))
   {
     #ifdef WARNING
-    fprintf(stderr, "nxagentReconnectAllWindows: WARNING! Couldn't initialize the clipboard.\n");
+    fprintf(stderr, "%s: WARNING! Couldn't initialize the clipboard.\n", __func__);
     #endif
 
     return False;
@@ -2762,7 +2789,7 @@ Bool nxagentReconnectAllWindows(void *p0)
 
   #ifdef NXAGENT_RECONNECT_WINDOW_DEBUG
   XSync(nxagentDisplay, 0);
-  fprintf(stderr, "nxagentReconnectAllWindows: Clipboard initialized.\n");
+  fprintf(stderr, "%s: Clipboard initialized.\n", __func__);
   #endif
 
   #ifdef VIEWPORT_FRAME
@@ -2797,20 +2824,20 @@ Bool nxagentSetWindowCursors(void *p0)
    */
 
   #if defined(NXAGENT_RECONNECT_DEBUG) || defined(NXAGENT_RECONNECT_WINDOW_DEBUG)
-  fprintf(stderr, "nxagentSetWindowCursors: Going to loop over the windows.\n");
+  fprintf(stderr, "%s Going to loop over the windows.\n", __func__);
   #endif
 
   if (!nxagentLoopOverWindows(nxagentReconfigureWindowCursor))
   {
     #ifdef WARNING
-    fprintf(stderr, "nxagentSetWindowCursors: WARNING! Couldn't configure all windows' cursors.\n");
+    fprintf(stderr, "%s WARNING! Couldn't configure all windows' cursors.\n", __func__);
     #endif
 
     return False;
   }
 
   #ifdef NXAGENT_RECONNECT_WINDOW_DEBUG
-  fprintf(stderr, "nxagentSetWindowCursors: All cursors configured.\n");
+  fprintf(stderr, "%s All cursors configured.\n", __func__);
   #endif
 
   nxagentReDisplayCurrentCursor();
@@ -2863,7 +2890,8 @@ static void nxagentReconnectWindow(void * param0, XID param1, void * data_buffer
   }
 
   #ifdef NXAGENT_RECONNECT_WINDOW_DEBUG
-  fprintf(stderr, "nxagentReconnectWindow: %p - ID %lx\n", pWin, nxagentWindow(pWin));
+  fprintf(stderr, "%s: Called with window [%p][0x%x] remote [0x%x].\n", __func__,
+              (void *) pWin, pWin->drawable.id, nxagentWindow(pWin));
   #endif
 
   if (pWin->drawable.class == InputOnly)
@@ -2883,6 +2911,11 @@ static void nxagentReconnectWindow(void * param0, XID param1, void * data_buffer
       attributes.backing_planes = pWin->optional->backingBitPlanes;
       attributes.backing_pixel = pWin->optional->backingPixel;
     }
+
+    #ifdef TEST
+    fprintf(stderr, "%s: Backing store on window at [%p] is [%d].\n", __func__,
+                (void*)pWin, attributes.backing_store);
+    #endif
 
     /*
       FIXME: Do we need to set save unders attribute here?
@@ -2939,10 +2972,10 @@ static void nxagentReconnectWindow(void * param0, XID param1, void * data_buffer
   #endif
 
   #ifdef TEST
-  fprintf(stderr, "nxagentReconnectWindow: Going to create new window.\n");
-  fprintf(stderr, "nxagentReconnectWindow: Recreating %swindow at %p current event mask = %lX mask & CWEventMask = %ld "
-              "event_mask = %lX\n",
-                  nxagentWindowTopLevel(pWin) ? "toplevel " : "", (void*)pWin, pWin -> eventMask,
+  fprintf(stderr, "%s: Going to create new remote window.\n", __func__);
+  fprintf(stderr, "%s: Recreating %swindow at [%p][0x%x] current event mask [%X] mask & CWEventMask [%ld] "
+              "event_mask [%lX]\n", __func__,
+                  nxagentWindowTopLevel(pWin) ? "toplevel " : "", (void*)pWin, pWin->drawable.id, pWin -> eventMask,
                       mask & CWEventMask, attributes.event_mask);
   #endif
 
@@ -3008,8 +3041,7 @@ static void nxagentReconnectWindow(void * param0, XID param1, void * data_buffer
   #endif
 
   #ifdef TEST
-  fprintf(stderr, "nxagentReconnectWindow: Created new window with id [0x%x].\n",
-              nxagentWindowPriv(pWin)->window);
+  fprintf(stderr, "%s: Recreated new remote window with id [0x%x].\n", __func__, nxagentWindow(pWin));
   #endif
 
   /*
@@ -3059,7 +3091,7 @@ static void nxagentReconnectWindow(void * param0, XID param1, void * data_buffer
                       type == XA_WM_SIZE_HINTS)
       {
         #ifdef TEST
-        fprintf(stderr, "nxagentReconnectWindow: setting WMSizeHints on window %p [%lx - %lx].\n",
+        fprintf(stderr, "%s: setting WMSizeHints on window [%p] [0x%x - 0x%x].\n", __func__,
                     (void*)pWin, pWin -> drawable.id, nxagentWindow(pWin));
         #endif
 
@@ -3102,7 +3134,7 @@ static void nxagentReconnectWindow(void * param0, XID param1, void * data_buffer
       else
       {
         #ifdef WARNING
-        fprintf(stderr, "nxagentReconnectWindow: Failed to get property WM_NORMAL_HINTS on window %p\n",
+        fprintf(stderr, "%s: Failed to get property WM_NORMAL_HINTS on window [%p]\n", __func__,
                     (void*)pWin);
         #endif
       }
@@ -3128,12 +3160,12 @@ static void nxagentReconnectWindow(void * param0, XID param1, void * data_buffer
 
     if (ChangeWindowProperty(pWin, prop, XA_WINDOW, 32, PropModeReplace, 1, nxagentWindowPriv(pWin), 1) != Success)
     {
-      fprintf(stderr, "nxagentReconnectWindow: Updating NX_REAL_WINDOW failed.\n");
+      fprintf(stderr, "%s: Updating NX_REAL_WINDOW failed.\n", __func__);
     }
     #ifdef DEBUG
     else
     {
-      fprintf(stderr, "nxagentReconnectWindow: Updated NX_REAL_WINDOW for Window ID [%x].\n", nxagentWindowPriv(pWin)->window);
+      fprintf(stderr, "%s: Updated NX_REAL_WINDOW for Window ID [%x].\n", __func__, nxagentWindow(pWin));
     }
     #endif
   }
@@ -3163,20 +3195,19 @@ static void nxagentReconfigureWindowCursor(void * param0, XID param1, void * dat
   }
 
   #ifdef DEBUG
-  fprintf(stderr, "nxagentReconfigureWindowCursor: %p - ID %lx geometry (%d,%d,%d,%d) "
-                  "cursor %p - ID %lx\n",
-                  pWin, nxagentWindow(pWin),
+  fprintf(stderr, "%s: [%p][0x%x] geometry [%d,%d,%d,%d] cursor [%p][0x%x]\n", __func__,
+                  (void *)pWin, nxagentWindow(pWin),
                   pWin -> drawable.x,
                   pWin -> drawable.y,
                   pWin -> drawable.width,
                   pWin -> drawable.height,
-                  pCursor, nxagentCursor(pCursor, pScreen));
+                  (void *)pCursor, nxagentCursor(pCursor, pScreen));
   #endif
 
   if (nxagentCursor(pCursor, pScreen) == None)
   {
     #ifdef NXAGENT_RECONNECT_WINDOW_DEBUG
-    fprintf(stderr, "nxagentReconfigureWindowCursor: reconnecting valid cursor %lx\n",
+    fprintf(stderr, "%s: reconnecting valid cursor [%p]\n", __func__,
                 (void*)pCursor);
     #endif
 
@@ -3185,8 +3216,8 @@ static void nxagentReconfigureWindowCursor(void * param0, XID param1, void * dat
     if (!*pBool)
     {
       #ifdef WARNING
-      fprintf(stderr, "nxagentReconfigureWindowCursor: WARNING "
-                  "failed reconnection of cursor at [%p] for window at [%p]: ignoring it.\n",
+      fprintf(stderr, "%s: WARNING "
+                  "failed reconnection of cursor at [%p] for window at [%p]: ignoring it.\n", __func__,
                       (void*)pCursor, (void*)pWin);
       #endif
 
@@ -3206,7 +3237,8 @@ static void nxagentReconfigureWindow(void * param0, XID param1, void * data_buff
   unsigned long mask = 0;
 
   #ifdef DEBUG
-  fprintf(stderr, "nxagentReconfigureWindow: pWin %p - ID %lx\n", pWin, nxagentWindow(pWin));
+  fprintf(stderr, "%s: Called with window [%p][0x%x] remote [0x%x].\n", __func__,
+              (void *) pWin, pWin->drawable.id, nxagentWindow(pWin));
   #endif
 
   if (pWin -> drawable.class == InputOnly)
@@ -3301,7 +3333,7 @@ Bool nxagentCheckWindowIntegrity(WindowPtr pWin)
      char *data = calloc(1, length);
      if (data == NULL)
      {
-       FatalError("nxagentCheckWindowIntegrity: Failed to allocate a buffer of size %d.\n", length);
+       FatalError("%s: Failed to allocate a buffer of size [%d].\n", __func__, length);
      }
 
      unsigned long plane_mask = AllPlanes;
@@ -3336,19 +3368,19 @@ Bool nxagentCheckWindowIntegrity(WindowPtr pWin)
        #endif
 
        #ifdef WARNING
-       fprintf(stderr, "nxagentCheckWindowIntegrity: Window %p width %d, height %d, has been realized "
-                 "but the data buffer still differs.\n", (void*) pWin, width, height);
-       fprintf(stderr, "nxagentCheckWindowIntegrity: bytes_per_line = %d byte pad %d format %d.\n",
+       fprintf(stderr, "%s: Window [%p] geometry [%d,%d], has been realized "
+                   "but the data buffer still differs.\n", __func__, (void*) pWin, width, height);
+       fprintf(stderr, "%s: bytes_per_line = [%d] byte pad [%d] format [%d].\n", __func__,
                  image -> bytes_per_line, nxagentImagePad(width, height, 0, depth), image->format);
 
-       fprintf(stderr, "nxagentCheckWindowIntegrity: image is corrupted!!\n");
+       fprintf(stderr, "%s: image is corrupted!!\n", __func__);
        #endif
      }
      else
      {
        #ifdef WARNING
-       fprintf(stderr, "nxagentCheckWindowIntegrity: Window %p has been realized "
-                   "now remote and framebuffer data are synchronized.\n", (void*) pWin);
+       fprintf(stderr, "%s: Window [%p] has been realized "
+                   "now remote and framebuffer data are synchronized.\n", __func__ ,(void*) pWin);
        #endif
      }
 
@@ -3362,7 +3394,7 @@ Bool nxagentCheckWindowIntegrity(WindowPtr pWin)
   else
   {
     #ifdef WARNING
-    fprintf(stderr, "nxagentCheckWindowIntegrity: ignored window %p with geometry (%d,%d).\n",
+    fprintf(stderr, "%s: ignored window [%p] with geometry [%d,%d].\n", __func__,
                 (void*) pWin, width, height);
     #endif
   }
@@ -3467,8 +3499,8 @@ void nxagentFlushConfigureWindow(void)
       };
 
       #ifdef DEBUG
-      fprintf(stderr, "nxagentFlushConfigureWindow: Sending synch ConfigureWindow for "
-                  "index [%d] serial [%d].\n", i, nxagentExposeQueue.exposures[i].serial);
+      fprintf(stderr, "%s: Sending synch ConfigureWindow for "
+                  "index [%d] serial [%d].\n", __func__, i, nxagentExposeQueue.exposures[i].serial);
       #endif
 
       XConfigureWindow(nxagentDisplay, nxagentConfiguredSynchroWindow,
@@ -3515,6 +3547,11 @@ void nxagentPostValidateTree(WindowPtr pParent, WindowPtr pChild, VTKind kind)
 void nxagentAddConfiguredWindow(WindowPtr pWin, unsigned int valuemask)
 {
   unsigned int mask;
+  #ifdef DEBUG
+  fprintf(stderr, "%s: Called with window [%p][0x%x] remote [0x%x] with mask [%x].\n", __func__,
+              (void *) pWin, pWin->drawable.id, nxagentWindow(pWin), valuemask);
+  fprintf(stderr, "%s: on (enter) fbGetWindowPixmap(%p) [%p]\n", __func__, (void*)pWin, (void *)fbGetWindowPixmap(pWin));
+  #endif
 
   mask = valuemask & (CWSibling | CWX | CWY | CWWidth | CWHeight |
                    CWBorderWidth | CWStackMode | CW_Map | CW_Update | CW_Shape);
@@ -3591,6 +3628,11 @@ void nxagentDeleteConfiguredWindow(WindowPtr pWin)
 {
   ConfiguredWindowStruct *index, *previous, *tmp;
 
+  #ifdef DEBUG
+  fprintf(stderr, "%s: Called with window [%p][0x%x] remote [0x%x].\n", __func__,
+              (void *) pWin, pWin->drawable.id, nxagentWindow(pWin));
+  #endif
+
   index = nxagentConfiguredWindowList;
 
   while (index)
@@ -3642,6 +3684,11 @@ void nxagentDeleteConfiguredWindow(WindowPtr pWin)
 void nxagentAddStaticResizedWindow(WindowPtr pWin, unsigned long sequence, int offX, int offY)
 {
   StaticResizedWindowStruct *tmp = nxagentStaticResizedWindowList;
+
+  #ifdef DEBUG
+  fprintf(stderr, "%s: Called with window [%p][0x%x] remote [0x%x].\n", __func__,
+              (void *) pWin, pWin->drawable.id, nxagentWindow(pWin));
+  #endif
 
   nxagentStaticResizedWindowList = malloc(sizeof(StaticResizedWindowStruct));
   if (!nxagentStaticResizedWindowList)

@@ -1350,6 +1350,13 @@ FIXME: Don't enqueue the KeyRelease event if the key was not already
           fprintf(stderr, "%s: Got [%d] PointerEvents for ButtonPress.\n", __func__, n);
           #endif
 
+          #ifdef NX_DEBUG_INPUT
+          if (nxagentDebugInput)
+          {
+            fprintf(stderr, "%s: Adding [%d] ButtonPress event(s).\n", __func__, n);
+          }
+          #endif
+
           for (int i = 0; i < n; i++)
             mieqEnqueue(nxagentPointerDevice, (InternalEvent*)(nxagentEvents + i)->event);
 #endif
@@ -1441,6 +1448,12 @@ FIXME: Don't enqueue the KeyRelease event if the key was not already
           fprintf(stderr, "%s: Got [%d] PointerEvents for ButtonRelease.\n", __func__, n);
           #endif
 
+          #ifdef NX_DEBUG_INPUT
+          if (nxagentDebugInput)
+          {
+            fprintf(stderr, "%s: Adding [%d] ButtonRelease event(s).\n", __func__, n);
+          }
+          #endif
           for (int i = 0; i < n; i++)
             mieqEnqueue(nxagentPointerDevice, (InternalEvent*)(nxagentEvents + i)->event);
 #endif
@@ -1552,6 +1565,14 @@ FIXME: Don't enqueue the KeyRelease event if the key was not already
           #ifdef DEBUG
           fprintf(stderr, "%s: Got [%d] PointerEvents for MotionNotify.\n", __func__, n);
           #endif
+
+          #ifdef NX_DEBUG_INPUT
+          if (nxagentDebugInput)
+          {
+            fprintf(stderr, "%s: Adding [%d] MotionNotify event(s).\n", __func__, n);
+          }
+          #endif
+
           for (int i = 0; i < n; i++)
             mieqEnqueue(nxagentPointerDevice, (InternalEvent*)(nxagentEvents + i)->event);
 #endif
@@ -2337,8 +2358,8 @@ FIXME: Don't enqueue the KeyRelease event if the key was not already
   ProcessInputEvents();
 
   #ifdef TEST
-  fprintf(stderr, "%s: Output pending flag is [%d] critical [%d].\n", __func__,
-              NewOutputPending, CriticalOutputPending);
+  fprintf(stderr, "%s: Output pending flag is [%d].\n", __func__,
+          NewOutputPending);
   #endif
 
   /*

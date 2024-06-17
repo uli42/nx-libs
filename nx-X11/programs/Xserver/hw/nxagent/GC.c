@@ -158,11 +158,20 @@ Bool nxagentCreateGC(GCPtr pGC)
   if (pGC -> stipple && !nxagentPixmapIsVirtual(pGC -> stipple))
   {
     #ifdef DEBUG
-    fprintf(stderr, "nxagentCreateGC: GC at [%p] got real stipple at [%p] switched to virtual.\n",
-                (void*)pGC, (void*)pGC -> stipple);
+    fprintf(stderr, "%s: GC [%p]: switching from real stipple [%p] refcnt [%d] to virtual [%p] refcnt [%d].\n", __func__,
+                (void*)pGC, (void*)pGC -> stipple, pGC->stipple->refcnt,
+                    (void*)nxagentVirtualPixmap(pGC -> stipple), nxagentVirtualPixmap(pGC -> stipple)->refcnt);
     #endif
 
     pGC -> stipple = nxagentVirtualPixmap(pGC -> stipple);
+    
+    #ifdef DEBUG
+    fprintf(stderr, "%s: GC [%p] has new refcnts: real [%p] refcnt [%d], virtual [%p] refcnt [%d].\n", __func__,
+                (void*)pGC, (void*)nxagentRealPixmap(pGC -> stipple), nxagentRealPixmap(pGC -> stipple)->refcnt,
+                    (void*)pGC -> stipple, pGC->stipple->refcnt);
+    xorg_backtrace();
+    #endif
+
   }
 
   /*
@@ -176,7 +185,7 @@ Bool nxagentCreateGC(GCPtr pGC)
                                      0L, NULL);
 
   #ifdef TEST
-  fprintf(stderr, "nxagentCreateGC: GC [%p]\n", (void *) pGC);
+  fprintf(stderr, "%s: GC [%p]\n", __func__, (void *) pGC);
   #endif
 
   FbGCPrivPtr pPriv = ((FbGCPrivPtr)dixLookupPrivate(&(pGC)->devPrivates, fbGetGCPrivateKey()));
@@ -214,8 +223,8 @@ void nxagentValidateGC(GCPtr pGC, unsigned long changes, DrawablePtr pDrawable)
                           pDrawable;
 
   #ifdef TEST
-  fprintf(stderr, "nxagentValidateGC: Going to validate GC at [%p] for drawable at [%p] with changes [%lx].\n",
-              (void *) pGC, (void *) pDrawable, changes);
+  fprintf(stderr, "%s: Going to validate GC at [%p] for drawable [%s:%p] with changes [%lx].\n", __func__,
+	  (void *) pGC, nxagentDrawableTypeLiteral[pDrawable->type], (void *) pDrawable, changes);
   #endif
 
   #ifdef DEBUG
@@ -232,11 +241,23 @@ void nxagentValidateGC(GCPtr pGC, unsigned long changes, DrawablePtr pDrawable)
     pGC -> tile.pixmap = nxagentVirtualPixmap(pGC -> tile.pixmap); 
 
     #ifdef DEBUG
-    fprintf(stderr, "%s: new tile.pixmap [%p]\n", __func__, (void *)pGC->tile.pixmap);
+    fprintf(stderr, "%s: no pixel, tile.pixmap [%s:%p] PixmapIsVirtual [%d] virtual pixmap [%p].\n", __func__,
+	    nxagentDrawableTypeLiteral[pGC->tile.pixmap->drawable.type], (void *)pGC->tile.pixmap,
+	    pGC->tile.pixmap ? nxagentPixmapIsVirtual(pGC->tile.pixmap) : 0,
+	    pGC->tile.pixmap ? nxagentPixmapIsVirtual(pGC->tile.pixmap) ? NULL : (void *)nxagentVirtualPixmap(pGC->tile.pixmap) : NULL
+	    );
     #endif
   }
 
   PixmapPtr lastTile = pGC -> tile.pixmap;
+
+      #ifdef DEBUG
+      fprintf(stderr, "%s: new tile.pixmap [%p] refcnt [%d] (previous: [%p] refcnt [%d])\n", __func__,
+                  (void *)pGC->tile.pixmap, pGC->tile.pixmap ? pGC->tile.pixmap->refcnt : -999,
+                      (void *)prev, prev ? prev->refcnt : -999);
+      #endif
+    }
+  }
 
   PixmapPtr lastStipple = pGC->stipple;
   
@@ -246,9 +267,13 @@ void nxagentValidateGC(GCPtr pGC, unsigned long changes, DrawablePtr pDrawable)
   }
 
   #ifdef TEST
-  fprintf(stderr, "nxagentValidateGC: Drawable at [%s:%p] virtual [%p] bits per pixel [%d].\n",
-              nxagentDrawableTypeLiteral[pDrawable->type], (void *) pDrawable,
-	          (void *) pVirtual, pVirtual ? pVirtual -> bitsPerPixel : -1);
+  fprintf(stderr, "%s: Drawable at [%s:%p]", __func__,
+              nxagentDrawableTypeLiteral[pDrawable->type], (void *) pDrawable);
+  if (pVirtual != pDrawable)
+    fprintf(stderr, ", virtual [%p] bits per pixel [%d]\n",
+              (void *) pVirtual, pVirtual ? pVirtual -> bitsPerPixel : -1);
+  else
+    fprintf(stderr, ", no virtual pixmap\n");
   #endif
 
   /*
@@ -268,13 +293,13 @@ void nxagentValidateGC(GCPtr pGC, unsigned long changes, DrawablePtr pDrawable)
        */
 
       #ifdef WARNING
-      fprintf(stderr, "nxagentValidateGC: WARNING! Virtual drawable at [%p] has invalid bits per pixel.\n",
+      fprintf(stderr, "%s: WARNING! Virtual drawable at [%p] has invalid bits per pixel.\n", __func__,
                   (void *) pVirtual);
 
-      fprintf(stderr, "nxagentValidateGC: WARNING! While validating GC at [%p] for drawable at [%p] with changes [%lx].\n",
-                  (void *) pGC, (void *) pDrawable, changes);
+      fprintf(stderr, "%s: WARNING! While validating GC at [%p] for drawable at [%s:%p] with changes [%lx].\n", __func__,
+                  (void *) pGC, nxagentDrawableTypeLiteral[pDrawable->type], (void *) pDrawable, changes);
 
-      fprintf(stderr, "nxagentValidateGC: WARNING! Bad drawable at [%s:%p] virtual [%p] bits per pixel [%d].\n",
+      fprintf(stderr, "%s: WARNING! Bad drawable at [%s:%p] virtual [%p] bits per pixel [%d].\n", __func__,
                   nxagentDrawableTypeLiteral[pDrawable->type], (void *) pDrawable,
                       (void *) pVirtual, pVirtual ? pVirtual -> bitsPerPixel : -1);
       #endif
@@ -287,7 +312,7 @@ void nxagentValidateGC(GCPtr pGC, unsigned long changes, DrawablePtr pDrawable)
   #ifdef WARNING
   else
   {
-    fprintf(stderr, "nxagentValidateGC: WARNING: Drawable [%s:%p] has no virtual pixmap\n",
+    fprintf(stderr, "%s: WARNING: Drawable [%s:%p] has no virtual pixmap\n",  __func__,
                 nxagentDrawableTypeLiteral[pDrawable->type], (void *)pDrawable);
   }
   #endif
@@ -295,13 +320,13 @@ void nxagentValidateGC(GCPtr pGC, unsigned long changes, DrawablePtr pDrawable)
   if (pGC->tile.pixmap != lastTile)
   {
     #ifdef WARNING
-    fprintf(stderr, "nxagentValidateGC: WARNING! Transforming pixmap at [%p] virtual at [%p] "
-                "in virtual pixmap.\n", (void *) nxagentPixmapPriv(pGC -> tile.pixmap) -> pRealPixmap,
+    fprintf(stderr, "%s: WARNING! Transforming pixmap at [%p] virtual at [%p] "
+                "in virtual pixmap.\n", __func__, (void *) nxagentPixmapPriv(pGC -> tile.pixmap) -> pRealPixmap,
                     (void *) nxagentPixmapPriv(pGC -> tile.pixmap) -> pRealPixmap);
     #endif
 
     #ifdef TEST
-    fprintf(stderr, "nxagentValidateGC: GC [%p] new tile [%p] from fb set as virtual\n",
+    fprintf(stderr, "%s: GC [%p] new tile [%p] from fb set as virtual\n", __func__,
                 (void *) pGC, (void *) pGC->tile.pixmap);
     #endif
 
@@ -401,7 +426,7 @@ void nxagentChangeGC(GCPtr pGC, unsigned long mask)
             !nxagentGCTrap)
     {
       #ifdef TEST
-      fprintf(stderr, "nxagentChangeGC: WARNING! Synchronizing GC at [%p] due the stipple at [%p].\n",
+      fprintf(stderr, "nxagentChangeGC: WARNING! Synchronizing GC [%p] due the stipple [%p].\n",
                   (void *)pGC, (void *)pGC -> stipple);
       #endif
 
@@ -413,8 +438,8 @@ void nxagentChangeGC(GCPtr pGC, unsigned long mask)
     pGC->stipple = nxagentVirtualPixmap(pGC->stipple);
 
     #ifdef TEST
-    fprintf(stderr, "nxagentChangeGC: New stipple on GC [%p] stipple is [%p]\n",
-                (void *) pGC, (void *) pGC->stipple);
+    fprintf(stderr, "nxagentChangeGC: New stipple on GC [%p] stipple is [%p] refcnt [%d]\n",
+                (void *) pGC, (void *) pGC->stipple, pGC->stipple->refcnt);
     #endif
 
     changeFlag += nxagentTestGC(values.stipple, stipple);
@@ -513,7 +538,7 @@ void nxagentCopyGC(GCPtr pGCSrc, unsigned long mask, GCPtr pGCDst)
 void nxagentDestroyGC(GCPtr pGC)
 {
   #ifdef TEST
-  fprintf(stderr, "nxagentDestroyGC: GC at [%p].\n", (void *) pGC);
+  fprintf(stderr, "%s: GC [%p].\n", __func__, (void *) pGC);
   #endif
 
   if (nxagentGCPriv(pGC) -> mid != 0)
@@ -805,7 +830,7 @@ static struct nxagentGCRec *nxagentGetFirstGC()
 static void nxagentFreeGCRec(struct nxagentGCRec *t)
 {
   #ifdef TEST
-  fprintf(stderr, "nxagentFreeGCRec: Freeing record at %p GC freed at %p.\n",
+  fprintf(stderr, "%s: Freeing record at [%p] GC freed at [%p].\n", __func__,
               (void *) t, (void *) t -> gc);
   #endif
 
@@ -816,7 +841,7 @@ static void nxagentFreeGCRec(struct nxagentGCRec *t)
 static void nxagentRestoreGCRec(struct nxagentGCRec *t)
 {
   #ifdef TEST
-  fprintf(stderr, "nxagentRestoreGCRec: Freeing record at %p GC freed at %p.\n",
+  fprintf(stderr, "%s: Freeing record at [%p] GC freed at [%p].\n", __func__,
               (void*)t, (void*)t -> gc);
   #endif
 
@@ -837,7 +862,7 @@ static void nxagentAddGCToList(GCPtr pGC)
   }
 
   #ifdef TEST
-  fprintf(stderr, "nxagentAddGCToList: Adding GC %p to list at memory %p list size is %d.\n",
+  fprintf(stderr, "%s: Adding GC [%p] to list at addr [%p] list size [%d].\n", __func__,
               (void *) pGC, (void *) tempGC, nxagentGCList.size);
   #endif
 
@@ -863,7 +888,7 @@ void nxagentFreeGCList(void)
   struct nxagentGCRec *tempGC;
 
   #ifdef TEST
-  fprintf(stderr, "nxagentFreeGCList: List size is %d first elt at %p last elt at %p.\n",
+  fprintf(stderr, "%s: List size [%d] first elt at [%p] last elt at [%p].\n", __func__,
               nxagentGCList.size, (void*)nxagentGCList.first, (void*)nxagentGCList.last);
   #endif
 
@@ -878,7 +903,7 @@ static void nxagentRestoreGCList(void)
   struct nxagentGCRec *tempGC;
 
   #ifdef TEST
-  fprintf(stderr, "nxagentRestoreGCList: List size is %d first elt at %p last elt at %p.\n",
+  fprintf(stderr, "%s: List size [%d] first elt at [%p] last elt at [%p].\n", __func__,
               nxagentGCList.size, (void*)nxagentGCList.first, (void*)nxagentGCList.last);
   #endif
 
@@ -923,12 +948,12 @@ static void nxagentReconnectGC(void *param0, XID param1, void * param2)
   else
   {
     #ifdef WARNING
-    fprintf(stderr, "nxagentReconnectGC: GCRec %p doesn't have a valid pointer to GC data.\n", (void*)pGC);
+    fprintf(stderr, "%s: GCRec [%p] doesn't have a valid pointer to GC data.\n", __func__, (void*)pGC);
     #endif
   }
 
   #ifdef DEBUG 
-  fprintf(stderr, "nxagentReconnectGC: GC at [%p].\n", (void *) pGC);
+  fprintf(stderr, "%s: GC at [%p].\n", __func__, (void *) pGC);
   #endif
 
   XGCValues values = {0};
@@ -961,8 +986,8 @@ static void nxagentReconnectGC(void *param0, XID param1, void * param2)
     if (nxagentPixmapIsVirtual(pGC -> stipple))
     {
       #ifdef TEST
-      fprintf(stderr, "nxagentReconnectGC: Reconnecting virtual stipple [%p] for GC [%p].\n",
-                  (void *) pGC -> stipple, (void *) pGC);
+      fprintf(stderr, "%s: Reconnecting virtual stipple [%p] refcnt [%d] for GC [%p].\n", __func__,
+                  (void *) pGC -> stipple, pGC->stipple->refcnt, (void *) pGC);
       #endif
 
       if (nxagentPixmap(nxagentRealPixmap(pGC -> stipple)) == 0)
@@ -975,8 +1000,8 @@ static void nxagentReconnectGC(void *param0, XID param1, void * param2)
     else
     {
       #ifdef TEST
-      fprintf(stderr, "nxagentReconnectGC: Reconnecting stipple [%p] for GC [%p].\n",
-                  (void *) pGC -> stipple, (void *) pGC);
+      fprintf(stderr, "%s: Reconnecting stipple [%p] refcnt [%d] for GC [%p].\n", __func__,
+                  (void *) pGC -> stipple, pGC->stipple->refcnt, (void *) pGC);
       #endif
 
       if (nxagentPixmap(pGC -> stipple) == 0)
@@ -1031,7 +1056,7 @@ Bool nxagentReconnectAllGCs(void *p0)
   Bool GCSuccess = True;
 
   #ifdef DEBUG
-  fprintf(stderr, "nxagentReconnectAllGCs\n");
+  fprintf(stderr, "%s\n", __func__);
   #endif
 
   /*
@@ -1046,7 +1071,7 @@ Bool nxagentReconnectAllGCs(void *p0)
     if (clients[cid])
     {
       #ifdef TEST
-      fprintf(stderr, "nxagentReconnectAllGCs: Going to reconnect GC of client [%d].\n", cid);
+      fprintf(stderr, "%s: Going to reconnect GC of client [%d].\n", __func__, cid);
       #endif
 
       FindClientResourcesByType(clients[cid], RT_GC, nxagentReconnectGC, &GCSuccess);
@@ -1054,7 +1079,7 @@ Bool nxagentReconnectAllGCs(void *p0)
   }
 
   #ifdef TEST
-  fprintf(stderr, "nxagentReconnectAllGCs: GCs reconnection completed.\n");
+  fprintf(stderr, "%s: GCs reconnection completed.\n", __func__);
   #endif
 
   return GCSuccess;
@@ -1070,7 +1095,7 @@ void nxagentDisconnectGC(void * p0, XID x1, void * p2)
     if (!pGC) 
     {
       #ifdef WARNING
-      fprintf(stderr, "nxagentDisconnectGC: WARNING! pGC is NULL.\n");
+      fprintf(stderr, "%s: WARNING! pGC is NULL.\n", __func__);
       #endif
     }
     return;
@@ -1088,7 +1113,7 @@ Bool nxagentDisconnectAllGCs(void)
   Bool success = True;
 
   #ifdef DEBUG
-  fprintf(stderr, "nxagentDisconnectAllGCs\n");
+  fprintf(stderr, "%s\n", __func__);
   #endif
 
   /*
@@ -1104,7 +1129,7 @@ Bool nxagentDisconnectAllGCs(void)
     if (clients[cid])
     {
       #ifdef TEST
-      fprintf(stderr, "nxagentDisconnectAllGCs: Going to disconnect GC of client [%d].\n", cid);
+      fprintf(stderr, "%s: Going to disconnect GC of client [%d].\n", __func__, cid);
       #endif
 
       FindClientResourcesByType(clients[cid], RT_GC,
@@ -1113,7 +1138,7 @@ Bool nxagentDisconnectAllGCs(void)
   }
 
   #ifdef TEST
-  fprintf(stderr, "nxagentDisconnectAllGCs: GCs disconnection completed.\n");
+  fprintf(stderr, "%s: GCs disconnection completed.\n", __func__);
   #endif
 
   nxagentRestoreGCList();
@@ -1126,12 +1151,12 @@ Bool nxagentDisconnectAllGCs(void)
 static void nxagentReconnectClip(GCPtr pGC, int type, void * pValue, int nRects)
 {
   #ifdef TEST
-  fprintf(stderr, "nxagentReconnectClip: going to change clip on GC [%p]\n",
+  fprintf(stderr, "%s: going to change clip on GC [%p]\n", __func__,
               (void *) pGC);
   #endif
 
   #ifdef DEBUG
-  fprintf(stderr, "nxagentReconnectClip: Type is [%s].\n", (type == CT_NONE) ?
+  fprintf(stderr, "%s: Type is [%s].\n", __func__, (type == CT_NONE) ?
               "CT_NONE" : (type == CT_REGION) ? "CT_REGION" : (type == CT_PIXMAP) ?
                   "CT_REGION" : "UNKNOWN");
   #endif
@@ -1304,7 +1329,7 @@ GCPtr nxagentGetScratchGC(unsigned depth, ScreenPtr pScreen)
   if (pGC == NULL)
   {
     #ifdef WARNING
-    fprintf(stderr, "nxagentGetScratchGC: Failed to retrieve the scratch GC.\n");
+    fprintf(stderr, "%s: Failed to retrieve the scratch GC.\n", __func__);
     #endif
 
     return NULL;
@@ -1349,7 +1374,7 @@ void nxagentFreeScratchGC(GCPtr pGC)
   if (pGC == NULL)
   {
     #ifdef WARNING
-    fprintf(stderr, "nxagentFreeScratchGC: WARNING! pGC is NULL.\n");
+    fprintf(stderr, "%s: WARNING! pGC is NULL.\n", __func__);
     #endif
 
     return;
@@ -1371,7 +1396,7 @@ GCPtr nxagentGetGraphicContext(DrawablePtr pDrawable)
     if (pDrawable -> depth == nxagentGraphicContexts[i].depth)
     {
       #ifdef DEBUG
-      fprintf(stderr, "nxagentGetGraphicContext: Found a valid GC at [%p] for depth [%d].\n",
+      fprintf(stderr, "%s: Found a valid GC at [%p] for depth [%d].\n", __func__,
                   (void *) nxagentGraphicContexts[i].pGC, pDrawable -> depth);
       #endif
 
@@ -1382,7 +1407,7 @@ GCPtr nxagentGetGraphicContext(DrawablePtr pDrawable)
       if (nxagentGraphicContexts[i].dirty == 1)
       {
         #ifdef DEBUG
-        fprintf(stderr, "nxagentGetGraphicContext: Going to reconnect the GC.\n");
+        fprintf(stderr, "%s: Going to reconnect the GC.\n", __func__);
         #endif
 
         int result = 1;
@@ -1392,7 +1417,7 @@ GCPtr nxagentGetGraphicContext(DrawablePtr pDrawable)
         if (result == 0)
         {
           #ifdef WARNING
-          fprintf(stderr, "nxagentGetGraphicContext: WARNING! Failed to reconnect the GC.\n");
+          fprintf(stderr, "%s: WARNING! Failed to reconnect the GC.\n", __func__);
           #endif
 
           return NULL;
@@ -1420,7 +1445,7 @@ GCPtr nxagentCreateGraphicContext(int depth)
   if (nxagentGCs == NULL)
   {
     #ifdef WARNING
-    fprintf(stderr, "nxagentCreateGraphicContext: Cannot allocate memory for a GC.\n");
+    fprintf(stderr, "%s: Cannot allocate memory for a GC.\n", __func__);
     #endif
 
     return NULL;
@@ -1433,7 +1458,7 @@ GCPtr nxagentCreateGraphicContext(int depth)
   if (pGC == NULL)
   {
     #ifdef WARNING
-    fprintf(stderr, "nxagentCreateGraphicContext: Failed to create a GC for depth [%d].\n",
+    fprintf(stderr, "%s: Failed to create a GC for depth [%d].\n", __func__,
                 depth);
     #endif
 
@@ -1468,7 +1493,7 @@ GCPtr nxagentCreateGraphicContext(int depth)
   nxagentGraphicContextsSize++;
 
   #ifdef DEBUG
-  fprintf(stderr, "nxagentCreateGraphicContext: GC [%p] for depth [%d] added to the list of size [%d].\n",
+  fprintf(stderr, "%s: GC [%p] for depth [%d] added to the list of size [%d].\n", __func__,
               (void *) pGC, depth, nxagentGraphicContextsSize);
   #endif
 

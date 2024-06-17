@@ -242,7 +242,7 @@ void nxagentListRemoteFonts(const char *searchPattern, const int maxNames)
         char **xList = XListFonts(nxagentDisplay, patterns[p], maxNames, &xLen);
 
         #ifdef NXAGENT_FONTMATCH_DEBUG
-        fprintf(stderr, "nxagentListRemoteFonts: NXagent remote list [%s] has %d elements.\n", patterns[p], xLen);
+        fprintf(stderr, "nxagentListRemoteFonts: NXagent remote list [%s] has [%d] elements.\n", patterns[p], xLen);
         #endif
 
         /*
@@ -310,7 +310,7 @@ void nxagentListRemoteAddName(const char *name, int status)
     if (pos < nxagentRemoteFontList.length)
     {
         #ifdef NXAGENT_FONTMATCH_DEBUG
-        fprintf(stderr, "Font: Going to move list from %p to %p len = %d!.\n",
+        fprintf(stderr, "Font: Going to move list from [%p] to [%p] len [%d]!.\n",
                     &nxagentRemoteFontList.list[pos], &nxagentRemoteFontList.list[pos+1],
                         (nxagentRemoteFontList.length - pos) * sizeof(nxagentFontRecPtr));
         #endif
@@ -400,9 +400,9 @@ Bool nxagentFontFind(const char *name, int *pos)
 
     #ifdef NXAGENT_FONTMATCH_DEBUG
     if (res == 0)
-        fprintf(stderr, "Font: font found in %d iterations in pos = %d\n", iter, *pos);
+        fprintf(stderr, "Font: font found in [%d] iterations in pos [%d]\n", iter, *pos);
     else
-        fprintf(stderr, "Font: not font found in %d iterations insertion pos is = %d\n", iter, *pos);
+        fprintf(stderr, "Font: not font found in [%d] iterations insertion pos is [%d]\n", iter, *pos);
     #endif
 
     return (res == 0);

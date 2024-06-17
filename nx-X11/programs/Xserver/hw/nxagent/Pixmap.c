@@ -97,9 +97,9 @@ PixmapPtr nxagentCreatePixmap(ScreenPtr pScreen, int width, int height,
                               int depth, unsigned usage_hint)
 {
   #ifdef DEBUG
-  fprintf(stderr, "nxagentCreatePixmap: Creating pixmap with width [%d] "
+  fprintf(stderr, "%s: Creating pixmap with width [%d] "
               "height [%d] depth [%d] and allocation hint [%d].\n",
-              width, height, depth, usage_hint);
+                  __func__, width, height, depth, usage_hint);
   #endif
 
   /*
@@ -112,9 +112,9 @@ PixmapPtr nxagentCreatePixmap(ScreenPtr pScreen, int width, int height,
   if (!pPixmap)
   {
     #ifdef WARNING
-    fprintf(stderr, "nxagentCreatePixmap: WARNING! Failed to create pixmap with "
+    fprintf(stderr, "%s: WARNING! Failed to create pixmap with "
                 "width [%d] height [%d] depth [%d] and allocation hint [%d].\n",
-                width, height, depth, usage_hint);
+                    __func__, width, height, depth, usage_hint);
     #endif
 
     return NullPixmap;
@@ -226,8 +226,8 @@ PixmapPtr nxagentCreatePixmap(ScreenPtr pScreen, int width, int height,
     pPixmapPriv -> id = 0;
 
     #ifdef TEST
-    fprintf(stderr, "nxagentCreatePixmap: Skipping the creation of pixmap at [%p] on real "
-                "X server with nxagentGCTrap [%d].\n", (void *) pPixmap, nxagentGCTrap);
+    fprintf(stderr, "%s: Skipping the creation of pixmap at [%p] on real "
+                "X server with nxagentGCTrap [%d].\n", __func__, (void *) pPixmap, nxagentGCTrap);
     #endif
   }
 
@@ -248,9 +248,9 @@ PixmapPtr nxagentCreatePixmap(ScreenPtr pScreen, int width, int height,
   if (pVirtual == NULL)
   {
     #ifdef PANIC
-    fprintf(stderr, "nxagentCreatePixmap: PANIC! Failed to create virtual pixmap with "
+    fprintf(stderr, "%s: PANIC! Failed to create virtual pixmap with "
                 "width [%d] height [%d] depth [%d] and allocation hint [%d].\n",
-                width, height, depth, usage_hint);
+                    __func__, width, height, depth, usage_hint);
     #endif
 
     nxagentDestroyPixmap(pPixmap);
@@ -317,9 +317,9 @@ PixmapPtr nxagentCreatePixmap(ScreenPtr pScreen, int width, int height,
   pVirtualPriv -> pPicture = NULL;
 
   #ifdef TEST
-  fprintf(stderr, "nxagentCreatePixmap: Created pixmap at [%p] virtual at [%p] with width [%d] "
-              "height [%d] depth [%d] and allocation hint [%d].\n",
-              (void *) pPixmap, (void *) pVirtual, width, height, depth, usage_hint);
+  fprintf(stderr, "%s: Created pixmap at [%p] virtual at [%p] with width [%d] "
+              "height [%d] depth [%d] and allocation hint [%d].\n", __func__,
+                  (void *) pPixmap, (void *) pVirtual, width, height, depth, usage_hint);
   #endif
 
   return pPixmap;
@@ -330,8 +330,8 @@ Bool nxagentDestroyPixmap(PixmapPtr pPixmap)
   if (!pPixmap)
   {
     #ifdef PANIC
-    fprintf(stderr, "nxagentDestroyPixmap: PANIC! Invalid attempt to destroy "
-                "a null pixmap pointer.\n");
+    fprintf(stderr, "%s: PANIC! Invalid attempt to destroy "
+                "a null pixmap pointer.\n", __func__);
     #endif
 
     return False;
@@ -418,7 +418,7 @@ Bool nxagentDestroyPixmap(PixmapPtr pPixmap)
     nxagentSynchronization.pDrawable = NULL;
 
     #ifdef TEST
-    fprintf(stderr, "nxagentDestroyPixmap: Synchronization drawable [%p] removed from resources.\n",
+    fprintf(stderr, "%s: Synchronization drawable [%p] removed from resources.\n", __func__,
                 (void *) pPixmap);
     #endif
   }
@@ -523,8 +523,8 @@ Bool nxagentModifyPixmapHeader(PixmapPtr pPixmap, int width, int height, int dep
   PixmapPtr pVirtualPixmap = nxagentVirtualPixmap(pPixmap);
 
   #ifdef TEST
-  fprintf(stderr, "nxagentModifyPixmapHeader: Pixmap at [%p] Virtual at [%p].\n",
-              (void *) pPixmap, (void *) pVirtualPixmap);
+  fprintf(stderr, "nxagentModifyPixmapHeader: Pixmap at [%p], refcnt [%d] Virtual at [%p] refcnt [%d].\n",
+              (void *) pPixmap, pPixmap->refcnt, (void *) pVirtualPixmap, pVirtualPixmap->refcnt);
 
   fprintf(stderr, "nxagentModifyPixmapHeader: Pixmap has width [%d] height [%d] depth [%d] "
               "bits-per-pixel [%d] devKind [%d] pPixData [%p].\n", pPixmap->drawable.width,
@@ -626,8 +626,8 @@ int nxagentDestroyNewPixmapResourceType(void * p, XID id)
    */
 
   #ifdef TEST
-  fprintf(stderr, "nxagentDestroyNewPixmapResourceType: Destroying mirror id [%u] for pixmap at [%p].\n",
-              nxagentPixmapPriv((PixmapPtr) p) -> mid, (void *) p);
+  fprintf(stderr, "%s: Destroying mirror id [%u] for pixmap [%p].\n", __func__,
+	  nxagentPixmapPriv((PixmapPtr) p) -> mid, (void *) p);
   #endif
 
   nxagentPixmapPriv((PixmapPtr) p) -> mid = None;
@@ -908,7 +908,7 @@ static void nxagentCheckOnePixmapIntegrity(void *p0, XID x1, void *p2)
   if (pPixmap == nxagentDefaultScreen -> devPrivate)
   {
     #ifdef TEST
-    fprintf(stderr, "nxagentCheckOnePixmapIntegrity: pixmap %p is screen.\n",
+    fprintf(stderr, "%s: pixmap [%p] is screen.\n", __func__,
                 (void *) pPixmap);
     #endif
 
@@ -918,7 +918,7 @@ static void nxagentCheckOnePixmapIntegrity(void *p0, XID x1, void *p2)
   if (pPixmap == nxagentDefaultScreen -> PixmapPerDepth[0])
   {
     #ifdef TEST
-    fprintf(stderr, "nxagentCheckOnePixmapIntegrity: pixmap %p is default stipple of screen.\n",
+    fprintf(stderr, "%s: pixmap [%p] is default stipple of screen.\n", __func__,
                 (void *) pPixmap);
     #endif
 
@@ -947,7 +947,7 @@ Bool nxagentCheckPixmapIntegrity(PixmapPtr pPixmap)
 
     if (data == NULL)
     {
-      FatalError("nxagentCheckPixmapIntegrity: Failed to allocate a buffer of size %d.\n", length);
+      FatalError("%s: Failed to allocate a buffer of size [%d].\n", __func__, length);
     }
 
     XImage *image = XGetImage(nxagentDisplay, nxagentPixmap(pPixmap), 0, 0,
@@ -962,21 +962,21 @@ Bool nxagentCheckPixmapIntegrity(PixmapPtr pPixmap)
     }
 
     #ifdef WARNING
-    fprintf(stderr, "nxagentCheckPixmapIntegrity: Image from X has length [%d] and checksum [0x%s].\n",
+    fprintf(stderr, "%s: Image from X has length [%d] and checksum [0x%s].\n", __func__,
                 length, nxagentChecksum(image->data, length));
     #endif
 
     NXCleanImage(image);
 
     #ifdef WARNING
-    fprintf(stderr, "nxagentCheckPixmapIntegrity: Image after clean has checksum [0x%s].\n",
+    fprintf(stderr, "%s: Image after clean has checksum [0x%s].\n", __func__,
                 nxagentChecksum(image->data, length));
     #endif
 
     fbGetImage((DrawablePtr) pVirtual, 0, 0, width, height, format, plane_mask, data);
 
     #ifdef WARNING
-    fprintf(stderr, "nxagentCheckPixmapIntegrity: Image from FB has length [%d] and checksum [0x%s].\n",
+    fprintf(stderr, "%s: Image from FB has length [%d] and checksum [0x%s].\n", __func__,
                 length, nxagentChecksum(data, length));
     #endif
 
@@ -989,8 +989,8 @@ Bool nxagentCheckPixmapIntegrity(PixmapPtr pPixmap)
       integrity = True;
 
       #ifdef TEST
-      fprintf(stderr, "nxagentCheckPixmapIntegrity: Pixmap at [%p] has been realized. "
-                  "Now remote and framebuffer data are synchronized.\n", (void *) pPixmap);
+      fprintf(stderr, "%s: Pixmap at [%p] has been realized. "
+                  "Now remote and framebuffer data are synchronized.\n", __func__, (void *) pPixmap);
       #endif
     }
 
@@ -1005,23 +1005,23 @@ Bool nxagentCheckPixmapIntegrity(PixmapPtr pPixmap)
       {
         if (p[i] != q[i])
         {
-          fprintf(stderr, "nxagentCheckPixmapIntegrity: Byte [%d] image -> data [%d] data [%d]. "
-                      "Buffers differ!\n", i, p[i], q[i]);
+          fprintf(stderr, "%s: Byte [%d] image -> data [%d] data [%d]. "
+                      "Buffers differ!\n", __func__, i, p[i], q[i]);
         }
         else
         {
-          fprintf(stderr, "nxagentCheckPixmapIntegrity: Byte [%d] image -> data [%d] data [%d].\n",
+          fprintf(stderr, "%s: Byte [%d] image -> data [%d] data [%d].\n", __func__,
                       i, p[i], q[i]);
         }
       }
 
-      fprintf(stderr, "nxagentCheckPixmapIntegrity: Pixmap at [%p] width [%d], height [%d], has been realized "
-                  "but the data buffer still differs.\n", (void *) pPixmap, width, height);
+      fprintf(stderr, "%s: Pixmap at [%p] width [%d], height [%d], has been realized "
+                  "but the data buffer still differs.\n", __func__, (void *) pPixmap, width, height);
 
-      fprintf(stderr, "nxagentCheckPixmapIntegrity: bytes_per_line [%d] byte pad [%d] format [%d].\n",
+      fprintf(stderr, "%s: bytes_per_line [%d] byte pad [%d] format [%d].\n", __func__,
                   image -> bytes_per_line, nxagentImagePad(width, height, 0, depth), image -> format);
 
-      FatalError("nxagentCheckPixmapIntegrity: Image is corrupted!!\n");
+      FatalError("%s: Image is corrupted!!\n", __func__);
 
     }
 
@@ -1037,7 +1037,7 @@ Bool nxagentCheckPixmapIntegrity(PixmapPtr pPixmap)
   else
   {
     #ifdef WARNING
-    fprintf(stderr, "nxagentCheckPixmapIntegrity: Ignored pixmap at [%p] with geometry [%d] [%d].\n",
+    fprintf(stderr, "%s: Ignored pixmap at [%p] with geometry [%d] [%d].\n", __func__,
                 (void *) pPixmap, width, height);
     #endif
   }
@@ -1050,7 +1050,7 @@ Bool nxagentCheckAllPixmapIntegrity(void)
   Bool imageIsGood = True;
 
   #ifdef TEST
-  fprintf(stderr, "nxagentCheckAllPixmapIntegrity\n");
+  fprintf(stderr, "%s\n", __func__);
   #endif
 
   FindClientResourcesByType(clients[serverClient -> index], RT_NX_PIXMAP,
@@ -1067,7 +1067,7 @@ Bool nxagentCheckAllPixmapIntegrity(void)
   }
 
   #ifdef TEST
-  fprintf(stderr, "nxagentCheckAllPixmapIntegrity: pixmaps integrity = %d.\n", imageIsGood);
+  fprintf(stderr, "%s: pixmaps integrity [%d].\n", __func__, imageIsGood);
   #endif
 
   return imageIsGood;
@@ -1082,7 +1082,7 @@ void nxagentSynchronizeShmPixmap(DrawablePtr pDrawable, int xPict, int yPict,
          nxagentIsShmPixmap((PixmapPtr) pDrawable))
   {
     #ifdef TEST
-    fprintf(stderr, "nxagentSynchronizeShmPixmap: WARNING! Synchronizing shared pixmap at [%p].\n",
+    fprintf(stderr, "%s: WARNING! Synchronizing shared pixmap at [%p].\n", __func__,
                 (void *) pDrawable);
     #endif
 
@@ -1130,7 +1130,7 @@ void nxagentSynchronizeShmPixmap(DrawablePtr pDrawable, int xPict, int yPict,
     #ifdef WARNING
     else
     {
-      fprintf(stderr, "nxagentSynchronizeShmPixmap: WARNING! Failed to allocate memory for the operation.\n");
+      fprintf(stderr, "%s: WARNING! Failed to allocate memory for the operation.\n", __func__);
     }
     #endif
 

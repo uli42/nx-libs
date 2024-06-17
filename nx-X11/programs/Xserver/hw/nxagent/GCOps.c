@@ -309,7 +309,7 @@ FIXME: The popup could be synchronized with one single put image,
     if (!RegionNil(&corruptedRegion))
     {
       #ifdef TEST
-      fprintf(stderr, "nxagentDeferCopyArea: Forcing the synchronization of source drawable at [%p].\n",
+      fprintf(stderr, "nxagentDeferCopyArea: Forcing the synchronization of source drawable [%p].\n",
                   (void *) pSrcDrawable);
       #endif
 
@@ -558,7 +558,7 @@ FIXME: The popup could be synchronized with one single put image,
     if (!RegionNil(&corruptedRegion))
     {
       #ifdef TEST
-      fprintf(stderr, "nxagentDeferCopyArea: Forcing the synchronization of source drawable at [%p].\n",
+      fprintf(stderr, "nxagentDeferCopyArea: Forcing the synchronization of source drawable [%p].\n",
                   (void *) pSrcDrawable);
       #endif
 
@@ -708,7 +708,7 @@ RegionPtr nxagentCopyArea(DrawablePtr pSrcDrawable, DrawablePtr pDstDrawable,
               (!nxagentDefaultWindowIsVisible() && !nxagentCompositeEnable)))
   {
     #ifdef TEST
-    fprintf(stderr, "nxagentCopyArea: Prevented operation on fully obscured window at [%p].\n",
+    fprintf(stderr, "nxagentCopyArea: Prevented operation on fully obscured window [%p].\n",
                 (void *) pDstDrawable);
     #endif
 
@@ -724,6 +724,10 @@ RegionPtr nxagentCopyArea(DrawablePtr pSrcDrawable, DrawablePtr pDstDrawable,
   if (pSrcDrawable -> type == DRAWABLE_PIXMAP &&
          nxagentIsShmPixmap((PixmapPtr) pSrcDrawable))
   {
+    #ifdef TEST
+    fprintf(stderr, "%s: src pixmap [%p] is on shared memory\n", __func__, (void *)pSrcDrawable);
+    #endif
+
     char *data;
 
     int depth  = pSrcDrawable -> depth;
@@ -784,7 +788,7 @@ RegionPtr nxagentCopyArea(DrawablePtr pSrcDrawable, DrawablePtr pDstDrawable,
   #ifdef TEST
   else
   {
-    fprintf(stderr, "nxagentCopyArea: Source drawable at [%p] already synchronized.\n",
+    fprintf(stderr, "nxagentCopyArea: Source drawable [%p] already synchronized.\n",
                 (void *) pSrcDrawable);
   }
   #endif
@@ -1004,7 +1008,7 @@ RegionPtr nxagentCopyPlane(DrawablePtr pSrcDrawable, DrawablePtr pDstDrawable,
       if (!RegionNil(&corruptedRegion))
       {
         #ifdef TEST
-        fprintf(stderr, "nxagentCopyPlane: Forcing the synchronization of source drawable at [%p].\n",
+        fprintf(stderr, "nxagentCopyPlane: Forcing the synchronization of source drawable [%p].\n",
                     (void *) pSrcDrawable);
         #endif
 
@@ -1025,7 +1029,7 @@ RegionPtr nxagentCopyPlane(DrawablePtr pSrcDrawable, DrawablePtr pDstDrawable,
   #ifdef TEST
   else
   {
-    fprintf(stderr, "nxagentCopyPlane: Source drawable at [%p] already synchronized.\n",
+    fprintf(stderr, "nxagentCopyPlane: Source drawable [%p] already synchronized.\n",
                 (void *) pSrcDrawable);
   }
   #endif
@@ -1199,13 +1203,13 @@ void nxagentPolySegment(DrawablePtr pDrawable, GCPtr pGC,
   #ifdef TEST
   if (nSegments == 1)
   {
-    fprintf(stderr, "nxagentPolySegment: Drawable at [%s:%p] GC at [%p] Segment [%d,%d,%d,%d].\n",
+    fprintf(stderr, "nxagentPolySegment: Drawable [%s:%p] GC [%p] Segment [%d,%d,%d,%d].\n",
                 nxagentDrawableTypeLiteral[pDrawable->type], (void *) pDrawable, (void *) pGC,
                     pSegments -> x1, pSegments -> y1, pSegments -> x2, pSegments -> y2);
   }
   else
   {
-    fprintf(stderr, "nxagentPolySegment: Drawable at [%s:%p] GC at [%p] Segments [%d].\n",
+    fprintf(stderr, "nxagentPolySegment: Drawable [%s:%p] GC [%p] Segments [%d].\n",
                 nxagentDrawableTypeLiteral[pDrawable->type], (void *) pDrawable, (void *) pGC, nSegments);
   }
   #endif
@@ -1274,13 +1278,13 @@ void nxagentPolyRectangle(DrawablePtr pDrawable, GCPtr pGC,
   #ifdef TEST
   if (nRectangles == 1)
   {
-    fprintf(stderr, "nxagentPolyRectangle: Drawable at [%p] GC at [%p] Rectangle [%d,%d][%d,%d].\n",
+    fprintf(stderr, "nxagentPolyRectangle: Drawable [%p] GC [%p] Rectangle [%d,%d][%d,%d].\n",
                 (void *) pDrawable, (void *) pGC,
                     pRectangles -> x, pRectangles -> y, pRectangles -> width, pRectangles -> height);
   }
   else
   {
-    fprintf(stderr, "nxagentPolyRectangle: Drawable at [%p] GC at [%p] Rectangles [%d].\n",
+    fprintf(stderr, "nxagentPolyRectangle: Drawable [%p] GC [%p] Rectangles [%d].\n",
                 (void *) pDrawable, (void *) pGC, nRectangles);
   }
   #endif
@@ -1518,13 +1522,13 @@ void nxagentPolyFillRect(DrawablePtr pDrawable, GCPtr pGC,
   #ifdef TEST
   if (nRectangles == 1)
   {
-    fprintf(stderr, "nxagentPolyFillRect: Drawable at [%s:%p] GC at [%p] FillStyle [%d] Rectangle [%d,%d][%d,%d].\n",
+    fprintf(stderr, "nxagentPolyFillRect: Drawable [%s:%p] GC [%p] FillStyle [%d] Rectangle [%d,%d][%d,%d].\n",
                 nxagentDrawableTypeLiteral[pDrawable->type], (void *) pDrawable, (void *) pGC, pGC -> fillStyle,
                     pRectangles -> x, pRectangles -> y, pRectangles -> width, pRectangles -> height);
   }
   else
   {
-    fprintf(stderr, "nxagentPolyFillRect: Drawable at [%s:%p] GC at [%p] FillStyle [%d] Rectangles [%d].\n",
+    fprintf(stderr, "nxagentPolyFillRect: Drawable [%s:%p] GC [%p] FillStyle [%d] Rectangles [%d].\n",
                 nxagentDrawableTypeLiteral[pDrawable->type], (void *) pDrawable, (void *) pGC, pGC -> fillStyle, nRectangles);
   }
   #endif
@@ -1561,7 +1565,7 @@ void nxagentPolyFillRect(DrawablePtr pDrawable, GCPtr pGC,
     if (nxagentDrawableStatus((DrawablePtr) pGC -> tile.pixmap) == NotSynchronized)
     {
       #ifdef TEST
-      fprintf(stderr, "nxagentPolyFillRect: GC at [%p] uses corrupted tile pixmap at [%p]. Going to "
+      fprintf(stderr, "nxagentPolyFillRect: GC [%p] uses corrupted tile pixmap [%p]. Going to "
                   "corrupt the destination [%s:%p].\n", (void *) pGC, (void *) pGC -> tile.pixmap,
                       nxagentDrawableTypeLiteral[pDrawable -> type], (void *) pDrawable);
       #endif
@@ -1650,7 +1654,7 @@ void nxagentPolyFillRect(DrawablePtr pDrawable, GCPtr pGC,
 
         #ifdef TEST
         fprintf(stderr, "nxagentPolyFillRect: Synchronizing the region [%d,%d,%d,%d] before using "
-                    "the stipple at [%p].\n", rectRegion -> extents.x1, rectRegion -> extents.y1,
+                    "the stipple [%p].\n", rectRegion -> extents.x1, rectRegion -> extents.y1,
                         rectRegion -> extents.x2, rectRegion -> extents.y2, (void *) pGC -> stipple);
         #endif
 

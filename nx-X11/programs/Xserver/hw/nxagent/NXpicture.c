@@ -238,7 +238,19 @@ CreatePicture (Picture		pid,
          * For sure this is not the best way to deal with
          * the virtual frame-buffer.
          */
+        #ifdef TEST
+        fprintf(stderr, "%s: Pointing picture [%p] to _virtual_ pixmap [%p] (refcnt [%d]) instead of real pixmap [%p] (refcnt [%d])\n",
+                    __func__, (void*)pPicture,
+                        (void*)nxagentVirtualDrawable(pDrawable), ((PixmapPtr)nxagentVirtualDrawable(pDrawable))->refcnt,
+                            (void *)pDrawable, ((PixmapPtr)pDrawable)->refcnt);
+        #endif
         pPicture->pDrawable = nxagentVirtualDrawable(pDrawable);
+        #ifdef TEST
+        fprintf(stderr, "%s: Now: _virtual_ pixmap [%p] (refcnt [%d]) , real pixmap [%p] (refcnt [%d])\n", __func__,
+                    (void*)nxagentVirtualDrawable(pDrawable), ((PixmapPtr)nxagentVirtualDrawable(pDrawable))->refcnt,
+                        (void *)pDrawable, ((PixmapPtr)pDrawable)->refcnt);
+        #endif
+
 #endif
 	++((PixmapPtr)pDrawable)->refcnt;
 	pPicture->pNext = 0;
@@ -260,6 +272,9 @@ CreatePicture (Picture		pid,
 out:
     if (*error != Success)
     {
+       #ifdef DEBUG
+       fprintf(stderr, "%s: FIXME: Failed to change picture [%p], adjust drawable refcnt here!\n", __func__, (void *)pPicture);
+       #endif
 	FreePicture (pPicture, (XID) 0);
 	pPicture = 0;
     }
