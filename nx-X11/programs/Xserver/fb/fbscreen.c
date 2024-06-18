@@ -36,7 +36,8 @@ fbCloseScreen (int index, ScreenPtr pScreen)
 	free (depths[d].vids);
     free (depths);
     free (pScreen->visuals);
-    free (pScreen->devPrivate);
+    /* backport 444a1f7a8802999e27ecf5f6eb598df2206f7277 */
+    FreePixmap((PixmapPtr)pScreen->devPrivate);
     return TRUE;
 }
 
