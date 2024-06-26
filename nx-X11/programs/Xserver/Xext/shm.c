@@ -219,8 +219,14 @@ static Bool CheckForShmSyscall(void)
 
 #endif
 
-static Bool
+Bool ShmCloseScreen(int i, ScreenPtr pScreen);
+
+/*static*/ Bool
+#ifdef NXAGENT_SERVER
+xorg_ShmCloseScreen(int i, ScreenPtr pScreen)
+#else
 ShmCloseScreen(int i, ScreenPtr pScreen)
+#endif
 {
     fprintf(stderr, "%s enter\n", __func__);
     ShmScrPrivateRec *screen_priv = ShmGetScreenPriv(pScreen);
