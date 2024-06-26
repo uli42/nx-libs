@@ -462,6 +462,7 @@ main(int argc, char *argv[], char *envp[])
 	    FreeDefaultStipple(i);
 	    (* screenInfo.screens[i]->CloseScreen)(i, screenInfo.screens[i]);
 	    dixFreePrivates(screenInfo.screens[i]->devPrivates);
+	    free(screenInfo.screens[i]);
 	    screenInfo.numScreens = i;
 	}
   	CloseDownEvents();
