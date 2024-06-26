@@ -59,7 +59,7 @@ HEADERS = \
 	XKB.h XKBgeom.h XKBproto.h XKBstr.h XKBsrv.h \
 	dbe.h dbeproto.h \
 	$(EXTRAHEADERS) \
-	record.h recordproto.h \
+	record.h recordproto.h recordconst.h \
 	secur.h securproto.h \
 	shm.h shmproto.h \
 	syncproto.h syncconst.h \
