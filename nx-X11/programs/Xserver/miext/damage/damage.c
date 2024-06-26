@@ -1850,6 +1850,7 @@ damageDestroyWindow (WindowPtr pWindow)
 static Bool
 damageCloseScreen (int i, ScreenPtr pScreen)
 {
+    fprintf(stderr, "%s\n", __func__);
     damageScrPriv(pScreen);
 
     unwrap (pScrPriv, pScreen, DestroyPixmap);

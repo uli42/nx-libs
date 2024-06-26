@@ -524,14 +524,19 @@ OpenFont(ClientPtr client, XID fid, Mask flags, unsigned lenfname, char *pfontna
 int
 CloseFont(void * value, XID fid)
 {
+    fprintf(stderr, "%s enter value [%p] XID [%d]\n", __func__, value, fid);
+
     int         nscr;
     ScreenPtr   pscr;
     FontPathElementPtr fpe;
     FontPtr     pfont = (FontPtr)value;
 
-    if (pfont == NullFont)
-	return Success;
+    if (pfont == NullFont) {
+        fprintf(stderr, "%s leave success\n", __func__);
+        return Success;
+    }
     if (--pfont->refcnt == 0) {
+	fprintf(stderr, "%s refcnt now is [%d] - really closing\n", __func__, pfont->refcnt);
 	if (patternCache)
 #ifdef HAS_XFONT2
 	    xfont2_remove_cached_font_pattern(patternCache, pfont);
@@ -560,6 +565,10 @@ CloseFont(void * value, XID fid)
 #endif
 	FreeFPE(fpe);
     }
+    else
+        fprintf(stderr, "%s refcnt now is [%d]\n", __func__, pfont->refcnt);
+
+    fprintf(stderr, "%s leave success\n", __func__);
     return Success;
 }
 

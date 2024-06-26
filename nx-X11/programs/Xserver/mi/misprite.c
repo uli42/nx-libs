@@ -374,6 +374,8 @@ miSpriteInitialize (ScreenPtr               pScreen,
 static Bool
 miSpriteCloseScreen (int i, ScreenPtr pScreen)
 {
+    fprintf(stderr, "%s\n", __func__);
+
     miSpriteScreenPtr   pScreenPriv;
 
     pScreenPriv = dixLookupPrivate(&pScreen->devPrivates, miSpriteScreenKey);

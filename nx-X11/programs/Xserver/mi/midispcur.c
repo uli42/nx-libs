@@ -131,6 +131,7 @@ miDCInitialize (ScreenPtr pScreen, miPointerScreenFuncPtr screenFuncs)
 static Bool
 miDCCloseScreen (int index, ScreenPtr pScreen)
 {
+    fprintf(stderr, "%s\n", __func__);
     miDCScreenPtr   pScreenPriv;
 
     pScreenPriv = (miDCScreenPtr)dixLookupPrivate(&pScreen->devPrivates,

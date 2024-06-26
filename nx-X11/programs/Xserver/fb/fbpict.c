@@ -482,6 +482,8 @@ fbPictureInit (ScreenPtr pScreen, PictFormatPtr formats, int nformats)
 
     PictureScreenPtr    ps;
 
+    fprintf(stderr, "%s: entering...\n", __func__);
+
     if (!miPictureInit (pScreen, formats, nformats))
 	return FALSE;
     ps = GetPictureScreen(pScreen);

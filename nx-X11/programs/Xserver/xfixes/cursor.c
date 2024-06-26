@@ -180,6 +180,8 @@ CursorDisplayCursor (DeviceIntPtr pDev,
 static Bool
 CursorCloseScreen (int index, ScreenPtr pScreen)
 {
+    fprintf(stderr, "%s\n", __func__);
+
     CursorScreenPtr	cs = GetCursorScreen (pScreen);
     Bool		ret;
     _X_UNUSED CloseScreenProcPtr	close_proc;

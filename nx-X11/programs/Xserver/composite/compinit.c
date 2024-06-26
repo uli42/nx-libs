@@ -55,6 +55,8 @@ DevPrivateKeyRec CompSubwindowsPrivateKeyRec;
 static Bool
 compCloseScreen (int index, ScreenPtr pScreen)
 {
+    fprintf(stderr, "%s\n", __func__);
+
     CompScreenPtr   cs = GetCompScreen (pScreen);
     Bool	    ret;
 

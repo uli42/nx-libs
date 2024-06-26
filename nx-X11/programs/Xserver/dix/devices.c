@@ -429,6 +429,7 @@ EnableDevice(DeviceIntPtr dev, BOOL sendevent)
 Bool
 DisableDevice(DeviceIntPtr dev, BOOL sendevent)
 {
+    fprintf(stderr, "%s: entering for device [%s]\n", __func__, dev->name);
     DeviceIntPtr *prev, other;
     BOOL enabled;
     int flags[MAXDEVICES] = {0};

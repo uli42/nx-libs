@@ -122,6 +122,7 @@ miModifyPixmapHeader(PixmapPtr pPixmap, int width, int height, int depth,
 static Bool
 miCloseScreen (int iScreen, ScreenPtr pScreen)
 {
+    fprintf(stderr, "%s\n", __func__);
     return ((*pScreen->DestroyPixmap)((PixmapPtr)pScreen->devPrivate));
 }
 
@@ -139,6 +140,10 @@ miCreateScreenResources(ScreenPtr pScreen)
     void * value;
 
     pScrInitParms = (miScreenInitParmsPtr)pScreen->devPrivate;
+
+    //    #ifdef DEBUG
+    fprintf(stderr, "%s: screen [%d] width [%d] pbits [%p]\n", __func__, pScreen->myNum, pScrInitParms->width, pScrInitParms->pbits);
+    //    #endif
 
     /* if width is non-zero, pScreen->devPrivate will be a pixmap
      * else it will just take the value pbits
@@ -161,6 +166,8 @@ miCreateScreenResources(ScreenPtr pScreen)
 		    pScrInitParms->pbits))
 	    return FALSE;
 	value = (void *)pPixmap;
+
+	fprintf(stderr, "%s: pPixmap [%p]\n", __func__, pPixmap);
     }
     else
     {
@@ -175,6 +182,10 @@ Bool
 miScreenDevPrivateInit(ScreenPtr pScreen, int width, void * pbits)
 {
     miScreenInitParmsPtr pScrInitParms;
+
+    #ifdef DEBUG
+    fprintf(stderr, "%s: sceeen [%d] width [%d] pbits [%p]\n", __func__, pScreen->myNum, width, pbits);
+    #endif
 
     /* Stash pbits and width in a short-lived miScreenInitParmsRec attached
      * to the screen, until CreateScreenResources can put them in the
@@ -281,6 +292,10 @@ miScreenInit(
     pScreen->MarkUnrealizedWindow = miMarkUnrealizedWindow;
 
     miSetZeroLineBias(pScreen, DEFAULTZEROLINEBIAS);
+
+    #ifdef DEBUG
+    fprintf(stderr, "%s: Calling miScreenDevPrivateInit, screen [%d] width [%d] pbits [%p]\n", __func__, pScreen->myNum, width, pbits);
+    #endif
 
     return miScreenDevPrivateInit(pScreen, width, pbits);
 }

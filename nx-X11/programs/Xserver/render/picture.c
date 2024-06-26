@@ -617,6 +617,8 @@ PictureInit (ScreenPtr pScreen, PictFormatPtr formats, int nformats)
     int			n;
     CARD32		type, a, r, g, b;
     
+    fprintf(stderr, "%s: Entering...\n", __func__);
+
     if (PictureGeneration != serverGeneration)
     {
 	PictureType = CreateNewResourceType (FreePicture, "PICTURE");

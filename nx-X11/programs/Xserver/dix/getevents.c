@@ -1084,6 +1084,9 @@ GetPointerEvents(EventList *events, DeviceIntPtr pDev, int type, int buttons,
     ScreenPtr scr = miPointerGetScreen(pDev);
     int valuators[MAX_VALUATORS];
 
+    if (!scr)
+      fprintf(stderr, "%s: pointer '%s' has no screen\n", __func__, pDev->name);
+
     /* refuse events from disabled devices */
     if (!pDev->enabled)
         return 0;

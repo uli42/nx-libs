@@ -128,6 +128,7 @@ miPointerInitialize (ScreenPtr                  pScreen,
 static Bool
 miPointerCloseScreen (int index, ScreenPtr pScreen)
 {
+    fprintf(stderr, "%s\n", __func__);
 #if 0
     miPointerPtr pPointer;
     DeviceIntPtr pDev;

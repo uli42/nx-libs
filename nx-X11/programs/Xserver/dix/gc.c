@@ -951,6 +951,7 @@ CreateDefaultStipple(int screenNum)
 void
 FreeDefaultStipple(int screenNum)
 {
+    fprintf(stderr, "%s: entering for screen [%d]\n", __func__, screenNum); //!!!!
     ScreenPtr pScreen = screenInfo.screens[screenNum];
     (*pScreen->DestroyPixmap)(pScreen->PixmapPerDepth[0]);
 }

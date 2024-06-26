@@ -116,6 +116,7 @@ static Bool
 RRCloseScreen(int index,
               ScreenPtr pScreen)
 {
+    fprintf(stderr, "%s\n", __func__);
     rrScrPriv(pScreen);
     int j;
 

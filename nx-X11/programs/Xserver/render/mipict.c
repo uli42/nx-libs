@@ -608,6 +608,8 @@ Bool
 miPictureInit (ScreenPtr pScreen, PictFormatPtr formats, int nformats)
 {
     PictureScreenPtr    ps;
+
+    fprintf(stderr, "%s: entering...\n", __func__);
     
     if (!PictureInit (pScreen, formats, nformats))
 	return FALSE;

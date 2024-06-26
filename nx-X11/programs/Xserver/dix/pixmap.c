@@ -61,6 +61,8 @@ GetScratchPixmapHeader(ScreenPtr pScreen, int width, int height, int depth,
 	/* width and height of 0 means don't allocate any pixmap data */
 	pPixmap = (*pScreen->CreatePixmap)(pScreen, 0, 0, depth, 0);
 
+    fprintf(stderr, "%s: got pixmap [%p], refcnt [%d]\n", __func__, (void *)pPixmap, pPixmap->refcnt); //!!!!!!!
+
     if (pPixmap) {
 	if ((*pScreen->ModifyPixmapHeader)(pPixmap, width, height, depth,
 					   bitsPerPixel, devKind, pPixData))
@@ -75,6 +77,8 @@ GetScratchPixmapHeader(ScreenPtr pScreen, int width, int height, int depth,
 void
 FreeScratchPixmapHeader(PixmapPtr pPixmap)
 {
+    fprintf(stderr, "%s: freeing or reusing pixmap [%p], refcnt [%d]\n", __func__, (void *)pPixmap, pPixmap ? pPixmap->refcnt : 0); //!!!!!!!
+    xorg_backtrace();
     if (pPixmap)
     {
 	ScreenPtr pScreen = pPixmap->drawable.pScreen;
@@ -105,6 +109,7 @@ CreateScratchPixmapsForScreen(int scrnum)
 void
 FreeScratchPixmapsForScreen(int scrnum)
 {
+    fprintf(stderr, "%s: freeing scractch pixmaps for screen [%d]\n", __func__, scrnum); //!!!!!!!
     FreeScratchPixmapHeader(screenInfo.screens[scrnum]->pScratchPixmap);
 }
 
@@ -125,6 +130,7 @@ AllocatePixmap(ScreenPtr pScreen, int pixDataSize)
 	return NullPixmap;
 
     dixInitPrivates(pPixmap, pPixmap + 1, PRIVATE_PIXMAP);
+    fprintf(stderr, "%s: allocated [%d] bytes for pixmap [%p]\n", __func__, pScreen->totalPixmapSize + pixDataSize, (void *)pPixmap); //!!!!!!!
     return pPixmap;
 }
 

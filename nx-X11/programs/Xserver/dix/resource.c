@@ -848,6 +848,8 @@ FreeClientResources(ClientPtr client)
     /* This routine shouldn't be called with a null client, but just in
 	case ... */
 
+    fprintf(stderr, "%s: called for client [%d]\n", __func__, client->index);
+
     if (!client)
 	return;
 

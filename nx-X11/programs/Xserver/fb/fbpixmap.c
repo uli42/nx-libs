@@ -99,6 +99,7 @@ fbCreatePixmap (ScreenPtr pScreen, int width, int height, int depth,
 Bool
 fbDestroyPixmap (PixmapPtr pPixmap)
 {
+    fprintf(stderr, "%s: destroying pixmap [%p] with refcnt [%d]\n", __func__, (void *)pPixmap, pPixmap ? pPixmap->refcnt : 0);
     if(--pPixmap->refcnt)
 	return TRUE;
     FreePixmap(pPixmap);

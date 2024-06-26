@@ -162,6 +162,7 @@ miInitOverlay(
 static Bool
 miOverlayCloseScreen(int i, ScreenPtr pScreen)
 {
+   fprintf(stderr, "%s\n", __func__);
    miOverlayScreenPtr pScreenPriv = MIOVERLAY_GET_SCREEN_PRIVATE(pScreen);
 
    pScreen->CloseScreen = pScreenPriv->CloseScreen;
