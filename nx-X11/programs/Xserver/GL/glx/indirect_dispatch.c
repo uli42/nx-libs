@@ -36,8 +36,8 @@
 #include "glxbyteorder.h"
 #include "indirect_util.h"
 #include "singlesize.h"
-#include "glapitable.h"
 #include "glapi.h"
+#include "glapitable.h"
 #include "glthread.h"
 #include "dispatch.h"
 
@@ -97,8 +97,6 @@ void __glXDisp_CallLists(GLbyte * pc)
     const GLsizei n = *(GLsizei  *)(pc +  0);
     const GLenum type = *(GLenum   *)(pc +  4);
     const GLvoid * lists =  (const GLvoid *)(pc +  8);
-
-    lists = (const GLvoid *) (pc + 8);
 
     CALL_CallLists( GET_DISPATCH(), (
         n,
@@ -2972,8 +2970,7 @@ void __glXDisp_PrioritizeTextures(GLbyte * pc)
 
 void __glXDisp_TexSubImage1D(GLbyte * pc)
 {
-    const CARD32 ptr_is_null = *(CARD32 *)(pc + 52);
-    const GLvoid * const pixels = (const GLvoid *) (ptr_is_null != 0) ? NULL : (pc + 56);
+    const GLvoid * const pixels = (const GLvoid *) (pc + 56);
     __GLXpixelHeader * const hdr = (__GLXpixelHeader *)(pc);
 
     CALL_PixelStorei( GET_DISPATCH(), (GL_UNPACK_SWAP_BYTES,   hdr->swapBytes) );
@@ -2996,8 +2993,7 @@ void __glXDisp_TexSubImage1D(GLbyte * pc)
 
 void __glXDisp_TexSubImage2D(GLbyte * pc)
 {
-    const CARD32 ptr_is_null = *(CARD32 *)(pc + 52);
-    const GLvoid * const pixels = (const GLvoid *) (ptr_is_null != 0) ? NULL : (pc + 56);
+    const GLvoid * const pixels = (const GLvoid *) (pc + 56);
     __GLXpixelHeader * const hdr = (__GLXpixelHeader *)(pc);
 
     CALL_PixelStorei( GET_DISPATCH(), (GL_UNPACK_SWAP_BYTES,   hdr->swapBytes) );
@@ -3745,7 +3741,7 @@ void __glXDisp_ResetMinmax(GLbyte * pc)
 void __glXDisp_TexImage3D(GLbyte * pc)
 {
     const CARD32 ptr_is_null = *(CARD32 *)(pc + 76);
-    const GLvoid * const pixels = (const GLvoid *) (ptr_is_null != 0) ? NULL : (pc + 80);
+    const GLvoid * const pixels = (const GLvoid *) ((ptr_is_null != 0) ? NULL : (pc + 80));
     __GLXpixel3DHeader * const hdr = (__GLXpixel3DHeader *)(pc);
 
     CALL_PixelStorei( GET_DISPATCH(), (GL_UNPACK_SWAP_BYTES,   hdr->swapBytes) );
@@ -3773,8 +3769,7 @@ void __glXDisp_TexImage3D(GLbyte * pc)
 
 void __glXDisp_TexSubImage3D(GLbyte * pc)
 {
-    const CARD32 ptr_is_null = *(CARD32 *)(pc + 84);
-    const GLvoid * const pixels = (const GLvoid *) (ptr_is_null != 0) ? NULL : (pc + 88);
+    const GLvoid * const pixels = (const GLvoid *) (pc + 88);
     __GLXpixel3DHeader * const hdr = (__GLXpixel3DHeader *)(pc);
 
     CALL_PixelStorei( GET_DISPATCH(), (GL_UNPACK_SWAP_BYTES,   hdr->swapBytes) );

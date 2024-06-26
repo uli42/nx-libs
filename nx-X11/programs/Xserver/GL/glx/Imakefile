@@ -73,7 +73,6 @@ libglx_la_SOURCES = \
         glxdriswrast.c \
         glxdricommon.c \
         glxscreens.c \
-        glxutil.c \
 	render2.c \
         render2swap.c \
         renderpix.c \
@@ -98,7 +97,6 @@ libglx_la_OBJECTS = \
 	glxdriswrast.o \
 	glxdricommon.o \
 	glxscreens.o \
-        glxutil.o \
 	render2.o \
 	render2swap.o \
 	renderpix.o \
@@ -140,7 +138,7 @@ libglx_la_OBJECTS = \
 		$(NULL)
 */
 
-top_srcdir = /home/uli/work/nx/ArcticaProject/upstream/xorg-xserver/xorg-server-1.5.3
+top_srcdir = `pwd`/xorg_topsrcdir
 
 INCLUDES = \
 	-I`pwd` \
@@ -156,6 +154,7 @@ INCLUDES = \
 		-I$(SERVERSRC)/include			\
 		-I$(SERVERSRC)/mi			\
 		-I$(SERVERSRC)/miext/damage		\
+		-I$(SERVERSRC)/Xext			\
 		`pkg-config --cflags-only-I pixman-1`	\
 		$(NULL)
 

@@ -3,10 +3,13 @@
 
 #define IHaveSubdirs
 
- CORE_SUBDIR = mesa
+/*
+CORE_SUBDIR = mesa
 
 SUBDIRS = glx $(CORE_SUBDIR)
+*/
 
+SUBDIRS = glx
 
 #if BuildModuleInSubdir
 SRCS = glx/module/?*.c $(MSRCS)

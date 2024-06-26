@@ -1,24 +1,33 @@
 /*
-** The contents of this file are subject to the GLX Public License Version 1.0
-** (the "License"). You may not use this file except in compliance with the
-** License. You may obtain a copy of the License at Silicon Graphics, Inc.,
-** attn: Legal Services, 2011 N. Shoreline Blvd., Mountain View, CA 94043
-** or at http://www.sgi.com/software/opensource/glx/license.html.
-**
-** Software distributed under the License is distributed on an "AS IS"
-** basis. ALL WARRANTIES ARE DISCLAIMED, INCLUDING, WITHOUT LIMITATION, ANY
-** IMPLIED WARRANTIES OF MERCHANTABILITY, OF FITNESS FOR A PARTICULAR
-** PURPOSE OR OF NON- INFRINGEMENT. See the License for the specific
-** language governing rights and limitations under the License.
-**
-** The Original Software is GLX version 1.2 source code, released February,
-** 1999. The developer of the Original Software is Silicon Graphics, Inc.
-** Those portions of the Subject Software created by Silicon Graphics, Inc.
-** are Copyright (c) 1991-9 Silicon Graphics, Inc. All Rights Reserved.
-**
-*/
+ * SGI FREE SOFTWARE LICENSE B (Version 2.0, Sept. 18, 2008)
+ * Copyright (C) 1991-2000 Silicon Graphics, Inc. All Rights Reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice including the dates of first publication and
+ * either this permission notice or a reference to
+ * http://oss.sgi.com/projects/FreeB/
+ * shall be included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+ * SILICON GRAPHICS, INC. BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF
+ * OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ *
+ * Except as contained in this notice, the name of Silicon Graphics, Inc.
+ * shall not be used in advertising or otherwise to promote the sale, use or
+ * other dealings in this Software without prior written authorization from
+ * Silicon Graphics, Inc.
+ */
 
-#define NEED_REPLIES
 #ifdef HAVE_DIX_CONFIG_H
 #include <dix-config.h>
 #endif
@@ -27,6 +36,7 @@
 #include "glxserver.h"
 #include <windowstr.h>
 #include <propertyst.h>
+#include <registry.h>
 #include "privates.h"
 #include <os.h>
 #include "g_disptab.h"
@@ -41,6 +51,7 @@
 ** from the server's perspective.
 */
 __GLXcontext *__glXLastContext;
+__GLXcontext *__glXContextList;
 
 /*
 ** X resources.
@@ -54,7 +65,8 @@ RESTYPE __glXSwapBarrierRes;
 */
 xGLXSingleReply __glXReply;
 
-static DevPrivateKey glxClientPrivateKey = &glxClientPrivateKey;
+static DevPrivateKeyRec glxClientPrivateKeyRec;
+#define glxClientPrivateKey (&glxClientPrivateKeyRec)
 
 /*
 ** Client that called into GLX dispatch.
@@ -64,7 +76,11 @@ ClientPtr __pGlxClient;
 /*
 ** Forward declarations.
 */
+#ifdef NXAGENT_SERVER
+extern int __glXDispatch(ClientPtr);
+#else
 static int __glXDispatch(ClientPtr);
+#endif
 
 /*
 ** Called when the extension is reset.
@@ -101,31 +117,89 @@ static int ContextGone(__GLXcontext* cx, XID id)
     return True;
 }
 
+static __GLXcontext *glxPendingDestroyContexts;
+static __GLXcontext *glxAllContexts;
+static int glxServerLeaveCount;
+static int glxBlockClients;
+
 /*
 ** Destroy routine that gets called when a drawable is freed.  A drawable
 ** contains the ancillary buffers needed for rendering.
 */
 static Bool DrawableGone(__GLXdrawable *glxPriv, XID xid)
 {
-    ScreenPtr pScreen = glxPriv->pDraw->pScreen;
+    __GLXcontext *c, *next;
 
-    switch (glxPriv->type) {
-	case GLX_DRAWABLE_PIXMAP:
-	case GLX_DRAWABLE_PBUFFER:
-	    (*pScreen->DestroyPixmap)((PixmapPtr) glxPriv->pDraw);
-	    break;
+    /* If this drawable was created using glx 1.3 drawable
+     * constructors, we added it as a glx drawable resource under both
+     * its glx drawable ID and it X drawable ID.  Remove the other
+     * resource now so we don't a callback for freed memory. */
+    if (glxPriv->drawId != glxPriv->pDraw->id) {
+	if (xid == glxPriv->drawId)
+	    FreeResourceByType(glxPriv->pDraw->id, __glXDrawableRes, TRUE);
+	else
+	    FreeResourceByType(glxPriv->drawId, __glXDrawableRes, TRUE);
     }
 
-    glxPriv->pDraw = NULL;
-    glxPriv->drawId = 0;
-    __glXUnrefDrawable(glxPriv);
+    for (c = glxAllContexts; c; c = next) {
+	next = c->next;
+	if (c->isCurrent && (c->drawPriv == glxPriv || c->readPriv == glxPriv)) {
+	    int i;
+
+	    (*c->loseCurrent)(c);
+	    c->isCurrent = GL_FALSE;
+	    if (c == __glXLastContext)
+		__glXFlushContextCache();
+
+	    for (i = 1; i < currentMaxClients; i++) {
+		if (clients[i]) {
+		    __GLXclientState *cl = glxGetClient(clients[i]);
+
+		    if (cl->inUse) {
+			int j;
+
+			for (j = 0; j < cl->numCurrentContexts; j++) {
+			    if (cl->currentContexts[j] == c)
+				cl->currentContexts[j] = NULL;
+			}
+		    }
+		}
+	    }
+	}
+	if (c->drawPriv == glxPriv)
+	    c->drawPriv = NULL;
+	if (c->readPriv == glxPriv)
+	    c->readPriv = NULL;
+	if (!c->idExists && !c->isCurrent)
+	    __glXFreeContext(c);
+    }
+
+    glxPriv->destroy(glxPriv);
 
     return True;
 }
 
-static __GLXcontext *glxPendingDestroyContexts;
-static int glxServerLeaveCount;
-static int glxBlockClients;
+void __glXAddToContextList(__GLXcontext *cx)
+{
+    cx->next = glxAllContexts;
+    glxAllContexts = cx;
+}
+
+static void __glXRemoveFromContextList(__GLXcontext *cx)
+{
+    __GLXcontext *c, *prev;
+
+    if (cx == glxAllContexts)
+	glxAllContexts = cx->next;
+    else {
+	prev = glxAllContexts;
+	for (c = glxAllContexts; c; c = c->next) {
+	    if (c == cx)
+		prev->next = c->next;
+	    prev = c;
+	}
+    }
+}
 
 /*
 ** Free a context.
@@ -134,11 +208,13 @@ GLboolean __glXFreeContext(__GLXcontext *cx)
 {
     if (cx->idExists || cx->isCurrent) return GL_FALSE;
     
-    if (cx->feedbackBuf) free(cx->feedbackBuf);
-    if (cx->selectBuf) free(cx->selectBuf);
+    free(cx->feedbackBuf);
+    free(cx->selectBuf);
     if (cx == __glXLastContext) {
 	__glXFlushContextCache();
     }
+
+    __glXRemoveFromContextList(cx);
 
     /* We can get here through both regular dispatching from
      * __glXDispatch() or as a callback from the resource manager.  In
@@ -205,6 +281,7 @@ GLboolean __glXErrorOccured(void)
 }
 
 static int __glXErrorBase;
+int __glXEventBase;
 
 int __glXError(int error)
 {
@@ -219,8 +296,8 @@ glxGetClient(ClientPtr pClient)
 
 static void
 glxClientCallback (CallbackListPtr	*list,
-		   pointer		closure,
-		   pointer		data)
+		   void *		closure,
+		   void *		data)
 {
     NewClientInfoRec	*clientinfo = (NewClientInfoRec *) data;
     ClientPtr		pClient = clientinfo->client;
@@ -249,10 +326,10 @@ glxClientCallback (CallbackListPtr	*list,
 	    }
 	}
 
-	if (cl->returnBuf) free(cl->returnBuf);
-	if (cl->largeCmdBuf) free(cl->largeCmdBuf);
-	if (cl->currentContexts) free(cl->currentContexts);
-	if (cl->GLClientextensions) free(cl->GLClientextensions);
+	free(cl->returnBuf);
+	free(cl->largeCmdBuf);
+	free(cl->currentContexts);
+	free(cl->GLClientextensions);
 	break;
 
     default:
@@ -281,11 +358,16 @@ void GlxExtensionInit(void)
     __GLXprovider *p;
     Bool glx_provided = False;
 
-    __glXContextRes = CreateNewResourceType((DeleteType)ContextGone);
-    __glXDrawableRes = CreateNewResourceType((DeleteType)DrawableGone);
-    __glXSwapBarrierRes = CreateNewResourceType((DeleteType)SwapBarrierGone);
+    __glXContextRes = CreateNewResourceType((DeleteType)ContextGone,
+					    "GLXContext");
+    __glXDrawableRes = CreateNewResourceType((DeleteType)DrawableGone,
+					     "GLXDrawable");
+    __glXSwapBarrierRes = CreateNewResourceType((DeleteType)SwapBarrierGone,
+						"GLXSwapBarrier");
+    if (!__glXContextRes || !__glXDrawableRes || !__glXSwapBarrierRes)
+	return;
 
-    if (!dixRequestPrivate(glxClientPrivateKey, sizeof (__GLXclientState)))
+    if (!dixRegisterPrivateKey(&glxClientPrivateKeyRec, PRIVATE_CLIENT, sizeof (__GLXclientState)))
 	return;
     if (!AddCallback (&ClientStateCallback, glxClientCallback, 0))
 	return;
@@ -294,12 +376,18 @@ void GlxExtensionInit(void)
 	pScreen = screenInfo.screens[i];
 
 	for (p = __glXProviderStack; p != NULL; p = p->next) {
-	    if (p->screenProbe(pScreen) != NULL) {
+	    __GLXscreen *glxScreen;
+
+	    glxScreen = p->screenProbe(pScreen);
+	    if (glxScreen != NULL) {
+	        if (glxScreen->GLXminor < glxMinorVersion)
+		    glxMinorVersion = glxScreen->GLXminor;
 		LogMessage(X_INFO,
 			   "GLX: Initialized %s GL provider for screen %d\n",
 			   p->name, i);
 		break;
 	    }
+
 	}
 
 	if (!p)
@@ -330,6 +418,7 @@ void GlxExtensionInit(void)
     }
 
     __glXErrorBase = extEntry->errorBase;
+    __glXEventBase = extEntry->eventBase;
 }
 
 /************************************************************************/
@@ -373,6 +462,9 @@ __GLXcontext *__glXForceCurrent(__GLXclientState *cl, GLXContextTag tag,
     	}
     }
     
+    if (cx->wait && (*cx->wait)(cx, cl, error))
+	return NULL;
+
     if (cx == __glXLastContext) {
 	/* No need to re-bind */
 	return cx;
@@ -498,7 +590,7 @@ static int __glXDispatch(ClientPtr client)
 	ResetCurrentRequest(client);
 	client->sequence--;
 	IgnoreClient(client);
-	return(client->noClientException);
+	return Success;
     }
 
     /*

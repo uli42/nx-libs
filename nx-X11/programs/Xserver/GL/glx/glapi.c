@@ -53,7 +53,8 @@
 #ifdef HAVE_DIX_CONFIG_H
 
 #include <dix-config.h>
-#define PUBLIC
+#include <nx-X11/Xfuncproto.h>
+#define PUBLIC _X_EXPORT
 
 #else
 
@@ -63,6 +64,9 @@
 
 #include <stdlib.h>
 #include <string.h>
+#ifdef DEBUG
+#include <assert.h>
+#endif
 
 #include "glapi.h"
 #include "glapioffsets.h"
@@ -110,10 +114,15 @@ warn(void)
    }
 }
 
+#if defined(__GNUC__) && (__GNUC__ > 2)
+#define possibly_unused __attribute((unused))
+#else
+#define possibly_unused
+#endif
 
 #define KEYWORD1 static
 #define KEYWORD1_ALT static
-#define KEYWORD2 GLAPIENTRY
+#define KEYWORD2 GLAPIENTRY possibly_unused
 #define NAME(func)  NoOp##func
 
 #define F NULL
@@ -153,7 +162,7 @@ static GLint NoOpUnused(void)
  *
  * Depending on whether or not multithreading is support, and the type of
  * support available, several variables are used to store the current context
- * pointer and the current dispatch table pointer.  In the non-threaded case,
+ * void * and the current dispatch table pointer.  In the non-threaded case,
  * the variables \c _glapi_Dispatch and \c _glapi_Context are used for this
  * purpose.
  *
@@ -196,8 +205,8 @@ PUBLIC const void *_glapi_Context = NULL;
 #if defined(THREADS)
 
 static GLboolean ThreadSafe = GL_FALSE;  /**< In thread-safe mode? */
-_glthread_TSD _gl_DispatchTSD;           /**< Per-thread dispatch pointer */
-static _glthread_TSD ContextTSD;         /**< Per-thread context pointer */
+_glthread_TSD _gl_DispatchTSD;           /**< Per-thread dispatch void * */
+static _glthread_TSD ContextTSD;         /**< Per-thread context void * */
 
 #if defined(WIN32_THREADS)
 void FreeTSD(_glthread_TSD *p);
@@ -239,7 +248,7 @@ str_dup(const char *str)
  * We should call this periodically from a function such as glXMakeCurrent
  * in order to test if multiple threads are being used.
  */
-void
+PUBLIC void
 _glapi_check_multithread(void)
 {
 #if defined(THREADS) && !defined(GLX_USE_TLS)
@@ -257,7 +266,7 @@ _glapi_check_multithread(void)
       }
    }
    else if (!_glapi_get_dispatch()) {
-      /* make sure that this thread's dispatch pointer isn't null */
+      /* make sure that this thread's dispatch void * isn't null */
       _glapi_set_dispatch(NULL);
    }
 #endif
@@ -266,9 +275,9 @@ _glapi_check_multithread(void)
 
 
 /**
- * Set the current context pointer for this thread.
- * The context pointer is an opaque type which should be cast to
- * void from the real context pointer type.
+ * Set the current context void * for this thread.
+ * The context void * is an opaque type which should be cast to
+ * void from the real context void * type.
  */
 PUBLIC void
 _glapi_set_context(void *context)
@@ -287,9 +296,9 @@ _glapi_set_context(void *context)
 
 
 /**
- * Get the current context pointer for this thread.
- * The context pointer is an opaque type which should be cast from
- * void to the real context pointer type.
+ * Get the current context void * for this thread.
+ * The context void * is an opaque type which should be cast from
+ * void to the real context void * type.
  */
 PUBLIC void *
 _glapi_get_context(void)
@@ -346,7 +355,7 @@ _glapi_set_dispatch(struct _glapi_table *dispatch)
 
 
 /**
- * Return pointer to current dispatch table for calling thread.
+ * Return void * to current dispatch table for calling thread.
  */
 PUBLIC struct _glapi_table *
 _glapi_get_dispatch(void)
@@ -517,7 +526,7 @@ struct _glapi_function {
     * named function.   Parameter types are converted to characters using the
     * following rules:
     *   - 'i' for \c GLint, \c GLuint, and \c GLenum
-    *   - 'p' for any pointer type
+    *   - 'p' for any void * type
     *   - 'f' for \c GLfloat and \c GLclampf
     *   - 'd' for \c GLdouble and \c GLclampd
     */
@@ -525,7 +534,7 @@ struct _glapi_function {
 
 
    /**
-    * Offset in the dispatch table where the pointer to the real function is
+    * Offset in the dispatch table where the void * to the real function is
     * located.  If the driver has not requested that the named function be
     * added to the dispatch table, this will have the value ~0.
     */
@@ -720,7 +729,7 @@ add_function_name( const char * funcName )
  * Fill-in the dispatch stub for the named function.
  * 
  * This function is intended to be called by a hardware driver.  When called,
- * a dispatch stub may be created created for the function.  A pointer to this
+ * a dispatch stub may be created created for the function.  A void * to this
  * dispatch function will be returned by glXGetProcAddress.
  *
  * \param function_names       Array of pointers to function names that should
@@ -730,12 +739,12 @@ add_function_name( const char * funcName )
  *                             are converted to characters using the following
  *                             rules:
  *                               - 'i' for \c GLint, \c GLuint, and \c GLenum
- *                               - 'p' for any pointer type
+ *                               - 'p' for any void * type
  *                               - 'f' for \c GLfloat and \c GLclampf
  *                               - 'd' for \c GLdouble and \c GLclampd
  *
  * \returns
- * The offset in the dispatch table of the named function.  A pointer to the
+ * The offset in the dispatch table of the named function.  A void * to the
  * driver's implementation of the named function should be stored at
  * \c dispatch_table[\c offset].
  *
@@ -879,7 +888,7 @@ _glapi_get_proc_offset(const char *funcName)
 
 
 /**
- * Return pointer to the named function.  If the function name isn't found
+ * Return void * to the named function.  If the function name isn't found
  * in the name of static functions, try generating a new API entrypoint on
  * the fly with assembly language.
  */

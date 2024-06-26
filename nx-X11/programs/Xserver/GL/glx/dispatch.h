@@ -28,6 +28,8 @@
 #if !defined( _DISPATCH_H_ )
 #  define _DISPATCH_H_
 
+
+#include "glapitable.h"
 /**
  * \file dispatch.h
  * Macros for handling GL dispatch tables.
@@ -35,7 +37,7 @@
  * For each known GL function, there are 3 macros in this file.  The first
  * macro is named CALL_FuncName and is used to call that GL function using
  * the specified dispatch table.  The other 2 macros, called GET_FuncName
- * can SET_FuncName, are used to get and set the dispatch pointer for the
+ * can SET_FuncName, are used to get and set the dispatch void * for the
  * named function in the specified dispatch table.
  */
 

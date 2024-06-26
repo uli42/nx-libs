@@ -69,6 +69,8 @@ struct __GLXDRIscreen {
     xf86LeaveVTProc	*leaveVT;
 
     const __DRIcoreExtension *core;
+    const __DRIdri2Extension *dri2;
+    const __DRI2flushExtension *flush;
     const __DRIcopySubBufferExtension *copySubBuffer;
     const __DRIswapControlExtension *swapControl;
     const __DRItexBufferExtension *texBuffer;
@@ -81,10 +83,18 @@ struct __GLXDRIcontext {
     __DRIcontext	*driContext;
 };
 
+#define MAX_DRAWABLE_BUFFERS 5
+
 struct __GLXDRIdrawable {
     __GLXdrawable	 base;
     __DRIdrawable	*driDrawable;
     __GLXDRIscreen	*screen;
+
+    /* Dimensions as last reported by DRI2GetBuffers. */
+    int width;
+    int height;
+    __DRIbuffer buffers[MAX_DRAWABLE_BUFFERS];
+    int count;
 };
 
 static void
@@ -95,58 +105,138 @@ __glXDRIdrawableDestroy(__GLXdrawable *drawable)
     
     (*core->destroyDrawable)(private->driDrawable);
 
-    /* If the X window was destroyed, the dri DestroyWindow hook will
-     * aready have taken care of this, so only call if pDraw isn't NULL. */
-    if (drawable->pDraw != NULL)
-	DRI2DestroyDrawable(drawable->pDraw);
+    __glXDrawableRelease(drawable);
 
     free(private);
 }
 
-static GLboolean
-__glXDRIdrawableResize(__GLXdrawable *glxPriv)
-{
-    /* Nothing to do here, the DRI driver asks the server for drawable
-     * geometry when it sess the SAREA timestamps change.*/
-
-    return GL_TRUE;
-}
-
-static GLboolean
-__glXDRIdrawableSwapBuffers(__GLXdrawable *drawable)
+static void
+__glXDRIdrawableCopySubBuffer(__GLXdrawable *drawable,
+			       int x, int y, int w, int h)
 {
     __GLXDRIdrawable *private = (__GLXDRIdrawable *) drawable;
-    const __DRIcoreExtension *core = private->screen->core;
+    BoxRec box;
+    RegionRec region;
 
-    (*core->swapBuffers)(private->driDrawable);
+    box.x1 = x;
+    box.y1 = private->height - y - h;
+    box.x2 = x + w;
+    box.y2 = private->height - y;
+    RegionInit(&region, &box, 0);
+
+    DRI2CopyRegion(drawable->pDraw, &region,
+		   DRI2BufferFrontLeft, DRI2BufferBackLeft);
+}
+
+static void
+__glXDRIdrawableWaitX(__GLXdrawable *drawable)
+{
+    __GLXDRIdrawable *private = (__GLXDRIdrawable *) drawable;
+    BoxRec box;
+    RegionRec region;
+
+    box.x1 = 0;
+    box.y1 = 0;
+    box.x2 = private->width;
+    box.y2 = private->height;
+    RegionInit(&region, &box, 0);
+
+    DRI2CopyRegion(drawable->pDraw, &region,
+		   DRI2BufferFakeFrontLeft, DRI2BufferFrontLeft);
+}
+
+static void
+__glXDRIdrawableWaitGL(__GLXdrawable *drawable)
+{
+    __GLXDRIdrawable *private = (__GLXDRIdrawable *) drawable;
+    BoxRec box;
+    RegionRec region;
+
+    box.x1 = 0;
+    box.y1 = 0;
+    box.x2 = private->width;
+    box.y2 = private->height;
+    RegionInit(&region, &box, 0);
+
+    DRI2CopyRegion(drawable->pDraw, &region,
+		   DRI2BufferFrontLeft, DRI2BufferFakeFrontLeft);
+}
+
+static void
+__glXdriSwapEvent(ClientPtr client, void *data, int type, CARD64 ust,
+		  CARD64 msc, CARD64 sbc)
+{
+    __GLXdrawable *drawable = data;
+    xGLXBufferSwapComplete wire;
+
+    if (!(drawable->eventMask & GLX_BUFFER_SWAP_COMPLETE_INTEL_MASK))
+	return;
+
+    wire.type = __glXEventBase + GLX_BufferSwapComplete;
+    switch (type) {
+    case DRI2_EXCHANGE_COMPLETE:
+	wire.event_type = GLX_EXCHANGE_COMPLETE_INTEL;
+	break;
+    case DRI2_BLIT_COMPLETE:
+	wire.event_type = GLX_BLIT_COMPLETE_INTEL;
+	break;
+    case DRI2_FLIP_COMPLETE:
+	wire.event_type = GLX_FLIP_COMPLETE_INTEL;
+	break;
+    default:
+	/* unknown swap completion type */
+	break;
+    }
+    wire.drawable = drawable->drawId;
+    wire.ust_hi = ust >> 32;
+    wire.ust_lo = ust & 0xffffffff;
+    wire.msc_hi = msc >> 32;
+    wire.msc_lo = msc & 0xffffffff;
+    wire.sbc_hi = sbc >> 32;
+    wire.sbc_lo = sbc & 0xffffffff;
+
+    WriteEventsToClient(client, 1, (xEvent *) &wire);
+}
+
+/*
+ * Copy or flip back to front, honoring the swap interval if possible.
+ *
+ * If the kernel supports it, we request an event for the frame when the
+ * swap should happen, then perform the copy when we receive it.
+ */
+static GLboolean
+__glXDRIdrawableSwapBuffers(ClientPtr client, __GLXdrawable *drawable)
+{
+    __GLXDRIdrawable *priv = (__GLXDRIdrawable *) drawable;
+    __GLXDRIscreen *screen = priv->screen;
+    CARD64 unused;
+
+#if __DRI2_FLUSH_VERSION >= 3
+    if (screen->flush) {
+	(*screen->flush->flush)(priv->driDrawable);
+	(*screen->flush->invalidate)(priv->driDrawable);
+    }
+#else
+    if (screen->flush)
+	(*screen->flush->flushInvalidate)(priv->driDrawable);
+#endif
+
+    if (DRI2SwapBuffers(client, drawable->pDraw, 0, 0, 0, &unused,
+			__glXdriSwapEvent, drawable->pDraw) != Success)
+	return FALSE;
 
     return TRUE;
 }
 
-
 static int
 __glXDRIdrawableSwapInterval(__GLXdrawable *drawable, int interval)
 {
-    __GLXDRIdrawable *private = (__GLXDRIdrawable *) drawable;
-    const __DRIswapControlExtension *swapControl = private->screen->swapControl;
+    if (interval <= 0) /* || interval > BIGNUM? */
+	return GLX_BAD_VALUE;
 
-    if (swapControl)
-	swapControl->setSwapInterval(private->driDrawable, interval);
+    DRI2SwapInterval(drawable->pDraw, interval);
 
     return 0;
-}
-
-
-static void
-__glXDRIdrawableCopySubBuffer(__GLXdrawable *basePrivate,
-			       int x, int y, int w, int h)
-{
-    __GLXDRIdrawable *private = (__GLXDRIdrawable *) basePrivate;
-    const __DRIcopySubBufferExtension *copySubBuffer =
-	    private->screen->copySubBuffer;
-
-    if (copySubBuffer)
-	(*copySubBuffer->copySubBuffer)(private->driDrawable, x, y, w, h);
 }
 
 static void
@@ -207,6 +297,18 @@ __glXDRIcontextForceCurrent(__GLXcontext *baseContext)
 					read->driDrawable);
 }
 
+static Bool
+__glXDRIcontextWait(__GLXcontext *baseContext,
+		    __GLXclientState *cl, int *error)
+{
+    if (DRI2WaitSwap(cl->client, baseContext->drawPriv->pDraw)) {
+	*error = cl->client->noClientException;
+	return TRUE;
+    }
+
+    return FALSE;
+}
+
 #ifdef __DRI_TEX_BUFFER
 
 static int
@@ -221,9 +323,19 @@ __glXDRIbindTexImage(__GLXcontext *baseContext,
     if (texBuffer == NULL)
         return Success;
 
-    texBuffer->setTexBuffer(context->driContext,
-			    glxPixmap->target,
-			    drawable->driDrawable);
+#if __DRI_TEX_BUFFER_VERSION >= 2
+    if (texBuffer->base.version >= 2 && texBuffer->setTexBuffer2 != NULL) {
+	(*texBuffer->setTexBuffer2)(context->driContext,
+				    glxPixmap->target,
+				    glxPixmap->format,
+				    drawable->driDrawable);
+    } else
+#endif
+    {
+	texBuffer->setTexBuffer(context->driContext,
+				glxPixmap->target,
+				drawable->driDrawable);
+    }
 
     return Success;
 }
@@ -284,7 +396,6 @@ __glXDRIscreenCreateContext(__GLXscreen *baseScreen,
     __GLXDRIscreen *screen = (__GLXDRIscreen *) baseScreen;
     __GLXDRIcontext *context, *shareContext;
     __GLXDRIconfig *config = (__GLXDRIconfig *) glxConfig;
-    const __DRIcoreExtension *core = screen->core;
     __DRIcontext *driShare;
 
     shareContext = (__GLXDRIcontext *) baseShareContext;
@@ -293,97 +404,199 @@ __glXDRIscreenCreateContext(__GLXscreen *baseScreen,
     else
 	driShare = NULL;
 
-    context = malloc(sizeof *context);
+    context = calloc(1, sizeof *context);
     if (context == NULL)
 	return NULL;
 
-    memset(context, 0, sizeof *context);
     context->base.destroy           = __glXDRIcontextDestroy;
     context->base.makeCurrent       = __glXDRIcontextMakeCurrent;
     context->base.loseCurrent       = __glXDRIcontextLoseCurrent;
     context->base.copy              = __glXDRIcontextCopy;
     context->base.forceCurrent      = __glXDRIcontextForceCurrent;
     context->base.textureFromPixmap = &__glXDRItextureFromPixmap;
+    context->base.wait              = __glXDRIcontextWait;
 
     context->driContext =
-	(*core->createNewContext)(screen->driScreen,
-				  config->driConfig, driShare, context);
+	(*screen->dri2->createNewContext)(screen->driScreen,
+					  config->driConfig,
+					  driShare, context);
+    if (context->driContext == NULL) {
+	    free(context);
+        return NULL;
+    }
 
     return &context->base;
 }
 
+static void
+__glXDRIinvalidateBuffers(DrawablePtr pDraw, void *priv)
+{
+#if __DRI2_FLUSH_VERSION >= 3
+    __GLXDRIdrawable *private = priv;
+    __GLXDRIscreen *screen = private->screen;
+
+    if (screen->flush)
+	(*screen->flush->invalidate)(private->driDrawable);
+#endif
+}
+
 static __GLXdrawable *
-__glXDRIscreenCreateDrawable(__GLXscreen *screen,
+__glXDRIscreenCreateDrawable(ClientPtr client,
+			     __GLXscreen *screen,
 			     DrawablePtr pDraw,
-			     int type,
 			     XID drawId,
+			     int type,
+			     XID glxDrawId,
 			     __GLXconfig *glxConfig)
 {
     __GLXDRIscreen *driScreen = (__GLXDRIscreen *) screen;
     __GLXDRIconfig *config = (__GLXDRIconfig *) glxConfig;
     __GLXDRIdrawable *private;
-    GLboolean retval;
-    unsigned int handle, head;
 
-    private = malloc(sizeof *private);
+    private = calloc(1, sizeof *private);
     if (private == NULL)
 	return NULL;
 
-    memset(private, 0, sizeof *private);
-
     private->screen = driScreen;
     if (!__glXDrawableInit(&private->base, screen,
-			   pDraw, type, drawId, glxConfig)) {
+			   pDraw, type, glxDrawId, glxConfig)) {
         free(private);
 	return NULL;
     }
 
     private->base.destroy       = __glXDRIdrawableDestroy;
-    private->base.resize        = __glXDRIdrawableResize;
     private->base.swapBuffers   = __glXDRIdrawableSwapBuffers;
     private->base.copySubBuffer = __glXDRIdrawableCopySubBuffer;
+    private->base.waitGL	= __glXDRIdrawableWaitGL;
+    private->base.waitX		= __glXDRIdrawableWaitX;
 
-    retval = DRI2CreateDrawable(pDraw, &handle, &head);
+    if (DRI2CreateDrawable(client, pDraw, drawId,
+			   __glXDRIinvalidateBuffers, private)) {
+	    free(private);
+	    return NULL;
+    }
 
     private->driDrawable =
-	(*driScreen->core->createNewDrawable)(driScreen->driScreen, 
-					      config->driConfig,
-					      handle, head, private);
+	(*driScreen->dri2->createNewDrawable)(driScreen->driScreen,
+					      config->driConfig, private);
 
     return &private->base;
 }
 
-static void dri2ReemitDrawableInfo(__DRIdrawable *draw, unsigned int *tail,
-				   void *loaderPrivate)
+static __DRIbuffer *
+dri2GetBuffers(__DRIdrawable *driDrawable,
+	       int *width, int *height,
+	       unsigned int *attachments, int count,
+	       int *out_count, void *loaderPrivate)
 {
-    __GLXDRIdrawable *pdraw = loaderPrivate;
+    __GLXDRIdrawable *private = loaderPrivate;
+    DRI2BufferPtr *buffers;
+    int i;
+    int j;
 
-    DRI2ReemitDrawableInfo(pdraw->base.pDraw, tail);
+    buffers = DRI2GetBuffers(private->base.pDraw,
+			     width, height, attachments, count, out_count);
+    if (*out_count > MAX_DRAWABLE_BUFFERS) {
+	*out_count = 0;
+	return NULL;
+    }
+	
+    private->width = *width;
+    private->height = *height;
+
+    /* This assumes the DRI2 buffer attachment tokens matches the
+     * __DRIbuffer tokens. */
+    j = 0;
+    for (i = 0; i < *out_count; i++) {
+	/* Do not send the real front buffer of a window to the client.
+	 */
+	if ((private->base.pDraw->type == DRAWABLE_WINDOW)
+	    && (buffers[i]->attachment == DRI2BufferFrontLeft)) {
+	    continue;
+	}
+
+	private->buffers[j].attachment = buffers[i]->attachment;
+	private->buffers[j].name = buffers[i]->name;
+	private->buffers[j].pitch = buffers[i]->pitch;
+	private->buffers[j].cpp = buffers[i]->cpp;
+	private->buffers[j].flags = buffers[i]->flags;
+	j++;
+    }
+
+    *out_count = j;
+    return private->buffers;
 }
 
-static void dri2PostDamage(__DRIdrawable *draw,
-			   struct drm_clip_rect *rects,
-			   int numRects, void *loaderPrivate)
-{ 
-    __GLXDRIdrawable *drawable = loaderPrivate;
-    DrawablePtr pDraw = drawable->base.pDraw;
-    RegionRec region;
+static __DRIbuffer *
+dri2GetBuffersWithFormat(__DRIdrawable *driDrawable,
+			 int *width, int *height,
+			 unsigned int *attachments, int count,
+			 int *out_count, void *loaderPrivate)
+{
+    __GLXDRIdrawable *private = loaderPrivate;
+    DRI2BufferPtr *buffers;
+    int i;
+    int j = 0;
 
-    RegionInit(&region, (BoxPtr) rects, numRects);
-    RegionTranslate(&region, pDraw->x, pDraw->y);
-    DamageDamageRegion(pDraw, &region);
-    RegionUninit(&region);
+    buffers = DRI2GetBuffersWithFormat(private->base.pDraw,
+				       width, height, attachments, count,
+				       out_count);
+    if (*out_count > MAX_DRAWABLE_BUFFERS) {
+	*out_count = 0;
+	return NULL;
+    }
+
+    private->width = *width;
+    private->height = *height;
+
+    /* This assumes the DRI2 buffer attachment tokens matches the
+     * __DRIbuffer tokens. */
+    for (i = 0; i < *out_count; i++) {
+	/* Do not send the real front buffer of a window to the client.
+	 */
+	if ((private->base.pDraw->type == DRAWABLE_WINDOW)
+	    && (buffers[i]->attachment == DRI2BufferFrontLeft)) {
+	    continue;
+	}
+
+	private->buffers[j].attachment = buffers[i]->attachment;
+	private->buffers[j].name = buffers[i]->name;
+	private->buffers[j].pitch = buffers[i]->pitch;
+	private->buffers[j].cpp = buffers[i]->cpp;
+	private->buffers[j].flags = buffers[i]->flags;
+	j++;
+    }
+
+    *out_count = j;
+    return private->buffers;
 }
 
-static const __DRIloaderExtension loaderExtension = {
-    { __DRI_LOADER, __DRI_LOADER_VERSION },
-    dri2ReemitDrawableInfo,
-    dri2PostDamage
+static void 
+dri2FlushFrontBuffer(__DRIdrawable *driDrawable, void *loaderPrivate)
+{
+    (void) driDrawable;
+    __glXDRIdrawableWaitGL((__GLXdrawable *) loaderPrivate);
+}
+
+static const __DRIdri2LoaderExtension loaderExtension = {
+    { __DRI_DRI2_LOADER, __DRI_DRI2_LOADER_VERSION },
+    dri2GetBuffers,
+    dri2FlushFrontBuffer,
+    dri2GetBuffersWithFormat,
 };
+
+#ifdef __DRI_USE_INVALIDATE
+static const __DRIuseInvalidateExtension dri2UseInvalidate = {
+   { __DRI_USE_INVALIDATE, __DRI_USE_INVALIDATE_VERSION }
+};
+#endif
 
 static const __DRIextension *loader_extensions[] = {
     &systemTimeExtension.base,
     &loaderExtension.base,
+#ifdef __DRI_USE_INVALIDATE
+    &dri2UseInvalidate,
+#endif
     NULL
 };
 
@@ -392,12 +605,21 @@ static const char dri_driver_path[] = DRI_DRIVER_PATH;
 static Bool
 glxDRIEnterVT (int index, int flags)
 {
+    ScrnInfoPtr scrn = xf86Screens[index];
+    Bool	ret;
     __GLXDRIscreen *screen = (__GLXDRIscreen *) 
 	glxGetScreen(screenInfo.screens[index]);
 
     LogMessage(X_INFO, "AIGLX: Resuming AIGLX clients after VT switch\n");
 
-    if (!(*screen->enterVT) (index, flags))
+    scrn->EnterVT = screen->enterVT;
+
+    ret = scrn->EnterVT (index, flags);
+
+    screen->enterVT = scrn->EnterVT;
+    scrn->EnterVT = glxDRIEnterVT;
+
+    if (!ret)
 	return FALSE;
     
     glxResumeClients();
@@ -408,6 +630,7 @@ glxDRIEnterVT (int index, int flags)
 static void
 glxDRILeaveVT (int index, int flags)
 {
+    ScrnInfoPtr scrn = xf86Screens[index];
     __GLXDRIscreen *screen = (__GLXDRIscreen *)
 	glxGetScreen(screenInfo.screens[index]);
 
@@ -415,39 +638,43 @@ glxDRILeaveVT (int index, int flags)
 
     glxSuspendClients();
 
-    return (*screen->leaveVT) (index, flags);
+    scrn->LeaveVT = screen->leaveVT;
+    (*screen->leaveVT) (index, flags);
+    screen->leaveVT = scrn->LeaveVT;
+    scrn->LeaveVT = glxDRILeaveVT;
 }
 
 static void
 initializeExtensions(__GLXDRIscreen *screen)
 {
+    ScreenPtr pScreen = screen->base.pScreen;
     const __DRIextension **extensions;
     int i;
 
     extensions = screen->core->getExtensions(screen->driScreen);
 
-    for (i = 0; extensions[i]; i++) {
-#ifdef __DRI_COPY_SUB_BUFFER
-	if (strcmp(extensions[i]->name, __DRI_COPY_SUB_BUFFER) == 0) {
-	    screen->copySubBuffer =
-		(const __DRIcopySubBufferExtension *) extensions[i];
-	    __glXEnableExtension(screen->glx_enable_bits,
-				 "GLX_MESA_copy_sub_buffer");
-	    
-	    LogMessage(X_INFO, "AIGLX: enabled GLX_MESA_copy_sub_buffer\n");
-	}
-#endif
+    __glXEnableExtension(screen->glx_enable_bits,
+			 "GLX_MESA_copy_sub_buffer");
+    LogMessage(X_INFO, "AIGLX: enabled GLX_MESA_copy_sub_buffer\n");
 
-#ifdef __DRI_SWAP_CONTROL
-	if (strcmp(extensions[i]->name, __DRI_SWAP_CONTROL) == 0) {
-	    screen->swapControl =
-		(const __DRIswapControlExtension *) extensions[i];
+    __glXEnableExtension(screen->glx_enable_bits, "GLX_INTEL_swap_event");
+    LogMessage(X_INFO, "AIGLX: enabled GLX_INTEL_swap_event\n");
+
+    if (DRI2HasSwapControl(pScreen)) {
+	__glXEnableExtension(screen->glx_enable_bits,
+			     "GLX_SGI_swap_control");
+	__glXEnableExtension(screen->glx_enable_bits,
+			     "GLX_MESA_swap_control");
+	LogMessage(X_INFO, "AIGLX: enabled GLX_SGI_swap_control and GLX_MESA_swap_control\n");
+    }
+
+    for (i = 0; extensions[i]; i++) {
+#ifdef __DRI_READ_DRAWABLE
+	if (strcmp(extensions[i]->name, __DRI_READ_DRAWABLE) == 0) {
 	    __glXEnableExtension(screen->glx_enable_bits,
-				 "GLX_SGI_swap_control");
-	    __glXEnableExtension(screen->glx_enable_bits,
-				 "GLX_MESA_swap_control");
-	    
-	    LogMessage(X_INFO, "AIGLX: enabled GLX_SGI_swap_control and GLX_MESA_swap_control\n");
+				 "GLX_SGI_make_current_read");
+
+	    LogMessage(X_INFO, "AIGLX: enabled GLX_SGI_make_current_read\n");
 	}
 #endif
 
@@ -459,6 +686,14 @@ initializeExtensions(__GLXDRIscreen *screen)
 	    LogMessage(X_INFO, "AIGLX: GLX_EXT_texture_from_pixmap backed by buffer objects\n");
 	}
 #endif
+
+#ifdef __DRI2_FLUSH
+	if (strcmp(extensions[i]->name, __DRI2_FLUSH) == 0 &&
+	    extensions[i]->version >= 3) {
+		screen->flush = (__DRI2flushExtension *) extensions[i];
+	}
+#endif
+
 	/* Ignore unknown extensions */
     }
 }
@@ -466,23 +701,22 @@ initializeExtensions(__GLXDRIscreen *screen)
 static __GLXscreen *
 __glXDRIscreenProbe(ScreenPtr pScreen)
 {
-    const char *driverName;
+    const char *driverName, *deviceName;
     __GLXDRIscreen *screen;
     char filename[128];
     size_t buffer_size;
     ScrnInfoPtr pScrn = xf86Screens[pScreen->myNum];
-    unsigned int sareaHandle;
     const __DRIextension **extensions;
     const __DRIconfig **driConfigs;
     int i;
 
-    screen = malloc(sizeof *screen);
+    screen = calloc(1, sizeof *screen);
     if (screen == NULL)
 	return NULL;
-    memset(screen, 0, sizeof *screen);
 
     if (!xf86LoaderCheckSymbol("DRI2Connect") ||
-	!DRI2Connect(pScreen, &screen->fd, &driverName, &sareaHandle)) {
+	!DRI2Connect(pScreen, DRI2DriverDRI,
+		     &screen->fd, &driverName, &deviceName)) {
 	LogMessage(X_INFO,
 		   "AIGLX: Screen %d is not DRI2 capable\n", pScreen->myNum);
 	return NULL;
@@ -515,36 +749,47 @@ __glXDRIscreenProbe(ScreenPtr pScreen)
     
     for (i = 0; extensions[i]; i++) {
         if (strcmp(extensions[i]->name, __DRI_CORE) == 0 &&
-	    extensions[i]->version >= __DRI_CORE_VERSION) {
+	    extensions[i]->version >= 1) {
 		screen->core = (const __DRIcoreExtension *) extensions[i];
+	}
+        if (strcmp(extensions[i]->name, __DRI_DRI2) == 0 &&
+	    extensions[i]->version >= 1) {
+		screen->dri2 = (const __DRIdri2Extension *) extensions[i];
 	}
     }
 
-    if (screen->core == NULL) {
+    if (screen->core == NULL || screen->dri2 == NULL) {
 	LogMessage(X_ERROR, "AIGLX error: %s exports no DRI extension\n",
 		   driverName);
 	goto handle_error;
     }
 
     screen->driScreen =
-	(*screen->core->createNewScreen)(pScreen->myNum,
+	(*screen->dri2->createNewScreen)(pScreen->myNum,
 					 screen->fd,
-					 sareaHandle,
 					 loader_extensions,
 					 &driConfigs,
 					 screen);
 
     if (screen->driScreen == NULL) {
-	LogMessage(X_ERROR, "AIGLX error: Calling driver entry point failed");
+	LogMessage(X_ERROR,
+		   "AIGLX error: Calling driver entry point failed\n");
 	goto handle_error;
     }
 
     initializeExtensions(screen);
 
-    screen->base.fbconfigs = glxConvertConfigs(screen->core, driConfigs);
+    screen->base.fbconfigs = glxConvertConfigs(screen->core, driConfigs,
+					       GLX_WINDOW_BIT |
+					       GLX_PIXMAP_BIT |
+					       GLX_PBUFFER_BIT);
 
     __glXScreenInit(&screen->base, pScreen);
 
+    /* The first call simply determines the length of the extension string.
+     * This allows us to allocate some memory to hold the extension string,
+     * but it requires that we call __glXGetExtensionString a second time.
+     */
     buffer_size = __glXGetExtensionString(screen->glx_enable_bits, NULL);
     if (buffer_size > 0) {
 	if (screen->base.GLXextensions != NULL) {
@@ -556,6 +801,18 @@ __glXDRIscreenProbe(ScreenPtr pScreen)
 				       screen->base.GLXextensions);
     }
 
+    /* We're going to assume (perhaps incorrectly?) that all DRI2-enabled
+     * drivers support the required extensions for GLX 1.4.  The extensions
+     * we're assuming are:
+     *
+     *    - GLX_SGI_make_current_read (1.3)
+     *    - GLX_SGIX_fbconfig (1.3)
+     *    - GLX_SGIX_pbuffer (1.3)
+     *    - GLX_ARB_multisample (1.4)
+     */
+    screen->base.GLXmajor = 1;
+    screen->base.GLXminor = 4;
+    
     screen->enterVT = pScrn->EnterVT;
     pScrn->EnterVT = glxDRIEnterVT; 
     screen->leaveVT = pScrn->LeaveVT;

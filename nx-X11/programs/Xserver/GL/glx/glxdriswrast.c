@@ -55,6 +55,13 @@
 #include "dispatch.h"
 #include "extension_string.h"
 
+/* RTLD_LOCAL is not defined on Cygwin */
+#ifdef __CYGWIN__
+#ifndef RTLD_LOCAL
+#define RTLD_LOCAL 0
+#endif
+#endif
+
 typedef struct __GLXDRIscreen   __GLXDRIscreen;
 typedef struct __GLXDRIcontext  __GLXDRIcontext;
 typedef struct __GLXDRIdrawable __GLXDRIdrawable;
@@ -81,7 +88,6 @@ struct __GLXDRIdrawable {
     __GLXDRIscreen	*screen;
 
     GCPtr gc;		/* scratch GC for span drawing */
-    GCPtr cleargc;	/* GC for clearing the color buffer */
     GCPtr swapgc;	/* GC for swapping the color buffers */
 };
 
@@ -94,23 +100,15 @@ __glXDRIdrawableDestroy(__GLXdrawable *drawable)
     (*core->destroyDrawable)(private->driDrawable);
 
     FreeScratchGC(private->gc);
-    FreeScratchGC(private->cleargc);
     FreeScratchGC(private->swapgc);
+
+    __glXDrawableRelease(drawable);
 
     free(private);
 }
 
 static GLboolean
-__glXDRIdrawableResize(__GLXdrawable *drawable)
-{
-    /* Nothing to do here, the DRI driver asks the server for drawable
-     * geometry appropriately. */
-
-    return GL_TRUE;
-}
-
-static GLboolean
-__glXDRIdrawableSwapBuffers(__GLXdrawable *drawable)
+__glXDRIdrawableSwapBuffers(ClientPtr client, __GLXdrawable *drawable)
 {
     __GLXDRIdrawable *private = (__GLXDRIdrawable *) drawable;
     const __DRIcoreExtension *core = private->screen->core;
@@ -276,11 +274,10 @@ __glXDRIscreenCreateContext(__GLXscreen *baseScreen,
     else
 	driShare = NULL;
 
-    context = malloc(sizeof *context);
+    context = calloc(1, sizeof *context);
     if (context == NULL)
 	return NULL;
 
-    memset(context, 0, sizeof *context);
     context->base.destroy           = __glXDRIcontextDestroy;
     context->base.makeCurrent       = __glXDRIcontextMakeCurrent;
     context->base.loseCurrent       = __glXDRIcontextLoseCurrent;
@@ -295,53 +292,44 @@ __glXDRIscreenCreateContext(__GLXscreen *baseScreen,
     return &context->base;
 }
 
-static void
-glxChangeGC(GCPtr gc, BITS32 mask, CARD32 val)
-{
-    CARD32 v[1];
-    v[0] = val;
-    dixChangeGC(NullClient, gc, mask, v, NULL);
-}
-
 static __GLXdrawable *
-__glXDRIscreenCreateDrawable(__GLXscreen *screen,
+__glXDRIscreenCreateDrawable(ClientPtr client,
+			     __GLXscreen *screen,
 			     DrawablePtr pDraw,
-			     int type,
 			     XID drawId,
+			     int type,
+			     XID glxDrawId,
 			     __GLXconfig *glxConfig)
 {
+    ChangeGCVal gcvals[2];
     __GLXDRIscreen *driScreen = (__GLXDRIscreen *) screen;
     __GLXDRIconfig *config = (__GLXDRIconfig *) glxConfig;
     __GLXDRIdrawable *private;
 
     ScreenPtr pScreen = driScreen->base.pScreen;
 
-    private = malloc(sizeof *private);
+    private = calloc(1, sizeof *private);
     if (private == NULL)
 	return NULL;
 
-    memset(private, 0, sizeof *private);
-
     private->screen = driScreen;
     if (!__glXDrawableInit(&private->base, screen,
-			   pDraw, type, drawId, glxConfig)) {
+			   pDraw, type, glxDrawId, glxConfig)) {
         free(private);
 	return NULL;
     }
 
     private->base.destroy       = __glXDRIdrawableDestroy;
-    private->base.resize        = __glXDRIdrawableResize;
     private->base.swapBuffers   = __glXDRIdrawableSwapBuffers;
     private->base.copySubBuffer = __glXDRIdrawableCopySubBuffer;
 
     private->gc = CreateScratchGC(pScreen, pDraw->depth);
-    private->cleargc = CreateScratchGC(pScreen, pDraw->depth);
     private->swapgc = CreateScratchGC(pScreen, pDraw->depth);
 
-    glxChangeGC(private->gc, GCFunction, GXcopy);
-    glxChangeGC(private->cleargc, GCFunction, GXcopy);
-    glxChangeGC(private->swapgc, GCFunction, GXcopy);
-    glxChangeGC(private->swapgc, GCGraphicsExposures, FALSE);
+    gcvals[0].val = GXcopy;
+    ChangeGC(NullClient, private->gc, GCFunction, gcvals);
+    gcvals[1].val = FALSE;
+    ChangeGC(NullClient, private->swapgc, GCFunction | GCGraphicsExposures, gcvals);
 
     private->driDrawable =
 	(*driScreen->swrast->createNewDrawable)(driScreen->driScreen,
@@ -377,9 +365,6 @@ swrastPutImage(__DRIdrawable *draw, int op,
     switch (op) {
     case __DRI_SWRAST_IMAGE_OP_DRAW:
 	gc = drawable->gc;
-	break;
-    case __DRI_SWRAST_IMAGE_OP_CLEAR:
-	gc = drawable->cleargc;
 	break;
     case __DRI_SWRAST_IMAGE_OP_SWAP:
 	gc = drawable->swapgc;
@@ -459,10 +444,9 @@ __glXDRIscreenProbe(ScreenPtr pScreen)
     const __DRIconfig **driConfigs;
     int i;
 
-    screen = malloc(sizeof *screen);
+    screen = calloc(1, sizeof *screen);
     if (screen == NULL)
 	return NULL;
-    memset(screen, 0, sizeof *screen);
 
     screen->base.destroy        = __glXDRIscreenDestroy;
     screen->base.createContext  = __glXDRIscreenCreateContext;
@@ -511,15 +495,22 @@ __glXDRIscreenProbe(ScreenPtr pScreen)
 					   screen);
 
     if (screen->driScreen == NULL) {
-	LogMessage(X_ERROR, "AIGLX error: Calling driver entry point failed");
+	LogMessage(X_ERROR,
+		   "AIGLX error: Calling driver entry point failed\n");
 	goto handle_error;
     }
 
     initializeExtensions(screen);
 
-    screen->base.fbconfigs = glxConvertConfigs(screen->core, driConfigs);
+    screen->base.fbconfigs = glxConvertConfigs(screen->core, driConfigs,
+					       GLX_WINDOW_BIT |
+					       GLX_PIXMAP_BIT |
+					       GLX_PBUFFER_BIT);
 
     __glXScreenInit(&screen->base, pScreen);
+
+    screen->base.GLXmajor = 1;
+    screen->base.GLXminor = 4;
 
     LogMessage(X_INFO,
 	       "AIGLX: Loaded and initialized %s\n", filename);

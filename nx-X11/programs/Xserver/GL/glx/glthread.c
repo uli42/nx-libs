@@ -31,9 +31,11 @@
 
 #ifdef HAVE_DIX_CONFIG_H
 #include <dix-config.h>
+#include <nx-X11/Xfuncproto.h>
 #endif
 
 #include <stdlib.h>
+#include <stdio.h>
 #include "glthread.h"
 
 
@@ -127,7 +129,7 @@ _glthread_SetTSD(_glthread_TSD *tsd, void *ptr)
 unsigned long
 _glthread_GetID(void)
 {
-   abort();   /* XXX not implemented yet */
+   OsAbort();   /* XXX not implemented yet */
    return (unsigned long) 0;
 }
 

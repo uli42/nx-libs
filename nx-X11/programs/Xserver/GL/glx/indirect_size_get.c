@@ -32,7 +32,7 @@
 #include "indirect_util.h"
 #include "indirect_size.h"
 
-#  if __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ >= 96)
+#  if __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ >= 96) || (defined(__SUNPRO_C) && (__SUNPRO_C >= 0x590))
 #    define PURE __attribute__((pure))
 #  else
 #    define PURE
@@ -44,7 +44,7 @@
 #    define FASTCALL
 #  endif
 
-#  if (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 3)) && defined(__ELF__)
+#  if (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 3) || (defined(__SUNPRO_C) && (__SUNPRO_C >= 0x590))) && defined(__ELF__)
 #    define INTERNAL  __attribute__((visibility("internal")))
 #  else
 #    define INTERNAL
@@ -714,6 +714,17 @@ __glGetBooleanv_size(GLenum e)
     case GL_MAX_TEXTURE_COORDS_ARB:
     case GL_MAX_TEXTURE_IMAGE_UNITS_ARB:
     case GL_DEPTH_BOUNDS_TEST_EXT:
+    case GL_ARRAY_BUFFER_BINDING_ARB:
+    case GL_ELEMENT_ARRAY_BUFFER_BINDING_ARB:
+    case GL_VERTEX_ARRAY_BUFFER_BINDING_ARB:
+    case GL_NORMAL_ARRAY_BUFFER_BINDING_ARB:
+    case GL_COLOR_ARRAY_BUFFER_BINDING_ARB:
+    case GL_INDEX_ARRAY_BUFFER_BINDING_ARB:
+    case GL_TEXTURE_COORD_ARRAY_BUFFER_BINDING_ARB:
+    case GL_EDGE_FLAG_ARRAY_BUFFER_BINDING_ARB:
+    case GL_SECONDARY_COLOR_ARRAY_BUFFER_BINDING_ARB:
+    case GL_FOG_COORDINATE_ARRAY_BUFFER_BINDING_ARB:
+    case GL_WEIGHT_ARRAY_BUFFER_BINDING_ARB:
     case GL_MAX_ARRAY_TEXTURE_LAYERS_EXT:
     case GL_STENCIL_TEST_TWO_SIDE_EXT:
     case GL_ACTIVE_STENCIL_FACE_EXT:
@@ -1072,6 +1083,7 @@ __glGetVertexAttribdvARB_size(GLenum e)
     case GL_VERTEX_ATTRIB_ARRAY_STRIDE_ARB:
     case GL_VERTEX_ATTRIB_ARRAY_TYPE_ARB:
     case GL_CURRENT_VERTEX_ATTRIB_ARB:
+    case GL_VERTEX_ATTRIB_ARRAY_BUFFER_BINDING_ARB:
         return 1;
     default:
         return 0;

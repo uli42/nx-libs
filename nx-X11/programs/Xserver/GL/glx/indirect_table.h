@@ -68,7 +68,7 @@ struct __glXDispatchInfo {
      *
      * \note
      * If size checking is not to be performed on this type of protocol
-     * data, this pointer will be \c NULL.
+     * data, this void * will be \c NULL.
      */
     const int_fast16_t (*size_table)[2];
 
@@ -79,7 +79,7 @@ struct __glXDispatchInfo {
      *
      * \note
      * If size checking is not to be performed on this type of protocol
-     * data, this pointer will be \c NULL.
+     * data, this void * will be \c NULL.
      */
     const gl_proto_size_func *size_func_table;
 };

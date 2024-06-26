@@ -28,7 +28,7 @@
 #if !defined( _INDIRECT_DISPATCH_H_ )
 #  define _INDIRECT_DISPATCH_H_
 
-#  if (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 3)) && defined(__ELF__)
+#  if (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 3) || (defined(__SUNPRO_C) && (__SUNPRO_C >= 0x590))) && defined(__ELF__)
 #    define HIDDEN  __attribute__((visibility("hidden")))
 #  else
 #    define HIDDEN
@@ -251,8 +251,6 @@ extern HIDDEN int __glXDisp_AreTexturesResident(struct __GLXclientStateRec *, GL
 extern HIDDEN int __glXDispSwap_AreTexturesResident(struct __GLXclientStateRec *, GLbyte *);
 extern HIDDEN int __glXDisp_AreTexturesResidentEXT(struct __GLXclientStateRec *, GLbyte *);
 extern HIDDEN int __glXDispSwap_AreTexturesResidentEXT(struct __GLXclientStateRec *, GLbyte *);
-extern HIDDEN int __glXDisp_IsRenderbufferEXT(struct __GLXclientStateRec *, GLbyte *);
-extern HIDDEN int __glXDispSwap_IsRenderbufferEXT(struct __GLXclientStateRec *, GLbyte *);
 extern HIDDEN void __glXDisp_PointParameterfvEXT(GLbyte * pc);
 extern HIDDEN void __glXDispSwap_PointParameterfvEXT(GLbyte * pc);
 extern HIDDEN void __glXDisp_Color3bv(GLbyte * pc);
@@ -423,6 +421,8 @@ extern HIDDEN void __glXDisp_FramebufferTexture1DEXT(GLbyte * pc);
 extern HIDDEN void __glXDispSwap_FramebufferTexture1DEXT(GLbyte * pc);
 extern HIDDEN int __glXDisp_GetDrawableAttributes(struct __GLXclientStateRec *, GLbyte *);
 extern HIDDEN int __glXDispSwap_GetDrawableAttributes(struct __GLXclientStateRec *, GLbyte *);
+extern HIDDEN int __glXDisp_IsRenderbufferEXT(struct __GLXclientStateRec *, GLbyte *);
+extern HIDDEN int __glXDispSwap_IsRenderbufferEXT(struct __GLXclientStateRec *, GLbyte *);
 extern HIDDEN void __glXDisp_RasterPos2sv(GLbyte * pc);
 extern HIDDEN void __glXDispSwap_RasterPos2sv(GLbyte * pc);
 extern HIDDEN void __glXDisp_Color4ubv(GLbyte * pc);
