@@ -1412,7 +1412,6 @@ void nxagentHandleSelectionRequestFromXServer(XEvent *X)
      * Delete property before sending the request to the client as
      * required by ICCCM.
      */
-    /* FIXME: unclear what client to use here for the first Argument */
     DeleteProperty(serverClient, lastSelectionOwner[index].windowPtr, clientCutProperty);
 
     sendEventToClient(lastSelectionOwner[index].client, &x);
