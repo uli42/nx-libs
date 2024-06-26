@@ -446,6 +446,8 @@ fbImageGlyphBlt (DrawablePtr	pDrawable,
 		fbGetDrawable (pDrawable, dst, dstStride, dstBpp, dstXoff, dstYoff);
 #ifdef NXAGENT_SERVER
 		fprintf(stderr, "%s: after fbGetDrawable: pDrawable [%p] dst [%p]\n", __func__, pDrawable, dst);
+		if (!dst)
+		  return;
 #endif
 		(*glyph) (dst + (gy + dstYoff) * dstStride,
 			  dstStride,

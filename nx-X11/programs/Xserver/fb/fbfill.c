@@ -44,6 +44,9 @@ fbFill (DrawablePtr pDrawable,
 
 #ifdef NXAGENT_SERVER
     fprintf(stderr, "%s: after fbGetDrawable: pDrawable [%p] dst [%p]\n", __func__, pDrawable, dst);
+
+    if (!dst)
+      return;
 #endif
 
     switch (pGC->fillStyle) {
@@ -190,6 +193,9 @@ fbSolidBoxClipped (DrawablePtr	pDrawable,
     fbGetDrawable (pDrawable, dst, dstStride, dstBpp, dstXoff, dstYoff);
 #ifdef NXAGENT_SERVER
     fprintf(stderr, "%s: after fbGetDrawable: pDrawable [%p] dst [%p]\n", __func__, pDrawable, dst);
+
+    if (!dst)
+      return;
 #endif
     
     for (nbox = RegionNumRects(pClip), pbox = RegionRects(pClip); 
