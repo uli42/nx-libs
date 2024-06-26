@@ -935,6 +935,7 @@ CreateSolidPicture (Picture pid, xRenderColor *color, int *error)
     }
 
     pPicture->id = pid;
+    /* backport c6b0dcb82d4db07a2f32c09a8c09c85a5f57248e */
     pPicture->pSourcePict = (SourcePictPtr) malloc(sizeof(SourcePict));
     if (!pPicture->pSourcePict) {
         *error = BadAlloc;
@@ -965,6 +966,7 @@ CreateLinearGradientPicture (Picture pid, xPointFixed *p1, xPointFixed *p2,
     }
 
     pPicture->id = pid;
+    /* backport c6b0dcb82d4db07a2f32c09a8c09c85a5f57248e */
     pPicture->pSourcePict = (SourcePictPtr) malloc(sizeof(SourcePict));
     if (!pPicture->pSourcePict) {
         *error = BadAlloc;
@@ -1006,6 +1008,7 @@ CreateRadialGradientPicture (Picture pid, xPointFixed *inner, xPointFixed *outer
     }
 
     pPicture->id = pid;
+    /* backport c6b0dcb82d4db07a2f32c09a8c09c85a5f57248e */
     pPicture->pSourcePict = (SourcePictPtr) malloc(sizeof(SourcePict));
     if (!pPicture->pSourcePict) {
         *error = BadAlloc;
@@ -1054,6 +1057,7 @@ CreateConicalGradientPicture (Picture pid, xPointFixed *center, xFixed angle,
     }
 
     pPicture->id = pid;
+    /* backport c6b0dcb82d4db07a2f32c09a8c09c85a5f57248e */
     pPicture->pSourcePict = (SourcePictPtr) malloc(sizeof(SourcePict));
     if (!pPicture->pSourcePict) {
         *error = BadAlloc;
