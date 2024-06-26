@@ -313,8 +313,8 @@ miClipPictureSrc (RegionPtr	pRegion,
 		  int		dx,
 		  int		dy)
 {
-	if (pPicture->clientClipType != CT_NONE)
-	{
+    if (pPicture->clientClipType != CT_NONE)
+    {
 	Bool result;
 	
 	pixman_region_translate ( pPicture->clientClip,
@@ -328,10 +328,10 @@ miClipPictureSrc (RegionPtr	pRegion,
 				  - (pPicture->clipOrigin.y + dy));
 
 	if (!result)
-		return FALSE;
-	}
-	return TRUE;
+	    return FALSE;
     }
+    return TRUE;
+}
 
 void
 miCompositeSourceValidate (PicturePtr	pPicture,

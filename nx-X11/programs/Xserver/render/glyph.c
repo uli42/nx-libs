@@ -99,7 +99,7 @@ GlyphUninit (ScreenPtr pScreen)
     {
 	if (!globalGlyphs[fdepth].hashSet)
 	    continue;
-	
+
 	for (i = 0; i < globalGlyphs[fdepth].hashSet->size; i++)
 	{
 	    glyph = globalGlyphs[fdepth].table[i].glyph;
@@ -109,10 +109,10 @@ GlyphUninit (ScreenPtr pScreen)
 		{
 		    FreePicture ((void *) GlyphPicture (glyph)[scrno], 0);
 		    GlyphPicture(glyph)[scrno] = NULL;
-	    }
+		}
 		(*ps->UnrealizeGlyph) (pScreen, glyph);
+	    }
 	}
-    }
     }
 }
 
@@ -161,7 +161,7 @@ FindGlyphRef (GlyphHashPtr	hash,
 		break;
 	}
 	else if (s == signature &&
-		 (!match || 
+		 (!match ||
 		  memcmp (glyph->sha1, sha1, 20) == 0))
 	{
 	    break;
@@ -717,35 +717,34 @@ miGlyphs (CARD8		op,
 
 	    if (pPicture)
 	    {
-	    if (maskFormat)
-	    {
-		CompositePicture (PictOpAdd,
-				  pPicture,
-				  None,
-				  pMask,
-				  0, 0,
-				  0, 0,
-				  x - glyph->info.x,
-				  y - glyph->info.y,
-				  glyph->info.width,
-				  glyph->info.height);
+		if (maskFormat)
+		{
+		    CompositePicture (PictOpAdd,
+				      pPicture,
+				      None,
+				      pMask,
+				      0, 0,
+				      0, 0,
+				      x - glyph->info.x,
+				      y - glyph->info.y,
+				      glyph->info.width,
+				      glyph->info.height);
+		}
+		else
+		{
+		    CompositePicture (op,
+				      pSrc,
+				      pPicture,
+				      pDst,
+				      xSrc + (x - glyph->info.x) - xDst,
+				      ySrc + (y - glyph->info.y) - yDst,
+				      0, 0,
+				      x - glyph->info.x,
+				      y - glyph->info.y,
+				      glyph->info.width,
+				      glyph->info.height);
+		}
 	    }
-	    else
-	    {
-		CompositePicture (op,
-				  pSrc,
-				  pPicture,
-				  pDst,
-				  xSrc + (x - glyph->info.x) - xDst,
-				  ySrc + (y - glyph->info.y) - yDst,
-				  0, 0,
-				  x - glyph->info.x,
-				  y - glyph->info.y,
-				  glyph->info.width,
-				  glyph->info.height);
-	    }
-	    }
-
 	    x += glyph->info.xOff;
 	    y += glyph->info.yOff;
 	}
