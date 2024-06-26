@@ -38,8 +38,18 @@ extern RESTYPE RT_NX_PIXMAP;
 typedef struct
 {
   Pixmap id;
+#if 1
+  int pad1;
+  int pad2;
+  int pad3;
+#endif
   XID    mid;
 
+#if 1
+  int pad4;
+  int pad5;
+  int pad6;
+#endif
   Bool isVirtual;
   Bool isShared;
 
@@ -67,7 +77,9 @@ typedef struct
   SplitResourcePtr splitResource;
 
   int isBackingPixmap;
-
+#if 1
+  int myMarker;
+#endif
 } nxagentPrivPixmapRec;
 
 typedef nxagentPrivPixmapRec *nxagentPrivPixmapPtr;

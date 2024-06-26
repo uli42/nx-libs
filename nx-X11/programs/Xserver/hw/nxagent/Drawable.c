@@ -50,9 +50,11 @@
 
 #define PANIC
 #define WARNING
-#undef  TEST
-#undef  DEBUG
+#define  TEST
+#define  DEBUG
 #undef  DUMP
+
+#include "Literals.h"
 
 /*
  * The list of rectangles composing a region s returned by
@@ -117,7 +119,7 @@ void nxagentExposeBackgroundPredicate(void *p0, XID x1, void *p2);
  * Imported from NXresource.c
  */
 
-extern int nxagentFindClientResource(int, RESTYPE, void *);
+extern Bool nxagentFindClientResource(int, RESTYPE, void *);
 
 unsigned long nxagentGetColor(DrawablePtr pDrawable, int xPixel, int yPixel);
 unsigned long nxagentGetDrawableColor(DrawablePtr pDrawable);
@@ -1358,12 +1360,12 @@ FIXME: All drawables should be set as synchronized and never marked as
    */
 
   if (nxagentSynchronization.pDrawable != NULL &&
-          nxagentFindClientResource(serverClient -> index, RT_NX_CORR_WINDOW,
-              nxagentSynchronization.pDrawable) == 0 &&
-                  nxagentFindClientResource(serverClient -> index, RT_NX_CORR_BACKGROUND,
-                      nxagentSynchronization.pDrawable) == 0 &&
-                          nxagentFindClientResource(serverClient -> index, RT_NX_CORR_PIXMAP,
-                              nxagentSynchronization.pDrawable) == 0)
+          !nxagentFindClientResource(serverClient -> index, RT_NX_CORR_WINDOW,
+              nxagentSynchronization.pDrawable) &&
+                  !nxagentFindClientResource(serverClient -> index, RT_NX_CORR_BACKGROUND,
+                      nxagentSynchronization.pDrawable) &&
+                          !nxagentFindClientResource(serverClient -> index, RT_NX_CORR_PIXMAP,
+                              nxagentSynchronization.pDrawable))
   {
     #ifdef TEST
     fprintf(stderr, "nxagentSynchronizationLoop: Synchronization drawable [%p] removed from resources.\n",
@@ -3056,4 +3058,39 @@ void nxagentSendDeferredBackgroundExposures(void)
 
     RegionEmpty(nxagentDeferredBackgroundExposures);
   }
+}
+
+void nxagentPrintDrawableInfo(DrawablePtr pDrawable)
+{
+  #ifdef DEBUG
+  fprintf(stderr, "%s: Drawable [%s][%p]:\n", __func__, nxagentDrawableTypeLiteral[pDrawable->type], (void *)pDrawable);
+  if ((pDrawable)->type == DRAWABLE_PIXMAP)
+  {
+    fprintf(stderr, "%s:   nxagentPixmapPriv(%p): [%p]\n", __func__, (void *)pDrawable,
+            (void *)(nxagentPixmapPriv((PixmapPtr)pDrawable)));
+    if (nxagentRealPixmap((PixmapPtr)pDrawable))
+    {
+      fprintf(stderr, "%s:   nxagentRealPixmap(%p): [%p] refcnt [%d]\n", __func__, (void *)pDrawable,
+              (void *)(nxagentRealPixmap((PixmapPtr)pDrawable)), ((PixmapPtr)pDrawable)->refcnt);
+      fprintf(stderr, "%s:   nxagentCorruptedRegion(%p): [%p]\n", __func__, (void *)pDrawable,
+              (void *)(nxagentCorruptedRegion(pDrawable)));
+      fprintf(stderr, "%s:   nxagentPixmapCorruptedRegion(%p): [%p]\n", __func__, (void *)pDrawable,
+              (void *)(nxagentPixmapCorruptedRegion((PixmapPtr)pDrawable)));
+    }
+    else
+    {
+      fprintf(stderr, "%s:   nxagentRealPixmap(%p): is unset!!!\n", __func__, (void *)pDrawable);
+    }
+
+    if (nxagentVirtualPixmap((PixmapPtr)pDrawable))
+    {
+      fprintf(stderr, "%s:   nxagentVirtualPixmap(%p): [%p] refcnt [%d]\n", __func__, (void *)pDrawable,
+              (void *)(nxagentVirtualPixmap((PixmapPtr)pDrawable)), (nxagentVirtualPixmap((PixmapPtr)pDrawable))->refcnt);
+    }
+    else
+    {
+      fprintf(stderr, "%s:   nxagentVirtualPixmap(%p): is unset!!!\n", __func__, (void *)pDrawable);
+    }
+  }
+  #endif
 }

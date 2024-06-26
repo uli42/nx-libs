@@ -104,8 +104,8 @@ is" without express or implied warranty.
 
 #define PANIC
 #define WARNING
-#undef  TEST
-#undef  DEBUG
+#define  TEST
+#define  DEBUG
 #undef  WATCH
 #undef  DUMP
 
@@ -585,10 +585,10 @@ static Bool nxagentSaveScreen(ScreenPtr pScreen, int what)
    * this case by ourselves.
    */
 
-/*
-FIXME: Do we need to check the key grab if the
-       autorepeat feature is disabled?
-*/
+   /*
+    * FIXME: Do we need to check the key grab if the
+    * autorepeat feature is disabled?
+    */
   if (inputInfo.pointer -> button -> buttonsDown > 0)
   {
     #ifdef TEST
@@ -636,6 +636,16 @@ static miPointerScreenFuncRec nxagentPointerCursorFuncs =
   nxagentCursorOffScreen,
   nxagentCrossScreen,
   miPointerWarpCursor
+};
+
+static miPointerSpriteFuncRec nxagentPointerSpriteFuncs =
+{
+  nxagentRealizeCursor,
+  nxagentUnrealizeCursor,
+  nxagentSetCursor,
+  nxagentMoveCursor,
+  nxagentDeviceCursorInitialize,
+  nxagentDeviceCursorCleanup
 };
 
 #ifdef VIEWPORT_FRAME
@@ -1342,26 +1352,6 @@ Bool nxagentOpenScreen(int index, ScreenPtr pScreen, int argc, char *argv[])
       sizeInBytes = PixmapBytePad(nxagentOption(RootWidth), rootDepth) * nxagentOption(RootHeight) * bitsPerPixel/8;
     }
 
-    #ifdef TEST
-    fprintf(stderr, "nxagentOpenScreen: Frame buffer allocated. rootDepth "
-                "[%d] bitsPerPixel [%d] sizeInBytes [%d]\n", rootDepth, bitsPerPixel, sizeInBytes);
-    #endif
-
-    void * pFrameBufferBits = (char *) malloc(sizeInBytes);
-
-    if (!pFrameBufferBits)
-    {
-      freeDepths(depths, numDepths);
-      SAFE_free(visuals);
-      return FALSE;
-    }
-
-    #if defined(DEBUG) || defined(DEBUG_COLORMAP)
-    fprintf(stderr, "nxagentOpenScreen: Before fbScreenInit numVisuals [%d] numDepths [%d] "
-              "rootDepth [%d] defaultVisual [%lu].\n", numVisuals, numDepths,
-                  rootDepth, (long unsigned int)defaultVisual);
-    #endif
-
     if (monitorResolution < 1)
     {
       if (nxagentAutoDPI)
@@ -1374,8 +1364,31 @@ Bool nxagentOpenScreen(int index, ScreenPtr pScreen, int argc, char *argv[])
       }
     }
 
+    void * pFrameBufferBits = (char *) malloc(sizeInBytes);
+
+    if (!pFrameBufferBits)
+    {
+      freeDepths(depths, numDepths);
+      SAFE_free(visuals);
+      return FALSE;
+    }
+
+    #ifdef TEST
+    fprintf(stderr, "%s: Frame buffer allocated. rootDepth "
+                "[%d] bitsPerPixel [%d] sizeInBytes [%d] addr [%p]\n", __func__,
+                    rootDepth, bitsPerPixel, sizeInBytes, pFrameBufferBits);
+    #endif
+
+    #if defined(DEBUG) || defined(DEBUG_COLORMAP)
+    fprintf(stderr, "nxagentOpenScreen: Before fbScreenInit numVisuals [%d] numDepths [%d] "
+              "rootDepth [%d] defaultVisual [%lu].\n", numVisuals, numDepths,
+                  rootDepth, (long unsigned int)defaultVisual);
+    #endif
+
     if (!fbScreenInit(pScreen, pFrameBufferBits, nxagentOption(RootWidth), nxagentOption(RootHeight),
           monitorResolution, monitorResolution, PixmapBytePad(nxagentOption(RootWidth), rootDepth), bitsPerPixel))
+      //if (!fbSetupScreen(pScreen, pFrameBufferBits, nxagentOption(RootWidth), nxagentOption(RootHeight),
+      //    monitorResolution, monitorResolution, PixmapBytePad(nxagentOption(RootWidth), rootDepth), bitsPerPixel))
     {
       freeDepths(depths, numDepths);
       SAFE_free(visuals);
@@ -1515,6 +1528,9 @@ N/A
     /* rgf */
     /* GCperDepth */
     /* PixmapPerDepth */
+    /* devPrivate has been set by fbScreenInit(), so don't touch it!
+     * pScreen->devPrivate = NULL;
+     */
     /* WindowPrivateLen */
     /* WindowPrivateSizes */
     /* totalWindowSize */
@@ -1526,14 +1542,13 @@ N/A
      * Random screen procedures.
      */
 
+    fprintf(stderr, "%s: CloseScreen [%p]\n", __func__, (void *)pScreen->CloseScreen);
     pScreen->CloseScreen = nxagentCloseScreen;
     pScreen->QueryBestSize = nxagentQueryBestSize;
     pScreen->SaveScreen = nxagentSaveScreen;
     pScreen->GetImage = nxagentGetImage;
     pScreen->GetSpans = nxagentGetSpans;
     pScreen->SourceValidate = NULL;
-
-    pScreen->CreateScreenResources = nxagentCreateScreenResources;
 
     /*
      * Window Procedures.
@@ -1558,6 +1573,7 @@ N/A
     pScreen->WindowExposures = nxagentWindowExposures;
     pScreen->CopyWindow = nxagentCopyWindow;
     pScreen->ClipNotify = nxagentClipNotify;
+
     pScreen->RestackWindow = nxagentRestackWindow;
     pScreen->ReparentWindow = nxagentReparentWindow;
 
@@ -1587,7 +1603,6 @@ N/A
      */
 
     pScreen->CreateGC = nxagentCreateGC;
-    pScreen->BitmapToRegion = nxagentPixmapToRegion;
 
     /*
      * Colormap procedures.
@@ -1601,6 +1616,8 @@ N/A
     pScreen->StoreColors = nxagentStoreColors;
     pScreen->ResolveColor = nxagentResolveColor;
 
+    pScreen->BitmapToRegion = nxagentPixmapToRegion;
+
     /*
      * OS layer procedures.
      */
@@ -1609,8 +1626,6 @@ N/A
     pScreen->WakeupHandler = (ScreenWakeupHandlerProcPtr) NoopDDA;
     pScreen->blockData = NULL;
     pScreen->wakeupData = NULL;
-
-    #ifdef RENDER
 
     /*
      * Initialize picture support. This have to be placed here because
@@ -1633,8 +1648,6 @@ N/A
       }
     }
 
-    #endif /* RENDER */
-
     /*
      * From misprite.c: called from device-dependent screen
      * initialization proc after all of the function pointers
@@ -1643,9 +1656,26 @@ N/A
 
     miDCInitialize(pScreen, &nxagentPointerCursorFuncs);
 
+    miPointerScreenPtr PointPriv = dixLookupPrivate(&pScreen->devPrivates, miPointerScreenKey);
+    nxagentCursorFuncs.spriteFuncs = PointPriv->spriteFuncs;
+    dixSetPrivate(&pScreen->devPrivates, nxagentCursorScreenKey, &nxagentCursorFuncs);
+    PointPriv->spriteFuncs = &nxagentPointerSpriteFuncs;
+
+    /*
+     * re-init miScreenInitParmsPtr struct with the required values (has been set
+     * already by miScreenInit()) (via fbScreenInit())
+     */
+    SAFE_free(pScreen->devPrivate);
+    if (!miScreenDevPrivateInit(pScreen, nxagentOption(Width), pFrameBufferBits))
+        return FALSE;
+
+    pScreen->CreateScreenResources = nxagentCreateScreenResources;
+
+#if 0
     /*
      * Cursor Procedures.
      */
+    // !!! are now handled via nxagentPointerSpriteFuncs
 
     pScreen->ConstrainCursor = nxagentConstrainCursor;
     pScreen->CursorLimits = nxagentCursorLimits;
@@ -1657,9 +1687,12 @@ N/A
     nxagentSetCursorPositionW = pScreen->SetCursorPosition;
 
     pScreen->SetCursorPosition = nxagentSetCursorPosition;
+#endif
 
-    #define POSITION_OFFSET (pScreen->myNum * (nxagentOption(Width) + \
-                               nxagentOption(Height)) / 32)
+    /* devPrivates */
+
+#define POSITION_OFFSET (pScreen->myNum * (nxagentOption(Width) + \
+					   nxagentOption(Height)) / 32)
 
     /*
      * Complete the initialization of the RANDR extension.
@@ -2031,27 +2064,6 @@ N/A
     fprintf(stderr, "Info: Using local device configuration changes.\n");
   }
 
-  #ifdef RENDER
-
-  /*
-   * if (nxagentRenderEnable && !nxagentReconnectTrap)
-   * {
-   *   if (!nxagentPictureInit(pScreen, 0, 0))
-   *   {
-   *     nxagentRenderEnable = False;
-   *
-   *     return FALSE;
-   *   }
-   *
-   *   if (nxagentAlphaEnabled)
-   *   {
-   *     fprintf(stderr, "Info: Using alpha channel in render extension.\n");
-   *   }
-   * }
-   */
-
-  #endif /* RENDER */
-
   /*
    * Check if the composite extension is supported on the remote
    * display and prepare the agent for its use.
@@ -2111,20 +2123,38 @@ Bool nxagentCloseScreen(int index, ScreenPtr pScreen)
    * Free the frame buffer.
    */
 
-  SAFE_free(((PixmapPtr)pScreen -> devPrivate) -> devPrivate.ptr);
+  if ((PixmapPtr)pScreen -> devPrivate)
+  {
+    SAFE_free(((PixmapPtr)pScreen -> devPrivate) -> devPrivate.ptr);
+    ((PixmapPtr)pScreen -> devPrivate) -> devPrivate.ptr = NULL;
+  }
+  fprintf(stderr, "1\n");
   SAFE_free(pScreen->devPrivate);
+  fprintf(stderr, "2\n");
   SAFE_free(pScreen->visuals);
-
-  fbCloseScreen(index, pScreen);
 
   /*
    * Reset the geometry and alpha information
    * used by proxy to unpack the packed images.
    */
 
+  fprintf(stderr, "3\n");
   nxagentResetVisualCache();
+  fprintf(stderr, "4\n");
   nxagentResetAlphaCache();
+  fprintf(stderr, "5\n");
   nxagentReleaseAllSplits();
+  fprintf(stderr, "6\n");
+  /*
+   * these have been allocated by nxagentPictureInit (final allocs in picture.c/PictureInit)
+   * and are not freed anywhere else -> THIS IS WRONG, check PictureCloseScreen
+   */
+  //PictureScreenPtr ps = GetPictureScreen(pScreen);
+  //free(ps->filterAliases);
+  //  free(ps->filters);
+  //free(ps->formats);
+  //free(ps);
+  //SetPictureScreen(pScreen, NULL);
 
   /*
    * The assumption is that all X resources will be
@@ -2132,6 +2162,10 @@ Bool nxagentCloseScreen(int index, ScreenPtr pScreen)
    * There is no need to generate extra protocol.
    */
 
+  /* FIXME check why this is not called automatically. We do it here to plug a memory leak. */
+  //  if (nxagentOption(SharedMemory))
+  ShmCloseScreen(index, pScreen);
+  fprintf(stderr, "7\n");
   return True;
 }
 
@@ -2291,12 +2325,13 @@ Bool nxagentResizeScreen(ScreenPtr pScreen, int width, int height,
   pScreen -> mmWidth = mmWidth;
   pScreen -> mmHeight = mmHeight;
 
-  #ifdef DEBUG
-  fprintf(stderr, "%s: old w [%d] (%dmm) h [%d] (%dmm)   new w [%d] (%dmm) h [%d] (%dmm)\n",
-              __func__, oldWidth, oldMmWidth, oldHeight, oldMmHeight, width, mmWidth, height, mmHeight);
-  #endif
-
   PixmapPtr pPixmap = fbGetScreenPixmap(pScreen);
+
+  #ifdef DEBUG
+  fprintf(stderr, "%s: pixmap [%p]  old w [%d] (%dmm) h [%d] (%dmm)   new w [%d] (%dmm) h [%d] (%dmm)\n",
+              __func__, (void *)pPixmap, oldWidth, oldMmWidth, oldHeight, oldMmHeight, width, mmWidth,
+                  height, mmHeight);
+  #endif
 
   char *fbBits = realloc(pPixmap -> devPrivate.ptr, PixmapBytePad(width, pScreen->rootDepth) *
                              height * BitsPerPixel(pScreen->rootDepth) / 8);
@@ -2310,10 +2345,10 @@ Bool nxagentResizeScreen(ScreenPtr pScreen, int width, int height,
                                     PixmapBytePad(width,
                                         pScreen->rootDepth), fbBits))
   {
-/*
-FIXME: We should try to restore the previously
-       reallocated frame buffer pixmap.
-*/
+    /*
+     * FIXME: We should try to restore the previously
+     * reallocated frame buffer pixmap.
+     */
     goto nxagentResizeScreenError;
   }
 

@@ -40,7 +40,7 @@
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL SuSE
  * BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN 
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  * Author:  Keith Packard, SuSE, Inc.
@@ -58,8 +58,8 @@
 
 #define PANIC
 #define WARNING
-#undef  DEBUG
-#undef  TEST
+#define  DEBUG
+#define  TEST
 
 #endif
 
@@ -81,16 +81,8 @@ AddGlyph (GlyphSetPtr glyphSet, GlyphPtr glyph, Glyph id)
 		       TRUE, glyph->sha1);
     if (gr->glyph && gr->glyph != DeletedGlyph && gr->glyph != glyph)
     {
-	PictureScreenPtr ps;
-	int              i;
-
-	for (i = 0; i < screenInfo.numScreens; i++)
-	{
-	    ps = GetPictureScreenIfSet (screenInfo.screens[i]);
-	    if (ps)
-		(*ps->UnrealizeGlyph) (screenInfo.screens[i], glyph);
-	}
-	free (glyph);
+	FreeGlyphPicture(glyph);
+	dixFreeObjectWithPrivates(glyph, PRIVATE_GLYPH);
 	glyph = gr->glyph;
     }
     else if (gr->glyph != glyph)
@@ -99,7 +91,7 @@ AddGlyph (GlyphSetPtr glyphSet, GlyphPtr glyph, Glyph id)
 	gr->signature = signature;
 	globalGlyphs[glyphSet->fdepth].tableEntries++;
     }
- 
+
     /* Insert/replace glyphset value */
     gr = FindGlyphRef (&glyphSet->hash, id, FALSE, 0);
     ++glyph->refcnt;
@@ -120,6 +112,7 @@ AddGlyph (GlyphSetPtr glyphSet, GlyphPtr glyph, Glyph id)
 GlyphPtr
 FindGlyph (GlyphSetPtr glyphSet, Glyph id)
 {
+  //  xorg_backtrace();
     GlyphPtr    glyph;
 
 #ifdef NXAGENT_SERVER
@@ -129,43 +122,53 @@ FindGlyph (GlyphSetPtr glyphSet, Glyph id)
     glyph = FindGlyphRef (&glyphSet->hash, id, FALSE, 0)->glyph;
 #endif
     if (glyph == DeletedGlyph)
-    {
         glyph = 0;
-    }
 #ifdef NXAGENT_SERVER
     else if (gr -> corruptedGlyph == 1)
     {
 	#ifdef DEBUG
-	fprintf(stderr, "%s: Going to synchronize the glyph [%p] for glyphset [%p].\n", __func__,
-		 (void *) glyph, (void *) glyphSet);
+	fprintf(stderr, "%s: Going to synchronize the glyph [%p] for glyphset [%p].\n", __func__, 
+		  (void *) glyph, (void *) glyphSet);
 	#endif
 
 	for (int i = 0; i < screenInfo.numScreens; i++)
 	{
-	  /* glyph points to a GlyphRec followed by numscreen PicturePtrs. We need to
-	     extract the data from there */
-	  PicturePtr pPicture = GlyphPicture(glyph)[i];
-	  DrawablePtr pDrawable = pPicture->pDrawable;
-	  /* calculate size in Bytes */
-	  //int size = pDrawable->width * pDrawable->height * pDrawable->bitsPerPixel / 8;
-	  int size = PixmapBytePad(pDrawable->width, pDrawable->depth) * pDrawable->height;
-	  #ifdef DEBUG
-	  fprintf(stderr, "%s: type [%d] width [%d] height [%d] bitsPerPixel [%d] "
-		      "depth [%d] BitmapBytePad(%d) [%d] PixmapBytePad(%d, %d) [%d]\n", __func__,
-		  pDrawable->type, pDrawable->width, pDrawable->height,
-		  pDrawable->bitsPerPixel, pDrawable->depth,
-		  pDrawable->width, BitmapBytePad(pDrawable->width),
-		  pDrawable->width, pDrawable->depth, PixmapBytePad(pDrawable->width, pDrawable->depth));
-	  #endif
+	    /* glyph points to a GlyphRec followed by numscreen PicturePtrs. We need to
+	       extract the data from there */
+	    PicturePtr pPicture = GlyphPicture(glyph)[i];
 
-	  void *zImage = malloc(size);
+	    if (pPicture)
+	    {
+	        DrawablePtr pDrawable = pPicture->pDrawable;
+		/* calculate size in Bytes */
+		//int size = pDrawable->width * pDrawable->height * pDrawable->bitsPerPixel / 8;
+		int size = PixmapBytePad(pDrawable->width, pDrawable->depth) * pDrawable->height;
+                #ifdef DEBUG
+		fprintf(stderr, "%s: type [%d] width [%d] height [%d] bitsPerPixel [%d] "
+                           "depth [%d] BitmapBytePad(%d) [%d] PixmapBytePad(%d, %d) [%d]\n", __func__,
+                               pDrawable->type, pDrawable->width, pDrawable->height,
+                                   pDrawable->bitsPerPixel, pDrawable->depth,
+                                       pDrawable->width, BitmapBytePad(pDrawable->width),
+                                           pDrawable->width, pDrawable->depth, PixmapBytePad(pDrawable->width, pDrawable->depth));
+	        #endif
 
-	  // FIXME: there might be a ZPixmap already existing in the Picture struct.
-	  miGetImage(pDrawable, pDrawable->x, pDrawable->y, pDrawable->width, pDrawable->height, ZPixmap, -1, zImage);
+	        void *zImage = malloc(size);
 
-	  nxagentAddGlyphs(glyphSet, &id, &(glyph -> info), 1,
-			   zImage, size);
-	  free(zImage);
+	        // FIXME: there might be a ZPixmap already existing in the Picture struct.
+	        miGetImage(pDrawable, pDrawable->x, pDrawable->y, pDrawable->width, pDrawable->height, ZPixmap, -1, zImage);
+
+	        nxagentAddGlyphs(glyphSet, &id, &(glyph -> info), 1, zImage, size);
+	        free(zImage);
+	    }
+	    else
+	    {
+	        /*
+		 * If the glyph is an invisible character (e.g. space)
+		 * we end up here. In that case we pass NULL for the
+		 * image with size 0.
+		 */
+	        nxagentAddGlyphs(glyphSet, &id, &(glyph -> info), 1, NULL, 0);
+	    }
 	}
     }
 #endif
@@ -203,13 +206,13 @@ ResizeGlyphHash (GlyphHashPtr hash, CARD32 change, Bool global)
 	    {
 		s = hash->table[i].signature;
 #ifdef NXAGENT_SERVER
-                CARD32 c = hash->table[i].corruptedGlyph;
+		CARD32 c = hash->table[i].corruptedGlyph;
 #endif
 		gr = FindGlyphRef (&newHash, s, global, glyph->sha1);
 		gr->signature = s;
 		gr->glyph = glyph;
 #ifdef NXAGENT_SERVER
-                gr -> corruptedGlyph = c;
+		gr -> corruptedGlyph = c;
 #endif
 		++newHash.tableEntries;
 	    }
@@ -243,17 +246,8 @@ miGlyphs (CARD8		op,
     int		n;
     GlyphPtr	glyph;
     int		error;
-    BoxRec	extents;
+    BoxRec	extents = {0, 0, 0, 0};
     CARD32	component_alpha;
-
-#ifdef NXAGENT_SERVER
-    /*
-     * Get rid of the warning.
-     */
-
-    extents.x1 = 0;
-    extents.y1 = 0;
-#endif
 
     if (maskFormat)
     {
@@ -261,18 +255,18 @@ miGlyphs (CARD8		op,
 	xRectangle  rect;
 
 #ifdef NXAGENT_SERVER
-        if (nxagentGlyphsExtents != NullBox)
-        {
-          memcpy(&extents, nxagentGlyphsExtents, sizeof(BoxRec));
-        }
-        else
-        {
-          nxagentGlyphsExtents = (BoxPtr) malloc(sizeof(BoxRec));
+	if (nxagentGlyphsExtents != NullBox)
+	{
+	    memcpy(&extents, nxagentGlyphsExtents, sizeof(BoxRec));
+	}
+	else
+	{
+	    nxagentGlyphsExtents = (BoxPtr) malloc(sizeof(BoxRec));
 
-          GlyphExtents (nlist, list, glyphs, &extents);
+	    GlyphExtents (nlist, list, glyphs, &extents);
 
-          memcpy(nxagentGlyphsExtents, &extents, sizeof(BoxRec));
-        }
+	    memcpy(nxagentGlyphsExtents, &extents, sizeof(BoxRec));
+	}
 #else
 	GlyphExtents (nlist, list, glyphs, &extents);
 #endif
@@ -286,6 +280,9 @@ miGlyphs (CARD8		op,
 						CREATE_PIXMAP_USAGE_SCRATCH);
 	if (!pMaskPixmap)
 	    return;
+#ifdef NXAGENT_SERVER
+	pMaskPixmap->refcnt++; //!!!
+#endif
 	component_alpha = NeedsComponent(maskFormat->format);
 	pMask = CreatePicture (0, &pMaskPixmap->drawable,
 			       maskFormat, CPComponentAlpha, &component_alpha,
@@ -320,47 +317,50 @@ miGlyphs (CARD8		op,
 	while (n--)
 	{
 	    glyph = *glyphs++;
-            pPicture = GlyphPicture (glyph)[pScreen->myNum];
+	    pPicture = GlyphPicture (glyph)[pScreen->myNum];
 
+	    if (pPicture)
+	    {
 #ifdef NXAGENT_SERVER
-            /*
-             * The following line fixes a problem with glyphs that appeared
-             * as clipped. It was a side effect due the validate function
-             * "ValidatePicture" that makes a check on the Drawable serial
-             * number instead of the picture serial number, failing thus
-             * the clip mask update.
-             */
-            // FIXME: remove this, it is probably no longer neccessary
-            // with xorg 1.5.0 code
-            // as we are not creating a Picture here but use an existing one
-            // pPicture->pDrawable->serialNumber = NEXT_SERIAL_NUMBER;
+		/*
+		 * The following line fixes a problem with glyphs that appeared
+		 * as clipped. It was a side effect due the validate function
+		 * "ValidatePicture" that makes a check on the Drawable serial
+		 * number instead of the picture serial number, failing thus
+		 * the clip mask update.
+		 */
+		// FIXME: remove this, it is probably no longer neccessary
+		// with xorg 1.5.0 code
+		// as we are not creating a Picture here but use an existing one
+		// pPicture->pDrawable->serialNumber = NEXT_SERIAL_NUMBER;
 #endif
-	    if (maskFormat)
-	    {
-		CompositePicture (PictOpAdd,
-				  pPicture,
-				  None,
-				  pMask,
-				  0, 0,
-				  0, 0,
-				  x - glyph->info.x,
-				  y - glyph->info.y,
-				  glyph->info.width,
-				  glyph->info.height);
-	    }
-	    else
-	    {
-		CompositePicture (op,
-				  pSrc,
-				  pPicture,
-				  pDst,
-				  xSrc + (x - glyph->info.x) - xDst,
-				  ySrc + (y - glyph->info.y) - yDst,
-				  0, 0,
-				  x - glyph->info.x,
-				  y - glyph->info.y,
-				  glyph->info.width,
-				  glyph->info.height);
+		if (maskFormat)
+		{
+		    CompositePicture (PictOpAdd,
+				      pPicture,
+				      None,
+				      pMask,
+				      0, 0,
+				      0, 0,
+				      x - glyph->info.x,
+				      y - glyph->info.y,
+				      glyph->info.width,
+				      glyph->info.height);
+		}
+		else
+		{
+		    CompositePicture (op,
+				      pSrc,
+				      pPicture,
+				      pDst,
+				      xSrc + (x - glyph->info.x) - xDst,
+				      ySrc + (y - glyph->info.y) - yDst,
+				      0, 0,
+				      x - glyph->info.x,
+				      y - glyph->info.y,
+				      glyph->info.width,
+				      glyph->info.height);
+		}
 	    }
 	    x += glyph->info.xOff;
 	    y += glyph->info.yOff;

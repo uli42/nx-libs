@@ -96,7 +96,7 @@ enum SynchronizationPredicate
  */
 
 #define nxagentDrawable(pDrawable) \
-  ((pDrawable)->type == DRAWABLE_WINDOW ? \
+  (WindowDrawable((pDrawable)->type) ? \
       nxagentWindow((WindowPtr)pDrawable) : \
           nxagentPixmap((PixmapPtr)pDrawable))
 

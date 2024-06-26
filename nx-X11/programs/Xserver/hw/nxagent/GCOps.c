@@ -68,8 +68,8 @@ is" without express or implied warranty.
 
 #define PANIC
 #define WARNING
-#undef  TEST
-#undef  DEBUG
+#define  TEST
+#define  DEBUG
 #undef  DUMP
 
 /* must come after TEST/DEBUG defines */
@@ -93,12 +93,6 @@ static int nxagentSaveGCTrap;
   nxagentGCTrap = nxagentSaveGCTrap; \
 }
  
-/*
- * This is currently unused.
- */
-
-RegionPtr nxagentBitBlitHelper(GC *pGC);
-
 /*
  * The NX agent implementation of the X server's graphics functions.
  */
@@ -187,24 +181,6 @@ void nxagentQueryBestSize(int class, unsigned short *pwidth,
       /* We don't care what height they use */
       break;
   }
-}
-
-RegionPtr nxagentBitBlitHelper(GC *pGC)
-{
-  #ifdef TEST
-  fprintf(stderr, "nxagentBitBlitHelper: Called for GC at [%p].\n", (void *) pGC);
-  #endif
-
-  /*
-   * Force NullRegion. We consider enough the graphics expose events
-   * generated internally by the nxagent server.
-   */
-
-  #ifdef TEST
-  fprintf(stderr, "nxagentBitBlitHelper: WARNING! Skipping check on exposures events.\n");
-  #endif
-
-  return NullRegion;
 }
 
 /*
@@ -1575,35 +1551,11 @@ void nxagentPolyFillRect(DrawablePtr pDrawable, GCPtr pGC,
   }
 
   #ifdef DEBUG
-  if ((pDrawable)->type == DRAWABLE_PIXMAP)
-  {
-    fprintf(stderr, "%s:   nxagentPixmapPriv(%p): [%p]\n", __func__, (void *)pDrawable,
-            (void *)(nxagentPixmapPriv((PixmapPtr)pDrawable)));
-    if (nxagentRealPixmap((PixmapPtr)pDrawable))
-    {
-      fprintf(stderr, "%s:   nxagentRealPixmap(%p): [%p]\n", __func__, (void *)pDrawable,
-              (void *)(nxagentRealPixmap((PixmapPtr)pDrawable)));
-      fprintf(stderr, "%s:   nxagentCorruptedRegion(%p): [%p]\n", __func__, (void *)pDrawable,
-              (void *)(nxagentCorruptedRegion(pDrawable)));
-      fprintf(stderr, "%s:   nxagentPixmapCorruptedRegion(%p): [%p]\n", __func__, (void *)pDrawable,
-              (void *)(nxagentPixmapCorruptedRegion((PixmapPtr)pDrawable)));
-    }
-    else
-    {
-      fprintf(stderr, "%s:   nxagentRealPixmap(%p): is unset!!!\n", __func__, (void *)pDrawable);
-    }
-
-    if (nxagentVirtualPixmap((PixmapPtr)pDrawable))
-    {
-      fprintf(stderr, "%s:   nxagentVirtualPixmap(%p): [%p]\n", __func__, (void *)pDrawable,
-              (void *)(nxagentVirtualPixmap((PixmapPtr)pDrawable)));
-    }
-    else
-    {
-      fprintf(stderr, "%s:   nxagentVirtualPixmap(%p): is unset!!!\n", __func__, (void *)pDrawable);
-    }
-  }
+  nxagentPrintDrawableInfo(pDrawable);
   #endif
+
+  if (!nxagentRealPixmap((PixmapPtr)pDrawable))
+    return;
 
   if (nxagentRealPixmap((PixmapPtr)pDrawable) && (inheritCorruptedRegion || nxagentDrawableStatus(pDrawable) == NotSynchronized))
   {
@@ -1701,6 +1653,10 @@ void nxagentPolyFillRect(DrawablePtr pDrawable, GCPtr pGC,
   {
     XFillRectangles(nxagentDisplay, nxagentDrawable(pDrawable), nxagentGC(pGC),
                         (XRectangle *) pRectangles, nRectangles);
+
+    PixmapPtr pPixmap =  fbGetWindowPixmap(pDrawable);
+    fprintf(stderr, "%s: fbGetWindowPixmap(%p): [%p]\n", __func__, (void *)pDrawable, (void *)pPixmap);
+    fprintf(stderr, "%s: privates: [%p]\n", __func__, (void *)nxagentPixmapPriv(pPixmap));
 
     fbPolyFillRect(pDrawable, pGC, nRectangles, pRectangles);
   }

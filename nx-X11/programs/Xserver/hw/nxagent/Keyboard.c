@@ -377,10 +377,17 @@ int nxagentKeyboardProc(DeviceIntPtr pDev, int onoff)
     case DEVICE_INIT:
 
       if (!pDev->name)
-        pDev->name = strdup("NX keyboard");
+      {
+#ifdef X2GO
+	if (nxagentX2go)
+	  pDev->name = strdup("X2go keyboard");
+	else
+#endif
+          pDev->name = strdup("NX keyboard");
+      }
 
       #ifdef TEST
-      fprintf(stderr, "%s: Called for [DEVICE_INIT].\n", __func__);
+      fprintf(stderr, "%s: Called for [DEVICE_INIT] device [%s].\n", __func__, pDev->name);
       #endif
 
       if (NXDisplayError(nxagentDisplay) == 1)
@@ -758,13 +765,16 @@ XkbError:
           }
         }
 
+	/* FIXME: looks overly complicated */
+        XkbRMLVOSet rmlvodef;
         XkbRMLVOSet rmlvo;
-        XkbGetRulesDflts(&rmlvo);
-        if (rules) rmlvo.rules = rules;
-        if (model) rmlvo.model = model;
-        if (layout) rmlvo.layout = layout;
-        if (variant) rmlvo.variant = variant;
-        if (options) rmlvo.options = options;
+	XkbGetRulesDflts(&rmlvodef);
+	rmlvo.rules   = rules   ? rules   : strdup(rmlvodef.rules);
+	rmlvo.model   = model   ? model   : strdup(rmlvodef.model);
+	rmlvo.layout  = layout  ? layout  : strdup(rmlvodef.layout);
+	rmlvo.variant = variant ? variant : strdup(rmlvodef.variant);
+	rmlvo.options = options ? options : strdup(rmlvodef.options);
+	XkbFreeRMLVOSet(&rmlvodef, False);
 
         #ifdef DEBUG
         fprintf(stderr, "%s: Going to set rules and init device: "
@@ -776,6 +786,9 @@ XkbError:
 	//        XkbSetRulesDflts(&rmlvo);
         InitKeyboardDeviceStruct(pDev, &rmlvo,
                                  nxagentBell, nxagentChangeKeyboardControl);
+
+	// no longer needed
+	XkbFreeRMLVOSet(&rmlvo, False);
 
         if (nxagentKeyboard && strcmp(nxagentKeyboard, "query") == 0)
         {
@@ -841,7 +854,7 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
     case DEVICE_ON:
 
       #ifdef TEST
-      fprintf(stderr, "%s: Called for [DEVICE_ON].\n", __func__);
+      fprintf(stderr, "%s: Called for [DEVICE_ON] device [%s].\n", __func__, pDev->name);
       #endif
 
       if (NXDisplayError(nxagentDisplay) == 1)
@@ -870,7 +883,7 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
     case DEVICE_OFF:
 
       #ifdef TEST
-      fprintf(stderr, "%s: Called for [DEVICE_OFF].\n", __func__);
+      fprintf(stderr, "%s: Called for [DEVICE_OFF] device [%s].\n", __func__, pDev->name);
       #endif
 
       if (NXDisplayError(nxagentDisplay) == 1)
@@ -884,7 +897,7 @@ Reply   Total	Cached	Bits In			Bits Out		Bits/Reply	  Ratio
 
     case DEVICE_CLOSE:
       #ifdef TEST
-      fprintf(stderr, "%s: Called for [DEVICE_CLOSE].\n", __func__);
+      fprintf(stderr, "%s: Called for [DEVICE_CLOSE] device [%s].\n", __func__, pDev->name);
       #endif
 
       break;
@@ -1258,7 +1271,7 @@ void nxagentInitXkbWrapper(void)
 }
 
 void nxagentDisableXkbExtension(void)
-{  
+{
   #ifdef TEST
   fprintf(stderr, "%s: Called.\n", __func__);
   #endif

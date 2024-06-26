@@ -75,8 +75,8 @@ RESTYPE RT_NX_GC;
 
 #define PANIC
 #define WARNING
-#undef  TEST
-#undef  DEBUG
+#define  TEST
+#define  DEBUG
 
 #include "Literals.h"
 
@@ -147,6 +147,8 @@ static GCOps nxagentOps =
 
 Bool nxagentCreateGC(GCPtr pGC)
 {
+  static Bool first_call = True; /* track if this is the first call to this function */
+
   pGC->clientClipType = CT_NONE;
   pGC->clientClip = NULL;
 
@@ -163,8 +165,28 @@ Bool nxagentCreateGC(GCPtr pGC)
                     (void*)nxagentVirtualPixmap(pGC -> stipple), nxagentVirtualPixmap(pGC -> stipple)->refcnt);
     #endif
 
+    /*
+     * At the first call to this function the refcnt of the stipple is
+     * just what dix expects. If we reduce it nxagentDestroyPixmap
+     * would eventually fully free the pximap and FreeDefaultStipple
+     * would then access it (use after free). To work around this
+     * increate the refcnt by 1 _once_.
+     */
+
+    if (first_call)
+    {
+      //    ++pGC -> stipple->refcnt; //!!!!
+      first_call = False;
+    }
+
+#if defined(FULL_REFCNT) || 1
+    --pGC -> stipple->refcnt; //!!!!
+#endif
     pGC -> stipple = nxagentVirtualPixmap(pGC -> stipple);
-    
+#if defined(FULL_REFCNT) || 1
+    ++pGC -> stipple->refcnt; //!!!!
+#endif
+
     #ifdef DEBUG
     fprintf(stderr, "%s: GC [%p] has new refcnts: real [%p] refcnt [%d], virtual [%p] refcnt [%d].\n", __func__,
                 (void*)pGC, (void*)nxagentRealPixmap(pGC -> stipple), nxagentRealPixmap(pGC -> stipple)->refcnt,
@@ -189,7 +211,7 @@ Bool nxagentCreateGC(GCPtr pGC)
   #endif
 
   FbGCPrivPtr pPriv = ((FbGCPrivPtr)dixLookupPrivate(&(pGC)->devPrivates, fbGetGCPrivateKey()));
-  
+
   fbGetRotatedPixmap(pGC) = 0;
   fbGetExpose(pGC) = 1;
   fbGetFreeCompClip(pGC) = 0;
@@ -227,19 +249,8 @@ void nxagentValidateGC(GCPtr pGC, unsigned long changes, DrawablePtr pDrawable)
 	  (void *) pGC, nxagentDrawableTypeLiteral[pDrawable->type], (void *) pDrawable, changes);
   #endif
 
-  #ifdef DEBUG
   if (!pGC->tileIsPixel)
-    fprintf(stderr, "nxagentValidateGC: no pixel, tile.pixmap [%p] PixmapIsVirtual [%d] virtual pixmap [%p].\n",
-	    (void *)pGC->tile.pixmap,
-	    pGC->tile.pixmap ? nxagentPixmapIsVirtual(pGC -> tile.pixmap) : 5555,
-	    pGC->tile.pixmap ? (void *)nxagentVirtualPixmap(pGC -> tile.pixmap) : NULL
-	    );
-  #endif
-
-  if (!pGC -> tileIsPixel && !nxagentPixmapIsVirtual(pGC -> tile.pixmap))
   {
-    pGC -> tile.pixmap = nxagentVirtualPixmap(pGC -> tile.pixmap); 
-
     #ifdef DEBUG
     fprintf(stderr, "%s: no pixel, tile.pixmap [%s:%p] PixmapIsVirtual [%d] virtual pixmap [%p].\n", __func__,
 	    nxagentDrawableTypeLiteral[pGC->tile.pixmap->drawable.type], (void *)pGC->tile.pixmap,
@@ -247,9 +258,19 @@ void nxagentValidateGC(GCPtr pGC, unsigned long changes, DrawablePtr pDrawable)
 	    pGC->tile.pixmap ? nxagentPixmapIsVirtual(pGC->tile.pixmap) ? NULL : (void *)nxagentVirtualPixmap(pGC->tile.pixmap) : NULL
 	    );
     #endif
-  }
 
-  PixmapPtr lastTile = pGC -> tile.pixmap;
+    if (!nxagentPixmapIsVirtual(pGC -> tile.pixmap))
+    {
+      PixmapPtr prev = pGC->tile.pixmap;
+#ifdef FULL_REFCNT
+      if (pGC->tile.pixmap)
+	pGC -> tile.pixmap->refcnt--;//!!
+#endif
+      pGC -> tile.pixmap = nxagentVirtualPixmap(pGC -> tile.pixmap);
+#ifdef FULL_REFCNT
+      if (pGC->tile.pixmap)
+	pGC -> tile.pixmap->refcnt++;//!!
+#endif
 
       #ifdef DEBUG
       fprintf(stderr, "%s: new tile.pixmap [%p] refcnt [%d] (previous: [%p] refcnt [%d])\n", __func__,
@@ -259,11 +280,20 @@ void nxagentValidateGC(GCPtr pGC, unsigned long changes, DrawablePtr pDrawable)
     }
   }
 
+  PixmapPtr lastTile = pGC->tile.pixmap;
+
   PixmapPtr lastStipple = pGC->stipple;
-  
+
   if (lastStipple)
   {
+#ifdef FULL_REFCNT
+    lastStipple->refcnt--;
+#endif
+
     pGC->stipple = nxagentVirtualPixmap(pGC->stipple);
+#ifdef FULL_REFCNT
+    pGC->stipple->refcnt++;
+#endif
   }
 
   #ifdef TEST
@@ -332,14 +362,24 @@ void nxagentValidateGC(GCPtr pGC, unsigned long changes, DrawablePtr pDrawable)
 
     nxagentPixmapIsVirtual(pGC->tile.pixmap) = True;
     nxagentRealPixmap(pGC->tile.pixmap) = nxagentRealPixmap(lastTile);
-
+#ifdef FULL_REFCNT
+    nxagentRealPixmap(lastTile)->refcnt++;   //!!
+#endif
     if (nxagentRealPixmap(lastTile))
     {
       nxagentPixmapPriv(nxagentRealPixmap(lastTile))->pVirtualPixmap = pGC->tile.pixmap;
     }
   }
 
+#ifdef FULL_REFCNT
+  if (pGC->stipple)
+    pGC->stipple->refcnt--;
+#endif
   pGC->stipple = lastStipple;
+#ifdef FULL_REFCNT
+  if (pGC->stipple)
+    pGC->stipple->refcnt++;
+#endif
 }
 
 #define CHECKGCVAL(cmask, member, val) do {if (mask & cmask) { values.member = (val); changeFlag += nxagentTestGC(values.member, member); } } while (0)
@@ -409,7 +449,15 @@ void nxagentChangeGC(GCPtr pGC, unsigned long mask)
 
       values.tile = nxagentPixmap(pGC->tile.pixmap);
 
+#ifdef FULL_REFCNT
+      if (pGC->tile.pixmap)
+	pGC->tile.pixmap->refcnt--;
+#endif
       pGC->tile.pixmap = nxagentVirtualPixmap(pGC->tile.pixmap);
+#ifdef FULL_REFCNT
+      if (pGC->tile.pixmap)
+	pGC->tile.pixmap->refcnt++;
+#endif
 
       #ifdef TEST
       fprintf(stderr, "nxagentChangeGC: New tile on GC [%p] tile is [%p]\n",
@@ -435,7 +483,15 @@ void nxagentChangeGC(GCPtr pGC, unsigned long mask)
 
     values.stipple = nxagentPixmap(pGC->stipple);
 
+#ifdef FULL_REFCNT
+    if (pGC->stipple)
+      pGC->stipple->refcnt--;
+#endif
     pGC->stipple = nxagentVirtualPixmap(pGC->stipple);
+#ifdef FULL_REFCNT
+    if (pGC->stipple)
+      pGC->stipple->refcnt++;
+#endif
 
     #ifdef TEST
     fprintf(stderr, "nxagentChangeGC: New stipple on GC [%p] stipple is [%p] refcnt [%d]\n",
@@ -459,7 +515,7 @@ void nxagentChangeGC(GCPtr pGC, unsigned long mask)
       values.font = nxagentFont(pGC->font);
       changeFlag += nxagentTestGC(values.font, font);
     }
-  } 
+  }
 
   CHECKGCVAL(GCSubwindowMode, subwindow_mode, pGC->subWindowMode);
   CHECKGCVAL(GCGraphicsExposures, graphics_exposures, pGC->graphicsExposures);
@@ -547,6 +603,9 @@ void nxagentDestroyGC(GCPtr pGC)
   }
 
   XFreeGC(nxagentDisplay, nxagentGC(pGC));
+
+  //  if (pGC->stipple)
+  //  pGC->stipple->refcnt --;
 
   miDestroyGC(pGC);
 }
@@ -651,7 +710,7 @@ void nxagentChangeClip(GCPtr pGC, int type, void * pValue, int nRects)
     case CT_UNSORTED:
     {
       if (!clipsMatch && !nxagentGCTrap)
-      {    
+      {
         XSetClipRectangles(nxagentDisplay, nxagentGC(pGC),
                                pGC->clipOrg.x, pGC->clipOrg.y,
                                    (XRectangle *)pValue, nRects, Unsorted);
@@ -772,7 +831,7 @@ void nxagentCopyClip(GCPtr pGCDst, GCPtr pGCSrc)
 {
   #ifdef TEST
   fprintf(stderr, "nxagentCopyClip: Going to copy clip from GC [%p] to GC [%p]\n",
-              (void *) pGCDst, (void *) pGCSrc);
+              (void *) pGCSrc, (void *) pGCDst);
   #endif
 
   switch (pGCSrc->clientClipType)
@@ -1106,7 +1165,7 @@ void nxagentDisconnectGC(void * p0, XID x1, void * p2)
     PixmapPtr pMap = pGC -> stipple;
     nxagentDisconnectPixmap(nxagentRealPixmap(pMap), 0, pBool);
   }
-} 
+}
 
 Bool nxagentDisconnectAllGCs(void)
 {
@@ -1307,7 +1366,7 @@ static Bool nxagentCompareRegions(RegionPtr r1, RegionPtr r2)
 }
 
 /*
- * This function have to be called in the place of GetScratchGC if the
+ * This function has to be called in place of GetScratchGC if the
  * GC will be used to perform operations also on the remote X Server.
  * This is why we call the XChangeGC at the end of the function.
  */
@@ -1441,7 +1500,7 @@ GCPtr nxagentCreateGraphicContext(int depth)
    */
 
   nxagentGraphicContextsPtr nxagentGCs = realloc(nxagentGraphicContexts, (nxagentGraphicContextsSize + 1) * sizeof(nxagentGraphicContextsRec));
-   
+
   if (nxagentGCs == NULL)
   {
     #ifdef WARNING
@@ -1526,4 +1585,3 @@ void nxagentDisconnectGraphicContexts(void)
 
   return;
 }
-

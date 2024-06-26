@@ -55,6 +55,7 @@ is" without express or implied warranty.
 #include "Pointer.h"
 #include "Events.h"
 #include "Options.h"
+#include "Init.h"
 #include "xkbsrv.h"
 
 #include "compext/Compext.h"
@@ -65,8 +66,8 @@ is" without express or implied warranty.
 
 #define PANIC
 #define WARNING
-#undef  TEST
-#undef  DEBUG
+#define  TEST
+#define  DEBUG
 
 /*
  * The nxagentReversePointerMap array is used to memorize remote
@@ -113,10 +114,17 @@ int nxagentPointerProc(DeviceIntPtr pDev, int onoff)
     case DEVICE_INIT:
 
       if (!pDev->name)
-	pDev->name = strdup("NX pointer");
+      {
+#ifdef X2GO
+        if (nxagentX2go)
+          pDev->name = strdup("X2go pointer");
+        else
+#endif
+          pDev->name = strdup("NX pointer");
+      }
 
       #ifdef TEST
-      fprintf(stderr, "%s: Called for [DEVICE_INIT].\n", __func__);
+      fprintf(stderr, "%s: Called for [DEVICE_INIT] device [%s].\n", __func__, pDev->name);
       #endif
 
       if (NXDisplayError(nxagentDisplay) == 1)
@@ -154,7 +162,7 @@ int nxagentPointerProc(DeviceIntPtr pDev, int onoff)
     case DEVICE_ON:
 
       #ifdef TEST
-      fprintf(stderr, "%s: Called for [DEVICE_ON].\n", __func__);
+      fprintf(stderr, "%s: Called for [DEVICE_ON] device [%s].\n", __func__, pDev->name);
       #endif
 
       if (NXDisplayError(nxagentDisplay) == 1)
@@ -171,7 +179,7 @@ int nxagentPointerProc(DeviceIntPtr pDev, int onoff)
     case DEVICE_OFF:
 
       #ifdef TEST
-      fprintf(stderr, "%s: Called for [DEVICE_OFF].\n", __func__);
+      fprintf(stderr, "%s: Called for [DEVICE_OFF] device [%s].\n", __func__, pDev->name);
       #endif
 
       if (NXDisplayError(nxagentDisplay) == 1)
@@ -185,7 +193,7 @@ int nxagentPointerProc(DeviceIntPtr pDev, int onoff)
 
     case DEVICE_CLOSE:
       #ifdef TEST
-      fprintf(stderr, "%s: Called for [DEVICE_CLOSE].\n", __func__);
+      fprintf(stderr, "%s: Called for [DEVICE_CLOSE] device [%s].\n", __func__, pDev->name);
       #endif
 
       break;

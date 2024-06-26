@@ -62,8 +62,8 @@
 
 #define PANIC
 #define WARNING
-#undef  TEST
-#undef  DEBUG
+#define  TEST
+#define  DEBUG
 
 #include "Literals.h"
 
@@ -1066,11 +1066,9 @@ ProcRenderCompositeGlyphs (ClientPtr client)
 	{
 #ifdef NXAGENT_SERVER
             #ifdef DEBUG
-            fprintf(stderr, "ProcRenderCompositeGlyphs: Glyphset change with base size [%d].\n",
-                        size);
+            fprintf(stderr, "%s: Glyphset change with base size [%d].\n", __func__, size);
             #endif
 #endif
-
 	    if (buffer + sizeof (GlyphSet) < end)
 	    {
                 memcpy(&gs, buffer, sizeof(GlyphSet));
@@ -1114,6 +1112,12 @@ ProcRenderCompositeGlyphs (ClientPtr client)
             elements -> nchars = elt->len;
             elements -> xOff = elt->deltax;
             elements -> yOff = elt->deltay;
+
+            #ifdef TEST
+	    fprintf(stderr, "%s: nchars [%d] xOff [%d] yOff [%d] glyphSet->remoteID [%d] len [%d].\n",
+		    __func__, elements->nchars, elements->xOff, elements->yOff, elements->glyphset, elt->len);
+            #endif
+
 #endif
 	    n = elt->len;
 	    while (n--)
@@ -1160,11 +1164,10 @@ ProcRenderCompositeGlyphs (ClientPtr client)
 
 #ifdef NXAGENT_SERVER
     /*
-     * We need to know the glyphs extents to synchronize
-     * the drawables involved in the composite text ope-
-     * ration. Also we need to synchronize only the back-
-     * ground of the text we are going to render, so the
-     * operations on the framebuffer must be executed
+     * We need to know the glyphs extents to synchronize the drawables
+     * involved in the composite text operation. Also we need to
+     * synchronize only the background of the text we are going to
+     * render, so the operations on the framebuffer must be executed
      * after the X requests.
      */
 

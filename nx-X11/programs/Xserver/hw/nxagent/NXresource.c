@@ -132,19 +132,18 @@ Equipment Corporation.
 
 #define PANIC
 #define WARNING
-#undef  TEST
-#undef  DEBUG
+#define  TEST
+#define  DEBUG
 
 #ifdef NXAGENT_SERVER
 static int nxagentResChangedFlag = 0;
 #endif
 
-#ifdef NXAGENT_SERVER
-int nxagentFindClientResource(int client, RESTYPE type, void * value)
+Bool nxagentFindClientResource(int clientidx, RESTYPE type, void * value)
 {
-  for (int i = 0; i < clientTable[client].buckets; i++)
+  for (int i = 0; i < clientTable[clientidx].buckets; i++)
   {
-    ResourcePtr *resources = clientTable[client].resources;
+    ResourcePtr *resources = clientTable[clientidx].resources;
 
     for (ResourcePtr pResource = resources[i]; pResource; pResource = pResource -> next)
     {
@@ -153,18 +152,18 @@ int nxagentFindClientResource(int client, RESTYPE type, void * value)
         #ifdef TEST
         fprintf(stderr, "nxagentFindClientResource: Found resource [%p] type [%lu] "
                     "for client [%d].\n", (void *) value,
-                        pResource -> type, client);
+                        pResource -> type, clientidx);
         #endif
 
-        return 1;
+        return True;
       }
     }
   }
 
-  return 0;
+  return False;
 }
 
-int nxagentSwitchResourceType(int client, RESTYPE type, void * value)
+static Bool nxagentSwitchResourceType(int client, RESTYPE type, void * value)
 {
   RESTYPE internalType = 0;
 
@@ -182,7 +181,7 @@ int nxagentSwitchResourceType(int client, RESTYPE type, void * value)
   }
   else
   {
-    return 0;
+    return False;
   }
 
   if (client == serverClient -> index)
@@ -192,7 +191,7 @@ int nxagentSwitchResourceType(int client, RESTYPE type, void * value)
                 client);
     #endif
 
-    return 0;
+    return False;
   }
 
   for (int i = 0; i < clientTable[serverClient -> index].buckets; i++)
@@ -213,18 +212,19 @@ int nxagentSwitchResourceType(int client, RESTYPE type, void * value)
 
         FreeResource(pResource -> id, RT_NONE);
 
-        return 1;
+        return True;
       }
     }
   }
 
-  return 0;
+  return False;
 }
-#endif /* NXAGENT_SERVER */
 
 Bool
 AddResource(XID id, RESTYPE type, void * value)
 {
+    xorg_backtrace();
+
     int client;
     ClientResourceRec *rrec;
     ResourcePtr res, *head;
@@ -302,6 +302,12 @@ FreeResource(XID id, RESTYPE skipDeleteFuncType)
 	    if (res->id == id)
 	    {
 		RESTYPE rtype = res->type;
+
+#ifdef NXAGENT_SERVER
+                #ifdef TEST
+		fprintf(stderr, "%s: resource id [%lu] type [%s].\n", __func__, (unsigned long) res->id, LookupResourceName(rtype));
+                #endif
+#endif
 
 #ifdef XSERVER_DTRACE
 		XSERVER_RESOURCE_FREE(res->id, res->type,

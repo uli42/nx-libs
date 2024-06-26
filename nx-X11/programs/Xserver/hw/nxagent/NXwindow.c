@@ -423,7 +423,6 @@ ConfigureWindow(register WindowPtr pWin, register Mask mask, XID *vlist, ClientP
                 !nxagentScreenTrap)
     {
       nxagentConfigureRootlessWindow(pWin, x, y, w, h, bw, pSib, smode, mask);
-
       return Success;
     }
 #endif
@@ -643,7 +642,7 @@ ReparentWindow(register WindowPtr pWin, register WindowPtr pParent,
     if (pWin->prevSib)
 	pWin->prevSib->nextSib = pWin->nextSib;
 
-    /* insert at begining of pParent */
+    /* insert at beginning of pParent */
     pWin->parent = pParent;
     pPrev = RealChildHead(pParent);
 
@@ -706,7 +705,7 @@ ReparentWindow(register WindowPtr pWin, register WindowPtr pParent,
  *****/
 
 int
-MapWindow(register WindowPtr pWin, ClientPtr client)
+MapWindow(WindowPtr pWin, ClientPtr client)
 {
     ScreenPtr pScreen;
 

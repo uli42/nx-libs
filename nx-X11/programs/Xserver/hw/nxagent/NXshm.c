@@ -81,6 +81,31 @@ extern void fbGetImage(DrawablePtr pDrw, int x, int y, int w, int h,
 
 extern int nxagentImageLength(int, int, int, int, int);
 
+/*
+ * FIXME: For some reason ShmCloseScreen is not called. Therefor we
+ * have to call it ourselves in nxagentCloseScreen. Bit if we'd simply
+ * call it we'd run the CloseScreen cascade again, with unforseeable
+ * effects. For this reason we provide a version of ShmCloseScreen
+ * that simply omits calling the cascade.
+ */
+Bool
+ShmCloseScreen(int i, ScreenPtr pScreen)
+{
+    fprintf(stderr, "%s enter\n", __func__);
+    ShmScrPrivateRec *screen_priv = ShmGetScreenPriv(pScreen);
+#ifndef NXAGENT_SERVER
+    pScreen->CloseScreen = screen_priv->CloseScreen;
+#endif
+    dixSetPrivate(&pScreen->devPrivates, shmScrPrivateKey, NULL);
+    free(screen_priv);
+    fprintf(stderr, "%s leave\n", __func__);
+#ifdef NXAGENT_SERVER
+    return TRUE;
+#else
+    return (*pScreen->CloseScreen) (i, pScreen);
+#endif
+}
+
 void
 ShmExtensionInit(void)
 {
@@ -94,6 +119,13 @@ ShmExtensionInit(void)
   }
 #endif
   
+  if (nxagentOption(SharedPixmaps))
+  {
+    /* below trick is only required if SharePixmaps is false */
+    xorg_ShmExtensionInit();
+    return;
+  }
+
   /*
    * xorg_ShmExtensionInit assumes sharedPixmaps being xTrue. It then
    * does some checks and sets it to xFalse under some
@@ -105,14 +137,12 @@ ShmExtensionInit(void)
    * sharedPixmaps disablement.
    */
 
-  if (!nxagentOption(SharedPixmaps))
+  for (int i = 0; i < screenInfo.numScreens; i++)
   {
-    for (int i = 0; i < screenInfo.numScreens; i++)
-    {
-      ShmScrPrivateRec *screen_priv = ShmInitScreenPriv(screenInfo.screens[i]);
-      store[i] = screen_priv->shmFuncs;
-      screen_priv->shmFuncs = &nullfuncs;
-    }
+    ShmScrPrivateRec *screen_priv = ShmInitScreenPriv(screenInfo.screens[i]);
+    //ShmScrPrivateRec *screen_priv = ShmGetScreenPriv(screenInfo.screens[i]);
+    store[i] = screen_priv->shmFuncs;
+    screen_priv->shmFuncs = &nullfuncs;
   }
 
   xorg_ShmExtensionInit();
@@ -120,24 +150,22 @@ ShmExtensionInit(void)
   /*
    * reset shmFuncs array to the previous values if they have not
    * been altered by xorg_ShmExtensionInit. If the value has been
-   * NULL before we set it in &miFuncs, just like
+   * NULL before we set it to &miFuncs, just like
    * xorg_ShmExtensionInit would have done in that case.
    */
-  if (!nxagentOption(SharedPixmaps))
+  for (int i = 0; i < screenInfo.numScreens; i++)
   {
-    for (int i = 0; i < screenInfo.numScreens; i++)
+    //    ShmScrPrivateRec *screen_priv = ShmInitScreenPriv(screenInfo.screens[i]);
+    ShmScrPrivateRec *screen_priv = ShmGetScreenPriv(screenInfo.screens[i]);
+    if (screen_priv->shmFuncs == &nullfuncs)
     {
-      ShmScrPrivateRec *screen_priv = ShmInitScreenPriv(screenInfo.screens[i]);
-      if (screen_priv->shmFuncs == &nullfuncs)
+      if (store[i])
       {
-        if (store[i] == NULL)
-        {
-          screen_priv->shmFuncs = &miFuncs;
-        }
-        else
-        {
-          screen_priv->shmFuncs = store[i];
-        }
+	screen_priv->shmFuncs = store[i];
+      }
+      else
+      {
+	screen_priv->shmFuncs = &miFuncs;
       }
     }
   }

@@ -516,7 +516,7 @@ Bool nxagentRealizeFont(ScreenPtr pScreen, FontPtr pFont)
         name = origName;
     }
 
-    void *priv = (void *)malloc(sizeof(nxagentPrivFont));
+    void *priv = malloc(sizeof(nxagentPrivFont));
 #ifdef HAS_XFONT2
     xfont2_font_set_private(pFont, nxagentFontPrivateIndex, priv);
 #else

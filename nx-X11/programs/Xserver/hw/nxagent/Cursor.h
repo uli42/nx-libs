@@ -118,4 +118,24 @@ void nxagentReDisplayCurrentCursor(void);
 Bool nxagentReconnectAllCursor(void *p0);
 void nxagentDisconnectAllCursor(void);
 
+#include "mipointrst.h"
+
+typedef struct {
+    miPointerSpriteFuncPtr spriteFuncs;
+} nxagentCursorFuncRec, *nxagentCursorFuncPtr;
+
+extern DevPrivateKeyRec nxagentCursorScreenKeyRec;
+#define nxagentCursorScreenKey (&nxagentCursorScreenKeyRec)
+extern nxagentCursorFuncRec nxagentCursorFuncs;
+
+void nxagentSetCursor (DeviceIntPtr pDev,
+                     ScreenPtr pScreen,
+                     CursorPtr pCursor,
+                     int x, int y);
+void nxagentMoveCursor (DeviceIntPtr pDev,
+                      ScreenPtr pScreen,
+                      int x, int y);
+Bool nxagentDeviceCursorInitialize(DeviceIntPtr pDev, ScreenPtr pScreen);
+void nxagentDeviceCursorCleanup(DeviceIntPtr pDev, ScreenPtr pScreen);
+
 #endif /* __Cursor_H__ */

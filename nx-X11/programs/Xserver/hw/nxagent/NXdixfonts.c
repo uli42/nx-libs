@@ -268,12 +268,12 @@ doOpenFont(ClientPtr client, OFclosurePtr c)
 	}
 	if (err == Suspended) {
 	    if (!ClientIsAsleep(client)) {
-		ClientSleep(client, (ClientSleepProcPtr)doOpenFont, c);
 #ifdef NXAGENT_SERVER
                 #ifdef DEBUG
                 fprintf(stderr, " NXdixfonts: doOpenFont: client [%lx] sleeping.\n", client);
                 #endif
 #endif
+		ClientSleep(client, (ClientSleepProcPtr)doOpenFont, c);
 	    }
 	    else
 		goto xinerama_sleep;
@@ -363,12 +363,12 @@ bail:
 	SendErrorToClient(c->client, X_OpenFont, 0,
 			  c->fontid, FontToXError(err));
     }
-    ClientWakeup(c->client);
 #ifdef NXAGENT_SERVER
     #ifdef DEBUG
     fprintf(stderr, " NXdixfonts: doOpenFont: client [%lx] wakeup.\n", client);
     #endif
 #endif
+    ClientWakeup(c->client);
 xinerama_sleep:
     for (i = 0; i < c->num_fpes; i++) {
 	FreeFPE(c->fpe_list[i]);

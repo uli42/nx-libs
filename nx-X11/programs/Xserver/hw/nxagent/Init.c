@@ -428,15 +428,25 @@ void nxagentNotifyConnection(int fd, int ready, void *data)
 void InitInput(int argc, char *argv[])
 {
   int rc;
-  rc = AllocDevicePair(serverClient, "nxagent",
-                       &nxagentPointerDevice,
-                       &nxagentKeyboardDevice,
-                       nxagentPointerProc,
-                       nxagentKeyboardProc,
-                       FALSE);
+#ifdef X2GO
+  if (nxagentX2go)
+    rc = AllocDevicePair(serverClient, "X2Go",
+                         &nxagentPointerDevice,
+                         &nxagentKeyboardDevice,
+                         nxagentPointerProc,
+                         nxagentKeyboardProc,
+                         FALSE);
+  else
+#endif
+    rc = AllocDevicePair(serverClient, "NX",
+                         &nxagentPointerDevice,
+                         &nxagentKeyboardDevice,
+                         nxagentPointerProc,
+                         nxagentKeyboardProc,
+                         FALSE);
 
   if (rc != Success)
-      FatalError("Failed to init NX default devices.\n");
+      FatalError("Failed to init default devices.\n");
 
   GetEventList(&nxagentEvents);
 
@@ -473,7 +483,7 @@ void InitInput(int argc, char *argv[])
 
 void CloseInput(void)
 {
-  /* Cleanup waht InitInput allocated */
+  /* Cleanup whatever InitInput allocated */
 }
 
 /*

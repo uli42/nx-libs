@@ -74,10 +74,14 @@ is" without express or implied warranty.
 
 #define PANIC
 #define WARNING
-#undef  TEST
-#undef  DEBUG
+#define  TEST
+#define  DEBUG
+
+/* FIXME: Check for complete update to fd439afdfe7ba451aff19b62d1764e4dfd0b782f from 2004! */
 
 CursorBitsPtr nxagentAnimCursorBits;
+
+nxagentCursorFuncRec nxagentCursorFuncs = {NULL};
 
 /*
  * Defined in Display.c. There are huge problems mixing the GC
@@ -125,7 +129,10 @@ Bool nxagentDisplayCursor(DeviceIntPtr pDev, ScreenPtr pScreen, CursorPtr pCurso
    * the parent's cursor.
    */
 
-  Cursor cursor = (pCursor != rootCursor) ? nxagentCursor(pCursor, pScreen): None;
+  Cursor cursor = None;
+  if (pCursor && pCursor != rootCursor) {
+    cursor = nxagentCursor(pCursor, pScreen);
+  }
 
   if (!nxagentOption(Rootless))
   {
@@ -227,7 +234,7 @@ Bool nxagentRealizeCursor(DeviceIntPtr pDev, ScreenPtr pScreen, CursorPtr pCurso
   };
 
   nxagentSetCursorPriv(pCursor, pScreen, malloc(sizeof(nxagentPrivCursor)));
-  nxagentCursor(pCursor, pScreen) = 
+  nxagentCursor(pCursor, pScreen) =
          XCreatePixmapCursor(nxagentDisplay, source, mask, &fg_color,
                                  &bg_color, pCursor->bits->xhot, pCursor->bits->yhot);
 
@@ -561,3 +568,44 @@ void nxagentListCursors(void)
 }
 
 #endif /* NXAGENT_RECONNECT_CURSOR_DEBUG */
+
+
+void nxagentSetCursor (DeviceIntPtr pDev, ScreenPtr pScreen, CursorPtr pCursor, int x, int y)
+{
+#if 1
+  // FIXME: we call XDefineCursor above, too
+  if (pCursor)
+    {
+        XDefineCursor(nxagentDisplay,
+                      nxagentDefaultWindows[pScreen->myNum],
+                      nxagentCursor(pCursor, pScreen));
+    }
+#endif
+}
+
+void
+nxagentMoveCursor (DeviceIntPtr pDev, ScreenPtr pScreen, int x, int y)
+{
+}
+
+ Bool
+nxagentDeviceCursorInitialize(DeviceIntPtr pDev, ScreenPtr pScreen)
+{
+    nxagentCursorFuncPtr pScreenPriv;
+
+    pScreenPriv = (nxagentCursorFuncPtr)
+            dixLookupPrivate(&pScreen->devPrivates, nxagentCursorScreenKey);
+
+    return pScreenPriv->spriteFuncs->DeviceCursorInitialize(pDev, pScreen);
+}
+
+void
+nxagentDeviceCursorCleanup(DeviceIntPtr pDev, ScreenPtr pScreen)
+{
+    nxagentCursorFuncPtr pScreenPriv;
+
+    pScreenPriv = (nxagentCursorFuncPtr)
+            dixLookupPrivate(&pScreen->devPrivates, nxagentCursorScreenKey);
+
+    pScreenPriv->spriteFuncs->DeviceCursorCleanup(pDev, pScreen);
+}

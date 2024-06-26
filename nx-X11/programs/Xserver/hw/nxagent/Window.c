@@ -62,6 +62,7 @@
 #include "Composite.h"
 #include "Events.h"
 #include "Utils.h"
+#include "Image.h"
 
 #include <nx/NX.h>
 #include "compext/Compext.h"
@@ -89,8 +90,9 @@ StaticResizedWindowStruct *nxagentStaticResizedWindowList;
 
 #define PANIC
 #define WARNING
-#undef  TEST
-#undef  DEBUG
+#define  TEST
+#define  DEBUG
+#define NXAGENT_RECONNECT_WINDOW_DEBUG
 
 /*
  * Useful to test the window configuration failures.
@@ -162,7 +164,7 @@ nxagentWMStateRec;
  */
 
 #ifdef TEST
-static Bool nxagentCheckWindowIntegrity(WindowPtr pWin);
+static _X_UNUSED Bool nxagentCheckWindowIntegrity(WindowPtr pWin);
 #endif
 
 WindowPtr nxagentGetWindowFromID(Window id)
@@ -282,8 +284,8 @@ Bool nxagentCreateWindow(WindowPtr pWin)
         mask |= CWColormap;
         if (pWin->optional->colormap)
         {
-          dixLookupResourceByType((pointer *)&pCmap, wColormap(pWin),
-                                  RT_COLORMAP, serverClient, DixUseAccess);
+          dixLookupResourceByType((void **)&pCmap, wColormap(pWin), RT_COLORMAP,
+                                  serverClient, DixUseAccess);
           attributes.colormap = nxagentColormap(pCmap);
         }
         else
@@ -306,8 +308,8 @@ Bool nxagentCreateWindow(WindowPtr pWin)
     {
       /* root windows have their own colormaps at creation time */
       visual = nxagentVisualFromID(pWin->drawable.pScreen, wVisual(pWin));
-      dixLookupResourceByType((pointer *)&pCmap, wColormap(pWin),
-                              RT_COLORMAP, serverClient, DixUseAccess);
+      dixLookupResourceByType((void **)&pCmap, wColormap(pWin), RT_COLORMAP,
+                              serverClient, DixUseAccess);
       mask |= CWColormap;
       attributes.colormap = nxagentColormap(pCmap);
     }
@@ -389,18 +391,18 @@ Bool nxagentCreateWindow(WindowPtr pWin)
   {
     fprintf(stderr, "NXAGENT_WINDOW_ID: %s_WINDOW,WID:[0x%x],INT:[0x%x]\n",
                 (pWin->drawable.id == pWin->drawable.pScreen->root->drawable.id) ? "ROOT" : "PRIVATE",
-                    nxagentWindowPriv(pWin)->window, pWin->drawable.id);
+                    nxagentWindow(pWin), pWin->drawable.id);
   }
 
   #ifdef DEBUG
   {
     char *winname = NULL;
 
-    if (-1 != asprintf(&winname, "%s %s[0x%lx]", nxagentWindowName,
+    if (-1 != asprintf(&winname, "%s %s[0x%x]", nxagentWindowName,
                            (pWin->drawable.id == pWin->drawable.pScreen->root->drawable.id) ? "Root" : "Private",
                                pWin->drawable.id))
     {
-      Xutf8SetWMProperties(nxagentDisplay, nxagentWindowPriv(pWin)->window,
+      Xutf8SetWMProperties(nxagentDisplay, nxagentWindow(pWin),
                                winname, winname, NULL , 0 , NULL, NULL, NULL);
       SAFE_free(winname);
     }
@@ -421,7 +423,7 @@ Bool nxagentCreateWindow(WindowPtr pWin)
     XlibAtom prop = nxagentMakeAtom("WM_PROTOCOLS", strlen("WM_PROTOCOLS"), True);
     XlibAtom atom = nxagentMakeAtom("WM_DELETE_WINDOW", strlen("WM_DELETE_WINDOW"), True);
 
-    XSetWMProtocols(nxagentDisplay, nxagentWindowPriv(pWin)->window, &atom, 1);
+    XSetWMProtocols(nxagentDisplay, nxagentWindow(pWin), &atom, 1);
 
     nxagentAddPropertyToList(prop, pWin);
 
@@ -1234,17 +1236,18 @@ void nxagentConfigureWindow(WindowPtr pWin, unsigned int mask)
 {
   unsigned int valuemask;
   XWindowChanges values;
-  int offX = nxagentWindowPriv(pWin)->x - pWin->origin.x;
-  int offY = nxagentWindowPriv(pWin)->y - pWin->origin.y;
 
   if (nxagentScreenTrap)
   {
     #ifdef TEST
-    fprintf(stderr, "nxagentConfigureWindow: WARNING: Called with the screen trap set.\n");
+    fprintf(stderr, "%s: WARNING: Called with the screen trap set.\n", __func__);
     #endif
 
     return;
   }
+
+  int offX = nxagentWindowPriv(pWin)->x - pWin->origin.x;
+  int offY = nxagentWindowPriv(pWin)->y - pWin->origin.y;
 
   if (nxagentOption(Rootless) &&
           nxagentWindowTopLevel(pWin))
@@ -1402,9 +1405,9 @@ void nxagentConfigureWindow(WindowPtr pWin, unsigned int mask)
 
     #ifdef TEST
     {
-      Window root_return;
-      Window parent_return;
-      Window *children_return = NULL;
+      XlibWindow root_return;
+      XlibWindow parent_return;
+      XlibWindow *children_return = NULL;
       unsigned int nchildren_return;
 
       Status result = XQueryTree(nxagentDisplay, DefaultRootWindow(nxagentDisplay),
@@ -1990,12 +1993,28 @@ void miPaintWindow(WindowPtr pWin, RegionPtr pRegion, int what)
 
   if (pWin->backgroundState == BackgroundPixmap)
   {
+#ifdef FULL_REFCNT
+    if (pWin->background.pixmap)
+      pWin->background.pixmap->refcnt--;   //!!!!!!!!
+#endif
     pWin->background.pixmap = nxagentVirtualPixmap(pWin->background.pixmap);
+#ifdef FULL_REFCNT
+    if (pWin->background.pixmap)
+      pWin->background.pixmap->refcnt++;   //!!!!!!!!
+#endif
   }
 
   if (pWin->borderIsPixel == False)
   {
+#ifdef FULL_REFCNT
+    if (pWin->border.pixmap)
+      pWin->border.pixmap->refcnt--;   //!!!!!!!!
+#endif
     pWin->border.pixmap = nxagentVirtualPixmap(pWin->border.pixmap);
+#ifdef FULL_REFCNT
+    if (pWin->border.pixmap)
+      pWin->border.pixmap->refcnt++;   //!!!!!!!!
+#endif
   }
 
   /*
@@ -2017,12 +2036,28 @@ void miPaintWindow(WindowPtr pWin, RegionPtr pRegion, int what)
 
   if (pWin->backgroundState == BackgroundPixmap)
   {
+#ifdef FULL_REFCNT
+    if (pWin->background.pixmap)
+      pWin->background.pixmap->refcnt--;  //!!!!!
+#endif
     pWin->background.pixmap = nxagentRealPixmap(pWin->background.pixmap);
+#ifdef FULL_REFCNT
+    if (pWin->background.pixmap)
+      pWin->background.pixmap->refcnt++;  //!!!!!
+#endif
   }
 
   if (pWin->borderIsPixel == False)
   {
+#ifdef FULL_REFCNT
+    if (pWin->border.pixmap)
+      pWin->border.pixmap->refcnt--;  //!!!!!
+#endif
     pWin->border.pixmap = nxagentRealPixmap(pWin->border.pixmap);
+#ifdef FULL_REFCNT
+    if (pWin->border.pixmap)
+      pWin->border.pixmap->refcnt++;  //!!!!!
+#endif
   }
 }
 
@@ -2113,7 +2148,7 @@ void nxagentWindowExposures(WindowPtr pWin, RegionPtr pRgn, RegionPtr other_expo
   #endif
 
   /*
-   * The problem: we want to synthetize the expose events internally, so
+   * The problem: we want to synthesize the expose events internally, so
    * that we reduce the time between a window operation and the corresp-
    * onding graphical output, but at the same time we need to take care
    * of the remote exposures, as we need to handle those cases where our
@@ -2894,6 +2929,8 @@ static void nxagentReconnectWindow(void * param0, XID param1, void * data_buffer
               (void *) pWin, pWin->drawable.id, nxagentWindow(pWin));
   #endif
 
+  /* FIXME: this is largely identical to nxagentCreateWindow */
+
   if (pWin->drawable.class == InputOnly)
   {
     mask = CWEventMask;
@@ -2903,14 +2940,14 @@ static void nxagentReconnectWindow(void * param0, XID param1, void * data_buffer
   {
     mask = CWEventMask | CWBackingStore;
 
-    attributes.backing_store = NotUseful;
-
     if (pWin->optional)
     {
       mask |= CWBackingPlanes | CWBackingPixel;
       attributes.backing_planes = pWin->optional->backingBitPlanes;
       attributes.backing_pixel = pWin->optional->backingPixel;
     }
+
+    attributes.backing_store = NotUseful;
 
     #ifdef TEST
     fprintf(stderr, "%s: Backing store on window at [%p] is [%d].\n", __func__,
@@ -2934,7 +2971,7 @@ static void nxagentReconnectWindow(void * param0, XID param1, void * data_buffer
         mask |= CWColormap;
         if (pWin->optional->colormap)
         {
-          dixLookupResourceByType((void *)&pCmap, wColormap(pWin), RT_COLORMAP,
+          dixLookupResourceByType((void **)&pCmap, wColormap(pWin), RT_COLORMAP,
                                   serverClient, DixUseAccess);
 
           attributes.colormap = nxagentColormap(pCmap);
@@ -2944,7 +2981,7 @@ static void nxagentReconnectWindow(void * param0, XID param1, void * data_buffer
           attributes.colormap = nxagentDefaultVisualColormap(visual);
         }
       }
-      else
+      else /* FIXME? nxagentCreateWindow has >if (pWin->optional)< here */
       {
         visual = CopyFromParent;
       }
@@ -2953,7 +2990,7 @@ static void nxagentReconnectWindow(void * param0, XID param1, void * data_buffer
     {
       /* root windows have their own colormaps at creation time */
       visual = nxagentVisualFromID(pWin->drawable.pScreen, wVisual(pWin));
-      dixLookupResourceByType((pointer *)&pCmap, wColormap(pWin), RT_COLORMAP,
+      dixLookupResourceByType((void **)&pCmap, wColormap(pWin), RT_COLORMAP,
                               serverClient, DixUseAccess);
       mask |= CWColormap;
       attributes.colormap = nxagentColormap(pCmap);
@@ -2984,7 +3021,7 @@ static void nxagentReconnectWindow(void * param0, XID param1, void * data_buffer
    *        server for windows.  The NXWin minimize the windows moving
    *        them out of the screen area, this behaviour can cause
    *        problem when a rootless session is disconnected and an
-   *        apps is minimized.  It will be solved with new Xorg
+   *        app is minimized.  It will be solved with new Xorg
    *        version of the NXWin server.
    */
 
@@ -3003,37 +3040,35 @@ static void nxagentReconnectWindow(void * param0, XID param1, void * data_buffer
     }
   }
 
-  nxagentWindow(pWin) = XCreateWindow(nxagentDisplay,
-                                      nxagentWindowParent(pWin),
-                                      pWin->origin.x -
-                                      wBorderWidth(pWin),
-                                      pWin->origin.y -
-                                      wBorderWidth(pWin),
-                                      pWin->drawable.width,
-                                      pWin->drawable.height,
-                                      pWin->borderWidth,
-                                      pWin->drawable.depth,
-                                      pWin->drawable.class,
-                                      visual,
-                                      mask,
-                                      &attributes);
+  nxagentWindowPriv(pWin)->window = XCreateWindow(nxagentDisplay,
+                                                  nxagentWindowParent(pWin),
+                                                  pWin->origin.x - wBorderWidth(pWin),
+                                                  pWin->origin.y - wBorderWidth(pWin),
+                                                  pWin->drawable.width,
+                                                  pWin->drawable.height,
+                                                  pWin->borderWidth,
+                                                  pWin->drawable.depth,
+                                                  pWin->drawable.class,
+                                                  visual,
+                                                  mask,
+                                                  &attributes);
 
   if (nxagentReportPrivateWindowIds)
   {
     fprintf(stderr, "NXAGENT_WINDOW_ID: %s_WINDOW,WID:[0x%x],INT:[0x%x]\n",
                 (pWin->drawable.id == pWin->drawable.pScreen->root->drawable.id) ? "ROOT" : "PRIVATE",
-                    nxagentWindowPriv(pWin)->window, pWin->drawable.id);
+                    nxagentWindow(pWin), pWin->drawable.id);
   }
 
   #ifdef DEBUG
   {
     char *winname = NULL;
 
-    if (-1 != asprintf(&winname, "%s %s[0x%lx]", nxagentWindowName,
+    if (-1 != asprintf(&winname, "%s %s[0x%x]", nxagentWindowName,
                            (pWin->drawable.id == pWin->drawable.pScreen->root->drawable.id) ? "Root" : "Private",
                                pWin->drawable.id))
     {
-      Xutf8SetWMProperties(nxagentDisplay, nxagentWindowPriv(pWin)->window,
+      Xutf8SetWMProperties(nxagentDisplay, nxagentWindow(pWin),
                                winname, winname, NULL , 0 , NULL, NULL, NULL);
       SAFE_free(winname);
     }
@@ -3318,7 +3353,7 @@ Bool nxagentCheckIllegalRootMonitoring(WindowPtr pWin, Mask mask)
 }
 
 #ifdef TEST
-Bool nxagentCheckWindowIntegrity(WindowPtr pWin)
+static _X_UNUSED Bool nxagentCheckWindowIntegrity(WindowPtr pWin)
 {
   Bool integrity = True;
 
@@ -3546,14 +3581,13 @@ void nxagentPostValidateTree(WindowPtr pParent, WindowPtr pChild, VTKind kind)
  */
 void nxagentAddConfiguredWindow(WindowPtr pWin, unsigned int valuemask)
 {
-  unsigned int mask;
   #ifdef DEBUG
   fprintf(stderr, "%s: Called with window [%p][0x%x] remote [0x%x] with mask [%x].\n", __func__,
               (void *) pWin, pWin->drawable.id, nxagentWindow(pWin), valuemask);
   fprintf(stderr, "%s: on (enter) fbGetWindowPixmap(%p) [%p]\n", __func__, (void*)pWin, (void *)fbGetWindowPixmap(pWin));
   #endif
 
-  mask = valuemask & (CWSibling | CWX | CWY | CWWidth | CWHeight |
+  unsigned int mask = valuemask & (CWSibling | CWX | CWY | CWWidth | CWHeight |
                    CWBorderWidth | CWStackMode | CW_Map | CW_Update | CW_Shape);
 
   valuemask &= ~(CWSibling | CWX | CWY | CWWidth | CWHeight | CWBorderWidth | CWStackMode);
@@ -3615,6 +3649,7 @@ void nxagentAddConfiguredWindow(WindowPtr pWin, unsigned int valuemask)
     }
   }
 
+  fprintf(stderr, "%s: (on leave) fbGetWindowPixmap(%p) [%p]\n", __func__, (void*)pWin, (void *)fbGetWindowPixmap(pWin));
   return;
 }
 

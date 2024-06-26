@@ -83,8 +83,10 @@
 
 #define PANIC
 #define WARNING
-#undef  TEST
-#undef  DEBUG
+#define  TEST
+#define  DEBUG
+
+#include "Literals.h"
 
 /*
 FIXME: Most operations don't seem to produce any visible result
@@ -202,8 +204,8 @@ nxagentCleanGlyphs(xGlyphInfo  *gi,
   int height = gi -> height;
 
   #ifdef DEBUG
-  fprintf(stderr, "%s: Found a Glyph with Depth [%d], width [%d], pad [%d].\n", __func__,
-          depth, gi -> width, BitmapPad(dpy));
+  fprintf(stderr, "%s: Found a Glyph with Depth [%d], width [%d], pad [%d], nglyphs [%d].\n", __func__,
+          depth, gi -> width, BitmapPad(dpy), nglyphs);
   #endif
 
   while (nglyphs > 0)
@@ -216,7 +218,7 @@ nxagentCleanGlyphs(xGlyphInfo  *gi,
 
       bytesToClean = bytesPerLine * height;
 
-      #ifdef DUBUG
+      #ifdef DEBUG
       fprintf(stderr, "%s: Found glyph with depth 24, bytes to clean is [%d]"
                   "width in bits is [%d] bytes per line [%d] height [%d].\n", __func__,
 	              bytesToClean, widthInBits, bytesPerLine, height);
@@ -538,6 +540,7 @@ void nxagentRenderRealizeCursor(ScreenPtr pScreen, CursorPtr pCursor)
   nxagentSynchronizeDrawable(pPicture -> pDrawable, DO_WAIT, NEVER_BREAK, NULL);
 
   nxagentLosslessTrap = False;
+
   nxagentCursor(pCursor, pScreen) = XRenderCreateCursor(nxagentDisplay, nxagentPicture(pPicture), x, y);
 }
 
@@ -553,9 +556,6 @@ void nxagentRenderRealizeCursor(ScreenPtr pScreen, CursorPtr pCursor)
 
 int nxagentCreatePicture(PicturePtr pPicture, Mask mask)
 {
-  XRenderPictureAttributes attributes;
-  unsigned long            valuemask=0;
-
   #ifdef DEBUG
   fprintf(stderr, "%s: Function called with picture at [%p] and mask [%d].\n", __func__,
               (void *) pPicture, mask);
@@ -570,6 +570,8 @@ int nxagentCreatePicture(PicturePtr pPicture, Mask mask)
   }
 
   #ifdef DEBUG
+
+  fprintf(stderr, "%s: Drawable type [%s]\n", __func__, nxagentDrawableTypeLiteral[pPicture->pDrawable->type]);
 
   if (pPicture -> pDrawable -> type == DRAWABLE_PIXMAP)
   {
@@ -594,6 +596,9 @@ int nxagentCreatePicture(PicturePtr pPicture, Mask mask)
    */
 
   memset(&(nxagentPicturePriv(pPicture) -> lastServerValues), 0, sizeof(XRenderPictureAttributes));
+
+  XRenderPictureAttributes attributes;
+  unsigned long            valuemask = 0;
 
   COPYPICTVAL(CPRepeat,           repeat,             (Bool)pPicture->repeat);
   COPYPICTVAL(CPAlphaMap,         alpha_map,          nxagentPicturePriv(pPicture->alphaMap)->picture);
@@ -709,7 +714,7 @@ void nxagentDestroyPicture(PicturePtr pPicture)
 
   XRenderFreePicture(nxagentDisplay,
                      nxagentPicturePriv(pPicture) -> picture);
-  
+
   #ifdef DEBUG
   XSync(nxagentDisplay, 0);
   #endif
@@ -774,7 +779,7 @@ FIXME: Is this useful or just a waste of bandwidth?
       #endif
 
       break;
-    }   
+    }
     case CT_NONE:
     {
       #ifdef DEBUG
@@ -813,7 +818,7 @@ FIXME: Is this useful or just a waste of bandwidth?
       #ifdef DEBUG
       fprintf(stderr, "%s: Clip type is [CT_REGION].\n", __func__);
       #endif
-    
+
       reg = XCreateRegion();
 
       for (index = 0; index <= nRects; index++, rects++)
@@ -843,7 +848,7 @@ FIXME: Is this useful or just a waste of bandwidth?
       #ifdef DEBUG
       XSync(nxagentDisplay, 0);
       #endif
-  
+
       XDestroyRegion(reg);
 
       break;
@@ -1180,7 +1185,7 @@ void nxagentGlyphs(CARD8 op, PicturePtr pSrc, PicturePtr pDst,
   {
     RegionPtr pRegion = nxagentCreateRegion(pDst -> pDrawable, NULL, glyphBox.x1, glyphBox.y1,
 					        glyphBox.x2 - glyphBox.x1, glyphBox.y2 - glyphBox.y1);
-    
+
     if (RegionNil(pRegion))
     {
       #ifdef TEST
@@ -1319,7 +1324,7 @@ void nxagentGlyphs(CARD8 op, PicturePtr pSrc, PicturePtr pDst,
   /*
    * We split glyphs lists here and recalculate the offsets of each
    * list to make them absolute and not relatives to the prior list.
-   * This way each time we call XRenderComposi- teText it has to deal
+   * This way each time we call XRenderCompositeText it has to deal
    * only with a list of glyphs. This is done to further improve
    * caching.
    */
@@ -1347,7 +1352,7 @@ void nxagentGlyphs(CARD8 op, PicturePtr pSrc, PicturePtr pDst,
 
         x += glyph -> info.xOff;
         y += glyph -> info.yOff;
-        
+
         #ifdef TEST
         fprintf(stderr, "%s Glyph at index [%d] has offset [%d,%d] and "
                     "position [%d,%d].\n", __func__, i, elements -> nchars, glyph -> info.xOff,
@@ -1906,8 +1911,8 @@ void nxagentAddGlyphs(GlyphSetPtr glyphSet, Glyph *gids, xGlyphInfo *gi,
     if (gr && gr -> glyph != DeletedGlyph)
     {
       #ifdef DEBUG
-      fprintf(stderr, "%s: Added Glyph [%p][%ld] to glyphset [%p].\n", __func__,
-                  (void *) gr -> glyph, *tempGids, (void *) glyphSet);
+      fprintf(stderr, "%s: Added Glyph [%p][\"%c\"][0x%x] to glyphset [%p].\n", __func__,
+                  (void *) gr -> glyph, (char)*tempGids + 29, (int)*tempGids + 29, (void *) glyphSet);
       #endif
 
       gr -> corruptedGlyph = 0;
@@ -2596,8 +2601,8 @@ void nxagentRenderCreateRadialGradient(PicturePtr pPicture, xPointFixed *inner,
 
 void nxagentRenderCreateConicalGradient(PicturePtr pPicture,
                                             xPointFixed *center,
-                                                xFixed angle, int nStops, 
-                                                    xFixed *stops, 
+                                                xFixed angle, int nStops,
+                                                    xFixed *stops,
                                                         xRenderColor *colors)
 {
   if (nxagentRenderEnable == False)

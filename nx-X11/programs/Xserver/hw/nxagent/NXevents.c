@@ -132,6 +132,7 @@ of the copyright holder.
 
 ******************************************************************/
 
+#include "Utils.h"
 
 #include "../../dix/events.c"
 

@@ -61,8 +61,8 @@ RESTYPE  RT_NX_PIXMAP;
 
 #define PANIC
 #define WARNING
-#undef  TEST
-#undef  DEBUG
+#define  TEST
+#define  DEBUG
 #undef  DUMP
 
 #ifdef TEST
@@ -70,6 +70,8 @@ RESTYPE  RT_NX_PIXMAP;
 #endif
 
 DevPrivateKeyRec nxagentPixmapPrivateKeyRec;
+
+static PixmapPtr nxagentCreateVirtualPixmap(PixmapPtr pPixmap, int width, int height, int depth, unsigned usage_hint);
 
 /*
  * Force deallocation of the virtual pixmap.
@@ -101,6 +103,8 @@ PixmapPtr nxagentCreatePixmap(ScreenPtr pScreen, int width, int height,
               "height [%d] depth [%d] and allocation hint [%d].\n",
                   __func__, width, height, depth, usage_hint);
   #endif
+
+  xorg_backtrace();
 
   /*
    * Create the pixmap structure but do not allocate memory for the
@@ -144,6 +148,7 @@ PixmapPtr nxagentCreatePixmap(ScreenPtr pScreen, int width, int height,
    * Initialize the privates of the real picture.
    */
 
+#if 0
   nxagentPrivPixmapPtr pPixmapPriv = calloc(1,sizeof(nxagentPrivPixmapRec));
   if (!pPixmapPriv)
   {
@@ -157,8 +162,15 @@ PixmapPtr nxagentCreatePixmap(ScreenPtr pScreen, int width, int height,
     return NullPixmap;
   }
 
+  //  pPixmapPriv -> myMarker = 0x1234;  //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
   dixSetPrivate(&pPixmap->devPrivates, nxagentPixmapPrivateKey,
                 pPixmapPriv);
+#else
+  nxagentPrivPixmapPtr pPixmapPriv = nxagentPixmapPriv(pPixmap);
+#endif
+
+  //memset(pPixmapPriv, 0x77, sizeof(nxagentPrivPixmapRec));  //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   pPixmapPriv -> isVirtual = False;
   pPixmapPriv -> isShared = nxagentShmPixmapTrap;
@@ -207,6 +219,7 @@ PixmapPtr nxagentCreatePixmap(ScreenPtr pScreen, int width, int height,
 
   pPixmapPriv -> isBackingPixmap = 0;
 
+  pPixmapPriv -> myMarker = 0x1234;   // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   /*
    * Create the pixmap based on the default windows. The proxy knows
    * this and uses this information to optimize encode the create
@@ -216,10 +229,9 @@ PixmapPtr nxagentCreatePixmap(ScreenPtr pScreen, int width, int height,
 
   if (width != 0 && height != 0 && !nxagentGCTrap)
   {
-
-     pPixmapPriv -> id = XCreatePixmap(nxagentDisplay,
-				       nxagentDefaultWindows[pScreen -> myNum],
-				       width, height, depth);
+    pPixmapPriv -> id = XCreatePixmap(nxagentDisplay,
+                                      nxagentDefaultWindows[pScreen -> myNum],
+                                      width, height, depth);
   }
   else
   {
@@ -243,7 +255,7 @@ PixmapPtr nxagentCreatePixmap(ScreenPtr pScreen, int width, int height,
    * Create the pixmap in the virtual framebuffer.
    */
 
-  PixmapPtr pVirtual = fbCreatePixmap(pScreen, width, height, depth, usage_hint);
+  PixmapPtr pVirtual = nxagentCreateVirtualPixmap(pPixmap, width, height, depth, usage_hint);
 
   if (pVirtual == NULL)
   {
@@ -255,66 +267,9 @@ PixmapPtr nxagentCreatePixmap(ScreenPtr pScreen, int width, int height,
 
     nxagentDestroyPixmap(pPixmap);
 
+    /* FIXME: Destroy the remote Pixmap, if created? */
     return NullPixmap;
   }
-
-  #ifdef TEST
-  fprintf(stderr, "nxagentCreatePixmap: Allocated memory for the Virtual %sPixmap [%p] of real Pixmap [%p] (%dx%d), "
-              "allocation hint [%d].\n",
-              nxagentShmPixmapTrap ? "Shm " : "", (void *) pVirtual, (void *) pPixmap, width, height, usage_hint);
-  #endif
-
-  pPixmapPriv -> pVirtualPixmap = pVirtual;
-
-  /*
-   * Initialize the privates of the virtual picture. We could avoid to
-   * use a flag and just check the pointer to the virtual pixmap that,
-   * if the pixmap is actually virtual, will be NULL. Unfortunately
-   * the flag can be changed in nxagentValidateGC(). That code should
-   * be removed in future.
-   */
-
-  nxagentPrivPixmapPtr pVirtualPriv = nxagentPixmapPriv(pVirtual);
-
-  pVirtualPriv -> isVirtual = True;
-  pVirtualPriv -> isShared = nxagentShmPixmapTrap;
-
-  pVirtualPriv -> corruptedRegion = RegionCreate((BoxRec *) NULL, 1);
-
-  pVirtualPriv -> corruptedBackground = 0;
-
-  pVirtualPriv -> containGlyphs = 0;
-  pVirtualPriv -> containTrapezoids = 0;
-
-  pVirtualPriv -> usageCounter = 0;
-
-  pVirtualPriv -> corruptedBackgroundId = 0;
-  pVirtualPriv -> corruptedId = 0;
-
-  pVirtualPriv -> synchronizationBitmap = NullPixmap;
-
-  pVirtualPriv -> corruptedTimestamp = 0;
-
-  pVirtualPriv -> splitResource = NULL;
-
-  /*
-   * We might distinguish real and virtual pixmaps by checking the
-   * pointers to pVirtualPixmap. We should also remove the copy of id
-   * and use the one of the real pixmap.
-   */
-   
-  pVirtualPriv -> id = pPixmapPriv -> id;
-  pVirtualPriv -> mid = 0;
-
-  /*
-   * Storing a pointer back to the real pixmap is silly. Unfortunately
-   * this is the way it has been originally implemented. See also the
-   * comment in destroy of the pixmap.
-   */
-
-  pVirtualPriv -> pRealPixmap = pPixmap;
-  pVirtualPriv -> pVirtualPixmap = NULL;
-  pVirtualPriv -> pPicture = NULL;
 
   #ifdef TEST
   fprintf(stderr, "%s: Created pixmap at [%p] virtual at [%p] with width [%d] "
@@ -341,13 +296,32 @@ Bool nxagentDestroyPixmap(PixmapPtr pPixmap)
 
   PixmapPtr pVirtual = pPixmapPriv -> pVirtualPixmap;
 
+#if 0
+  if (pPixmap -> refcnt > 0)
+    pPixmap->refcnt--;
+
   #ifdef TEST
-  fprintf(stderr, "nxagentDestroyPixmap: Destroying pixmap at [%p] with virtual at [%p].\n",
-              (void *) pPixmap, (void *) pVirtual);
+  if (pPixmapPriv -> isVirtual)
+  {
+    fprintf(stderr, "%s: Pixmap [%p] is _virtual_, new refcnt [%d], realPixmap [%p], unchanged refcnt [%d].\n", __func__,
+                (void *)pPixmap, pPixmap->refcnt,
+                    (void *)nxagentRealPixmap(pPixmap), nxagentRealPixmap(pPixmap)->refcnt);
+  }
+  else
+  {
+    fprintf(stderr, "%s: Pixmap [%p] is _real_, new refcnt [%d], virtualPixmap [%p], unchanged refcnt [%d].\n", __func__,
+                (void *)pPixmap, pPixmap->refcnt,
+                    (void *)pVirtual, pVirtual ? pVirtual->refcnt : -999);
+  }
   #endif
+#endif
+
+  int shift = 0;
 
   if (pPixmapPriv -> isVirtual)
   {
+    xorg_backtrace();
+
     /*
      * For some pixmaps we receive the destroy only for the
      * virtual. Infact to draw in the framebuffer we can use the
@@ -357,59 +331,108 @@ Bool nxagentDestroyPixmap(PixmapPtr pPixmap)
      * had been requested for it.
      */
 
+    pPixmap -> refcnt--;
+
     pVirtual = pPixmap;
     pPixmap  = pPixmapPriv -> pRealPixmap;
-
     pPixmapPriv = nxagentPixmapPriv(pPixmap);
+
+    #ifdef TEST
+#if 0
+    fprintf(stderr, "%s: [%p] is a _virtual_ pixmap - adjusting to destroy the real one [%p] instead.\n", __func__,
+               (void *)pVirtual, (void *) pPixmap);
+    fprintf(stderr, "%s: Pixmap [%p] has [%d] references, virtual pixmap [%p] has [%d].\n", __func__,
+               (void *)pPixmap, pPixmap -> refcnt, (void *)pVirtual, pVirtual -> refcnt);
+#endif
+    #endif
 
     /*
      * Move the references accumulated by the virtual pixmap into the
      * references of the real one.
      */
+#if 0
+    if (pVirtual->refcnt > 1)
+#endif
+      shift = pVirtual -> refcnt - 1;
 
-    int refcnt = pVirtual -> refcnt - 1;
+    if (shift < 0)
+    {
+      shift = 0;
+      /* subtract from the real pixmap instead */
+      pPixmap -> refcnt--;
+    }
 
     #ifdef TEST
-    fprintf(stderr, "nxagentDestroyPixmap: Adding [%d] references to pixmap at [%p].\n",
-                refcnt, (void *) pPixmap);
+    fprintf(stderr, "%s: Shifting [%d] references from virtual pixmap [%p] to real pixmap [%p].\n", __func__,
+                shift, (void *)pVirtual, (void *) pPixmap);
     #endif
 
-    pPixmap -> refcnt += refcnt;
-
-    pVirtual -> refcnt -= refcnt;
+    //    pPixmap -> refcnt += shift;
+    //pVirtual -> refcnt -= shift;
+  }
+  else
+  {
+    pPixmap -> refcnt--;
   }
 
-  --pPixmap -> refcnt;
+#if 0
+  if (pPixmap -> refcnt > 0)
+    --pPixmap -> refcnt;
+#endif
 
   #ifdef TEST
-
-  fprintf(stderr, "nxagentDestroyPixmap: Pixmap has now [%d] references with virtual pixmap [%d].\n",
-              pPixmap -> refcnt, pVirtual -> refcnt);
-
-  if (pVirtual != NULL && pVirtual -> refcnt != 1)
-  {
-    fprintf(stderr, "nxagentDestroyPixmap: PANIC! Virtual pixmap has [%d] references.\n",
-                pVirtual -> refcnt);
-  }
-
+  fprintf(stderr, "%s: Pixmap [%p] now has [%d] references, virtual pixmap [%p] has [%d].\n", __func__,
+             (void *)pPixmap, pPixmap -> refcnt, (void *)pVirtual, pVirtual -> refcnt);
   #endif
 
-  if (pPixmap -> refcnt > 0)
+  if (pPixmap->refcnt > 0)
   {
+    #ifdef TEST
+    fprintf(stderr, "%s: Pixmap [%p] is still referenced - not destroying anything.\n", __func__, (void *)pPixmap);
+    #endif
     return True;
   }
 
+  if (shift > 1)
+  {
+    #ifdef TEST
+    fprintf(stderr, "%s: shift from virtual is [%d] - not destroying anything.\n", __func__, shift);
+    #endif
+    return True;
+  }
+
+  if (pVirtual)
+  {
+    if (pVirtual->refcnt > 1)
+    {
+      #ifdef TEST
+      fprintf(stderr, "%s: Pixmap [%p] is still referenced - not destroying anything.\n", __func__, (void *)pVirtual);
+      #endif
+      return True;
+    }
+
+#if 0
+    if (pVirtual->refcnt + pPixmap->refcnt > 2)
+    {
+      #ifdef TEST
+      fprintf(stderr, "%s: Pixmap pair has [%d] > 2 references - not destroying anyting.\n", __func__,
+                  pVirtual -> refcnt + pPixmap->refcnt);
+      xorg_backtrace();
+      #endif
+      return True; //!!!
+    }
+#endif
+    nxagentDestroyVirtualPixmap(pPixmap);
+  }
+
   #ifdef TEST
-  fprintf(stderr, "nxagentDestroyPixmap: Managing to destroy the pixmap at [%p]\n",
+  fprintf(stderr, "%s: Managing to destroy the pixmap at [%p]\n", __func__,
               (void *) pPixmap);
   #endif
-
-  nxagentDestroyVirtualPixmap(pPixmap);
 
   if (pPixmapPriv -> corruptedRegion != NullRegion)
   {
     RegionDestroy(pPixmapPriv -> corruptedRegion);
-
     pPixmapPriv -> corruptedRegion = NullRegion;
   }
 
@@ -444,16 +467,23 @@ Bool nxagentDestroyPixmap(PixmapPtr pPixmap)
   if (pPixmapPriv -> id)
   {
     XFreePixmap(nxagentDisplay, pPixmapPriv -> id);
+    pPixmapPriv -> id = 0;
   }
 
   if (pPixmapPriv -> mid)
   {
     FreeResource(pPixmapPriv -> mid, RT_NONE);
+    pPixmapPriv -> mid = 0;
   }
 
-  free(pPixmapPriv);
+  // !!!!!! Howto free if privates are allocated via  RegisterPrivateKeys?
+  //  free(pPixmapPriv);
+  //SAFE_free(pPixmap);
+  FreePixmap(pPixmap);
 
-  SAFE_free(pPixmap);
+  #ifdef TEST
+  fprintf(stderr, "%s: pixmap [%p] destroyed\n", __func__, (void *)pPixmap);
+  #endif
 
   return True;
 }
@@ -462,13 +492,29 @@ Bool nxagentDestroyVirtualPixmap(PixmapPtr pPixmap)
 {
   PixmapPtr pVirtual = nxagentPixmapPriv(pPixmap) -> pVirtualPixmap;
 
+  #ifdef TEST
+  fprintf(stderr, "%s: Managing to destroy the virtual pixmap at [%p]\n", __func__,
+              (void *) pVirtual);
+  #endif
+
   /*
    * Force the routine to get rid of the virtual
    * pixmap.
    */
 
-  if (pVirtual != NULL)
+  if (pVirtual)
   {
+#if 0
+    #ifdef TEST
+    if (pVirtual -> refcnt != 1)
+    {
+      fprintf(stderr, "%s: PANIC! Virtual pixmap has [%d] references - refusing destroy.\n", __func__,
+	          pVirtual -> refcnt);
+      pVirtual->refcnt--; //!!!!!!!!!!!!!!!!!!!!
+      return True; //!!!!!!!!!!!!!!!!!!!!!!!
+    }
+    #endif
+#endif
     pVirtual -> refcnt = 1;
 
     nxagentPrivPixmapPtr pVirtualPriv = nxagentPixmapPriv(pVirtual);
@@ -476,15 +522,119 @@ Bool nxagentDestroyVirtualPixmap(PixmapPtr pPixmap)
     if (pVirtualPriv -> corruptedRegion != NullRegion)
     {
       RegionDestroy(pVirtualPriv -> corruptedRegion);
-
       pVirtualPriv -> corruptedRegion = NullRegion;
     }
 
     fbDestroyPixmap(pVirtual);
+
+    nxagentPixmapPriv(pPixmap) -> pVirtualPixmap = NULL; //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   }
+
+  #ifdef TEST
+  fprintf(stderr, "%s: virtual pixmap [%p] destroyed\n", __func__, (void *)pVirtual);
+  #endif
 
   return True;
 }
+
+PixmapPtr nxagentCreateVirtualPixmap(PixmapPtr pPixmap, int width, int height, int depth, unsigned usage_hint)
+{
+  ScreenPtr pScreen = pPixmap -> drawable.pScreen;
+
+  /*
+   * Create the pixmap in the virtual framebuffer.
+   */
+
+  PixmapPtr pVirtual = fbCreatePixmap(pScreen, width, height, depth, usage_hint);
+
+  if (!pVirtual)
+  {
+    return NULL;
+  }
+
+  #ifdef TEST
+  fprintf(stderr, "%s: Allocated memory for the Virtual %sPixmap [%p] of real Pixmap [%p] (%dx%d), "
+             "allocation hint [%d].\n", __func__,
+                  nxagentShmPixmapTrap ? "Shm " : "", (void *) pVirtual, (void *) pPixmap, width,
+                      height, usage_hint);
+  #endif
+
+  nxagentPrivPixmapPtr pPixmapPriv = nxagentPixmapPriv(pPixmap);
+
+  pPixmapPriv -> pVirtualPixmap = pVirtual;
+
+  pVirtual->refcnt = 1;
+
+  /*
+   * Initialize the privates of the virtual picture. We could avoid to
+   * use a flag and just check the pointer to the virtual pixmap that,
+   * if the pixmap is actually virtual, will be NULL. Unfortunately
+   * the flag can be changed in nxagentValidateGC(). That code should
+   * be removed in future.
+   */
+
+  nxagentPrivPixmapPtr pVirtualPriv = nxagentPixmapPriv(pVirtual);
+
+#if 0
+  if (pVirtualPriv == NULL)
+  {
+    fprintf(stderr, "%s: WARNING: pVirtual has no priv - allocatin one\n", __func__);
+    pVirtualPriv = calloc(1,sizeof(nxagentPrivPixmapRec));
+    //    pVirtualPriv -> myMarker = 0x5678;  //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+    dixSetPrivate(&pVirtual->devPrivates, nxagentPixmapPrivateKey,
+		  pVirtualPriv);
+  }
+#endif
+  //  memset(pVirtualPriv, 0x88, sizeof(nxagentPrivPixmapRec));  //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  pVirtualPriv -> isVirtual = True;
+  pVirtualPriv -> isShared = nxagentShmPixmapTrap;
+
+  pVirtualPriv -> corruptedRegion = RegionCreate((BoxRec *) NULL, 1);
+
+  pVirtualPriv -> corruptedBackground = 0;
+
+  pVirtualPriv -> containGlyphs = 0;
+  pVirtualPriv -> containTrapezoids = 0;
+
+  pVirtualPriv -> usageCounter = 0;
+
+  pVirtualPriv -> corruptedBackgroundId = 0;
+  pVirtualPriv -> corruptedId = 0;
+
+  pVirtualPriv -> synchronizationBitmap = NullPixmap;
+
+  pVirtualPriv -> corruptedTimestamp = 0;
+
+  pVirtualPriv -> splitResource = NULL;
+
+  /*
+   * We might distinguish real and virtual pixmaps by checking the
+   * pointers to pVirtualPixmap. We should also remove the copy of id
+   * and use the one of the real pixmap.
+   */
+
+  pVirtualPriv -> id = pPixmapPriv -> id;
+  pVirtualPriv -> mid = 0;
+
+  /*
+   * Storing a pointer back to the real pixmap is silly. Unfortunately
+   * this is the way it has been originally implemented. See also the
+   * comment in destroy of the pixmap.
+   */
+
+  pVirtualPriv -> pRealPixmap = pPixmap;
+  pVirtualPriv -> pVirtualPixmap = NULL;
+  pVirtualPriv -> pPicture = NULL;
+
+  pVirtualPriv -> myMarker = 0x5678;  //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+  //  AddResource(nxagentPixmapPriv(pPixmap) -> mid, RT_NX_PIXMAP, pVirtual); //!!!!!!!!!!!!!!!!!!
+
+  return pVirtual;
+}
+
 
 RegionPtr nxagentPixmapToRegion(PixmapPtr pPixmap)
 {
@@ -798,7 +948,6 @@ void nxagentReconnectPixmap(void *p0, XID x1, void *p2)
       #endif
     }
 
-     
     if (nxagentDrawableStatus((DrawablePtr) pPixmap) == NotSynchronized)
     {
       if (nxagentIsCorruptedBackground(pPixmap) == 1)
@@ -1253,9 +1402,9 @@ FIXME: If the pixmap has a different depth from the window, the
     #ifdef WARNING
     fprintf(stderr, "nxagentPixmapOnShadowDisplay: WARNING! Visual not found. Using default visual.\n");
     #endif
-    
+
     pVisual = nxagentVisuals[nxagentDefaultVisualIndex].visual;
-  } 
+  }
 
   XImage *image = XCreateImage(nxagentDisplay, pVisual,
                                   depth, format, 0, (char *) data,
@@ -1409,9 +1558,9 @@ Bool nxagentFbOnShadowDisplay(void)
     #ifdef WARNING
     fprintf(stderr, "nxagentFbOnShadowDisplay: WARNING! Visual not found. Using default visual.\n");
     #endif
-    
+
     pVisual = nxagentVisuals[nxagentDefaultVisualIndex].visual;
-  } 
+  }
 
   XImage *image = XCreateImage(nxagentDisplay, pVisual,
                                   depth, format, 0, (char *) data,
@@ -1470,7 +1619,7 @@ void nxagentPrintResourceTypes(void)
   fprintf(stderr, "nxagentPrintResourceTypes: RT_COLORMAP [%lu].\n", (unsigned long) RT_COLORMAP);
 }
 
-void nxagentPrintResourcePredicate(void *value, XID id, XID type, void *cdata)
+void nxagentPrintResourcePredicate(void *value, XID id, RESTYPE type, void *cdata)
 {
   fprintf(stderr, "nxagentPrintResourcePredicate: Resource [%p] id [%lu] type [%lu].\n",
               (void *) value, (unsigned long) id, (unsigned long) type);
@@ -1495,5 +1644,3 @@ void nxagentPrintResources(void)
 }
 
 #endif
-
-

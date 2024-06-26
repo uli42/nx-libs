@@ -40,7 +40,7 @@
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO EVENT SHALL SuSE
  * BE LIABLE FOR ANY SPECIAL, INDIRECT OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION
- * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN 
+ * OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *
  * Author:  Keith Packard, SuSE, Inc.
@@ -59,8 +59,8 @@
 
 #define PANIC
 #define WARNING
-#undef  TEST
-#undef  DEBUG
+#define  TEST
+#define  DEBUG
 
 void *nxagentVisualFromID(ScreenPtr pScreen, VisualID visual);
 
@@ -101,34 +101,34 @@ PictureCreateDefaultFormats (ScreenPtr pScreen, int *nformatp)
 		pFormats[f].direct.alpha = (PICT_FORMAT_R(format) +
 					    PICT_FORMAT_G(format) +
 					    PICT_FORMAT_B(format));
-	    
+
 	    pFormats[f].direct.redMask = Mask(PICT_FORMAT_R(format));
-	    pFormats[f].direct.red = (PICT_FORMAT_G(format) + 
+	    pFormats[f].direct.red = (PICT_FORMAT_G(format) +
 				      PICT_FORMAT_B(format));
-	    
+
 	    pFormats[f].direct.greenMask = Mask(PICT_FORMAT_G(format));
 	    pFormats[f].direct.green = PICT_FORMAT_B(format);
-	    
+
 	    pFormats[f].direct.blueMask = Mask(PICT_FORMAT_B(format));
 	    pFormats[f].direct.blue = 0;
 	    break;
 
 	case PICT_TYPE_ABGR:
 	    pFormats[f].type = PictTypeDirect;
-	    
+
 	    pFormats[f].direct.alphaMask = Mask(PICT_FORMAT_A(format));
 	    if (pFormats[f].direct.alphaMask)
 		pFormats[f].direct.alpha = (PICT_FORMAT_B(format) +
 					    PICT_FORMAT_G(format) +
 					    PICT_FORMAT_R(format));
-	    
+
 	    pFormats[f].direct.blueMask = Mask(PICT_FORMAT_B(format));
-	    pFormats[f].direct.blue = (PICT_FORMAT_G(format) + 
+	    pFormats[f].direct.blue = (PICT_FORMAT_G(format) +
 				       PICT_FORMAT_R(format));
-	    
+
 	    pFormats[f].direct.greenMask = Mask(PICT_FORMAT_G(format));
 	    pFormats[f].direct.green = PICT_FORMAT_R(format);
-	    
+
 	    pFormats[f].direct.redMask = Mask(PICT_FORMAT_R(format));
 	    pFormats[f].direct.red = 0;
 	    break;
@@ -136,7 +136,7 @@ PictureCreateDefaultFormats (ScreenPtr pScreen, int *nformatp)
 #ifdef NXAGENT_SERVER
 	case PICT_TYPE_BGRA:
 	    pFormats[f].type = PictTypeDirect;
-	    
+
 	    pFormats[f].direct.blueMask = Mask(PICT_FORMAT_B(format));
 	    pFormats[f].direct.blue = (PICT_FORMAT_BPP(format) - PICT_FORMAT_B(format));
 
@@ -161,7 +161,7 @@ PictureCreateDefaultFormats (ScreenPtr pScreen, int *nformatp)
 
 	    /* remaining fields already set to zero */
 	    break;
-	    
+
 	case PICT_TYPE_COLOR:
 	case PICT_TYPE_GRAY:
 	    pFormats[f].type = PictTypeIndexed;
@@ -189,7 +189,7 @@ PictureCreateDefaultFormats (ScreenPtr pScreen, int *nformatp)
                               pFormats[f].direct.blue, pFormats[f].direct.redMask, pFormats[f].direct.greenMask,
                                   pFormats[f].direct.blueMask, pFormats[f].direct.alpha, pFormats[f].direct.alphaMask);
           #endif
-        } 
+        }
 #endif
     }
     *nformatp = nformats;
@@ -232,11 +232,15 @@ CreatePicture (Picture		pid,
 
     if (pDrawable->type == DRAWABLE_PIXMAP)
     {
+	++((PixmapPtr)pDrawable)->refcnt;
+	pPicture->pNext = 0;
+
 #ifdef NXAGENT_SERVER
         /*
          * Let picture always point to the virtual pixmap.
          * For sure this is not the best way to deal with
          * the virtual frame-buffer.
+         * Set it AFTER modifying the refcnt. This way the refcnt is increased on the real pixmap, not on the virtual one! //!!!!!!!!!!!!!!!
          */
         #ifdef TEST
         fprintf(stderr, "%s: Pointing picture [%p] to _virtual_ pixmap [%p] (refcnt [%d]) instead of real pixmap [%p] (refcnt [%d])\n",
@@ -244,7 +248,16 @@ CreatePicture (Picture		pid,
                         (void*)nxagentVirtualDrawable(pDrawable), ((PixmapPtr)nxagentVirtualDrawable(pDrawable))->refcnt,
                             (void *)pDrawable, ((PixmapPtr)pDrawable)->refcnt);
         #endif
-        pPicture->pDrawable = nxagentVirtualDrawable(pDrawable);
+	/* adjust refcnt for the correct pixmap */
+#if defined(FULL_REFCNT) || 1
+	if (pPicture->pDrawable)
+	  ((PixmapPtr)pPicture->pDrawable)->refcnt--;
+#endif
+	pPicture->pDrawable = nxagentVirtualDrawable(pDrawable);
+#if defined(FULL_REFCNT) || 1
+	((PixmapPtr)pPicture->pDrawable)->refcnt++;
+#endif
+
         #ifdef TEST
         fprintf(stderr, "%s: Now: _virtual_ pixmap [%p] (refcnt [%d]) , real pixmap [%p] (refcnt [%d])\n", __func__,
                     (void*)nxagentVirtualDrawable(pDrawable), ((PixmapPtr)nxagentVirtualDrawable(pDrawable))->refcnt,
@@ -252,8 +265,6 @@ CreatePicture (Picture		pid,
         #endif
 
 #endif
-	++((PixmapPtr)pDrawable)->refcnt;
-	pPicture->pNext = 0;
     }
     else
     {
@@ -262,7 +273,7 @@ CreatePicture (Picture		pid,
     }
 
     SetPictureToDefaults (pPicture);
-    
+
     if (vmask)
 	*error = ChangePicture (pPicture, vmask, vlist, 0, client);
     else
@@ -272,9 +283,9 @@ CreatePicture (Picture		pid,
 out:
     if (*error != Success)
     {
-       #ifdef DEBUG
-       fprintf(stderr, "%s: FIXME: Failed to change picture [%p], adjust drawable refcnt here!\n", __func__, (void *)pPicture);
-       #endif
+        #ifdef DEBUG
+        fprintf(stderr, "%s: FIXME: Failed to change picture [%p], adjust drawable refcnt here!\n", __func__, (void *)pPicture);
+	#endif
 	FreePicture (pPicture, (XID) 0);
 	pPicture = 0;
     }
@@ -299,7 +310,6 @@ static PicturePtr createSourcePicture(void)
     SetPictureToDefaults(pPicture);
     return pPicture;
 }
-
 
 PicturePtr
 CreateSolidPicture (Picture pid, xRenderColor *color, int *error)
@@ -340,7 +350,12 @@ FreePicture (void *	value,
     if (--pPicture->refcnt == 0)
     {
 #ifdef NXAGENT_SERVER
-        nxagentDestroyPicture(pPicture);
+      //PixmapPtr pPixmap = (PixmapPtr)pPicture->pDrawable;
+
+	//        nxagentDestroyPicture(pPicture);
+
+	//	if (pPixmap)
+	//    pPixmap->refcnt--;
 #endif
 	free (pPicture->transform);
 
@@ -356,7 +371,7 @@ FreePicture (void *	value,
 	{
             ScreenPtr	    pScreen = pPicture->pDrawable->pScreen;
             PictureScreenPtr    ps = GetPictureScreen(pScreen);
-	
+
             if (pPicture->alphaMap)
                 FreePicture ((void *) pPicture->alphaMap, (XID) 0);
             (*ps->DestroyPicture) (pPicture);
@@ -595,15 +610,15 @@ void nxagentPictureCreateDefaultFormats(ScreenPtr pScreen, FormatInitRec *format
 	    {
 	        type = PICT_TYPE_ARGB;
 	    }
-#ifndef NXAGENT_SERVER	
+#ifndef NXAGENT_SERVER
 	    else if (pVisual->offsetRed == 0 &&
-		     pVisual->offsetGreen == r && 
+		     pVisual->offsetGreen == r &&
 		     pVisual->offsetBlue == r + g)
 	    {
 	        type = PICT_TYPE_ABGR;
 	    }
 	    else if (pVisual->offsetRed == pVisual->offsetGreen - r &&
-		     pVisual->offsetGreen == pVisual->offsetBlue - g && 
+		     pVisual->offsetGreen == pVisual->offsetBlue - g &&
 		     pVisual->offsetBlue == bpp - b)
 	    {
 	        type = PICT_TYPE_BGRA;
@@ -663,7 +678,7 @@ void nxagentPictureCreateDefaultFormats(ScreenPtr pScreen, FormatInitRec *format
 #endif
 	    }
 	    /* depth 16 formats */
-	    if (pDepth->depth >= 16) 
+	    if (pDepth->depth >= 16)
 	    {
 #ifndef NXAGENT_SERVER
 	        *nformats = addFormat (formats, *nformats,
@@ -736,20 +751,20 @@ void nxagentPictureCreateDefaultFormats(ScreenPtr pScreen, FormatInitRec *format
 	    if (pDepth->depth == 15)
       {
         *nformats = addFormat (formats, *nformats,
-    			      PICT_x1r5g5b5, pDepth->depth);
+			      PICT_x1r5g5b5, pDepth->depth);
       }
       /* depth 16 formats */
-      if (pDepth->depth == 16) 
+      if (pDepth->depth == 16)
       {
         *nformats = addFormat (formats, *nformats,
-    	                      PICT_r5g6b5, pDepth->depth);
+	                      PICT_r5g6b5, pDepth->depth);
       }
       break;
     case 24:
       if (pDepth->depth == 24)
       {
         *nformats = addFormat (formats, *nformats,
-    	                      PICT_r8g8b8, pDepth->depth);
+	                      PICT_r8g8b8, pDepth->depth);
       }
       break;
     case 32:
@@ -762,4 +777,3 @@ void nxagentPictureCreateDefaultFormats(ScreenPtr pScreen, FormatInitRec *format
     }
   }
 }
-

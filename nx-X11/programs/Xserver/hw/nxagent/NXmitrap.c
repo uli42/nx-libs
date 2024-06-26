@@ -103,6 +103,7 @@ miTrapezoids (CARD8	    op,
 					 bounds.y2 - bounds.y1);
 	if (!pPicture)
 	    return;
+//	pPicture->refcnt++; //!!
 	for (; ntrap; ntrap--, traps++)
 	    (*ps->RasterizeTrapezoid) (pPicture, traps, 
 				       -bounds.x1, -bounds.y1);
