@@ -273,6 +273,7 @@ _dixInitPrivates(PrivatePtr *privates, void *addr, DevPrivateType type)
     if (keys[type].offset == 0)
 	addr = 0;
     *privates = addr;
+    /* backport xorg-xserver a41d45eedc0c217c28def47acbd8759e31706b96 */
     if (addr)
         memset(addr, '\0', keys[type].offset);
     }
