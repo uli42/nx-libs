@@ -85,7 +85,7 @@ typedef struct _XkbRF_Rules {
 /***====================================================================***/
 
 /* required for os/utils.c */
-#define Display         struct _XDisplay
+//#define Display         struct _XDisplay
 
 _XFUNCPROTOBEGIN
 

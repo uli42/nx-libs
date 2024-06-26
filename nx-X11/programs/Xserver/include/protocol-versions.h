@@ -62,7 +62,7 @@
 #ifndef NXAGENT_SERVER
 #define SERVER_GLX_MINOR_VERSION		4
 #else
-#define SERVER_GLX_MINOR_VERSION		2
+#define SERVER_GLX_MINOR_VERSION		4
 #endif
 
 /* Xinerama */

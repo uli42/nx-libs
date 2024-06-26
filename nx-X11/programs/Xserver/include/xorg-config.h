@@ -1,4 +1,5 @@
 /* */
+
 #ifndef _XORG_CONFIG_H_
 #define _XORG_CONFIG_H_
 #include <dix-config.h>

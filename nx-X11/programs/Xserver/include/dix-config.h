@@ -19,4 +19,10 @@
 /* don't build DRI2 extension for now */
 #define DRI2
 
+/* FIXME: use some NX installation path here */
+#define SERVER_MISC_CONFIG_PATH "/tmp"
+
+/* enable xorg_backtrace function */
+#define HAVE_BACKTRACE
+
 #endif
