@@ -309,6 +309,21 @@ XkbRF_RulesPtr	rules;
     return complete;
 }
 
+void FreeComponentNames(XkbComponentNamesRec *pkccgst, Bool freeRec)
+{
+    if (!pkccgst)
+        return;
+
+    /* free reallocated or strduped memory */
+    free(pkccgst->keycodes);
+    free(pkccgst->symbols);
+    free(pkccgst->types);
+    free(pkccgst->compat);
+    free(pkccgst->geometry);
+    if (freeRec)
+        free(pkccgst);
+}
+
 XkbDescPtr
 XkbCompileKeymap(DeviceIntPtr dev, XkbRMLVOSet *rmlvo)
 {
@@ -329,15 +344,20 @@ XkbCompileKeymap(DeviceIntPtr dev, XkbRMLVOSet *rmlvo)
 
     /* XDNFR already logs for us. */
     if (!XkbDDXNamesFromRules(dev, rmlvo->rules, &mlvo, &kccgst))
+    {
+        FreeComponentNames(&kccgst, FALSE);
         return NULL;
+    }
 
     /* XDLKBN too, but it might return 0 as well as allocating. */
     if (!XkbDDXLoadKeymapByNames(dev, &kccgst, XkmAllIndicesMask, 0, &xkb, name,
                                  PATH_MAX)) {
         if (xkb)
             XkbFreeKeyboard(xkb, 0, TRUE);
+        FreeComponentNames(&kccgst, FALSE);
         return NULL;
     }
 
+    FreeComponentNames(&kccgst, FALSE);
     return xkb;
 }
