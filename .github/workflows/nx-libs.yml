@@ -5,6 +5,7 @@ on:
     branches: [ 3.6.x ]
   pull_request:
     branches: [ 3.6.x ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -27,6 +28,14 @@ jobs:
           - { container: 'debian:sid', cc-version: clang }
           - { container: 'quay.io/centos/centos:7', cc-version: gcc }
           - { container: 'quay.io/centos/centos:7', cc-version: clang }
+          - { container: 'quay.io/rockylinux/rockylinux:8', cc-version: gcc }
+          - { container: 'quay.io/rockylinux/rockylinux:8', cc-version: clang }
+          - { container: 'quay.io/almalinuxorg/almalinux:8', cc-version: gcc }
+          - { container: 'quay.io/almalinuxorg/almalinux:8', cc-version: clang }
+          - { container: 'quay.io/rockylinux/rockylinux:9', cc-version: gcc }
+          - { container: 'quay.io/rockylinux/rockylinux:9', cc-version: clang }
+          - { container: 'quay.io/almalinuxorg/almalinux:9', cc-version: gcc }
+          - { container: 'quay.io/almalinuxorg/almalinux:9', cc-version: clang }
           - { container: 'quay.io/centos/centos:stream9', cc-version: gcc }
           - { container: 'quay.io/centos/centos:stream9', cc-version: clang }
           - { container: 'fedora:latest', cc-version: gcc }
@@ -61,6 +70,7 @@ jobs:
           */centos:7)
             cat /etc/centos-release
             rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7
+            sed 's/mirrorlist.centos.org/vault.centos.org/g' /etc/yum.repos.d/*
             yum -y update
             yum -y install ${{ matrix.cfg.cc-version }}
             ${{ matrix.cfg.cc-version }} --version
@@ -72,9 +82,37 @@ jobs:
             dnf -y install ${{ matrix.cfg.cc-version }}
             ${{ matrix.cfg.cc-version }} --version
             ;;
+          */rockylinux:8)
+            cat /etc/redhat-release
+            rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-rockyofficial
+            dnf -y update --nobest --allowerasing
+            dnf -y install ${{ matrix.cfg.cc-version }}
+            ${{ matrix.cfg.cc-version }} --version
+            ;;
+          */almalinux:8)
+            cat /etc/redhat-release
+            rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-AlmaLinux
+            dnf -y update --nobest --allowerasing
+            dnf -y install ${{ matrix.cfg.cc-version }}
+            ${{ matrix.cfg.cc-version }} --version
+            ;;
           */centos:stream9)
-            cat /etc/centos-release
+            cat /etc/redhat-release
             rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-centosofficial
+            dnf -y update
+            dnf -y install ${{ matrix.cfg.cc-version }}
+            ${{ matrix.cfg.cc-version }} --version
+            ;;
+          */rockylinux:9)
+            cat /etc/redhat-release
+            rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-rockyofficial
+            dnf -y update
+            dnf -y install ${{ matrix.cfg.cc-version }}
+            ${{ matrix.cfg.cc-version }} --version
+            ;;
+          */almalinux:9)
+            cat /etc/redhat-release
+            rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-AlmaLinux
             dnf -y update
             dnf -y install ${{ matrix.cfg.cc-version }}
             ${{ matrix.cfg.cc-version }} --version
@@ -142,7 +180,7 @@ jobs:
             yum -y --enablerepo=epel install \
               quilt xorg-x11-xkb-utils-devel
             ;;
-          */centos:stream8)
+          */centos:stream8|*/rockylinux:8|*/almalinux:8)
             # Enable powertools repository for imake
             dnf -y install dnf-plugins-core epel-release
             rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-8
@@ -164,7 +202,7 @@ jobs:
             dnf --enablerepo="epel" -y install \
               quilt xorg-x11-xkb-utils-devel
             ;;
-          */centos:stream9)
+          */centos:stream9|*/rockylinux:9|*/almalinux:9)
             dnf -y install dnf-plugins-core epel-release
             rpm --import /etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-9
             # CodeReady Linux Builder, replacement for PowerTools
